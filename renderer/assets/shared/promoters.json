@@ -1,0 +1,13 @@
+{
+  "promoters": [
+    {
+      "key": "juan-perez",
+      "fullName": "Juan Pérez",
+      "role": "Promotor Senior",
+      "email": "juan@xendinglobal.com",
+      "phone": "+52 55 1234 5678",
+      "photoFile": "juan-perez.jpg",
+      "qrCodeFile": "juan-perez-qr.png"
+    }
+  ]
+}

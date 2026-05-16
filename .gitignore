@@ -1,0 +1,19 @@
+node_modules
+dist
+dist-ssr
+*.local
+.env
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.sw?
+
+# Renderer output
+renderer/output/*.png
+renderer/node_modules/
+
+# Supabase CLI
+supabase/.temp/

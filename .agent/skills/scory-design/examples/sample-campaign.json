@@ -1,0 +1,123 @@
+{
+  "campaign": {
+    "id": "camp-2025-001",
+    "brand": "xending",
+    "name": "Velocidad Produce Q1 2025",
+    "brief": "Campaña de awareness para la industria del produce en Texas, enfocada en la velocidad de pagos internacionales",
+    "contentType": "breaking-news",
+    "status": "completed",
+    "partner": "monex-usa",
+    "audience": "Empresas de produce en Texas y California",
+    "goal": "Awareness — posicionar Xending como la opción más rápida para pagos internacionales",
+    "createdAt": "2025-01-15T10:00:00Z",
+    "updatedAt": "2025-01-15T14:30:00Z"
+  },
+  "approvedCopy": [
+    {
+      "id": "copy-001",
+      "headline": "Pagos internacionales en minutos",
+      "subcopy": "Tu dinero cruza fronteras más rápido que nunca. Infraestructura de Monex, velocidad de Xending.",
+      "cta": "Envía ahora",
+      "angle": "velocidad",
+      "approved": true
+    },
+    {
+      "id": "copy-002",
+      "headline": "Del produce al pago, sin demoras",
+      "subcopy": "Cobra tus envíos internacionales al instante. Más de 30 países, una plataforma.",
+      "cta": "Activa tu cuenta",
+      "angle": "velocidad",
+      "approved": true
+    },
+    {
+      "id": "copy-003",
+      "headline": "Minutos, no días",
+      "subcopy": "Pagos internacionales a la velocidad de tu negocio. Disponible 24/7.",
+      "cta": "Prueba gratis",
+      "angle": "velocidad",
+      "approved": true
+    }
+  ],
+  "pieces": [
+    {
+      "id": "piece-001",
+      "copyId": "copy-001",
+      "platformFormat": "instagram-story",
+      "dimensions": {
+        "width": 1080,
+        "height": 1920
+      },
+      "image": {
+        "id": "img-001",
+        "source": "generated",
+        "description": "Abstract visualization of fast international payment routes with glowing turquoise lines over navy background",
+        "tags": ["payments", "speed", "routes", "abstract"],
+        "theme": "speed"
+      },
+      "partner": {
+        "key": "monex-usa",
+        "badgeText": "Powered by Monex USA"
+      },
+      "promoter": null,
+      "status": "rendered",
+      "outputFilename": "xending_velocidad-produce-q1-2025_instagram-story.png"
+    },
+    {
+      "id": "piece-002",
+      "copyId": "copy-002",
+      "platformFormat": "linkedin-post",
+      "dimensions": {
+        "width": 1200,
+        "height": 627
+      },
+      "image": {
+        "id": "img-002",
+        "source": "stock",
+        "description": "Produce warehouse with shipping containers in turquoise and navy tones",
+        "tags": ["produce", "warehouse", "containers", "logistics"],
+        "theme": "logistics"
+      },
+      "partner": {
+        "key": "monex-usa",
+        "badgeText": "Powered by Monex USA"
+      },
+      "promoter": null,
+      "status": "rendered",
+      "outputFilename": "xending_velocidad-produce-q1-2025_linkedin-post.png"
+    },
+    {
+      "id": "piece-003",
+      "copyId": "copy-003",
+      "platformFormat": "facebook-post",
+      "dimensions": {
+        "width": 1200,
+        "height": 628
+      },
+      "image": {
+        "id": "img-003",
+        "source": "generated",
+        "description": "Dynamic motion blur of digital payment flowing from USA to Mexico with turquoise energy trails",
+        "tags": ["payments", "speed", "digital", "cross-border"],
+        "theme": "speed"
+      },
+      "partner": {
+        "key": "monex-usa",
+        "badgeText": "Powered by Monex USA"
+      },
+      "promoter": null,
+      "status": "rendered",
+      "outputFilename": "xending_velocidad-produce-q1-2025_facebook-post.png"
+    }
+  ],
+  "renderSummary": {
+    "totalPieces": 3,
+    "rendered": 3,
+    "failed": 0,
+    "outputDirectory": "xending-design/output/",
+    "files": [
+      "xending_velocidad-produce-q1-2025_instagram-story.png",
+      "xending_velocidad-produce-q1-2025_linkedin-post.png",
+      "xending_velocidad-produce-q1-2025_facebook-post.png"
+    ]
+  }
+}

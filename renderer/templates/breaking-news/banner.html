@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="es" style="width:1920px;height:1080px;margin:0;padding:0;">
+<head>
+<meta charset="UTF-8" />
+<style>
+:root {
+  --color-turquoise: #2ED4C7;
+  --color-coral: #FF7A4A;
+  --color-navy: #0F1419;
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-body: 'Inter', Arial, sans-serif;
+  --font-numbers: 'JetBrains Mono', 'Courier New', monospace;
+}
+html, body {
+  width: 1920px;
+  height: 1080px;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  font-family: var(--font-body);
+  color: #FFFFFF;
+}
+body {
+  position: relative;
+  display: flex;
+  background:
+    radial-gradient(ellipse at 20% 50%, var(--color-turquoise) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, var(--color-coral) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 80%, var(--color-turquoise) 0%, transparent 60%),
+    var(--color-navy);
+}
+body::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.08;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-size: 128px 128px;
+  pointer-events: none;
+  z-index: 1;
+}
+.content-wrapper {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  padding: 48px 64px;
+  box-sizing: border-box;
+  gap: 48px;
+}
+.text-column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.image-column {
+  width: 720px;
+  display: flex;
+  align-items: center;
+}
+.image-column img { width: 100%; height: 100%; object-fit: cover; border-radius: 16px; }
+.brand-lockup { display: flex; align-items: baseline; gap: 8px; margin-bottom: 20px; }
+.brand-wordmark { font-family: var(--font-display); font-size: 32px; font-weight: 700; letter-spacing: 0.12em; }
+.brand-sublabel { font-family: var(--font-body); font-size: 16px; font-weight: 600; letter-spacing: 0.08em; color: var(--color-coral); }
+.breaking-label { font-family: var(--font-body); font-size: 18px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.15em; color: var(--color-coral); margin-bottom: 12px; }
+.headline { font-family: var(--font-display); font-size: 52px; font-weight: 700; line-height: 1.1; margin-bottom: 16px; }
+.data-point { font-family: var(--font-numbers); font-size: 44px; font-weight: 700; color: var(--color-turquoise); margin-bottom: 12px; }
+.subcopy { font-family: var(--font-body); font-size: 22px; line-height: 1.4; color: rgba(255,255,255,0.85); margin-bottom: 12px; }
+.meta-row { display: flex; gap: 20px; font-family: var(--font-body); font-size: 16px; color: rgba(255,255,255,0.6); margin-bottom: 16px; }
+.cta { display: inline-block; font-family: var(--font-body); font-size: 20px; font-weight: 600; padding: 14px 36px; background: var(--color-coral); color: #FFFFFF; border-radius: 8px; margin-bottom: 16px; align-self: flex-start; }
+.partner-badge { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.partner-badge img { height: 24px; width: auto; }
+.partner-badge span { font-size: 13px; color: rgba(255,255,255,0.7); }
+.promoter-area { display: flex; align-items: center; gap: 12px; padding: 12px; background: rgba(255,255,255,0.08); border-radius: 8px; margin-bottom: 12px; }
+.promoter-area.hidden { display: none; }
+.promoter-photo { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; }
+.promoter-info { display: flex; flex-direction: column; gap: 2px; }
+.promoter-name { font-size: 15px; font-weight: 600; }
+.promoter-role { font-size: 13px; color: rgba(255,255,255,0.7); }
+.promoter-contact { font-size: 11px; color: rgba(255,255,255,0.6); }
+.disclaimer { margin-top: auto; font-size: 13px; line-height: 1.3; color: rgba(255,255,255,0.5); padding-top: 12px; }
+</style>
+</head>
+<body>
+<div class="content-wrapper">
+  <div class="text-column">
+    {{brandLockup}}
+    <div class="breaking-label">Breaking News</div>
+    <div class="headline">{{headline}}</div>
+    <div class="data-point">{{dataPoint}}</div>
+    <div class="subcopy">{{subcopy}}</div>
+    <div class="meta-row">
+      <span>{{date}}</span>
+      <span>{{source}}</span>
+    </div>
+    <div class="cta">{{cta}}</div>
+    {{partnerBadge}}
+    {{promoterArea}}
+    {{disclaimer}}
+  </div>
+  <div class="image-column">
+    <img src="{{imageUrl}}" alt="" />
+  </div>
+</div>
+</body>
+</html>

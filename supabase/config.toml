@@ -1,0 +1,29 @@
+[project]
+id = "scory-design"
+
+[functions.generate-design-image]
+verify_jwt = false
+
+[functions.generate-design-copy]
+verify_jwt = false
+
+[functions.generate-design-html]
+verify_jwt = false
+
+[functions.generate-ideas]
+verify_jwt = false
+
+[functions.generate-strategy]
+verify_jwt = false
+
+[functions.generate-variants]
+verify_jwt = false
+
+[functions.adapt-channel]
+verify_jwt = false
+
+[functions.refine-branch]
+verify_jwt = false
+
+[functions.render-design-png]
+verify_jwt = false

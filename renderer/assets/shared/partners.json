@@ -1,0 +1,22 @@
+{
+  "partners": [
+    {
+      "key": "monex-usa",
+      "name": "Monex USA",
+      "badgeText": "Powered by Monex USA",
+      "logoFile": "monex-usa.png"
+    },
+    {
+      "key": "ping-pong",
+      "name": "Ping Pong",
+      "badgeText": "Powered by Ping Pong",
+      "logoFile": "ping-pong.png"
+    },
+    {
+      "key": "none",
+      "name": "Sin partner",
+      "badgeText": "",
+      "logoFile": ""
+    }
+  ]
+}
