@@ -77,7 +77,7 @@ const MODE_OPTIONS = [
     title: 'Generar Stock',
     description: 'Genera imágenes stock temáticas en lote',
     icon: Image,
-    route: '/stock',
+    route: '/stock-generator',
   },
   {
     key: 'library',
@@ -98,7 +98,7 @@ const MODE_OPTIONS = [
     title: 'Paleta de Marca',
     description: 'Colores, tipografías, gradientes y tokens del sistema',
     icon: Palette,
-    route: '/palette',
+    route: '/brand-palette',
   },
 ] as const;
 

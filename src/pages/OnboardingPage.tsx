@@ -21,7 +21,7 @@ function OnboardingPage() {
   // If tenants already exist, redirect to main design page
   useEffect(() => {
     if (!isLoading && tenants && tenants.length > 0) {
-      navigate('/xending-design', { replace: true });
+      navigate('/', { replace: true });
     }
   }, [isLoading, tenants, navigate]);
 

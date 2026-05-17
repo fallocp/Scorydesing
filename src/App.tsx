@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "sonner";
+import { AuthGate } from "./components/AuthGate";
 import ScoryDesignPage from "./pages/XendingDesignPage";
 import OnboardingPage from "./pages/OnboardingPage";
 import CampaignWizardPage from "./pages/CampaignWizardPage";
@@ -16,20 +17,27 @@ function App() {
   return (
     <>
       <Toaster position="top-right" richColors />
-      <Routes>
-        <Route path="/" element={<ScoryDesignPage />} />
-        <Route path="/onboarding" element={<OnboardingPage />} />
-        <Route path="/campaign" element={<CampaignWizardPage />} />
-        <Route path="/content-library" element={<ContentLibraryPage />} />
-        <Route path="/content-calendar" element={<ContentCalendarPage />} />
-        <Route path="/assets" element={<AssetLibraryPage />} />
-        <Route path="/stock-generator" element={<StockGeneratorPage />} />
-        <Route path="/brand-palette" element={<BrandPalettePage />} />
-        <Route path="/admin" element={<BusinessAdminPage />} />
-        <Route path="/bulletin" element={<BulletinPage />} />
-        <Route path="/presentations" element={<PresentationsPage />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <AuthGate>
+        <Routes>
+          <Route path="/" element={<ScoryDesignPage />} />
+          <Route path="/onboarding" element={<OnboardingPage />} />
+          <Route path="/campaign" element={<CampaignWizardPage />} />
+          <Route path="/xending-design/campaign" element={<CampaignWizardPage />} />
+          <Route path="/content-library" element={<ContentLibraryPage />} />
+          <Route path="/content-calendar" element={<ContentCalendarPage />} />
+          <Route path="/xending-design/calendar" element={<ContentCalendarPage />} />
+          <Route path="/assets" element={<AssetLibraryPage />} />
+          <Route path="/stock-generator" element={<StockGeneratorPage />} />
+          <Route path="/brand-palette" element={<BrandPalettePage />} />
+          <Route path="/admin" element={<BusinessAdminPage />} />
+          <Route path="/admin/business" element={<BusinessAdminPage />} />
+          <Route path="/bulletin" element={<BulletinPage />} />
+          <Route path="/presentations" element={<PresentationsPage />} />
+          <Route path="/xending-design/pipeline" element={<CampaignWizardPage />} />
+          <Route path="/library" element={<ContentLibraryPage />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </AuthGate>
     </>
   );
 }

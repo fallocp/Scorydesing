@@ -98,7 +98,7 @@ export function WeeklySummaryWidget() {
           variant="outline"
           size="sm"
           className="w-full"
-          onClick={() => navigate('/calendar')}
+          onClick={() => navigate('/content-calendar')}
         >
           Llenar semana
           <ChevronRight className="h-3.5 w-3.5 ml-1" />
