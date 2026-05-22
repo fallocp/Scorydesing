@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="es" style="width:1080px;height:1080px;margin:0;padding:0;">
+<head>
+<meta charset="UTF-8" />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,600;0,700;1,600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --color-turquoise: #2ED4C7;
+  --color-coral: #FF7A4A;
+  --color-navy: #0F1419;
+  --color-cream: #F5F3F0;
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-body: 'Inter', Arial, sans-serif;
+  --font-numbers: 'JetBrains Mono', 'Courier New', monospace;
+}
+html, body { width: 1080px; height: 1080px; margin: 0; padding: 0; overflow: hidden; font-family: var(--font-body); color: var(--color-navy); }
+body { position: relative; display: flex; flex-direction: column; background: var(--color-cream); }
+.bg-mesh { position: absolute; inset: 0; background: radial-gradient(ellipse 600px 500px at 85% 15%, rgba(255,120,70,0.16) 0%, transparent 60%), radial-gradient(ellipse 700px 600px at 10% 85%, rgba(46,212,199,0.18) 0%, transparent 60%), linear-gradient(180deg, #F8F5F1 0%, #EEEBE5 100%); pointer-events: none; }
+.grain { position: absolute; inset: 0; opacity: 0.06; mix-blend-mode: multiply; pointer-events: none; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E"); background-size: 128px 128px; }
+.card { position: absolute; top: 40px; left: 40px; right: 40px; bottom: 40px; background: #FFFFFF; border-radius: 32px; padding: 40px 48px; box-shadow: 0 2px 4px rgba(0,0,0,0.02), 0 20px 50px rgba(255,120,70,0.08), 0 30px 80px rgba(46,212,199,0.06); z-index: 2; display: flex; flex-direction: column; }
+.brand-lockup { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+.brand-logo { width: 56px; height: 56px; object-fit: contain; }
+.brand-wordmark { font-family: var(--font-body); font-size: 32px; font-weight: 700; color: var(--color-navy); }
+.brand-sublabel { font-family: var(--font-body); font-size: 12px; font-weight: 600; letter-spacing: 0.08em; color: var(--color-coral); margin-left: 6px; }
+.headline { font-family: var(--font-display); font-size: 40px; font-weight: 600; line-height: 1.1; margin-bottom: 12px; color: var(--color-navy); }
+.accent-coral { font-style: italic; background: linear-gradient(135deg, #FF7A4A, #E85A2C); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.accent-tq { font-style: italic; background: linear-gradient(135deg, #2ED4C7, #1FB8AC); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.subcopy { font-family: var(--font-body); font-size: 18px; line-height: 1.4; color: #555; margin-bottom: 16px; }
+.image-area { width: 100%; flex: 1; min-height: 0; border-radius: 16px; overflow: hidden; margin-bottom: 16px; }
+.image-area img { width: 100%; height: 100%; object-fit: cover; object-position: center top; }
+.bottom-row { display: flex; align-items: center; justify-content: space-between; }
+.stat-pill { display: inline-flex; align-items: center; gap: 10px; padding: 10px 18px; border-radius: 100px; background: rgba(15,20,25,0.05); }
+.stat-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--color-turquoise); box-shadow: 0 0 8px rgba(46,212,199,0.8); }
+.stat-text { font-family: var(--font-numbers); font-size: 14px; font-weight: 700; color: var(--color-navy); }
+.cta { display: inline-block; font-family: var(--font-body); font-size: 16px; font-weight: 600; padding: 14px 28px; background: linear-gradient(135deg, #FF7A4A, #E85A2C); color: #FFFFFF; border-radius: 100px; }
+.partner-badge { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 10px; }
+.partner-badge img { height: 20px; width: auto; }
+.partner-badge span { font-size: 11px; color: rgba(15,20,25,0.5); }
+.promoter-area { display: flex; align-items: center; gap: 10px; padding: 10px 16px; background: rgba(15,20,25,0.04); border-radius: 10px; margin-top: 10px; }
+.promoter-area.hidden { display: none; }
+.promoter-photo { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 2px solid var(--color-turquoise); }
+.promoter-info { display: flex; flex-direction: column; gap: 1px; }
+.promoter-name { font-size: 12px; font-weight: 600; color: var(--color-navy); }
+.promoter-role { font-size: 11px; color: #666; }
+.promoter-contact { font-size: 10px; color: #999; }
+.disclaimer { font-size: 11px; line-height: 1.3; color: rgba(15,20,25,0.4); margin-top: 8px; text-align: center; }
+</style>
+</head>
+<body>
+<div class="bg-mesh"></div>
+<div class="grain"></div>
+<div class="card">
+  {{brandLockup}}
+  <div class="headline">{{headline}}</div>
+  <div class="subcopy">{{subcopy}}</div>
+  <div class="image-area"><img src="{{imageUrl}}" alt="" /></div>
+  <div class="bottom-row">
+    <div class="stat-pill"><span class="stat-dot"></span><span class="stat-text">{{dataPoint}}</span></div>
+    <div class="cta">{{cta}}</div>
+  </div>
+  {{partnerBadge}}
+  {{promoterArea}}
+  <div class="disclaimer">{{disclaimer}}</div>
+</div>
+</body>
+</html>

@@ -1,17 +1,21 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Lightbulb, Palette } from 'lucide-react';
+import { ArrowLeft, Lightbulb, Palette, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { StrategyPlanner } from '@/components/StrategyPlanner';
 import { CopyWorkstation } from '@/components/CopyWorkstation';
+import { PipelineProgressPanel } from '@/components/pipeline/PipelineProgressPanel';
+import { BatchTemplateSelector, type BatchConfig, type PromoterOption } from '@/components/pipeline/BatchTemplateSelector';
 import { useDesignStore } from '@/store/designStore';
+import { usePipelineStore } from '@/store/pipelineStore';
 import { supabase } from '@/integrations/supabase/client';
 import type { StrategyBranch } from '@/types/xendingDesign';
 
 const STEPS = [
   { number: 1, label: 'Estrategia', icon: Lightbulb },
   { number: 2, label: 'Crear Piezas', icon: Palette },
+  { number: 3, label: 'Pipeline Auto', icon: Zap },
 ] as const;
 
 function CampaignWizardPage() {
@@ -94,6 +98,73 @@ function CampaignWizardPage() {
   }, [branchIdFromUrl, approvedBranch?.name]);
 
   const approvedBranchCount = branches.filter((b) => b.approved === true).length;
+
+  // Pipeline state
+  const activeBusiness = useDesignStore((s) => s.activeBusiness);
+  const { run: pipelineRun, startPipeline, reset: resetPipeline } = usePipelineStore();
+  const [pipelineRunId, setPipelineRunId] = useState<string | null>(null);
+  const [showBatchSelector, setShowBatchSelector] = useState(false);
+  const [pendingBranch, setPendingBranch] = useState<StrategyBranch | null>(null);
+  const [promoters, setPromoters] = useState<PromoterOption[]>([]);
+
+  // Load promoters from DB or static file
+  // NOTE: promoters table does not exist yet — disabled until created
+  // useEffect(() => { ... }, [activeBusiness]);
+
+  // Show batch selector when user clicks Pipeline
+  const handlePipelineClick = (branch: StrategyBranch) => {
+    setPendingBranch(branch);
+    setShowBatchSelector(true);
+  };
+
+  // Launch pipeline with batch config
+  const handleLaunchBatch = async (config: BatchConfig) => {
+    if (!activeBusiness || !pendingBranch) return;
+
+    const platforms = config.selectedPlatforms as any[];
+    const dims = useDesignStore.getState().selectedDimensions;
+
+    await startPipeline({
+      business_id: activeBusiness.id,
+      brief: {
+        brand: activeBusiness.slug || activeBusiness.name,
+        topic: pendingBranch.keyMessage || pendingBranch.description || '',
+        audience: pendingBranch.targetAudience || '',
+        objective: (pendingBranch as any).strategic_config?.objetivo || '',
+        platforms: platforms.length > 0 ? platforms : ['instagram-story'],
+        branch_id: (pendingBranch as any).commercial_branch_id,
+        vertical_id: dims.verticalId ?? undefined,
+        moment_id: dims.momentId ?? undefined,
+        angle: dims.angle ?? undefined,
+        narrative_angle_id: dims.narrativeAngleId ?? undefined,
+        funnel_stage: dims.funnelStage as any ?? undefined,
+      },
+      options: {
+        autoApprove: false,
+        skipStrategy: true,
+        skipClaimValidation: false,
+        channels: platforms.length > 0 ? platforms : ['instagram-story'],
+        selectedTemplates: config.selectedTemplates,
+        promoters: config.includePromoter ? config.selectedPromoters.map((p) => ({
+          name: p.name,
+          role: p.role,
+          photoUrl: p.photoUrl,
+          contact: p.contact,
+        })) : undefined,
+      },
+    });
+
+    const currentRun = usePipelineStore.getState().run;
+    if (currentRun) {
+      setPipelineRunId(currentRun.id);
+      setShowBatchSelector(false);
+      setCurrentStep(3);
+    }
+  };
+
+  const handleStartPipeline = async (branch: StrategyBranch) => {
+    handlePipelineClick(branch);
+  };
 
   const handleBack = () => {
     if (currentStep > 1) {
@@ -178,17 +249,32 @@ function CampaignWizardPage() {
                 <h3 className="text-sm font-semibold">Ramas aprobadas — selecciona una para crear piezas:</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                   {branches.filter((b) => b.approved === true).map((b) => (
-                    <Button
-                      key={b.id}
-                      variant="outline"
-                      className="h-auto py-3 px-4 text-left justify-start"
-                      onClick={() => handleSelectBranchForPieces(b)}
-                    >
+                    <div key={b.id} className="border rounded-lg p-3 space-y-2">
                       <div>
                         <p className="font-medium text-sm">{b.name}</p>
                         <p className="text-xs text-muted-foreground">{b.category}</p>
                       </div>
-                    </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 text-xs"
+                          onClick={() => handleSelectBranchForPieces(b)}
+                        >
+                          <Palette className="h-3 w-3 mr-1" />
+                          Manual
+                        </Button>
+                        <Button
+                          size="sm"
+                          className="flex-1 text-xs"
+                          onClick={() => handleStartPipeline(b)}
+                          disabled={!activeBusiness}
+                        >
+                          <Zap className="h-3 w-3 mr-1" />
+                          Pipeline
+                        </Button>
+                      </div>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -203,6 +289,32 @@ function CampaignWizardPage() {
             branchName={approvedBranch.name}
             initialBrainstormOpen={searchParams.get('brainstorm') === '1'}
           />
+        )}
+
+        {/* Batch Template Selector (overlay when Pipeline is clicked) */}
+        {showBatchSelector && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+              <BatchTemplateSelector
+                onLaunch={handleLaunchBatch}
+                onCancel={() => setShowBatchSelector(false)}
+                isLoading={usePipelineStore.getState().isLoading}
+                promoters={promoters}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Step 3: Pipeline Automatizado */}
+        {currentStep === 3 && pipelineRunId && (
+          <div className="max-w-2xl mx-auto">
+            <PipelineProgressPanel
+              runId={pipelineRunId}
+              onComplete={() => {
+                // Could navigate to results or stay here
+              }}
+            />
+          </div>
         )}
       </div>
 

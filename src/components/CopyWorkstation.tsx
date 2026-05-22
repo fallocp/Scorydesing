@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import {
   Sparkles, Download, Loader2, Eye, Code, X, RotateCcw,
   ImagePlus, Upload, Check, Pencil, ChevronDown, ChevronUp, ImageIcon, Move,
-  Trash2, Maximize2, MessageSquare, Send,
+  Trash2, Maximize2, MessageSquare, Send, Zap,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -631,6 +631,10 @@ export function CopyWorkstation({ branch, branchName, initialBrainstormOpen = fa
   // Template selection per copy
   const [templates, setTemplates] = useState<Record<number, string>>({});
 
+  // Multi-select: templates and platforms for batch generation
+  const [selectedTemplateIds, setSelectedTemplateIds] = useState<Record<number, string[]>>({});
+  const [selectedFormats, setSelectedFormats] = useState<Record<number, PlatformFormat[]>>({});
+
   // Promoter photo per copy (for the promoter template badge)
   const [promoterPhotos, setPromoterPhotos] = useState<Record<number, string>>({});
   const [promoterEnabled, setPromoterEnabled] = useState<Record<number, boolean>>({});
@@ -1132,6 +1136,151 @@ export function CopyWorkstation({ branch, branchName, initialBrainstormOpen = fa
       console.error('Error swapping photo:', err);
       updateCopyState(copyIndex, { isRendering: false });
       toast({ title: 'Error al cambiar foto', variant: 'destructive' });
+    }
+  };
+
+  // --- Batch Generate (hydrate multiple templates × platforms) ---
+  const handleBatchGenerate = async (index: number) => {
+    if (!selectedBrand) return;
+
+    const idea = branch.copyIdeas[index];
+    const imageUrl = getSelectedImageUrl(index);
+    const batchTemplates = selectedTemplateIds[index] ?? [templates[index] || defaultTemplateId];
+    // Use selectedFormats if explicitly set, otherwise fall back to just the current selectedFormat
+    const batchPlatforms: PlatformFormat[] = selectedFormats[index] && selectedFormats[index].length > 0
+      ? selectedFormats[index]
+      : [selectedFormat];
+
+    if (!imageUrl) {
+      toast({ title: 'Selecciona o genera una imagen primero', variant: 'destructive' });
+      return;
+    }
+
+    const dbDisclaimer = (activeBusiness as any)?.disclaimer ?? strategicConfig?.disclaimer;
+    const disclaimer = dbDisclaimer
+      || (selectedBrand === 'xending_capital'
+        ? 'Xending Capital es marca comercial de Lemad Capital SAPI de CV SOFOM ENR. Sujeto a aprobación crediticia. Líneas hasta $500,000 USD. Plazos hasta 45 días. Disponible solo en México.'
+        : 'Disponible solo para clientes en Estados Unidos. No válido en México.');
+
+    updateCopyState(index, { isRendering: true });
+    toast({ title: `Generando ${batchTemplates.length * batchPlatforms.length} piezas...` });
+
+    const results: { template: string; platform: string; png: string }[] = [];
+    let errorCount = 0;
+
+    for (const tplId of batchTemplates) {
+      const templateDef = resolveTemplate(tplId);
+
+      for (const platform of batchPlatforms) {
+        try {
+          const dims = PLATFORM_DIMENSIONS[platform];
+          let html: string;
+
+          if (templateDef?.html) {
+            // Static template — use fillTemplate with format overrides
+            html = fillTemplate(templateDef.html, {
+              headline: idea.headline,
+              subcopy: idea.subcopy,
+              cta: idea.cta,
+              imageUrl: imageUrl || '',
+              punchline: punchlines[index] || `Velocidad y confianza en tus pagos`,
+              disclaimer,
+              floating: floatingEnabled[index] && floatingFields[index]?.label
+                ? `<div class="label">${floatingFields[index].label}</div><div class="value">${floatingFields[index].value || ''}</div><span class="trend"></span>`
+                : undefined,
+              promoterPhoto: promoterEnabled[index] ? (promoterPhotos[index] || undefined) : undefined,
+            }, platform); // <-- pass platform for FORMAT_OVERRIDES
+          } else {
+            // AI Creativo — reuse existing HTML if available, apply format overrides
+            const existingHtml = copyStates[index]?.html;
+            if (existingHtml) {
+              // Already have HTML from a previous IA Creativo generation
+              // Apply FORMAT_OVERRIDES for the target platform
+              if (platform !== 'instagram-story') {
+                html = fillTemplate(existingHtml, {
+                  headline: idea.headline,
+                  subcopy: idea.subcopy,
+                  cta: idea.cta,
+                  imageUrl: imageUrl || '',
+                  punchline: punchlines[index] || `Velocidad y confianza en tus pagos`,
+                  disclaimer,
+                }, platform);
+              } else {
+                html = existingHtml;
+              }
+            } else {
+              // No existing HTML — generate with LLM once, then reuse
+              html = await generatePieceHtml({
+                imageUrl: imageUrl || '',
+                headline: idea.headline,
+                subcopy: idea.subcopy,
+                cta: idea.cta,
+                brand: selectedBrand,
+                punchline: punchlines[index] || undefined,
+                pieceNumber: index + 1,
+                totalPieces: branch.copyIdeas.length,
+              });
+              // Store so next platforms reuse it
+              updateCopyState(index, { html });
+              // Apply format overrides for non-story
+              if (platform !== 'instagram-story') {
+                html = fillTemplate(html, {
+                  headline: idea.headline,
+                  subcopy: idea.subcopy,
+                  cta: idea.cta,
+                  imageUrl: imageUrl || '',
+                  punchline: punchlines[index] || `Velocidad y confianza en tus pagos`,
+                  disclaimer,
+                }, platform);
+              }
+            }
+          }
+
+          const dataUrl = await renderHtmlToPng(html, selectedBrand, dims.width, dims.height);
+          results.push({ template: tplId, platform, png: dataUrl });
+        } catch (err) {
+          console.error(`Error batch ${tplId}/${platform}:`, err);
+          errorCount++;
+        }
+      }
+    }
+
+    // Update state with the first result as the main preview
+    if (results.length > 0) {
+      updateCopyState(index, {
+        html: results[0].template === (templates[index] || defaultTemplateId) ? '' : '',
+        renderedPng: results[0].png,
+        isRendering: false,
+      });
+
+      // Save each piece to DB as a version (shows in "Versiones guardadas")
+      for (const r of results) {
+        // Build a minimal HTML for the saved piece (for re-editing later)
+        const templateDef = resolveTemplate(r.template);
+        if (templateDef?.html) {
+          const html = fillTemplate(templateDef.html, {
+            headline: idea.headline,
+            subcopy: idea.subcopy,
+            cta: idea.cta,
+            imageUrl: imageUrl || '',
+            punchline: punchlines[index] || `Velocidad y confianza en tus pagos`,
+            disclaimer,
+            floating: floatingEnabled[index] && floatingFields[index]?.label
+              ? `<div class="label">${floatingFields[index].label}</div><div class="value">${floatingFields[index].value || ''}</div><span class="trend"></span>`
+              : undefined,
+            promoterPhoto: promoterEnabled[index] ? (promoterPhotos[index] || undefined) : undefined,
+          }, r.platform as PlatformFormat);
+          await savePieceToDb(index, html, r.png);
+        }
+      }
+
+      toast({
+        title: `✅ ${results.length} piezas generadas`,
+        description: 'Guardadas abajo en versiones',
+      });
+    } else {
+      updateCopyState(index, { isRendering: false });
+      toast({ title: 'No se pudo generar ninguna pieza', variant: 'destructive' });
     }
   };
 
@@ -2097,47 +2246,144 @@ export function CopyWorkstation({ branch, branchName, initialBrainstormOpen = fa
                     </div>
                   )}
 
-                  {/* Format / platform selector */}
+                  {/* Format / platform selector — MULTI-SELECT */}
                   <div className="space-y-2">
-                    <span className="text-xs font-medium text-muted-foreground">Formato de plataforma</span>
-                    <div className="flex flex-wrap gap-1.5">
-                      {(Object.entries(PLATFORM_DIMENSIONS) as [PlatformFormat, { width: number; height: number }][]).map(([fmt, d]) => (
-                        <button
-                          key={fmt}
-                          type="button"
-                          onClick={() => setSelectedFormat(fmt)}
-                          className={`text-[11px] px-2.5 py-1.5 rounded-lg border transition-all ${
-                            selectedFormat === fmt
-                              ? 'border-[#2ED4C7] bg-[#2ED4C7]/10 text-[#2ED4C7] font-medium'
-                              : 'border-dashed hover:border-[#2ED4C7] hover:bg-[#2ED4C7]/5 text-muted-foreground'
-                          }`}
-                        >
-                          {fmt} ({d.width}×{d.height})
-                        </button>
-                      ))}
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-muted-foreground">Formato de plataforma</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const allFmts = Object.keys(PLATFORM_DIMENSIONS) as PlatformFormat[];
+                          setSelectedFormats((prev) => {
+                            const current = prev[index] ?? [selectedFormat];
+                            return { ...prev, [index]: current.length === allFmts.length ? [selectedFormat] : allFmts };
+                          });
+                        }}
+                        className="text-[10px] text-[#2ED4C7] hover:underline"
+                      >
+                        {(selectedFormats[index] ?? [selectedFormat]).length === Object.keys(PLATFORM_DIMENSIONS).length ? 'Solo activa' : 'Todas'}
+                      </button>
                     </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {(Object.entries(PLATFORM_DIMENSIONS) as [PlatformFormat, { width: number; height: number }][]).map(([fmt, d]) => {
+                        const currentFormats = selectedFormats[index] ?? [selectedFormat];
+                        const isActive = currentFormats.includes(fmt);
+                        const isPrimary = selectedFormat === fmt;
+                        return (
+                          <button
+                            key={fmt}
+                            type="button"
+                            onClick={() => {
+                              setSelectedFormats((prev) => {
+                                const current = prev[index] ?? [selectedFormat];
+                                if (current.includes(fmt)) {
+                                  // Deselect — but keep at least 1
+                                  if (current.length > 1) {
+                                    const updated = current.filter((f) => f !== fmt);
+                                    // If we removed the primary, switch primary to first remaining
+                                    if (selectedFormat === fmt) {
+                                      setSelectedFormat(updated[0]);
+                                    }
+                                    return { ...prev, [index]: updated };
+                                  }
+                                  return prev; // Can't deselect the last one
+                                } else {
+                                  // Select
+                                  return { ...prev, [index]: [...current, fmt] };
+                                }
+                              });
+                              // Set as primary for preview
+                              if (!selectedFormats[index]?.includes(fmt)) {
+                                setSelectedFormat(fmt);
+                              }
+                            }}
+                            className={`text-[11px] px-2.5 py-1.5 rounded-lg border transition-all ${
+                              isActive
+                                ? 'border-[#2ED4C7] bg-[#2ED4C7]/10 text-[#2ED4C7] font-medium'
+                                : 'border-dashed hover:border-[#2ED4C7] hover:bg-[#2ED4C7]/5 text-muted-foreground'
+                            }`}
+                          >
+                            {isActive && '✓ '}{fmt} ({d.width}×{d.height})
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {(selectedFormats[index] ?? [selectedFormat]).length > 1 && (
+                      <p className="text-[10px] text-muted-foreground">
+                        {(selectedFormats[index] ?? [selectedFormat]).length} plataformas seleccionadas
+                      </p>
+                    )}
                   </div>
 
-                  {/* Template selector */}
+                  {/* Template selector — MULTI-SELECT */}
                   <div className="space-y-2">
-                    <span className="text-xs font-medium text-muted-foreground">Template de diseño</span>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                      {availableTemplates.map((t) => (
-                        <button
-                          key={t.id}
-                          type="button"
-                          onClick={() => setTemplates((prev) => ({ ...prev, [index]: t.id }))}
-                          className={`text-left p-2.5 rounded-lg border transition-all ${
-                            (templates[index] || defaultTemplateId) === t.id
-                              ? 'border-[#2ED4C7] bg-[#2ED4C7]/10 ring-1 ring-[#2ED4C7]/30'
-                              : 'border-dashed hover:border-[#2ED4C7] hover:bg-[#2ED4C7]/5'
-                          }`}
-                        >
-                          <p className="text-xs font-semibold">{t.emoji} {t.name}</p>
-                          <p className="text-[10px] text-muted-foreground">{t.description}</p>
-                        </button>
-                      ))}
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-muted-foreground">Template de diseño</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedTemplateIds((prev) => {
+                            const current = prev[index] ?? [templates[index] || defaultTemplateId];
+                            return { ...prev, [index]: current.length === availableTemplates.length ? [templates[index] || defaultTemplateId] : availableTemplates.map((t) => t.id) };
+                          });
+                        }}
+                        className="text-[10px] text-[#2ED4C7] hover:underline"
+                      >
+                        {(selectedTemplateIds[index] ?? [templates[index] || defaultTemplateId]).length === availableTemplates.length ? 'Solo activo' : 'Todos'}
+                      </button>
                     </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {availableTemplates.map((t) => {
+                        const currentTemplates = selectedTemplateIds[index] ?? [templates[index] || defaultTemplateId];
+                        const isActive = currentTemplates.includes(t.id);
+                        const isPrimary = (templates[index] || defaultTemplateId) === t.id;
+                        return (
+                          <button
+                            key={t.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedTemplateIds((prev) => {
+                                const current = prev[index] ?? [templates[index] || defaultTemplateId];
+                                if (current.includes(t.id)) {
+                                  // Deselect — but keep at least 1
+                                  if (current.length > 1) {
+                                    const updated = current.filter((id) => id !== t.id);
+                                    // If we removed the primary, switch primary
+                                    if ((templates[index] || defaultTemplateId) === t.id) {
+                                      setTemplates((prev) => ({ ...prev, [index]: updated[0] }));
+                                    }
+                                    return { ...prev, [index]: updated };
+                                  }
+                                  return prev; // Can't deselect the last one
+                                } else {
+                                  // Select
+                                  return { ...prev, [index]: [...current, t.id] };
+                                }
+                              });
+                              // Set as primary for individual generation
+                              if (!selectedTemplateIds[index]?.includes(t.id)) {
+                                setTemplates((prev) => ({ ...prev, [index]: t.id }));
+                              }
+                            }}
+                            className={`text-left p-2.5 rounded-lg border transition-all ${
+                              isActive
+                                ? 'border-[#2ED4C7] bg-[#2ED4C7]/10 ring-1 ring-[#2ED4C7]/30'
+                                : 'border-dashed hover:border-[#2ED4C7] hover:bg-[#2ED4C7]/5'
+                            }`}
+                          >
+                            <p className="text-xs font-semibold">
+                              {isActive && '✓ '}{t.emoji} {t.name}
+                            </p>
+                            <p className="text-[10px] text-muted-foreground">{t.description}</p>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {(selectedTemplateIds[index] ?? [templates[index] || defaultTemplateId]).length > 1 && (
+                      <p className="text-[10px] text-muted-foreground">
+                        {(selectedTemplateIds[index] ?? [templates[index] || defaultTemplateId]).length} templates seleccionados
+                      </p>
+                    )}
                   </div>
 
                   {/* Promoter toggle + photo upload (available for any template) */}
@@ -2392,6 +2638,27 @@ export function CopyWorkstation({ branch, branchName, initialBrainstormOpen = fa
                       )}
                       {state.renderedPng ? 'Regenerar diseño' : 'Preview diseño'}
                     </Button>
+
+                    {/* Batch generate button — shows when multiple templates or platforms selected */}
+                    {(() => {
+                      const fmtCount = (selectedFormats[index] ?? [selectedFormat]).length;
+                      const tplCount = (selectedTemplateIds[index] ?? [templates[index] || defaultTemplateId]).length;
+                      const totalBatch = fmtCount * tplCount;
+                      if (totalBatch > 1) {
+                        return (
+                          <Button
+                            size="sm"
+                            onClick={() => handleBatchGenerate(index)}
+                            disabled={(!selectedUrl && !isBulletin) || state.isRendering}
+                            className="bg-[#0F1419] hover:bg-[#0F1419]/90 text-white"
+                          >
+                            <Zap className="h-3.5 w-3.5 mr-1" />
+                            Generar todas ({totalBatch})
+                          </Button>
+                        );
+                      }
+                      return null;
+                    })()}
 
                     {state.html && (
                       <>
