@@ -7,45 +7,45 @@ This plan implements the Creative OS Pipeline in 5 phases, transforming disconne
 ## Tasks
 
 - [ ] 1. Phase 1 — Pipeline Connected End-to-End
-  - [ ] 1.1 Migrate `generate-strategy` Edge Function from Anthropic to OpenAI gpt-5.4-mini
+  - [x] 1.1 Migrate `generate-strategy` Edge Function from Anthropic to OpenAI gpt-5.4-mini
     - Replace Anthropic SDK calls with OpenAI SDK
     - Update prompt format from Claude XML to OpenAI chat messages
     - Maintain identical input/output interface (backward compatible)
     - Update environment variable from `ANTHROPIC_API_KEY` to `OPENAI_API_KEY`
     - _Requirements: Property 10 (Backward compatibility)_
 
-  - [ ] 1.2 Migrate `generate-variants` Edge Function from Anthropic to OpenAI gpt-5.4-mini
+  - [x] 1.2 Migrate `generate-variants` Edge Function from Anthropic to OpenAI gpt-5.4-mini
     - Replace Anthropic SDK calls with OpenAI SDK
     - Update prompt format to OpenAI chat messages
     - Maintain identical input/output interface
     - _Requirements: Property 10 (Backward compatibility)_
 
-  - [ ] 1.3 Migrate `generate-design-html` Edge Function from Anthropic to OpenAI gpt-5.4-mini
+  - [x] 1.3 Migrate `generate-design-html` Edge Function from Anthropic to OpenAI gpt-5.4-mini
     - Replace Anthropic SDK calls with OpenAI SDK
     - Update prompt format to OpenAI chat messages
     - Maintain identical input/output interface
     - _Requirements: Property 10 (Backward compatibility)_
 
-  - [ ] 1.4 Migrate `adapt-channel` Edge Function from Anthropic to OpenAI gpt-5.4-mini
+  - [x] 1.4 Migrate `adapt-channel` Edge Function from Anthropic to OpenAI gpt-5.4-mini
     - Replace Anthropic SDK calls with OpenAI SDK
     - Update prompt format to OpenAI chat messages
     - Maintain identical input/output interface
     - _Requirements: Property 10 (Backward compatibility)_
 
-  - [ ] 1.5 Migrate `refine-branch` Edge Function from Anthropic to OpenAI gpt-5.4-mini
+  - [x] 1.5 Migrate `refine-branch` Edge Function from Anthropic to OpenAI gpt-5.4-mini
     - Replace Anthropic SDK calls with OpenAI SDK
     - Update prompt format to OpenAI chat messages
     - Maintain identical input/output interface
     - _Requirements: Property 10 (Backward compatibility)_
 
-  - [ ] 1.6 Create `validate-claim` Edge Function
+  - [x] 1.6 Create `validate-claim` Edge Function
     - Implement new Edge Function in `supabase/functions/validate-claim/`
     - Use prompt from `docs/prompts/masterClaimValidationPrompt.md`
     - Accept array of ideas, return validated ideas with `riskLevel` and `compliance_notes`
     - Use OpenAI gpt-5.4-mini
     - _Requirements: Property 6 (Compliance gate)_
 
-  - [ ] 1.7 Create `pipeline_runs` and `pipeline_steps` database tables
+  - [x] 1.7 Create `pipeline_runs` and `pipeline_steps` database tables
     - Write SQL migration with `pipeline_runs` table (status, brief, options, outputs, timestamps)
     - Write SQL migration with `pipeline_steps` table (step_number, agent_name, input/output, timing)
     - Write SQL migration with `pipeline_pieces` table (copy, image, template, render data)
@@ -54,18 +54,18 @@ This plan implements the Creative OS Pipeline in 5 phases, transforming disconne
     - Add status CHECK constraints matching the state machine
     - _Requirements: Property 1 (Tenant isolation), Property 2 (State integrity), Property 4 (Result preservation)_
 
-  - [ ] 1.7b Fix `generate-ideas` to use `imageIntent` field
+  - [x] 1.7b Fix `generate-ideas` to use `imageIntent` field
     - Rename `imageDirection` → `imageIntent` in generate-ideas output
     - Ensure backward compatibility (accept both field names on input)
     - Required before orchestrator can chain Content → Image correctly
 
-  - [ ] 1.7c Create `validatePipelineReadiness` utility
+  - [x] 1.7c Create `validatePipelineReadiness` utility
     - Function that checks if a business has minimum config to run pipeline
     - Required: logo_url, primary_color, master_prompt (at least 1), at least 1 commercial_branch
     - Returns `{ ready: boolean, missing: string[], warnings: string[] }`
     - Called by orchestrator before starting pipeline
 
-  - [ ] 1.8 Create `pipeline-orchestrator` Edge Function
+  - [x] 1.8 Create `pipeline-orchestrator` Edge Function
     - Implement `startPipeline(input)` — creates pipeline_run, begins execution
     - Implement `resumePipeline(runId, action)` — handles user approvals/selections
     - Implement `cancelPipeline(runId)` — sets status to cancelled

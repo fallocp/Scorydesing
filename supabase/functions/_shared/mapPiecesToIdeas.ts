@@ -23,7 +23,7 @@ export function mapPiecesToIdeas(pieces: Record<string, unknown>[]) {
     footer: (piece.footer as string) ?? '',
     statusPill: (piece.statusPill as string) ?? '',
     dataBadge: (piece.dataBadge as string) ?? '',
-    imageIntent: (piece.imageIntent as string) ?? (piece.imageDirection as string) ?? '',
+    imageIntent: (piece.imageIntent as string) ?? (piece.imageDirection as string) ?? (piece.imageSuggestion as string) ?? '',
     angle: (piece.angle as string) ?? '',
     narrativeAngle: (piece.narrativeAngle as string) ?? '',
     funnelStage: (piece.funnelStage as string) ?? 'atraccion',

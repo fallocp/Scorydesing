@@ -157,7 +157,7 @@ BRIEF (manual o Agente 1)
 
 **Qué NO hace:** No describe escenas fotográficas. No genera prompts de imagen. Solo define QUÉ debe comunicar la imagen (`imageIntent`), no CÓMO se ve.
 
-**Estado actual:** `generate-ideas` tiene path master y legacy. `generate-design-copy` es el legacy. El campo `imageDirection` se renombró a `imageIntent` — hay que actualizar `generate-ideas` para que use el nuevo campo.
+**Estado actual:** `generate-ideas` tiene path master y legacy. `generate-design-copy` es el legacy. El campo `imageDirection` se renombró a `imageIntent` — `generate-ideas` ya emite `imageIntent` en su output y el mapper acepta ambos campos para backward compatibility.
 
 ---
 
@@ -348,7 +348,7 @@ Agente 7 (Render)
 
 ## Próximos Pasos (por prioridad)
 
-1. **Agente 2 — Content:** Actualizar `generate-ideas` para que use `imageIntent` en lugar de `imageDirection`
+1. ~~**Agente 2 — Content:** Actualizar `generate-ideas` para que use `imageIntent` en lugar de `imageDirection`~~ ✅ Completado
 2. **Agente 4 — Claim Validator:** Crear Edge Function `validate-claim` con el prompt existente
 3. **Agente 5 — Variant:** Integrar `masterVariantPrompt` en `generate-variants`
 4. **Agente 1 — Strategy:** Conectar `generate-strategy` al flujo principal del frontend

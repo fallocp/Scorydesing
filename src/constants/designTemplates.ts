@@ -338,15 +338,17 @@ export { PROMOTER_STORY_INJECT };
 
 // ─── Export all templates ───
 
+// AI Creativo — reserved for Template Lab (not shown in daily selector)
+export const AI_CREATIVO_TEMPLATE: DesignTemplate = {
+  id: 'ai',
+  name: 'IA Creativo',
+  emoji: '✨',
+  description: 'Claude genera diseño único',
+  needsImage: true,
+  html: null, // Claude generates everything
+};
+
 export const DESIGN_TEMPLATES: DesignTemplate[] = [
-  {
-    id: 'ai',
-    name: 'IA Creativo',
-    emoji: '✨',
-    description: 'Claude genera diseño único',
-    needsImage: true,
-    html: null, // Claude generates everything
-  },
   {
     id: 'card-light',
     name: 'Card Light',

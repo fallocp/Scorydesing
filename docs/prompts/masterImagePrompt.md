@@ -21,7 +21,7 @@ Body: {{body}}
 CTA: {{cta}}
 Footer: {{footer}}
 Ángulo: {{angle}}
-Dirección visual sugerida: {{imageDirection}}
+Dirección visual sugerida: {{imageIntent}}
 Estilo visual de marca: {{visualStyle}}
 Template seleccionado: {{recommendedTemplate}}
 Guía visual de rama: {{visualGuidelines}}

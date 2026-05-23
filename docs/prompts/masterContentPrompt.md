@@ -107,7 +107,7 @@ Devuelve exclusivamente JSON válido. No incluyas explicación fuera del JSON.
       "body": "string",
       "cta": "string",
       "footer": "string",
-      "imageDirection": "string",
+      "imageIntent": "string",
       "visualStyle": "string",
       "recommendedTemplate": "string",
       "targetAudience": "string",

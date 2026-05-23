@@ -2,6 +2,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.53.0";
 import { fetchBusinessContext } from "../_shared/fetchBusinessContext.ts";
+import { callOpenAI } from '../_shared/callOpenAI.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -153,14 +154,6 @@ serve(async (req) => {
   }
 
   try {
-    const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY');
-    if (!anthropicApiKey) {
-      return new Response(
-        JSON.stringify({ error: 'auth_error', message: 'Service unavailable' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
     let requestBody: StrategyRequest;
     try {
       requestBody = await req.json();
@@ -213,46 +206,24 @@ serve(async (req) => {
       systemPrompt = buildLegacySystemPrompt(brand, existingList);
     }
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 150000);
-
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': anthropicApiKey,
-        'anthropic-version': '2023-06-01',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 8000,
-        system: systemPrompt,
-        messages: [
-          { role: 'user', content: context },
-        ],
-        temperature: 0.8,
-      }),
-      signal: controller.signal,
+    const result = await callOpenAI({
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: context },
+      ],
+      max_completion_tokens: 8000,
+      temperature: 0.8,
+      timeoutMs: 150_000,
     });
 
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: 'rate_limit', message: 'Demasiadas solicitudes. Intenta en un momento.' }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      const errorText = await response.text();
+    if (!result.success) {
       return new Response(
-        JSON.stringify({ error: 'api_error', message: `Error de API: ${response.status}` }),
-        { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: result.error, message: result.message }),
+        { status: result.status || 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const data = await response.json();
-    const content = data.content?.[0]?.text;
+    const content = result.content;
 
     if (!content) {
       return new Response(

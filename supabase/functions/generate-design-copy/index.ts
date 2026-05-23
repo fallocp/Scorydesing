@@ -1,5 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { callOpenAI } from '../_shared/callOpenAI.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -74,15 +75,6 @@ serve(async (req) => {
   }
 
   try {
-    const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY');
-    if (!anthropicApiKey) {
-      console.error('Anthropic API key not found in environment');
-      return new Response(
-        JSON.stringify({ error: 'auth_error', message: 'Service unavailable' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
     let requestBody: GenerateCopyRequest;
     try {
       requestBody = await req.json();
@@ -150,53 +142,39 @@ Return ONLY valid JSON (no markdown fences, no extra text) in this format:
   ]
 }`;
 
-    console.log('Calling Claude (Anthropic) for copy generation...');
+    console.log('Calling OpenAI for copy generation...');
 
-    const response = await fetchWithRetry(
-      'https://api.anthropic.com/v1/messages',
-      {
-        method: 'POST',
-        headers: {
-          'x-api-key': anthropicApiKey,
-          'anthropic-version': '2023-06-01',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 4096,
-          system: systemPrompt,
-          messages: [
-            { role: 'user', content: `Campaign brief: ${brief}` },
-          ],
-          temperature: 0.8,
-        }),
-      }
-    );
+    const result = await callOpenAI({
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: `Campaign brief: ${brief}` },
+      ],
+      max_completion_tokens: 4096,
+      temperature: 0.8,
+      timeoutMs: 60_000,
+    });
 
-    if (response.error) {
+    if (!result.success) {
       return new Response(
-        JSON.stringify(response),
+        JSON.stringify({ error: result.error, message: result.message, retryAfter: result.retryAfter }),
         {
-          status: response.status || 500,
+          status: result.status || 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         }
       );
     }
 
-    const data = await response.response!.json();
-
-    // Claude returns content as an array of content blocks
-    const content = data.content?.[0]?.text;
+    const content = result.content;
 
     if (!content) {
-      console.error('No content in Claude response');
+      console.error('No content in OpenAI response');
       return new Response(
         JSON.stringify({ error: 'parse_error', message: 'No content received from AI' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('Claude response received, parsing proposals...');
+    console.log('OpenAI response received, parsing proposals...');
 
     // Parse the JSON response
     let parsed: { proposals: CopyProposal[] };
@@ -234,7 +212,7 @@ Return ONLY valid JSON (no markdown fences, no extra text) in this format:
       imageSuggestion: p.imageSuggestion || '',
     }));
 
-    console.log(`Successfully generated ${proposals.length} copy proposals via Claude`);
+    console.log(`Successfully generated ${proposals.length} copy proposals via OpenAI`);
 
     return new Response(
       JSON.stringify({ proposals }),
@@ -256,99 +234,3 @@ Return ONLY valid JSON (no markdown fences, no extra text) in this format:
     );
   }
 });
-
-/**
- * Fetch with a single retry on network timeout, plus rate limit and content policy handling.
- * Adapted for Anthropic API error responses.
- */
-async function fetchWithRetry(
-  url: string,
-  options: RequestInit,
-  retryCount = 0
-): Promise<{ response?: Response; error?: string; message?: string; retryAfter?: number; status?: number }> {
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
-
-    const response = await fetch(url, { ...options, signal: controller.signal });
-    clearTimeout(timeoutId);
-
-    if (response.ok) {
-      return { response };
-    }
-
-    // Rate limit (Anthropic uses 429)
-    if (response.status === 429) {
-      const retryAfter = parseInt(response.headers.get('retry-after') || '30', 10);
-      console.warn(`Rate limited. Retry after ${retryAfter}s`);
-      return {
-        error: 'rate_limit',
-        message: 'Rate limit exceeded. Please try again later.',
-        retryAfter,
-        status: 429,
-      };
-    }
-
-    // Anthropic overloaded (529)
-    if (response.status === 529) {
-      console.warn('Anthropic API overloaded');
-      return {
-        error: 'rate_limit',
-        message: 'AI service is temporarily overloaded. Please try again in a moment.',
-        retryAfter: 15,
-        status: 529,
-      };
-    }
-
-    // Auth error
-    if (response.status === 401 || response.status === 403) {
-      console.error('Auth error:', response.status);
-      return {
-        error: 'auth_error',
-        message: 'Service unavailable',
-        status: response.status,
-      };
-    }
-
-    // Bad request (400) — content policy or invalid request
-    if (response.status === 400) {
-      const errorBody = await response.text();
-      if (errorBody.includes('content_policy') || errorBody.includes('safety')) {
-        return {
-          error: 'content_policy',
-          message: 'The request was rejected due to content policy. Please modify your prompt.',
-          status: 400,
-        };
-      }
-      return {
-        error: 'parse_error',
-        message: `API error: ${errorBody}`,
-        status: 400,
-      };
-    }
-
-    // Other errors
-    const errorText = await response.text();
-    console.error(`API error ${response.status}:`, errorText);
-    return {
-      error: 'parse_error',
-      message: `API error: ${response.status}`,
-      status: response.status,
-    };
-  } catch (err) {
-    // Network timeout — retry once
-    if (retryCount < 1) {
-      console.warn('Network error, retrying...', err);
-      const backoffMs = (retryCount + 1) * 2000;
-      await new Promise((resolve) => setTimeout(resolve, backoffMs));
-      return fetchWithRetry(url, options, retryCount + 1);
-    }
-
-    console.error('Network error after retry:', err);
-    return {
-      error: 'network_error',
-      message: 'Network error. Please try again.',
-      status: 500,
-    };
-  }
-}

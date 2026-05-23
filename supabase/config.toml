@@ -1,6 +1,3 @@
-[project]
-id = "scory-design"
-
 [functions.generate-design-image]
 verify_jwt = false
 
@@ -27,3 +24,6 @@ verify_jwt = false
 
 [functions.render-design-png]
 verify_jwt = false
+
+[functions.compliance-wizard]
+verify_jwt = true

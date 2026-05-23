@@ -10,6 +10,7 @@ import {
   normalizeQualityScore,
   validateVariantResponse,
 } from "../_shared/validateResponse.ts";
+import { callOpenAI } from "../_shared/callOpenAI.ts";
 
 // ---------------------------------------------------------------------------
 // CORS
@@ -135,121 +136,6 @@ Devuelve exclusivamente JSON válido.
 \`\`\``;
 
 // ---------------------------------------------------------------------------
-// fetchWithRetry — Anthropic API calls with retry logic
-// ---------------------------------------------------------------------------
-
-/**
- * Fetch with a single retry on network timeout, plus rate limit, content
- * policy, and overloaded handling for Anthropic API.
- *
- * Requirements: 3.1, 3.7 (error handling table in design doc)
- */
-async function fetchWithRetry(
-  url: string,
-  options: RequestInit,
-  retryCount = 0,
-): Promise<{
-  response?: Response;
-  error?: string;
-  message?: string;
-  retryAfter?: number;
-  status?: number;
-}> {
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
-
-    const response = await fetch(url, { ...options, signal: controller.signal });
-    clearTimeout(timeoutId);
-
-    if (response.ok) {
-      return { response };
-    }
-
-    // Rate limit (429)
-    if (response.status === 429) {
-      const retryAfter = parseInt(
-        response.headers.get("retry-after") || "30",
-        10,
-      );
-      console.warn(`Rate limited. Retry after ${retryAfter}s`);
-      return {
-        error: "rate_limit",
-        message: "Demasiadas solicitudes. Intenta en un momento.",
-        retryAfter,
-        status: 429,
-      };
-    }
-
-    // Anthropic overloaded (529)
-    if (response.status === 529) {
-      console.warn("Anthropic API overloaded (529)");
-      return {
-        error: "rate_limit",
-        message: "Servicio temporalmente sobrecargado. Intenta en un momento.",
-        status: 529,
-      };
-    }
-
-    // Content policy rejection (400)
-    if (response.status === 400) {
-      const errorBody = await response.text();
-      if (
-        errorBody.includes("content_policy") ||
-        errorBody.includes("safety")
-      ) {
-        console.warn("Content policy rejection:", errorBody);
-        return {
-          error: "content_policy",
-          message:
-            "La solicitud fue rechazada por políticas de contenido. Modifica tu instrucción.",
-          status: 400,
-        };
-      }
-      return {
-        error: "parse_error",
-        message: `API error: ${errorBody}`,
-        status: 400,
-      };
-    }
-
-    // Auth error (401/403)
-    if (response.status === 401 || response.status === 403) {
-      console.error("Auth error:", response.status);
-      return {
-        error: "auth_error",
-        message: "Service unavailable",
-        status: response.status,
-      };
-    }
-
-    // Other errors
-    const errorText = await response.text();
-    console.error(`API error ${response.status}:`, errorText);
-    return {
-      error: "parse_error",
-      message: `API error: ${response.status}`,
-      status: response.status,
-    };
-  } catch (err) {
-    // Network timeout — retry once with exponential backoff
-    if (retryCount < 1) {
-      console.warn("Network error, retrying...", err);
-      const backoffMs = (retryCount + 1) * 2000;
-      await new Promise((resolve) => setTimeout(resolve, backoffMs));
-      return fetchWithRetry(url, options, retryCount + 1);
-    }
-
-    console.error("Network error after retry:", err);
-    return {
-      error: "network_error",
-      message: "Error de conexión. Intenta de nuevo.",
-      status: 500,
-    };
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Main handler
 // ---------------------------------------------------------------------------
 
@@ -260,20 +146,6 @@ serve(async (req) => {
   }
 
   try {
-    const anthropicApiKey = Deno.env.get("ANTHROPIC_API_KEY");
-    if (!anthropicApiKey) {
-      return new Response(
-        JSON.stringify({
-          error: "auth_error",
-          message: "Service unavailable",
-        }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
-      );
-    }
-
     // --- Parse request body ------------------------------------------------
     let body: GenerateVariantsRequest;
     try {
@@ -397,43 +269,38 @@ serve(async (req) => {
       templateVariables,
     );
 
-    // --- Call Claude with interpolated prompt (Req 3.2, 3.6) ---------------
-    console.log("Calling Claude for variant generation...");
+    // --- Call OpenAI with interpolated prompt (Req 3.2, 3.6) ---------------
+    console.log("Calling OpenAI for variant generation...");
 
-    const apiResponse = await fetchWithRetry(
-      "https://api.anthropic.com/v1/messages",
-      {
-        method: "POST",
-        headers: {
-          "x-api-key": anthropicApiKey,
-          "anthropic-version": "2023-06-01",
-          "Content-Type": "application/json",
+    const result = await callOpenAI({
+      messages: [
+        { role: "system", content: interpolatedPrompt },
+        {
+          role: "user",
+          content:
+            "Genera 3 variantes optimizadas de la pieza actual siguiendo la instrucción de optimización. Responde SOLO con JSON válido.",
         },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 4000,
-          system: interpolatedPrompt,
-          messages: [
-            {
-              role: "user",
-              content:
-                "Genera 3 variantes optimizadas de la pieza actual siguiendo la instrucción de optimización. Responde SOLO con JSON válido.",
-            },
-          ],
-          temperature: 0.7,
-        }),
-      },
-    );
+      ],
+      max_completion_tokens: 4096,
+      temperature: 0.7,
+      timeoutMs: 60_000,
+    });
 
-    if (apiResponse.error) {
-      return new Response(JSON.stringify(apiResponse), {
-        status: apiResponse.status || 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    if (!result.success) {
+      return new Response(
+        JSON.stringify({
+          error: result.error,
+          message: result.message,
+          retryAfter: result.retryAfter,
+        }),
+        {
+          status: result.status || 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
-    const data = await apiResponse.response!.json();
-    const content = data.content?.[0]?.text || "";
+    const content = result.content;
 
     // --- Validate response (Req 3.3, 3.7, 7.3) ----------------------------
     const validation = validateVariantResponse(content);

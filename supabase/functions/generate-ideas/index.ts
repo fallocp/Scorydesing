@@ -746,6 +746,7 @@ Para cada idea, genera internamente 10 candidatos de headline y selecciona el m�
     "slides": ["frase 1 para carrusel", "frase 2", "frase 3", "frase 4", "frase 5 opcional"],
     "imageText": "string — máx 12 palabras para overlay en imagen",
     "imageSuggestion": "string — dirección visual concreta para generar la imagen. Debe describir una ESCENA ESPECÍFICA con elementos visuales concretos (no abstractos). Si el contexto de rama tiene visual_language, úsalo. Incluye: objetos concretos (dashboards, monedas con símbolos USD/EUR/MXN, interfaces, gráficas, pantallas), composición (qué se ve en primer plano, qué en fondo), y mood (profesional, limpio, premium). Cada idea debe tener una dirección visual DIFERENTE — varía escenarios, elementos y composición. NO repitas la misma escena para todas las ideas.",
+    "imageIntent": "string — concepto semántico de lo que la imagen debe COMUNICAR. Describe la intención comunicativa (qué debe sentir/entender el espectador), no la escena técnica. Ejemplo: 'Urgencia de un pago detenido que frena la operación'. Este campo alimenta al Image Agent.",
     "angle": "{{commercialBranch}}",
     "pain_point": "string — el dolor operativo concreto detrás de esta idea",
     "business_scenario": "string — la situación real donde aparece este dolor"

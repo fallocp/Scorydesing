@@ -833,37 +833,67 @@ erDiagram
 
 ## Correctness Properties
 
-Las siguientes propiedades deben mantenerse verdaderas en todo momento del sistema:
+*Una propiedad es una característica o comportamiento que debe mantenerse verdadero en todas las ejecuciones válidas del sistema — esencialmente, una declaración formal sobre lo que el sistema debe hacer. Las propiedades sirven como puente entre especificaciones legibles por humanos y garantías de corrección verificables por máquina.*
 
 ### Property 1: Aislamiento de tenant
-Para todo `pipeline_run` R y todo `business_id` B, si R.business_id ≠ B entonces ningún usuario de B puede leer ni modificar R.
+
+*Para todo* `pipeline_run` R y todo `business_id` B, si R.business_id ≠ B entonces ningún usuario de B puede leer ni modificar R. Esto aplica igualmente a pipeline_steps, pipeline_pieces, creative_profiles, learning_deltas, y asset_snapshots.
+
+**Validates: Requirements 1.1, 1.2, 1.4, 1.5**
 
 ### Property 2: Integridad de estado
-Para todo `pipeline_run` R, R.status siempre pertenece al conjunto de estados válidos definidos en la state machine, y toda transición de estado sigue una arista válida del diagrama de estados.
+
+*Para todo* `pipeline_run` R, R.status siempre pertenece al conjunto de 14 estados válidos definidos en la state machine, y toda transición de estado sigue una arista válida del diagrama de estados. Cualquier intento de transición inválida es rechazado sin modificar el estado actual.
+
+**Validates: Requirements 2.1, 2.2, 2.3, 2.4**
 
 ### Property 3: Idempotencia de pasos
-Para todo `pipeline_step` S, ejecutar `retryStep(S)` produce el mismo resultado que la primera ejecución si el input no cambió (los agentes son funciones puras sobre su input).
+
+*Para todo* `pipeline_step` S con input determinístico, ejecutar `retryStep(S)` produce el mismo resultado que la primera ejecución exitosa (los agentes son funciones puras sobre su input).
+
+**Validates: Requirements 3.1, 3.2**
 
 ### Property 4: Preservación de resultados
-Para todo `pipeline_run` R con paso N fallido, los outputs de pasos 1..N-1 permanecen intactos y accesibles después del fallo.
+
+*Para todo* `pipeline_run` R con paso N fallido, los outputs de pasos 1..N-1 permanecen intactos, accesibles, y sin modificación después del fallo. Cada output se persiste inmediatamente tras completación exitosa.
+
+**Validates: Requirements 4.1, 4.2, 4.3, 4.4**
 
 ### Property 5: Consistencia de templates
-Para toda combinación válida de `(content_type, platform, visual_tone, layout_variation)`, el Template Engine produce un HTML con dimensiones exactas `PLATFORM_DIMENSIONS[platform]`.
+
+*Para toda* combinación válida de `(content_type, platform, visual_tone, layout_variation)`, el Template Engine produce un HTML con dimensiones exactas `PLATFORM_DIMENSIONS[platform]` y todos los placeholders requeridos reemplazados.
+
+**Validates: Requirements 5.1, 5.3, 5.5**
 
 ### Property 6: Compliance gate
-Ninguna pieza puede alcanzar `piece_status = 'rendered'` sin haber pasado por el Claim Validator con `riskLevel ≠ 'high'`.
+
+*Para toda* `pipeline_piece` que alcanza `piece_status = 'rendered'`, existe un registro de validación del Claim_Validator con `riskLevel ≠ 'high'`. Ninguna pieza puede saltarse la validación de compliance en su camino al renderizado.
+
+**Validates: Requirements 6.1, 6.2, 6.4**
 
 ### Property 7: Brand isolation en templates
-Para todo template hydratado con `TemplateData` de business B, el HTML resultante solo contiene assets (logo, colores, disclaimer) de B — nunca de otro business.
+
+*Para todo* template hydratado con `TemplateData` de business B, el HTML resultante solo contiene assets (logo, colores, fonts, disclaimer) de B — nunca de otro business. Igualmente, el Prompt_Composer solo inyecta datos del creative_profile de B.
+
+**Validates: Requirements 7.1, 7.2, 7.3, 7.4**
 
 ### Property 8: Límite de iteraciones
-Para toda imagen en `pipeline_pieces`, `image_iterations.length ≤ max_iterations` (configurado en `PipelineOptions`).
+
+*Para toda* imagen en `pipeline_pieces`, `image_iterations.length ≤ max_iterations` (configurado en `PipelineOptions`, default: 3). Toda solicitud de iteración que exceda el límite es rechazada.
+
+**Validates: Requirements 8.1, 8.2, 8.3, 8.4**
 
 ### Property 9: Completitud de pipeline
-Un `pipeline_run` con status `completed` tiene al menos una `pipeline_piece` con `piece_status = 'rendered'` y `png_storage_path IS NOT NULL`.
+
+*Para todo* `pipeline_run` con status `completed`, existe al menos una `pipeline_piece` con `piece_status = 'rendered'` y `png_storage_path IS NOT NULL`. El sistema no permite transicionar a completed sin esta condición.
+
+**Validates: Requirements 9.1, 9.2, 9.3**
 
 ### Property 10: Backward compatibility
-Invocar cualquier Edge Function existente (`generate-ideas`, `generate-design-image`, `generate-design-html`) con los parámetros legacy sigue produciendo el mismo resultado que antes de la implementación del orquestador.
+
+*Para toda* Edge Function migrada, invocarla con parámetros en formato legacy produce un output con la misma estructura que antes de la migración. Las funciones operan de forma independiente sin requerir el Pipeline_Orchestrator.
+
+**Validates: Requirements 10.1, 10.2, 10.3**
 
 ## Error Handling
 
