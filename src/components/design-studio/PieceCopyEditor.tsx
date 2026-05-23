@@ -2,6 +2,7 @@
  * PieceCopyEditor — Editable copy fields + image type/prompt for Design Studio.
  *
  * Shows when contentMode === 'branch' and allows the user to:
+ * - Generate copy automatically from the branch (calls generate-ideas)
  * - Edit specific copy (headline, body, CTA, punchline)
  * - Select image type (Foto, Infografía, 3D Clay, Financiero)
  * - Edit the image prompt
@@ -9,11 +10,13 @@
  * These fields are optional — if empty, the branch ingredients are used as fallback.
  */
 
+import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Camera, BarChart3, Box, TrendingUp } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Camera, BarChart3, Box, TrendingUp, Sparkles, Loader2 } from 'lucide-react';
 import type { PieceCopy, PieceImagePrompt, DesignImageType } from '@/types/design-studio';
 
 interface PieceCopyEditorProps {
@@ -22,6 +25,8 @@ interface PieceCopyEditorProps {
   onCopyFieldChange: (field: keyof PieceCopy, value: string) => void;
   onImageTypeChange: (type: DesignImageType) => void;
   onImagePromptChange: (text: string) => void;
+  onGenerateCopy?: () => Promise<void>;
+  isGeneratingCopy?: boolean;
   disabled?: boolean;
 }
 
@@ -38,10 +43,36 @@ export function PieceCopyEditor({
   onCopyFieldChange,
   onImageTypeChange,
   onImagePromptChange,
+  onGenerateCopy,
+  isGeneratingCopy = false,
   disabled = false,
 }: PieceCopyEditorProps) {
   return (
     <div className="space-y-5 rounded-lg border border-border/50 bg-muted/30 p-4">
+      {/* Generate copy button */}
+      {onGenerateCopy && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={onGenerateCopy}
+          disabled={disabled || isGeneratingCopy}
+          className="w-full"
+        >
+          {isGeneratingCopy ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Generando copy e imagen...
+            </>
+          ) : (
+            <>
+              <Sparkles className="h-4 w-4 mr-2" />
+              Generar copy + prompt de imagen
+            </>
+          )}
+        </Button>
+      )}
+
       {/* Copy fields */}
       <div className="space-y-3">
         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">

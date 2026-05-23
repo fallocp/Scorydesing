@@ -41,6 +41,7 @@ import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useBusinessConfig } from '@/hooks/useBusinessConfig';
 import { useAuth } from '@/hooks/useAuth';
 import { useDesignStudioBranches, extractIngredients } from '@/hooks/useDesignStudioBranches';
+import { useGenerateIdeas } from '@/hooks/useGenerateIdeas';
 
 import { validateBrandPalette } from '@/utils/design-studio/brandPaletteValidator';
 import { convertToTemplate } from '@/utils/design-studio/templateConverter';
@@ -71,11 +72,13 @@ export default function DesignStudioPage() {
   const saveMockup = useSaveMockup();
   const { data: savedMockups = [], isLoading: isLoadingSaved } = useSavedMockups();
   const { data: branches = [], isLoading: isLoadingBranches } = useDesignStudioBranches();
+  const generateIdeas = useGenerateIdeas();
 
   // --- Local UI state ---
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [selectedSavedId, setSelectedSavedId] = useState<string | null>(null);
+  const [isGeneratingCopy, setIsGeneratingCopy] = useState(false);
 
   // --- Derived state ---
   const isAnyLoading = store.isGeneratingMockups || store.isGeneratingHtml || store.isSaving;
@@ -134,6 +137,60 @@ export default function DesignStudioPage() {
   // ---------------------------------------------------------------------------
   // Handlers
   // ---------------------------------------------------------------------------
+
+  const handleGenerateCopy = useCallback(async () => {
+    if (!activeBusinessId || !store.selections.commercialBranchSlug) return;
+
+    const selectedBranch = branches.find(b => b.slug === store.selections.commercialBranchSlug);
+    if (!selectedBranch) return;
+
+    setIsGeneratingCopy(true);
+
+    try {
+      // Generate copy (headline + subcopy + CTA)
+      const copyResponse = await generateIdeas.mutateAsync({
+        type: 'copy',
+        brand: (activeBusiness?.slug === 'xending-capital' ? 'xending_capital' : 'xending') as any,
+        business_id: activeBusinessId,
+        branch_id: selectedBranch.id,
+      });
+
+      // Parse the first idea
+      const firstIdea = copyResponse.ideas?.[0];
+      if (firstIdea && typeof firstIdea === 'object') {
+        store.updatePieceCopyField('headline', firstIdea.headline || '');
+        store.updatePieceCopyField('body', firstIdea.subcopy || '');
+        store.updatePieceCopyField('cta', firstIdea.cta || '');
+      } else if (typeof firstIdea === 'string') {
+        store.updatePieceCopyField('headline', firstIdea);
+      }
+
+      // Generate image prompt
+      const imageResponse = await generateIdeas.mutateAsync({
+        type: 'image',
+        brand: (activeBusiness?.slug === 'xending-capital' ? 'xending_capital' : 'xending') as any,
+        business_id: activeBusinessId,
+        branch_id: selectedBranch.id,
+        headline: typeof firstIdea === 'object' ? firstIdea.headline : (firstIdea ?? ''),
+        subcopy: typeof firstIdea === 'object' ? firstIdea.subcopy : '',
+      });
+
+      const imagePrompt = imageResponse.ideas?.[0];
+      if (imagePrompt && typeof imagePrompt === 'string') {
+        store.setPieceImagePromptText(imagePrompt);
+      }
+
+      toast({
+        title: 'Copy generado',
+        description: 'Headline, body, CTA y prompt de imagen listos. Edita si quieres.',
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error generando copy';
+      toast({ title: 'Error', description: message, variant: 'destructive' });
+    } finally {
+      setIsGeneratingCopy(false);
+    }
+  }, [activeBusinessId, store.selections.commercialBranchSlug, branches, activeBusiness]);
 
   const handleGenerateMockups = useCallback(async () => {
     if (!store.brandPalette || !activeBusinessId) return;
@@ -448,6 +505,8 @@ export default function DesignStudioPage() {
                 onCopyFieldChange={(field, value) => store.updatePieceCopyField(field, value)}
                 onImageTypeChange={(type) => store.setPieceImageType(type)}
                 onImagePromptChange={(text) => store.setPieceImagePromptText(text)}
+                onGenerateCopy={handleGenerateCopy}
+                isGeneratingCopy={isGeneratingCopy}
                 disabled={isAnyLoading}
               />
             )}
