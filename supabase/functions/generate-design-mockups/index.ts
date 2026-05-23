@@ -64,6 +64,9 @@ interface GenerateMockupsRequest {
   content_mode?: 'free' | 'branch' | 'custom';
   branch_ingredients?: BranchContentIngredients;
   custom_idea?: string;
+  // Piece-level copy and image prompt
+  piece_copy?: { headline: string; body?: string; cta?: string; punchline?: string };
+  piece_image_prompt?: { type: string; prompt: string };
 }
 
 interface GeneratedMockup {
@@ -112,6 +115,8 @@ function buildGenerationPrompt(
   businessContext?: string,
   branchIngredients?: BranchContentIngredients,
   customIdea?: string,
+  pieceCopy?: { headline: string; body?: string; cta?: string; punchline?: string },
+  pieceImagePrompt?: { type: string; prompt: string },
 ): string {
   const sections: string[] = [];
 
@@ -244,6 +249,33 @@ Generate a COMPLETE, FINISHED advertising piece — not just a background. The o
     sections.push(contentLines.join('\n'));
   } else if (contentMode === 'custom' && customIdea) {
     sections.push(`Content Direction (user idea — interpret creatively):\n"${customIdea}"\nRespect the visual style selections while bringing this idea to life.`);
+  }
+
+  // Section 4b: Piece-specific copy and image prompt (when provided, these override branch suggestions)
+  if (pieceCopy?.headline) {
+    const copyLines: string[] = [];
+    copyLines.push('EXACT COPY TO INCLUDE IN THE AD (use this text, not the suggested headlines above):');
+    copyLines.push(`- Headline: "${pieceCopy.headline}"`);
+    if (pieceCopy.body) copyLines.push(`- Body: "${pieceCopy.body}"`);
+    if (pieceCopy.cta) copyLines.push(`- CTA: "${pieceCopy.cta}"`);
+    if (pieceCopy.punchline) copyLines.push(`- Punchline: "${pieceCopy.punchline}"`);
+    sections.push(copyLines.join('\n'));
+  }
+
+  if (pieceImagePrompt?.prompt) {
+    const imageTypeLabels: Record<string, string> = {
+      'foto': 'Professional photograph (realistic, editorial quality)',
+      'infografia': 'Infographic / data visualization (flat design, icons, geometric shapes)',
+      '3d_clay': '3D Clay / isometric illustration (soft 3D render, clay-like materials, playful)',
+      'financiero': 'Financial data visualization (charts, tickers, dashboards, dark premium)',
+    };
+    const typeLabel = imageTypeLabels[pieceImagePrompt.type] || pieceImagePrompt.type;
+
+    const imageLines: string[] = [];
+    imageLines.push(`MAIN VISUAL (type: ${typeLabel}):`);
+    imageLines.push(pieceImagePrompt.prompt);
+    imageLines.push('Use this description for the main visual element in the ad. Integrate it naturally into the layout.');
+    sections.push(imageLines.join('\n'));
   }
 
   // Section 5: Variation and quality instructions
@@ -489,6 +521,8 @@ serve(async (req) => {
         body.business_context,
         body.branch_ingredients,
         body.custom_idea,
+        body.piece_copy,
+        body.piece_image_prompt,
       );
     } else {
       prompt = buildReferencePrompt(body.reference_description, brand_palette, platform, variationIndex, body.business_name, body.business_context);

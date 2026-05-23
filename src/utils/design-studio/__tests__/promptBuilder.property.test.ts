@@ -48,6 +48,8 @@ const arbVisualSelections: fc.Arbitrary<VisualSelections> = fc.record({
   contentMode: fc.constantFrom('free' as const, 'branch' as const, 'custom' as const),
   commercialBranchSlug: arbNullableSelection,
   customIdea: arbNullableSelection,
+  pieceCopy: fc.constant(null),
+  pieceImagePrompt: fc.constant(null),
 });
 
 /** Generate a hex color string. */

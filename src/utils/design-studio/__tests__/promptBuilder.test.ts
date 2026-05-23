@@ -23,6 +23,8 @@ describe('buildGenerationPrompt', () => {
     contentMode: 'free',
     commercialBranchSlug: null,
     customIdea: null,
+    pieceCopy: null,
+    pieceImagePrompt: null,
   };
 
   it('includes all non-null selections in the prompt', () => {
@@ -56,6 +58,8 @@ describe('buildGenerationPrompt', () => {
       contentMode: 'free',
       commercialBranchSlug: null,
       customIdea: null,
+      pieceCopy: null,
+      pieceImagePrompt: null,
     };
 
     const prompt = buildGenerationPrompt(partialSelections, fullBrandPalette);
@@ -117,6 +121,8 @@ describe('buildGenerationPrompt', () => {
       contentMode: 'free',
       commercialBranchSlug: null,
       customIdea: null,
+      pieceCopy: null,
+      pieceImagePrompt: null,
     };
 
     const prompt = buildGenerationPrompt(minimalSelections, fullBrandPalette);

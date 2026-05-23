@@ -24,6 +24,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { BrandPalettePreview } from '@/components/design-studio/BrandPalettePreview';
 import { VisualSelector } from '@/components/design-studio/VisualSelector';
 import { ContentModeSelector } from '@/components/design-studio/ContentModeSelector';
+import { PieceCopyEditor } from '@/components/design-studio/PieceCopyEditor';
 import { ReferenceImageUploader } from '@/components/design-studio/ReferenceImageUploader';
 import { MockupGallery } from '@/components/design-studio/MockupGallery';
 import { SavedMockupsGrid } from '@/components/design-studio/SavedMockupsGrid';
@@ -173,6 +174,14 @@ export default function DesignStudioPage() {
             }
           }
           request.content_mode = 'branch';
+
+          // Pass piece-level copy and image prompt if provided
+          if (store.selections.pieceCopy?.headline) {
+            request.piece_copy = store.selections.pieceCopy;
+          }
+          if (store.selections.pieceImagePrompt?.prompt) {
+            request.piece_image_prompt = store.selections.pieceImagePrompt;
+          }
         } else if (store.selections.contentMode === 'custom' && store.selections.customIdea) {
           request.custom_idea = store.selections.customIdea;
           request.content_mode = 'custom';
@@ -430,6 +439,18 @@ export default function DesignStudioPage() {
               onCustomIdeaChange={(idea) => store.setCustomIdea(idea)}
               disabled={isAnyLoading}
             />
+
+            {/* Piece Copy & Image Prompt (visible when branch is selected) */}
+            {store.selections.contentMode === 'branch' && store.selections.commercialBranchSlug && (
+              <PieceCopyEditor
+                pieceCopy={store.selections.pieceCopy}
+                pieceImagePrompt={store.selections.pieceImagePrompt}
+                onCopyFieldChange={(field, value) => store.updatePieceCopyField(field, value)}
+                onImageTypeChange={(type) => store.setPieceImageType(type)}
+                onImagePromptChange={(text) => store.setPieceImagePromptText(text)}
+                disabled={isAnyLoading}
+              />
+            )}
           </TabsContent>
 
           <TabsContent value="reference" className="mt-6">

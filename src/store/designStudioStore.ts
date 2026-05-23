@@ -8,11 +8,14 @@ import { devtools } from 'zustand/middleware';
 import type {
   BrandPalette,
   ContentMode,
+  DesignImageType,
   DesignSession,
   DesignSessionStatus,
   DesignStudioStore,
   GeneratedMockup,
   HtmlIteration,
+  PieceCopy,
+  PieceImagePrompt,
   PlatformFormat,
   SelectionCategory,
   VisualSelections,
@@ -28,6 +31,8 @@ const initialSelections: VisualSelections = {
   contentMode: 'free',
   commercialBranchSlug: null,
   customIdea: null,
+  pieceCopy: null,
+  pieceImagePrompt: null,
 };
 
 // Initial state values (extracted for reset)
@@ -187,6 +192,71 @@ export const useDesignStudioStore = create<DesignStudioStore>()(
           }),
           false,
           'setCustomIdea'
+        ),
+
+      // --- Piece Copy & Image Prompt ---
+      setPieceCopy: (copy: PieceCopy | null) =>
+        set(
+          (state) => ({
+            selections: { ...state.selections, pieceCopy: copy },
+          }),
+          false,
+          'setPieceCopy'
+        ),
+
+      updatePieceCopyField: (field: keyof PieceCopy, value: string) =>
+        set(
+          (state) => ({
+            selections: {
+              ...state.selections,
+              pieceCopy: {
+                headline: state.selections.pieceCopy?.headline ?? '',
+                ...state.selections.pieceCopy,
+                [field]: value,
+              },
+            },
+          }),
+          false,
+          'updatePieceCopyField'
+        ),
+
+      setPieceImagePrompt: (prompt: PieceImagePrompt | null) =>
+        set(
+          (state) => ({
+            selections: { ...state.selections, pieceImagePrompt: prompt },
+          }),
+          false,
+          'setPieceImagePrompt'
+        ),
+
+      setPieceImageType: (type: DesignImageType) =>
+        set(
+          (state) => ({
+            selections: {
+              ...state.selections,
+              pieceImagePrompt: {
+                type,
+                prompt: state.selections.pieceImagePrompt?.prompt ?? '',
+              },
+            },
+          }),
+          false,
+          'setPieceImageType'
+        ),
+
+      setPieceImagePromptText: (text: string) =>
+        set(
+          (state) => ({
+            selections: {
+              ...state.selections,
+              pieceImagePrompt: {
+                type: state.selections.pieceImagePrompt?.type ?? 'foto',
+                prompt: text,
+              },
+            },
+          }),
+          false,
+          'setPieceImagePromptText'
         ),
 
       // --- Reference ---
