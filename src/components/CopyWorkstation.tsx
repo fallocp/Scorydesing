@@ -26,6 +26,7 @@ import { DESIGN_TEMPLATES, getTemplateById, fillTemplate } from '@/constants/des
 import { BULLETIN_TEMPLATES, getBulletinTemplateById } from '@/constants/bulletinTemplates';
 import type { StrategyBranch, CopyIdea, PlatformFormat } from '@/types/xendingDesign';
 import { PLATFORM_DIMENSIONS } from '@/types/xendingDesign';
+import { useCustomTemplates } from '@/hooks/useCustomTemplates';
 
 import { HtmlSectionEditor } from './HtmlSectionEditor';
 import { VisualDesignEditor } from './VisualDesignEditor';
@@ -99,14 +100,34 @@ export function CopyWorkstation({ branch, branchName, initialBrainstormOpen = fa
     return null;
   })();
 
-  // Resolve template from either campaign or bulletin templates
-  const resolveTemplate = (id: string) => getTemplateById(id) || getBulletinTemplateById(id);
+  // Resolve template from either campaign, bulletin, or custom templates
+  const resolveTemplate = (id: string) => {
+    // Check if it's a custom template (prefixed with "custom:")
+    if (id.startsWith('custom:')) {
+      const customId = id.replace('custom:', '');
+      const ct = customTemplates.find((t) => t.id === customId);
+      if (ct) {
+        return {
+          id: `custom:${ct.id}`,
+          name: ct.name,
+          emoji: '⭐',
+          description: 'Template personalizado',
+          needsImage: false,
+          html: ct.html_template,
+        };
+      }
+    }
+    return getTemplateById(id) || getBulletinTemplateById(id);
+  };
 
   // Available templates depend on whether this is a bulletin or campaign
   const availableTemplates = isBulletin ? BULLETIN_TEMPLATES : DESIGN_TEMPLATES;
 
+  // Fetch custom templates for the active business (Design Studio templates)
+  const { data: customTemplates = [] } = useCustomTemplates();
+
   // Default template for bulletins comes from metadata
-  const defaultTemplateId = bulletinMeta?.templateId || (isBulletin ? 'bulletin-dark' : 'ai');
+  const defaultTemplateId = bulletinMeta?.templateId || (isBulletin ? 'bulletin-dark' : 'card-light');
   const currentCampaign = useDesignStore((s) => s.currentCampaign);
   const setCampaign = useDesignStore((s) => s.setCampaign);
   const generateImage = useGenerateImage();
@@ -2383,6 +2404,58 @@ export function CopyWorkstation({ branch, branchName, initialBrainstormOpen = fa
                       <p className="text-[10px] text-muted-foreground">
                         {(selectedTemplateIds[index] ?? [templates[index] || defaultTemplateId]).length} templates seleccionados
                       </p>
+                    )}
+
+                    {/* Custom Templates (Design Studio) */}
+                    {!isBulletin && customTemplates.length > 0 && (
+                      <div className="pt-2 border-t border-border/50 space-y-1.5">
+                        <span className="text-[10px] font-medium text-muted-foreground flex items-center gap-1">
+                          ⭐ Mis Templates
+                        </span>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                          {customTemplates.map((ct) => {
+                            const customId = `custom:${ct.id}`;
+                            const currentTemplates = selectedTemplateIds[index] ?? [templates[index] || defaultTemplateId];
+                            const isActive = currentTemplates.includes(customId);
+                            return (
+                              <button
+                                key={ct.id}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedTemplateIds((prev) => {
+                                    const current = prev[index] ?? [templates[index] || defaultTemplateId];
+                                    if (current.includes(customId)) {
+                                      if (current.length > 1) {
+                                        const updated = current.filter((id) => id !== customId);
+                                        if ((templates[index] || defaultTemplateId) === customId) {
+                                          setTemplates((prev) => ({ ...prev, [index]: updated[0] }));
+                                        }
+                                        return { ...prev, [index]: updated };
+                                      }
+                                      return prev;
+                                    } else {
+                                      return { ...prev, [index]: [...current, customId] };
+                                    }
+                                  });
+                                  if (!selectedTemplateIds[index]?.includes(customId)) {
+                                    setTemplates((prev) => ({ ...prev, [index]: customId }));
+                                  }
+                                }}
+                                className={`text-left p-2.5 rounded-lg border transition-all ${
+                                  isActive
+                                    ? 'border-[#FF7A4A] bg-[#FF7A4A]/10 ring-1 ring-[#FF7A4A]/30'
+                                    : 'border-dashed hover:border-[#FF7A4A] hover:bg-[#FF7A4A]/5'
+                                }`}
+                              >
+                                <p className="text-xs font-semibold flex items-center gap-1">
+                                  {isActive && '✓ '}⭐ {ct.name}
+                                </p>
+                                <p className="text-[10px] text-muted-foreground">{ct.platform.replace('-', ' ')}</p>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
                     )}
                   </div>
 

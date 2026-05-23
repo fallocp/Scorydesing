@@ -13,7 +13,7 @@
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Sparkles, Image, Library, Newspaper, Building2, Settings, FileText, Eye, Presentation, Palette } from 'lucide-react';
+import { Sparkles, Image, Library, Newspaper, Building2, Settings, FileText, Eye, Presentation, Palette, ShieldCheck, Wand2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -99,6 +99,20 @@ const MODE_OPTIONS = [
     description: 'Colores, tipografías, gradientes y tokens del sistema',
     icon: Palette,
     route: '/brand-palette',
+  },
+  {
+    key: 'compliance',
+    title: 'Compliance Wizard',
+    description: 'Configura reglas de compliance con IA para tu contenido',
+    icon: ShieldCheck,
+    route: '/compliance',
+  },
+  {
+    key: 'design-studio',
+    title: 'Design Studio',
+    description: 'Crea nuevos templates con IA generativa',
+    icon: Wand2,
+    route: '/design-studio',
   },
 ] as const;
 

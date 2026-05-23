@@ -7,7 +7,7 @@
  */
 
 import { useState } from 'react';
-import { Zap, Image, Users, ChevronDown, ChevronUp } from 'lucide-react';
+import { Zap, Image, Users, ChevronDown, ChevronUp, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,6 +17,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
+import { useCustomTemplates } from '@/hooks/useCustomTemplates';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -90,6 +91,9 @@ export function BatchTemplateSelector({
   const [includePromoter, setIncludePromoter] = useState(false);
   const [showAllTemplates, setShowAllTemplates] = useState(false);
 
+  // Fetch custom templates for the active business
+  const { data: customTemplates = [] } = useCustomTemplates();
+
   // Toggle helpers
   const toggleTemplate = (id: string) => {
     setSelectedTemplates((prev) =>
@@ -109,7 +113,10 @@ export function BatchTemplateSelector({
     );
   };
 
-  const selectAllTemplates = () => setSelectedTemplates(TEMPLATES.map((t) => t.id));
+  const selectAllTemplates = () => setSelectedTemplates([
+    ...TEMPLATES.map((t) => t.id),
+    ...customTemplates.map((t) => `custom:${t.id}`),
+  ]);
   const clearAllTemplates = () => setSelectedTemplates([]);
   const selectAllPlatforms = () => setSelectedPlatforms(PLATFORMS.map((p) => p.id));
   const selectAllPromoters = () => setSelectedPromoters(promoters.map((p) => p.key));
@@ -213,6 +220,53 @@ export function BatchTemplateSelector({
               {showAllTemplates ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
               {showAllTemplates ? 'Mostrar menos' : `Ver todos (${TEMPLATES.length})`}
             </button>
+          )}
+
+          {/* Custom Templates Section */}
+          {customTemplates.length > 0 && (
+            <div className="space-y-2 pt-2 border-t border-border/50">
+              <h5 className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                <Star className="h-3 w-3 text-[#FF7A4A]" />
+                Mis Templates
+              </h5>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {customTemplates.map((ct) => {
+                  const customId = `custom:${ct.id}`;
+                  const isSelected = selectedTemplates.includes(customId);
+                  return (
+                    <button
+                      key={ct.id}
+                      type="button"
+                      onClick={() => toggleTemplate(customId)}
+                      className={`relative flex flex-col items-start gap-1 rounded-lg border p-2.5 text-left transition-all text-xs ${
+                        isSelected
+                          ? 'border-[#FF7A4A] bg-[#FF7A4A]/5 ring-1 ring-[#FF7A4A]/30'
+                          : 'border-border hover:border-[#FF7A4A]/40'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5 w-full">
+                        {ct.thumbnail_url ? (
+                          <img
+                            src={ct.thumbnail_url}
+                            alt={ct.name}
+                            className="w-3 h-3 rounded-sm object-cover"
+                          />
+                        ) : (
+                          <Star className="w-3 h-3 text-[#FF7A4A]" />
+                        )}
+                        <span className="font-medium truncate">{ct.name}</span>
+                      </div>
+                      <span className="text-[10px] text-muted-foreground leading-tight">
+                        {ct.platform.replace('-', ' ')}
+                      </span>
+                      <Badge variant="outline" className="absolute top-1 right-1 text-[8px] px-1 py-0 border-[#FF7A4A]/40 text-[#FF7A4A]">
+                        Personalizado
+                      </Badge>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           )}
         </div>
 

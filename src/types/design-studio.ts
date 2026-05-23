@@ -1,0 +1,257 @@
+// Types and interfaces for the Design Studio feature
+// Enables creation of new templates using AI-powered generation
+
+// --- Platform Format ---
+
+/**
+ * Platform formats supported by the Design Studio.
+ * Extends the base PlatformFormat to include facebook-post as a distinct target.
+ */
+export type PlatformFormat =
+  | 'instagram-story'   // 1080×1920
+  | 'instagram-post'    // 1080×1080
+  | 'facebook-post'     // 1200×628
+  | 'linkedin-post'     // 1200×628
+  | 'banner';           // 1920×1080
+
+export interface PlatformDimensions {
+  width: number;
+  height: number;
+}
+
+/**
+ * Exact pixel dimensions for each supported platform.
+ * Used for mockup generation and HTML preview rendering.
+ */
+export const PLATFORM_DIMENSIONS: Record<PlatformFormat, PlatformDimensions> = {
+  'instagram-story': { width: 1080, height: 1920 },
+  'instagram-post': { width: 1080, height: 1080 },
+  'facebook-post': { width: 1200, height: 628 },
+  'linkedin-post': { width: 1200, height: 628 },
+  'banner': { width: 1920, height: 1080 },
+};
+
+// --- Visual Selections (Mode A) ---
+
+export interface VisualSelections {
+  background: string | null;    // 'dark-navy' | 'light-cream' | 'color-turquoise' | custom
+  visualStyle: string | null;   // 'minimalist' | 'glassmorphism' | 'bold' | 'financial' | 'gradients' | 'hero-photo' | custom
+  contentType: string | null;   // 'stat' | 'news' | 'educational' | 'promo' | 'comparison' | 'event' | 'testimonial' | custom
+  heroElement: string | null;   // 'big-number' | 'main-photo' | 'icon' | 'floating-badge' | 'no-image' | custom
+  platform: PlatformFormat | null;
+}
+
+export type SelectionCategory = 'background' | 'visualStyle' | 'contentType' | 'heroElement' | 'platform';
+
+export interface SelectionOption {
+  value: string;
+  label: string;
+  icon?: string;        // Lucide icon name
+  description?: string;
+}
+
+export interface CategoryConfig {
+  id: SelectionCategory;
+  label: string;
+  options: SelectionOption[];
+  allowCustom: boolean;
+}
+
+// --- Brand Palette ---
+
+export interface BrandPalette {
+  primary_color: string;
+  secondary_color: string;
+  accent_color: string;
+  fonts: {
+    display?: string;
+    body?: string;
+    mono?: string;
+  };
+  logo_url: string;
+  disclaimer?: string;
+}
+
+// --- Generated Mockups ---
+
+export interface GeneratedMockup {
+  index: number;
+  image_base64: string;
+  prompt_used: string;
+}
+
+// --- HTML Iteration ---
+
+export interface HtmlIteration {
+  version: number;
+  html: string;
+  feedback: string | null;  // null for the first version
+  created_at: string;
+}
+
+// --- Design Session ---
+
+export type DesignSessionStatus = 'active' | 'completed' | 'discarded';
+
+export interface DesignSession {
+  id: string;
+  business_id: string;
+  status: DesignSessionStatus;
+  input_mode: 'visual' | 'reference';
+  selections: VisualSelections | null;
+  reference_image_url: string | null;
+  reference_description: string | null;
+  platform: PlatformFormat | null;
+  mockups: GeneratedMockup[];
+  selected_mockup_index: number | null;
+  current_html: string | null;
+  html_history: HtmlIteration[];
+  iteration_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+// --- Template Converter ---
+
+export interface TemplateSlot {
+  name: string;           // 'headline' | 'subcopy' | 'cta' | 'imageUrl' | 'disclaimer'
+  type: 'text' | 'image';
+  required: boolean;
+}
+
+export interface TemplateConverterInput {
+  html: string;
+  brand_palette: BrandPalette;
+}
+
+export interface TemplateConverterOutput {
+  template_html: string;          // HTML with {{placeholders}}
+  detected_slots: TemplateSlot[]; // Detected slots
+}
+
+// --- API Request/Response Types ---
+
+export interface GenerateMockupsRequest {
+  business_id: string;
+  brand_palette: BrandPalette;
+  mode: 'visual' | 'reference';
+  // Mode A
+  selections?: VisualSelections;
+  // Mode B
+  reference_image_base64?: string;
+  reference_description?: string;
+  // Common
+  platform: PlatformFormat;
+  count: 3;
+}
+
+export interface GenerateMockupsResponse {
+  mockups: GeneratedMockup[];
+}
+
+export interface DesignHtmlFromMockupRequest {
+  business_id: string;
+  brand_palette: BrandPalette;
+  mockup_image_base64: string;
+  platform: PlatformFormat;
+  // For iterations
+  current_html?: string;
+  iteration_feedback?: string;
+}
+
+export interface DesignHtmlResponse {
+  html: string;
+}
+
+export interface SaveTemplateRequest {
+  name: string;
+  business_id: string;
+  template_html: string;
+  platform: PlatformFormat;
+  slots: TemplateSlot[];
+  source_mockup_url?: string;
+  thumbnail_base64?: string;
+}
+
+export interface SaveTemplateResponse {
+  id: string;
+  name: string;
+  created_at: string;
+}
+
+// --- Zustand Store Types ---
+
+export interface DesignStudioState {
+  // Session
+  sessionId: string | null;
+  sessionStatus: DesignSessionStatus;
+
+  // Brand Palette (loaded automatically)
+  brandPalette: BrandPalette | null;
+
+  // Input mode
+  inputMode: 'visual' | 'reference';
+
+  // Mode A: Visual selections
+  selections: VisualSelections;
+
+  // Mode B: Reference image
+  referenceImage: File | null;
+  referenceImagePreview: string | null;
+  referenceDescription: string;
+
+  // Platform
+  selectedPlatform: PlatformFormat | null;
+
+  // Generated mockups
+  mockups: GeneratedMockup[];
+  selectedMockupIndex: number | null;
+
+  // HTML
+  currentHtml: string | null;
+  htmlHistory: HtmlIteration[];
+  iterationCount: number;
+
+  // Loading states
+  isGeneratingMockups: boolean;
+  isGeneratingHtml: boolean;
+  isSaving: boolean;
+  error: string | null;
+}
+
+export interface DesignStudioActions {
+  // Session
+  initSession(): void;
+  restoreSession(session: DesignSession): void;
+  discardSession(): void;
+  markSessionCompleted(): void;
+
+  // Selections
+  setInputMode(mode: 'visual' | 'reference'): void;
+  setSelection(category: SelectionCategory, value: string): void;
+  setCustomValue(category: SelectionCategory, value: string): void;
+  setPlatform(platform: PlatformFormat): void;
+
+  // Reference
+  setReferenceImage(file: File | null): void;
+  setReferenceDescription(desc: string): void;
+
+  // Mockups
+  setMockups(mockups: GeneratedMockup[]): void;
+  selectMockup(index: number): void;
+
+  // HTML
+  setCurrentHtml(html: string): void;
+  addIteration(html: string, feedback: string): void;
+
+  // Loading
+  setGeneratingMockups(loading: boolean): void;
+  setGeneratingHtml(loading: boolean): void;
+  setSaving(loading: boolean): void;
+  setError(error: string | null): void;
+
+  // Reset
+  reset(): void;
+}
+
+export type DesignStudioStore = DesignStudioState & DesignStudioActions;

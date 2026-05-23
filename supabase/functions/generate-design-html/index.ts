@@ -2,6 +2,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.53.0";
 import { fetchBusinessContext } from "../_shared/fetchBusinessContext.ts";
+import { callOpenAI } from '../_shared/callOpenAI.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -13,6 +14,16 @@ const XENDING_LOGO_URL = 'https://gdfhytvjnzdovjfovqfv.supabase.co/storage/v1/ob
 const DISCLAIMERS: Record<string, string> = {
   xending: 'Disponible solo para clientes en Estados Unidos. No válido en México.',
   xending_capital: 'Xending Capital es marca comercial de Lemad Capital SAPI de CV SOFOM ENR. Sujeto a aprobación crediticia. Líneas hasta $500,000 USD. Plazos hasta 45 días. Disponible solo en México.',
+};
+
+// ─── Platform dimensions for Design Studio ───
+
+const PLATFORM_DIMENSIONS: Record<string, { width: number; height: number }> = {
+  'instagram-story': { width: 1080, height: 1920 },
+  'instagram-post': { width: 1080, height: 1080 },
+  'facebook-post': { width: 1200, height: 628 },
+  'linkedin-post': { width: 1200, height: 628 },
+  'banner': { width: 1920, height: 1080 },
 };
 
 // ─── Shared CSS fragments ───
@@ -376,6 +387,103 @@ ${googleFontsInstruction}
 Responde SOLO con el HTML completo. Sin explicaciones, sin markdown fences.`;
 }
 
+// ─── Design Studio: Mockup-to-HTML system prompt builder ───
+
+interface DesignStudioBrandPalette {
+  primary_color: string;
+  secondary_color: string;
+  accent_color: string;
+  fonts: {
+    display?: string;
+    body?: string;
+    mono?: string;
+  };
+  logo_url: string;
+  disclaimer?: string;
+}
+
+function buildDesignStudioSystemPrompt(
+  brandPalette: DesignStudioBrandPalette,
+  platform: string,
+): string {
+  const dims = PLATFORM_DIMENSIONS[platform] || PLATFORM_DIMENSIONS['instagram-story'];
+  const displayFont = brandPalette.fonts?.display || 'Inter';
+  const bodyFont = brandPalette.fonts?.body || 'Inter';
+
+  const googleFontsUrl = displayFont === bodyFont
+    ? `https://fonts.googleapis.com/css2?family=${encodeURIComponent(displayFont)}:wght@400;600;700&display=swap`
+    : `https://fonts.googleapis.com/css2?family=${encodeURIComponent(displayFont)}:wght@400;600;700&family=${encodeURIComponent(bodyFont)}:wght@400;500;600;700&display=swap`;
+
+  return `Eres un director creativo senior especializado en convertir mockups visuales a HTML pixel-perfect.
+
+## TU TAREA
+Analiza la imagen del mockup proporcionada y recréala como HTML funcional, respetando fielmente:
+- La composición y layout del mockup
+- Los espaciados, proporciones y posiciones de los elementos
+- La jerarquía visual y tipográfica
+
+## DIMENSIONES OBLIGATORIAS
+El HTML debe tener exactamente ${dims.width}px × ${dims.height}px (plataforma: ${platform}).
+
+## IDENTIDAD DE MARCA (USAR OBLIGATORIAMENTE)
+- Color primario: ${brandPalette.primary_color}
+- Color secundario: ${brandPalette.secondary_color}
+- Color acento: ${brandPalette.accent_color}
+- Tipografía display/headlines: '${displayFont}'
+- Tipografía body/texto: '${bodyFont}'
+- Logo URL: ${brandPalette.logo_url}
+${brandPalette.disclaimer ? `- Disclaimer: "${brandPalette.disclaimer}"` : ''}
+
+## GOOGLE FONTS
+Incluir este link en el <head>:
+<link href="${googleFontsUrl}" rel="stylesheet">
+
+## REGLAS DE GENERACIÓN
+1. Genera HTML completo con <!DOCTYPE html>, <html>, <head>, <body>
+2. Todo el CSS debe estar inline en un <style> tag dentro del <head>
+3. Usa las tipografías de marca en TODOS los textos (headlines con '${displayFont}', body con '${bodyFont}')
+4. Usa los colores de marca para acentos, botones, gradientes y elementos decorativos
+5. El logo de marca debe aparecer usando la URL proporcionada — NUNCA inventar un logo
+6. El contenedor principal debe tener width: ${dims.width}px y height: ${dims.height}px
+7. Usa position: relative/absolute para posicionar elementos como en el mockup
+8. Mantén la fidelidad visual al mockup pero adaptando colores y tipografías a la marca
+
+## OUTPUT
+Responde SOLO con el HTML completo. Sin explicaciones, sin markdown fences, sin comentarios fuera del HTML.`;
+}
+
+function buildDesignStudioIterationPrompt(
+  brandPalette: DesignStudioBrandPalette,
+  platform: string,
+): string {
+  const dims = PLATFORM_DIMENSIONS[platform] || PLATFORM_DIMENSIONS['instagram-story'];
+  const displayFont = brandPalette.fonts?.display || 'Inter';
+  const bodyFont = brandPalette.fonts?.body || 'Inter';
+
+  return `Eres un director creativo senior. Tu tarea es refinar HTML existente basándote en el feedback del usuario.
+
+## DIMENSIONES
+El HTML debe mantener exactamente ${dims.width}px × ${dims.height}px (plataforma: ${platform}).
+
+## IDENTIDAD DE MARCA
+- Color primario: ${brandPalette.primary_color}
+- Color secundario: ${brandPalette.secondary_color}
+- Color acento: ${brandPalette.accent_color}
+- Tipografía display: '${displayFont}'
+- Tipografía body: '${bodyFont}'
+- Logo URL: ${brandPalette.logo_url}
+
+## REGLAS
+1. Aplica SOLO los cambios solicitados en el feedback
+2. Mantén todo lo demás intacto
+3. Sigue usando las tipografías y colores de marca
+4. El resultado debe ser HTML completo y funcional
+5. Mantén las dimensiones del contenedor principal
+
+## OUTPUT
+Responde SOLO con el HTML completo refinado. Sin explicaciones, sin markdown fences.`;
+}
+
 // ─── Serve handler ───
 
 serve(async (req) => {
@@ -384,15 +492,109 @@ serve(async (req) => {
   }
 
   try {
-    const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY');
-    if (!anthropicApiKey) {
+
+    const body = await req.json();
+
+    // ─── Design Studio flow: mockup-to-HTML conversion ───
+    // Detect by presence of mockup_image_base64 in the request body
+    if (body.mockup_image_base64) {
+      const {
+        mockup_image_base64,
+        brand_palette,
+        platform,
+        current_html,
+        iteration_feedback,
+      } = body as {
+        mockup_image_base64: string;
+        brand_palette: DesignStudioBrandPalette;
+        platform: string;
+        current_html?: string;
+        iteration_feedback?: string;
+      };
+
+      // Validate required fields
+      if (!brand_palette || !platform) {
+        return new Response(
+          JSON.stringify({ error: 'parse_error', message: 'Missing: brand_palette, platform' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      let messages: Array<{ role: string; content: any }>;
+
+      if (current_html && iteration_feedback) {
+        // --- Iteration refinement flow ---
+        const systemPrompt = buildDesignStudioIterationPrompt(brand_palette, platform);
+        messages = [
+          { role: 'system', content: systemPrompt },
+          {
+            role: 'user',
+            content: `## HTML ACTUAL:\n\`\`\`html\n${current_html}\n\`\`\`\n\n## FEEDBACK DEL USUARIO:\n${iteration_feedback}\n\nAplica los cambios solicitados y devuelve el HTML completo refinado.`,
+          },
+        ];
+      } else {
+        // --- Initial mockup-to-HTML conversion ---
+        const systemPrompt = buildDesignStudioSystemPrompt(brand_palette, platform);
+
+        // Determine the image data URL format
+        const imageDataUrl = mockup_image_base64.startsWith('data:')
+          ? mockup_image_base64
+          : `data:image/png;base64,${mockup_image_base64}`;
+
+        messages = [
+          { role: 'system', content: systemPrompt },
+          {
+            role: 'user',
+            content: [
+              { type: 'image_url', image_url: { url: imageDataUrl } },
+              {
+                type: 'text',
+                text: 'Analiza este mockup y conviértelo a HTML pixel-perfect. Usa la identidad de marca especificada (colores, tipografías, logo). Genera el HTML completo.',
+              },
+            ],
+          },
+        ];
+      }
+
+      const result = await callOpenAI({
+        model: 'gpt-4o',
+        messages: messages as any,
+        max_completion_tokens: 8000,
+        timeoutMs: 120_000,
+      });
+
+      if (!result.success) {
+        return new Response(
+          JSON.stringify({ error: result.error, message: result.message }),
+          { status: result.status || 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      let html = result.content || '';
+      html = html.replace(/^```html\n?/i, '').replace(/\n?```$/i, '').trim();
+
+      // Post-process: force correct logo URL
+      if (brand_palette.logo_url) {
+        html = html.replace(
+          /(<img[^>]*class="[^"]*\blogo\b[^"]*"[^>]*src=")[^"]+(")/gi,
+          `$1${brand_palette.logo_url}$2`
+        );
+      }
+
+      if (!html.includes('<!DOCTYPE') && !html.includes('<html')) {
+        return new Response(
+          JSON.stringify({ error: 'parse_error', message: 'LLM no generó HTML válido' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       return new Response(
-        JSON.stringify({ error: 'auth_error', message: 'Service unavailable' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ html }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const body = await req.json();
+    // ─── Daily flow: existing template-based generation ───
     const {
       headline, subcopy, cta, brand, angle, punchline, imageUrl,
       usedPhrases, pieceNumber, totalPieces, template,
@@ -496,7 +698,7 @@ Sigue el ESQUELETO HTML OBLIGATORIO del template "${templateName}". Genera el HT
     let messageContent: any;
     if (imageUrl && selectedTemplate !== 'bold') {
       messageContent = [
-        { type: 'image', source: { type: 'url', url: imageUrl } },
+        { type: 'image_url', image_url: { url: imageUrl } },
         {
           type: 'text',
           text: `ANALIZA LA IMAGEN. Identifica: sujeto principal, zonas vacías, objetos importantes.
@@ -509,45 +711,23 @@ ${textPrompt}`,
       messageContent = textPrompt;
     }
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 120000);
-
-    // systemPrompt already resolved above (dynamic or legacy path)
-
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': anthropicApiKey,
-        'anthropic-version': '2023-06-01',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 8000,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: messageContent }],
-        temperature: 0.7,
-      }),
-      signal: controller.signal,
+    const result = await callOpenAI({
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: messageContent },
+      ],
+      max_completion_tokens: 8000,
+      timeoutMs: 120_000,
     });
 
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: 'rate_limit', message: 'Demasiadas solicitudes' }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
+    if (!result.success) {
       return new Response(
-        JSON.stringify({ error: 'api_error', message: `Error: ${response.status}` }),
-        { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: result.error, message: result.message }),
+        { status: result.status || 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const data = await response.json();
-    let html = data.content?.[0]?.text || '';
+    let html = result.content || '';
     html = html.replace(/^```html\n?/i, '').replace(/\n?```$/i, '').trim();
 
     // Post-process: force correct logo URL in all <img class="logo"> tags.
@@ -559,7 +739,7 @@ ${textPrompt}`,
 
     if (!html.includes('<!DOCTYPE') && !html.includes('<html')) {
       return new Response(
-        JSON.stringify({ error: 'parse_error', message: 'Claude no generó HTML válido' }),
+        JSON.stringify({ error: 'parse_error', message: 'LLM no generó HTML válido' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
