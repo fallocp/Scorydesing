@@ -31,6 +31,16 @@ export const PLATFORM_DIMENSIONS: Record<PlatformFormat, PlatformDimensions> = {
   'banner': { width: 1920, height: 1080 },
 };
 
+// --- Content Mode ---
+
+/**
+ * Defines how content/copy context is provided to the image generation:
+ * - 'free': No content context, only visual selections. Full creative freedom.
+ * - 'branch': Content ingredients loaded from a commercial branch (headlines, data, CTAs).
+ * - 'custom': User provides a free-text idea/description of what they want.
+ */
+export type ContentMode = 'free' | 'branch' | 'custom';
+
 // --- Visual Selections (Mode A) ---
 
 export interface VisualSelections {
@@ -39,6 +49,10 @@ export interface VisualSelections {
   contentType: string | null;   // 'stat' | 'news' | 'educational' | 'promo' | 'comparison' | 'event' | 'testimonial' | custom
   heroElement: string | null;   // 'big-number' | 'main-photo' | 'icon' | 'floating-badge' | 'no-image' | custom
   platform: PlatformFormat | null;
+  // Content context
+  contentMode: ContentMode;
+  commercialBranchSlug: string | null;  // only when contentMode === 'branch'
+  customIdea: string | null;            // only when contentMode === 'custom'
 }
 
 export type SelectionCategory = 'background' | 'visualStyle' | 'contentType' | 'heroElement' | 'platform';
@@ -131,6 +145,30 @@ export interface TemplateConverterOutput {
 
 // --- API Request/Response Types ---
 
+// --- Branch Content Ingredients ---
+
+/**
+ * Pre-approved content ingredients for a commercial branch + angle combination.
+ * These are injected into the image generation prompt as available content
+ * that GPT can use creatively (not prescriptive layout).
+ */
+export interface BranchContentIngredients {
+  headlines: string[];
+  sublines: string[];
+  ctas: string[];
+  benefit_phrases?: string[];
+  data_sets?: Record<string, string>[];
+  big_stats?: string[];
+  photo_direction: string;
+  // Strategic context that differentiates this branch from others
+  branch_context?: {
+    name: string;
+    objetivo?: string;
+    dolor?: string;
+    promesa?: string;
+  };
+}
+
 export interface GenerateMockupsRequest {
   business_id: string;
   brand_palette: BrandPalette;
@@ -140,6 +178,10 @@ export interface GenerateMockupsRequest {
   // Mode B
   reference_image_base64?: string;
   reference_description?: string;
+  // Content context (new)
+  content_mode?: ContentMode;
+  branch_ingredients?: BranchContentIngredients;
+  custom_idea?: string;
   // Common
   platform: PlatformFormat;
   count: 3;
@@ -231,6 +273,11 @@ export interface DesignStudioActions {
   setSelection(category: SelectionCategory, value: string): void;
   setCustomValue(category: SelectionCategory, value: string): void;
   setPlatform(platform: PlatformFormat): void;
+
+  // Content mode
+  setContentMode(mode: ContentMode): void;
+  setCommercialBranch(slug: string | null): void;
+  setCustomIdea(idea: string): void;
 
   // Reference
   setReferenceImage(file: File | null): void;

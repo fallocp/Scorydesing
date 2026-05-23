@@ -20,6 +20,9 @@ describe('buildGenerationPrompt', () => {
     contentType: 'stat',
     heroElement: 'big-number',
     platform: 'instagram-post',
+    contentMode: 'free',
+    commercialBranchSlug: null,
+    customIdea: null,
   };
 
   it('includes all non-null selections in the prompt', () => {
@@ -50,6 +53,9 @@ describe('buildGenerationPrompt', () => {
       contentType: null,
       heroElement: null,
       platform: 'banner',
+      contentMode: 'free',
+      commercialBranchSlug: null,
+      customIdea: null,
     };
 
     const prompt = buildGenerationPrompt(partialSelections, fullBrandPalette);
@@ -108,6 +114,9 @@ describe('buildGenerationPrompt', () => {
       contentType: null,
       heroElement: null,
       platform: 'linkedin-post',
+      contentMode: 'free',
+      commercialBranchSlug: null,
+      customIdea: null,
     };
 
     const prompt = buildGenerationPrompt(minimalSelections, fullBrandPalette);

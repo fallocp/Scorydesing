@@ -7,6 +7,7 @@ import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import type {
   BrandPalette,
+  ContentMode,
   DesignSession,
   DesignSessionStatus,
   DesignStudioStore,
@@ -24,6 +25,9 @@ const initialSelections: VisualSelections = {
   contentType: null,
   heroElement: null,
   platform: null,
+  contentMode: 'free',
+  commercialBranchSlug: null,
+  customIdea: null,
 };
 
 // Initial state values (extracted for reset)
@@ -144,6 +148,46 @@ export const useDesignStudioStore = create<DesignStudioStore>()(
 
       setPlatform: (platform: PlatformFormat) =>
         set({ selectedPlatform: platform }, false, 'setPlatform'),
+
+      // --- Content Mode ---
+      setContentMode: (mode: ContentMode) =>
+        set(
+          (state) => ({
+            selections: {
+              ...state.selections,
+              contentMode: mode,
+              // Reset branch/idea when switching modes
+              commercialBranchSlug: mode === 'branch' ? state.selections.commercialBranchSlug : null,
+              customIdea: mode === 'custom' ? state.selections.customIdea : null,
+            },
+          }),
+          false,
+          'setContentMode'
+        ),
+
+      setCommercialBranch: (slug: string | null) =>
+        set(
+          (state) => ({
+            selections: {
+              ...state.selections,
+              commercialBranchSlug: slug,
+            },
+          }),
+          false,
+          'setCommercialBranch'
+        ),
+
+      setCustomIdea: (idea: string) =>
+        set(
+          (state) => ({
+            selections: {
+              ...state.selections,
+              customIdea: idea,
+            },
+          }),
+          false,
+          'setCustomIdea'
+        ),
 
       // --- Reference ---
       setReferenceImage: (file: File | null) =>

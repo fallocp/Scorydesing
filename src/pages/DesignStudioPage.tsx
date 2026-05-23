@@ -23,8 +23,10 @@ import { useToast } from '@/components/ui/use-toast';
 
 import { BrandPalettePreview } from '@/components/design-studio/BrandPalettePreview';
 import { VisualSelector } from '@/components/design-studio/VisualSelector';
+import { ContentModeSelector } from '@/components/design-studio/ContentModeSelector';
 import { ReferenceImageUploader } from '@/components/design-studio/ReferenceImageUploader';
 import { MockupGallery } from '@/components/design-studio/MockupGallery';
+import { SavedMockupsGrid } from '@/components/design-studio/SavedMockupsGrid';
 import { HtmlPreviewPanel } from '@/components/design-studio/HtmlPreviewPanel';
 import { TemplateSaveDialog } from '@/components/design-studio/TemplateSaveDialog';
 
@@ -33,14 +35,17 @@ import { useDesignSession } from '@/hooks/useDesignStudioSession';
 import { useGenerateMockups } from '@/hooks/useGenerateMockups';
 import { useGenerateDesignHtmlFromMockup } from '@/hooks/useGenerateDesignHtmlFromMockup';
 import { useSaveCustomTemplate } from '@/hooks/useSaveCustomTemplate';
+import { useSaveMockup, useSavedMockups } from '@/hooks/useDesignMockups';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useBusinessConfig } from '@/hooks/useBusinessConfig';
 import { useAuth } from '@/hooks/useAuth';
+import { useDesignStudioBranches, extractIngredients } from '@/hooks/useDesignStudioBranches';
 
 import { validateBrandPalette } from '@/utils/design-studio/brandPaletteValidator';
 import { convertToTemplate } from '@/utils/design-studio/templateConverter';
 
 import type { BrandPalette, PlatformFormat } from '@/types/design-studio';
+import type { SavedMockup } from '@/hooks/useDesignMockups';
 
 export default function DesignStudioPage() {
   const navigate = useNavigate();
@@ -62,10 +67,14 @@ export default function DesignStudioPage() {
   const generateMockups = useGenerateMockups();
   const generateHtml = useGenerateDesignHtmlFromMockup();
   const saveTemplate = useSaveCustomTemplate();
+  const saveMockup = useSaveMockup();
+  const { data: savedMockups = [], isLoading: isLoadingSaved } = useSavedMockups();
+  const { data: branches = [], isLoading: isLoadingBranches } = useDesignStudioBranches();
 
   // --- Local UI state ---
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [selectedSavedId, setSelectedSavedId] = useState<string | null>(null);
 
   // --- Derived state ---
   const isAnyLoading = store.isGeneratingMockups || store.isGeneratingHtml || store.isSaving;
@@ -144,11 +153,30 @@ export default function DesignStudioPage() {
         brand_palette: store.brandPalette,
         mode: store.inputMode,
         platform,
-        count: 3,
-      };
+        count: 1,
+        business_name: activeBusiness?.name || 'Xending',
+        business_context: businessConfig?.industry
+          ? `Industry: ${businessConfig.industry}. ${businessConfig.disclaimer ? `Disclaimer: ${businessConfig.disclaimer}` : ''}`
+          : undefined,
+      } as any;
 
       if (store.inputMode === 'visual') {
         request.selections = store.selections;
+
+        // Inject content context based on mode
+        if (store.selections.contentMode === 'branch' && store.selections.commercialBranchSlug) {
+          const selectedBranch = branches.find(b => b.slug === store.selections.commercialBranchSlug);
+          if (selectedBranch) {
+            const ingredients = extractIngredients(selectedBranch, store.selections.contentType);
+            if (ingredients) {
+              request.branch_ingredients = ingredients;
+            }
+          }
+          request.content_mode = 'branch';
+        } else if (store.selections.contentMode === 'custom' && store.selections.customIdea) {
+          request.custom_idea = store.selections.customIdea;
+          request.content_mode = 'custom';
+        }
       } else {
         // For reference mode, convert preview to base64
         if (store.referenceImage) {
@@ -159,12 +187,28 @@ export default function DesignStudioPage() {
       }
 
       const response = await generateMockups.mutateAsync(request);
-      store.setMockups(response.mockups);
+      // Accumulate mockups — append new ones to existing
+      const existingMockups = store.mockups;
+      const newMockups = response.mockups.map((m, i) => ({
+        ...m,
+        index: existingMockups.length + i,
+      }));
+      store.setMockups([...existingMockups, ...newMockups]);
       store.setPlatform(platform);
 
+      // Auto-save to Storage (fire and forget)
+      for (const mockup of response.mockups) {
+        saveMockup.mutate({
+          imageBase64: mockup.image_base64,
+          platform,
+          selections: store.inputMode === 'visual' ? (store.selections as any) : undefined,
+          promptUsed: mockup.prompt_used,
+        });
+      }
+
       toast({
-        title: 'Mockups generados',
-        description: '3 opciones listas para revisar.',
+        title: 'Mockup generado',
+        description: `${existingMockups.length + newMockups.length} opción(es). Guardado automáticamente.`,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Error generando mockups';
@@ -319,7 +363,7 @@ export default function DesignStudioPage() {
             Se requiere un negocio configurado para usar el Design Studio.
             Configura tu marca primero.
           </p>
-          <Button onClick={() => navigate('/brand-palette')}>
+          <Button onClick={() => navigate('/admin/business')}>
             Configurar marca
           </Button>
         </div>
@@ -366,11 +410,24 @@ export default function DesignStudioPage() {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="visual" className="mt-6">
+          <TabsContent value="visual" className="mt-6 space-y-6">
             <VisualSelector
               selections={store.selections}
               onSelect={(category, value) => store.setSelection(category, value)}
               onCustomValue={(category, value) => store.setCustomValue(category, value)}
+              disabled={isAnyLoading}
+            />
+
+            {/* Content Mode: Libre / Rama / Idea */}
+            <ContentModeSelector
+              contentMode={store.selections.contentMode}
+              selectedBranchSlug={store.selections.commercialBranchSlug}
+              customIdea={store.selections.customIdea}
+              branches={branches}
+              isLoadingBranches={isLoadingBranches}
+              onModeChange={(mode) => store.setContentMode(mode)}
+              onBranchSelect={(slug) => store.setCommercialBranch(slug)}
+              onCustomIdeaChange={(idea) => store.setCustomIdea(idea)}
               disabled={isAnyLoading}
             />
           </TabsContent>
@@ -402,7 +459,7 @@ export default function DesignStudioPage() {
             ) : (
               <>
                 <Sparkles className="h-5 w-5 mr-2" />
-                Generar 3 opciones
+                Generar mockup
               </>
             )}
           </Button>
@@ -415,6 +472,8 @@ export default function DesignStudioPage() {
             selectedIndex={store.selectedMockupIndex}
             onSelect={(index) => store.selectMockup(index)}
             onConvert={handleConvertToHtml}
+            onRegenerate={handleGenerateMockups}
+            onDiscard={() => { useDesignStudioStore.setState({ mockups: [], selectedMockupIndex: null, error: null }); }}
             isLoading={store.isGeneratingMockups}
             disabled={store.isGeneratingHtml}
           />
@@ -455,6 +514,35 @@ export default function DesignStudioPage() {
           isSaving={store.isSaving}
           error={store.error}
         />
+
+        {/* Saved Mockups from DB */}
+        {!store.currentHtml && (
+          <SavedMockupsGrid
+            mockups={savedMockups}
+            isLoading={isLoadingSaved}
+            selectedId={selectedSavedId}
+            onSelect={(mockup: SavedMockup) => {
+              setSelectedSavedId(mockup.id);
+              // Load into store for HTML conversion
+              // We need to fetch the image as base64 for the convert flow
+              fetch(mockup.image_url)
+                .then(r => r.blob())
+                .then(blob => {
+                  const reader = new FileReader();
+                  reader.onload = () => {
+                    const base64 = (reader.result as string).split(',')[1];
+                    store.setMockups([{ index: 0, image_base64: base64, prompt_used: mockup.prompt_used || '' }]);
+                    store.selectMockup(0);
+                    store.setPlatform(mockup.platform as PlatformFormat);
+                  };
+                  reader.readAsDataURL(blob);
+                })
+                .catch(() => {
+                  toast({ title: 'Error cargando mockup', variant: 'destructive' });
+                });
+            }}
+          />
+        )}
       </div>
     </div>
   );

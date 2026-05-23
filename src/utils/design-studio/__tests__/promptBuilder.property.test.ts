@@ -15,7 +15,7 @@
 import { describe, it, expect } from 'vitest';
 import * as fc from 'fast-check';
 import { buildGenerationPrompt } from '../promptBuilder';
-import type { VisualSelections, BrandPalette, PlatformFormat } from '@/types/design-studio';
+import type { VisualSelections, BrandPalette, PlatformFormat, ContentMode } from '@/types/design-studio';
 
 // ---------------------------------------------------------------------------
 // Generators
@@ -45,6 +45,9 @@ const arbVisualSelections: fc.Arbitrary<VisualSelections> = fc.record({
   contentType: arbNullableSelection,
   heroElement: arbNullableSelection,
   platform: arbPlatform,
+  contentMode: fc.constantFrom('free' as const, 'branch' as const, 'custom' as const),
+  commercialBranchSlug: arbNullableSelection,
+  customIdea: arbNullableSelection,
 });
 
 /** Generate a hex color string. */
