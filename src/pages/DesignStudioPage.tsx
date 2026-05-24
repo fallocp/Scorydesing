@@ -45,6 +45,7 @@ import { useGenerateIdeas } from '@/hooks/useGenerateIdeas';
 
 import { validateBrandPalette } from '@/utils/design-studio/brandPaletteValidator';
 import { convertToTemplate } from '@/utils/design-studio/templateConverter';
+import { supabase } from '@/integrations/supabase/client';
 
 import type { BrandPalette, PlatformFormat } from '@/types/design-studio';
 import type { SavedMockup } from '@/hooks/useDesignMockups';
@@ -147,7 +148,7 @@ export default function DesignStudioPage() {
     setIsGeneratingCopy(true);
 
     try {
-      // Generate copy (headline + subcopy + CTA)
+      // 1. Generate copy (headline + subcopy + CTA)
       const copyResponse = await generateIdeas.mutateAsync({
         type: 'copy',
         brand: (activeBusiness?.slug === 'xending-capital' ? 'xending_capital' : 'xending') as any,
@@ -157,27 +158,58 @@ export default function DesignStudioPage() {
 
       // Parse the first idea
       const firstIdea = copyResponse.ideas?.[0];
+      let headline = '';
+      let body = '';
+      let cta = '';
+
       if (firstIdea && typeof firstIdea === 'object') {
-        store.updatePieceCopyField('headline', firstIdea.headline || '');
-        store.updatePieceCopyField('body', firstIdea.subcopy || '');
-        store.updatePieceCopyField('cta', firstIdea.cta || '');
+        headline = firstIdea.headline || '';
+        body = firstIdea.subcopy || '';
+        cta = firstIdea.cta || '';
+        store.updatePieceCopyField('headline', headline);
+        store.updatePieceCopyField('body', body);
+        store.updatePieceCopyField('cta', cta);
       } else if (typeof firstIdea === 'string') {
-        store.updatePieceCopyField('headline', firstIdea);
+        headline = firstIdea;
+        store.updatePieceCopyField('headline', headline);
       }
 
-      // Generate image prompt
-      const imageResponse = await generateIdeas.mutateAsync({
-        type: 'image',
-        brand: (activeBusiness?.slug === 'xending-capital' ? 'xending_capital' : 'xending') as any,
-        business_id: activeBusinessId,
-        branch_id: selectedBranch.id,
-        headline: typeof firstIdea === 'object' ? firstIdea.headline : (firstIdea ?? ''),
-        subcopy: typeof firstIdea === 'object' ? firstIdea.subcopy : '',
+      // 2. Generate image prompts (3 types: foto, infografia, mapa_rutas)
+      //    Uses generate-design-image with mode: 'prompts'
+      const { data: imageData, error: imageError } = await supabase.functions.invoke('generate-design-image', {
+        body: {
+          userRequest: headline || 'Genera imagen para esta pieza',
+          brand: activeBusiness?.slug === 'xending-capital' ? 'xending_capital' : 'xending',
+          business_id: activeBusinessId,
+          branch_id: selectedBranch.id,
+          mode: 'prompts',
+          headline,
+          body,
+          imageIntent: headline,
+          aspectRatio: store.selections.platform === 'instagram-story' ? '9:16' : '1:1',
+        },
       });
 
-      const imagePrompt = imageResponse.ideas?.[0];
-      if (imagePrompt && typeof imagePrompt === 'string') {
-        store.setPieceImagePromptText(imagePrompt);
+      if (!imageError && imageData?.prompts) {
+        // Store all 3 prompts, show the one matching selected type
+        const selectedType = store.selections.pieceImagePrompt?.type ?? 'foto';
+        const promptMap: Record<string, string> = {
+          'foto': imageData.prompts.fotografia?.prompt_final ?? '',
+          'infografia': imageData.prompts.infografia?.prompt_final ?? '',
+          '3d_clay': imageData.prompts.infografia?.prompt_final ?? '', // 3D uses infografia as base
+          'financiero': imageData.prompts.infografia?.prompt_final ?? '',
+        };
+
+        // Store all prompts in a temp ref for type switching
+        (window as any).__designStudioImagePrompts = imageData.prompts;
+
+        const promptForType = promptMap[selectedType] || imageData.prompts.fotografia?.prompt_final || '';
+        store.setPieceImagePromptText(promptForType);
+
+        // Default to 'foto' type if none selected
+        if (!store.selections.pieceImagePrompt?.type) {
+          store.setPieceImageType('foto');
+        }
       }
 
       toast({
@@ -190,7 +222,7 @@ export default function DesignStudioPage() {
     } finally {
       setIsGeneratingCopy(false);
     }
-  }, [activeBusinessId, store.selections.commercialBranchSlug, branches, activeBusiness]);
+  }, [activeBusinessId, store.selections.commercialBranchSlug, store.selections.pieceImagePrompt?.type, store.selections.platform, branches, activeBusiness]);
 
   const handleGenerateMockups = useCallback(async () => {
     if (!store.brandPalette || !activeBusinessId) return;
@@ -503,7 +535,22 @@ export default function DesignStudioPage() {
                 pieceCopy={store.selections.pieceCopy}
                 pieceImagePrompt={store.selections.pieceImagePrompt}
                 onCopyFieldChange={(field, value) => store.updatePieceCopyField(field, value)}
-                onImageTypeChange={(type) => store.setPieceImageType(type)}
+                onImageTypeChange={(type) => {
+                  store.setPieceImageType(type);
+                  // Update prompt from cached prompts if available
+                  const cached = (window as any).__designStudioImagePrompts;
+                  if (cached) {
+                    const promptMap: Record<string, string> = {
+                      'foto': cached.fotografia?.prompt_final ?? '',
+                      'infografia': cached.infografia?.prompt_final ?? '',
+                      '3d_clay': cached.infografia?.prompt_final ?? '',
+                      'financiero': cached.mapa_rutas?.prompt_final ?? '',
+                    };
+                    if (promptMap[type]) {
+                      store.setPieceImagePromptText(promptMap[type]);
+                    }
+                  }
+                }}
                 onImagePromptChange={(text) => store.setPieceImagePromptText(text)}
                 onGenerateCopy={handleGenerateCopy}
                 isGeneratingCopy={isGeneratingCopy}
