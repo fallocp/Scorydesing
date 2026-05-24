@@ -174,12 +174,12 @@ export default function DesignStudioPage() {
         store.updatePieceCopyField('headline', headline);
       }
 
-      // 2. Generate image prompts (3 types: foto, infografia, mapa_rutas)
-      //    Uses generate-design-image with mode: 'prompts'
+      // 2. Generate image prompts using generate-design-image (mode: prompts)
+      //    Same endpoint used in Crear Piezas — generates foto/infografia/mapa_rutas
       try {
         const { data: imageData, error: imageError } = await supabase.functions.invoke('generate-design-image', {
           body: {
-            userRequest: headline || 'Genera imagen para esta pieza publicitaria',
+            userRequest: headline,
             brand: activeBusiness?.slug === 'xending-capital' ? 'xending_capital' : 'xending',
             business_id: activeBusinessId,
             branch_id: selectedBranch.id,
@@ -187,75 +187,45 @@ export default function DesignStudioPage() {
             headline,
             body,
             imageIntent: headline,
+            angle: 'general',
             aspectRatio: store.selections.platform === 'instagram-story' ? '9:16' : '1:1',
           },
         });
 
-        if (!imageError && imageData?.prompts) {
-          // Store all 3 prompts, show the one matching selected type
+        console.log('generate-design-image response:', { imageError, imageData });
+
+        if (imageData?.prompts) {
+          const prompts = imageData.prompts;
+          // Cache for type switching
+          (window as any).__designStudioImagePrompts = prompts;
+
+          // Pick prompt based on selected type
           const selectedType = store.selections.pieceImagePrompt?.type ?? 'foto';
-          const promptMap: Record<string, string> = {
-            'foto': imageData.prompts.fotografia?.prompt_final ?? '',
-            'infografia': imageData.prompts.infografia?.prompt_final ?? '',
-            '3d_clay': imageData.prompts.infografia?.prompt_final ?? '',
-            'financiero': imageData.prompts.mapa_rutas?.prompt_final ?? '',
-          };
+          let promptText = '';
 
-          // Cache all prompts for type switching
-          (window as any).__designStudioImagePrompts = imageData.prompts;
-
-          const promptForType = promptMap[selectedType] || imageData.prompts.fotografia?.prompt_final || '';
-          if (promptForType) {
-            store.setPieceImagePromptText(promptForType);
+          if (selectedType === 'foto' && prompts.fotografia?.prompt_final) {
+            promptText = prompts.fotografia.prompt_final;
+          } else if ((selectedType === 'infografia' || selectedType === '3d_clay') && prompts.infografia?.prompt_final) {
+            promptText = prompts.infografia.prompt_final;
+          } else if (selectedType === 'financiero' && prompts.mapa_rutas?.prompt_final) {
+            promptText = prompts.mapa_rutas.prompt_final;
+          } else {
+            // Fallback to first available
+            promptText = prompts.fotografia?.prompt_final || prompts.infografia?.prompt_final || prompts.mapa_rutas?.prompt_final || '';
           }
 
-          // Default to 'foto' type if none selected
+          if (promptText) {
+            store.setPieceImagePromptText(promptText);
+          }
+
           if (!store.selections.pieceImagePrompt?.type) {
             store.setPieceImageType('foto');
           }
-        } else {
-          // Fallback: use generate-ideas with type: 'image'
-          console.warn('generate-design-image prompts failed, falling back to generate-ideas', imageError, imageData);
-          const imageResponse = await generateIdeas.mutateAsync({
-            type: 'image',
-            brand: (activeBusiness?.slug === 'xending-capital' ? 'xending_capital' : 'xending') as any,
-            business_id: activeBusinessId,
-            branch_id: selectedBranch.id,
-            headline,
-            subcopy: body,
-          });
-
-          const imagePrompt = imageResponse.ideas?.[0];
-          if (imagePrompt && typeof imagePrompt === 'string') {
-            store.setPieceImagePromptText(imagePrompt);
-            if (!store.selections.pieceImagePrompt?.type) {
-              store.setPieceImageType('foto');
-            }
-          }
+        } else if (imageError) {
+          console.warn('generate-design-image error:', imageError);
         }
       } catch (imageErr) {
-        // Fallback: use generate-ideas with type: 'image'
-        console.warn('Image prompt generation failed, using fallback', imageErr);
-        try {
-          const imageResponse = await generateIdeas.mutateAsync({
-            type: 'image',
-            brand: (activeBusiness?.slug === 'xending-capital' ? 'xending_capital' : 'xending') as any,
-            business_id: activeBusinessId,
-            branch_id: selectedBranch.id,
-            headline,
-            subcopy: body,
-          });
-
-          const imagePrompt = imageResponse.ideas?.[0];
-          if (imagePrompt && typeof imagePrompt === 'string') {
-            store.setPieceImagePromptText(imagePrompt);
-            if (!store.selections.pieceImagePrompt?.type) {
-              store.setPieceImageType('foto');
-            }
-          }
-        } catch (_fallbackErr) {
-          // Silent — copy was generated, image prompt is optional
-        }
+        console.warn('Image prompt generation failed:', imageErr);
       }
 
       toast({
