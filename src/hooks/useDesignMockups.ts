@@ -50,14 +50,14 @@ export function useSaveMockup() {
       // 2. Upload to Storage
       const fileName = `${activeBusinessId}/mockups/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.png`;
       const { error: uploadError } = await supabase.storage
-        .from('design-mockups')
+        .from('design-images')
         .upload(fileName, blob, { contentType: 'image/png', upsert: false });
 
       if (uploadError) throw new Error(`Upload failed: ${uploadError.message}`);
 
       // 3. Get public URL
       const { data: urlData } = supabase.storage
-        .from('design-mockups')
+        .from('design-images')
         .getPublicUrl(fileName);
 
       const imageUrl = urlData.publicUrl;

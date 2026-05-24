@@ -401,7 +401,7 @@ async function generateSingleImage(
         prompt,
         n: 1,
         size,
-        quality: 'low',
+        quality: 'medium',
       }),
       signal: controller.signal,
     });
