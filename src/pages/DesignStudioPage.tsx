@@ -688,34 +688,33 @@ export default function DesignStudioPage() {
           error={store.error}
         />
 
-        {/* Saved Mockups from DB */}
-        {!store.currentHtml && (
-          <SavedMockupsGrid
-            mockups={savedMockups}
-            isLoading={isLoadingSaved}
-            selectedId={selectedSavedId}
-            onSelect={(mockup: SavedMockup) => {
-              setSelectedSavedId(mockup.id);
-              // Load into store for HTML conversion
-              // We need to fetch the image as base64 for the convert flow
-              fetch(mockup.image_url)
-                .then(r => r.blob())
-                .then(blob => {
-                  const reader = new FileReader();
-                  reader.onload = () => {
-                    const base64 = (reader.result as string).split(',')[1];
-                    store.setMockups([{ index: 0, image_base64: base64, prompt_used: mockup.prompt_used || '' }]);
-                    store.selectMockup(0);
-                    store.setPlatform(mockup.platform as PlatformFormat);
-                  };
-                  reader.readAsDataURL(blob);
-                })
-                .catch(() => {
-                  toast({ title: 'Error cargando mockup', variant: 'destructive' });
-                });
-            }}
-          />
-        )}
+        {/* Saved Mockups from DB — always visible */}
+        <SavedMockupsGrid
+          mockups={savedMockups}
+          isLoading={isLoadingSaved}
+          selectedId={selectedSavedId}
+          onSelect={(mockup: SavedMockup) => {
+            setSelectedSavedId(mockup.id);
+            // Load into store for HTML conversion
+            fetch(mockup.image_url)
+              .then(r => r.blob())
+              .then(blob => {
+                const reader = new FileReader();
+                reader.onload = () => {
+                  const base64 = (reader.result as string).split(',')[1];
+                  store.setMockups([{ index: 0, image_base64: base64, prompt_used: mockup.prompt_used || '' }]);
+                  store.selectMockup(0);
+                  store.setPlatform(mockup.platform as PlatformFormat);
+                  // Clear HTML state so mockup gallery shows
+                  useDesignStudioStore.setState({ currentHtml: null, htmlHistory: [], iterationCount: 0 });
+                };
+                reader.readAsDataURL(blob);
+              })
+              .catch(() => {
+                toast({ title: 'Error cargando mockup', variant: 'destructive' });
+              });
+          }}
+        />
       </div>
     </div>
   );
