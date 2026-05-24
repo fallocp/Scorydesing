@@ -200,18 +200,27 @@ export default function DesignStudioPage() {
           (window as any).__designStudioImagePrompts = prompts;
 
           // Pick prompt based on selected type
+          // prompts can be { fotografia: string } or { fotografia: { prompt_final: string } }
+          const getPromptText = (p: unknown): string => {
+            if (typeof p === 'string') return p;
+            if (p && typeof p === 'object' && 'prompt_final' in (p as any)) return (p as any).prompt_final;
+            return '';
+          };
+
           const selectedType = store.selections.pieceImagePrompt?.type ?? 'foto';
           let promptText = '';
 
-          if (selectedType === 'foto' && prompts.fotografia?.prompt_final) {
-            promptText = prompts.fotografia.prompt_final;
-          } else if ((selectedType === 'infografia' || selectedType === '3d_clay') && prompts.infografia?.prompt_final) {
-            promptText = prompts.infografia.prompt_final;
-          } else if (selectedType === 'financiero' && prompts.mapa_rutas?.prompt_final) {
-            promptText = prompts.mapa_rutas.prompt_final;
-          } else {
+          if (selectedType === 'foto') {
+            promptText = getPromptText(prompts.fotografia);
+          } else if (selectedType === 'infografia' || selectedType === '3d_clay') {
+            promptText = getPromptText(prompts.infografia);
+          } else if (selectedType === 'financiero') {
+            promptText = getPromptText(prompts.mapa_rutas);
+          }
+
+          if (!promptText) {
             // Fallback to first available
-            promptText = prompts.fotografia?.prompt_final || prompts.infografia?.prompt_final || prompts.mapa_rutas?.prompt_final || '';
+            promptText = getPromptText(prompts.fotografia) || getPromptText(prompts.infografia) || getPromptText(prompts.mapa_rutas);
           }
 
           if (promptText) {
@@ -556,11 +565,16 @@ export default function DesignStudioPage() {
                   // Update prompt from cached prompts if available
                   const cached = (window as any).__designStudioImagePrompts;
                   if (cached) {
+                    const getPromptText = (p: unknown): string => {
+                      if (typeof p === 'string') return p;
+                      if (p && typeof p === 'object' && 'prompt_final' in (p as any)) return (p as any).prompt_final;
+                      return '';
+                    };
                     const promptMap: Record<string, string> = {
-                      'foto': cached.fotografia?.prompt_final ?? '',
-                      'infografia': cached.infografia?.prompt_final ?? '',
-                      '3d_clay': cached.infografia?.prompt_final ?? '',
-                      'financiero': cached.mapa_rutas?.prompt_final ?? '',
+                      'foto': getPromptText(cached.fotografia),
+                      'infografia': getPromptText(cached.infografia),
+                      '3d_clay': getPromptText(cached.infografia),
+                      'financiero': getPromptText(cached.mapa_rutas),
                     };
                     if (promptMap[type]) {
                       store.setPieceImagePromptText(promptMap[type]);
