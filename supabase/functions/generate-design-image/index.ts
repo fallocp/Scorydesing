@@ -207,12 +207,13 @@ El funnelStage ajusta el tono visual de los 3 prompts:
 
 ## REGLAS GENERALES (aplican a los 3 tipos)
 
-1. No incluir texto dentro de la imagen en ningún tipo.
+1. PROHIBIDO incluir cualquier forma de texto, palabras, números, letras o elementos tipográficos dentro de la imagen. NO headline, NO subcopy, NO CTA, NO disclaimers, NO marcas de agua, NO títulos. La imagen contiene SOLO la escena visual y composición. El texto se inyecta APARTE por el template engine al renderizar.
 2. No usar logos de marcas, bancos, gobiernos o instituciones reales.
-3. Dejar espacio negativo para overlay de headline y footer.
+3. Dejar espacio negativo amplio en composición para que el template engine pueda colocar headline, subcopy y CTA encima sin tapar elementos importantes.
 4. Calidad premium, estética comercial, lista para paid ads.
 5. Los colores de marca deben estar presentes en el ambiente visual.
 6. El prompt debe ser coherente con el headline y el ángulo de la pieza.
+7. En el campo `negative_instructions` SIEMPRE incluir: "no text, no words, no numbers, no letters, no typography, no logos, no captions, no watermarks, no titles, no labels, no signage with readable text".
 
 ## REGLAS POR TIPO
 
@@ -220,19 +221,20 @@ El funnelStage ajusta el tono visual de los 3 prompts:
 - Escena hiperrealista con persona real en contexto de negocio
 - Iluminación cinematográfica suave, profundidad de campo, colores naturales
 - La persona y el contexto deben ser creíbles y específicos (no stock genérico)
-- Restrictions: No text, no logos, no misspelled words, no clutter
+- Restrictions: no text, no words, no numbers, no letters, no typography, no logos, no captions, no watermarks, no signage with readable text, no misspelled words, no clutter
 
 ### Infografía
 - Traducir el imageIntent a elementos gráficos abstractos: íconos, formas geométricas, datos visualizados
 - Sin personas. Sin elementos fotorrealistas.
 - Flat design, paleta de marca dominante, composición modular
-- Restrictions: No text, no logos, no people, no photorealistic elements, no clutter
+- Los datos visualizados deben ser FORMAS abstractas (barras, pies, líneas, áreas) — JAMÁS con números legibles ni etiquetas escritas
+- Restrictions: no text, no words, no numbers, no letters, no typography, no logos, no labels, no chart axis labels, no captions, no people, no photorealistic elements, no clutter
 
 ### Mapa / Rutas
 - Traducir el imageIntent a abstracción geográfica con líneas de conexión luminosas
 - Líneas de ruta en turquoise, nodos de destino en coral, fondo navy
-- Sin texto, sin nombres de países escritos, sin imágenes satelitales realistas
-- Restrictions: No text, no country names written, no logos, no people, no realistic satellite imagery
+- Sin texto, sin nombres de países escritos, sin etiquetas de ciudades, sin imágenes satelitales realistas
+- Restrictions: no text, no words, no numbers, no country names, no city names, no labels, no logos, no people, no realistic satellite imagery, no compass with text, no legend
 
 ## FORMATO DE SALIDA
 

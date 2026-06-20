@@ -10,7 +10,10 @@
     "render": "node scripts/render.js",
     "render-batch": "node scripts/render-batch.js",
     "render-server": "node scripts/render-server.js",
-    "clean-output": "node scripts/clean-output.js"
+    "clean-output": "node scripts/clean-output.js",
+    "start": "node scripts/render-server.js",
+    "docker:build": "docker build -t scory-render-service .",
+    "docker:run": "docker run -p 3333:3333 --rm scory-render-service"
   },
   "dependencies": {
     "puppeteer": "^22.0.0"

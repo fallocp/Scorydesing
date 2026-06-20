@@ -163,11 +163,20 @@ async function fetchWithRetry(
       };
     }
 
-    // Other HTTP errors — no retry
+    // Other HTTP errors — no retry. Surface OpenAI's actual error reason
+    // (e.g. model not found / no access) instead of hiding it.
+    const errorBody = await response.text().catch(() => '');
+    console.error(`OpenAI API error ${response.status}:`, errorBody.slice(0, 500));
+    let detail = '';
+    try {
+      detail = JSON.parse(errorBody)?.error?.message ?? '';
+    } catch {
+      detail = errorBody.slice(0, 200);
+    }
     return {
       success: false,
       error: 'api_error',
-      message: `API error: ${response.status}`,
+      message: detail ? `API error ${response.status}: ${detail}` : `API error: ${response.status}`,
       status: response.status,
     };
   } catch (_err) {

@@ -583,6 +583,219 @@ interface HealthResponse {
 }
 ```
 
+---
+
+### Componente 6.5: Multi-Channel Copy Output (Overlays + Captions)
+
+**Propósito**: Resolver el problema de que la comunicación a LinkedIn, Instagram, Facebook y Banner es muy distinta entre sí, sin tener que llamar al LLM por cada canal y sin perder coherencia narrativa entre las variantes.
+
+**Principio de diseño**: el LLM produce **una sola idea estratégica** (ángulo, dolor, promesa, imageIntent) más múltiples superficies textuales adaptadas por canal en una **sola llamada**. Una imagen base se reusa entre canales del mismo aspect ratio. El template engine inyecta el overlay correcto, y el caption viaja como metadata para que el operador lo copie/pegue al publicar.
+
+**Conceptos clave**:
+
+| Concepto | Qué es | Dónde vive |
+|---|---|---|
+| **Overlay** | Texto corto sobre la imagen renderizada (headline + subcopy + CTA) | En el template HTML, slots `{{headline}} {{subcopy}} {{cta}}` |
+| **Caption** | Texto largo del post, fuera de la imagen, que el operador copia/pega al publicar | En `pipeline_pieces.caption_body`, mostrado al lado de la pieza renderizada |
+| **Imagen** | Solo escenario visual, sin texto adentro | Generada por GPT Image 2; el texto NO está horneado |
+
+**Mapping de overlay variants a plataformas**:
+
+```typescript
+const PLATFORM_TO_OVERLAY_VARIANT: Record<PlatformFormat, OverlayVariant> = {
+  'linkedin-post':   'professional',  // landscape ejecutivo
+  'facebook-post':   'professional',  // mismo overlay que LinkedIn
+  'banner':          'professional',  // mismo overlay
+  'instagram-post':  'square',        // 1:1
+  'instagram-story': 'vertical',      // 9:16
+};
+
+type OverlayVariant = 'professional' | 'square' | 'vertical';
+```
+
+**Mapping de captions a plataformas** (no todas las plataformas tienen caption):
+
+```typescript
+const PLATFORM_TO_CAPTION: Record<PlatformFormat, CaptionKey | null> = {
+  'linkedin-post':   'linkedin',   // 90-180 palabras, ejecutivo, ▪ bullets
+  'facebook-post':   'facebook',   // 60-120 palabras, ejecutivo concentrado
+  'instagram-post':  'instagram',  // 40-80 palabras + hashtags
+  'instagram-story': null,         // sin caption
+  'banner':          null,         // sin caption
+};
+
+type CaptionKey = 'linkedin' | 'facebook' | 'instagram';
+```
+
+**Mapping de imágenes a aspect ratios** (una imagen se reusa entre canales del mismo aspect):
+
+```typescript
+const PLATFORM_TO_ASPECT: Record<PlatformFormat, ImageAspect> = {
+  'linkedin-post':   'landscape',  // comparten imagen
+  'facebook-post':   'landscape',
+  'banner':          'landscape',
+  'instagram-post':  'square',
+  'instagram-story': 'vertical',
+};
+
+type ImageAspect = 'landscape' | 'square' | 'vertical';
+```
+
+**Output del Content Agent (esquema completo)**:
+
+```typescript
+interface ContentAgentOutputV2 {
+  pieces: PieceV2[];
+}
+
+interface PieceV2 {
+  id: string;
+  brand: string;
+  productLine?: string;
+  campaignCategory?: string;
+  commercialBranch?: string;
+  industryVertical?: string;
+  marketMoment?: string;
+
+  // Estrategia compartida — igual para todas las plataformas
+  shared: {
+    angle: string;
+    narrativeAngle: string;
+    funnelStage: 'atraccion' | 'conexion' | 'conversion';
+    footer: string;
+    statusPill: string;
+    dataBadge: string;
+    imageIntent: string;          // concepto visual sin texto literal
+    visualStyle: string;
+    recommendedTemplate: string;
+    targetAudience: string;
+    industryContext: string;
+    complianceNotes: string[];
+    variationReason: string;
+  };
+
+  // Overlays — texto corto sobre la imagen
+  overlays: {
+    professional: { headline: string; subcopy: string; cta: string };  // LI/FB/Banner
+    square:       { headline: string; subcopy: string; cta: string };  // IG Post
+    vertical:     { headline: string; subcopy: string; cta: string };  // IG Story
+  };
+
+  // Captions — texto del post fuera de la imagen
+  captions: {
+    linkedin:  { body: string; bullets: string[] };       // 90-180 palabras
+    facebook:  { body: string; bullets: string[] };       // 60-120 palabras
+    instagram: { body: string; hashtags: string[] };      // 40-80 palabras + hashtags
+  };
+
+  qualityScore: {
+    overlays: Record<OverlayVariant, QualityRubric>;
+    captions: Record<CaptionKey, QualityRubric>;
+    visualPotential: number;
+    differentiation: number;
+  };
+}
+```
+
+**Cómo el orchestrator crea pipeline_pieces a partir de UNA pieza generada**:
+
+```typescript
+function createPiecesFromPieceV2(
+  piece: PieceV2,
+  channels: PlatformFormat[],
+  imageSetByAspect: Record<ImageAspect, string>,  // image storage paths
+  pipelineRunId: string,
+  businessId: string,
+): PipelinePieceInsert[] {
+  return channels.map((platform) => {
+    const variant = PLATFORM_TO_OVERLAY_VARIANT[platform];
+    const captionKey = PLATFORM_TO_CAPTION[platform];
+    const aspect = PLATFORM_TO_ASPECT[platform];
+
+    const overlay = piece.overlays[variant];
+    const caption = captionKey ? piece.captions[captionKey] : null;
+
+    return {
+      pipeline_run_id: pipelineRunId,
+      business_id: businessId,
+      idea_id: piece.id,
+      platform,
+
+      // Overlay (texto sobre la imagen)
+      headline: overlay.headline,
+      body: overlay.subcopy,
+      cta: overlay.cta,
+      overlay_variant: variant,
+
+      // Caption (texto del post, fuera de la imagen)
+      caption_body: caption?.body ?? null,
+      caption_bullets: 'bullets' in (caption ?? {}) ? (caption as any).bullets : null,
+      caption_hashtags: 'hashtags' in (caption ?? {}) ? (caption as any).hashtags : null,
+
+      // Compartidos
+      footer: piece.shared.footer,
+      status_pill: piece.shared.statusPill,
+      data_badge: piece.shared.dataBadge,
+      image_intent: piece.shared.imageIntent,
+      angle: piece.shared.angle,
+      narrative_angle: piece.shared.narrativeAngle,
+      funnel_stage: piece.shared.funnelStage,
+
+      // Imagen reusada por aspect ratio
+      image_storage_path: imageSetByAspect[aspect],
+
+      piece_status: 'image_ready',
+    };
+  });
+}
+```
+
+**Generación de imágenes — flujo secuencial**:
+
+El orchestrator no genera todas las imágenes en paralelo. Va aspect por aspect, con aprobación del usuario entre cada uno. El orden por defecto es: **landscape → square → vertical**, porque LinkedIn (landscape) tiene más volumen B2B.
+
+```mermaid
+sequenceDiagram
+    participant U as Usuario
+    participant O as Orchestrator
+    participant I as Image Agent
+
+    Note over O: aspects necesarios = unique(channels.map(PLATFORM_TO_ASPECT))
+    
+    loop por cada aspect en orden [landscape, square, vertical]
+        O->>I: generarImagen(imageIntent, aspect)
+        I-->>O: image_storage_path
+        O-->>U: mostrar imagen del aspect
+        
+        alt usuario aprueba
+            O->>O: image_set[aspect] = path
+        else usuario itera
+            O->>I: refinarPrompt(feedback)
+            Note over O: max 3 iteraciones
+        else usuario salta este aspect
+            O->>O: omitir plataformas de este aspect
+        end
+    end
+
+    O->>O: createPiecesFromPieceV2(piece, channels, image_set)
+```
+
+**Regla del Image Agent**: la imagen NO contiene texto, palabras, números ni elementos tipográficos. Solo escena visual y composición. El texto se inyecta por template engine.
+
+**Por qué Facebook reusa el overlay y la imagen de LinkedIn**:
+1. Mismas dimensiones (1200×628).
+2. Audiencia B2B se solapa fuertemente (CFOs, dueños PyME).
+3. Tono ejecutivo funciona en ambas plataformas.
+4. El caption sí se diferencia (Facebook un poco más corto), porque ese es el texto que el operador adapta al publicar.
+
+**Por qué hashtags solo en Instagram Post**:
+- LinkedIn B2B serio los desincentiva.
+- Facebook B2B no los necesita.
+- Instagram Post sí los aprovecha (descubrimiento por hashtag sigue funcionando en B2B).
+- Story y Banner no tienen caption.
+
+---
+
 ## Data Models
 
 ### Modelo 1: pipeline_runs
@@ -684,9 +897,9 @@ CREATE TABLE pipeline_pieces (
   business_id UUID NOT NULL REFERENCES business_tenants(id),
   idea_id TEXT NOT NULL,
   
-  -- Copy
+  -- Copy (overlay sobre la imagen)
   headline TEXT NOT NULL,
-  body TEXT,
+  body TEXT,                    -- subcopy del overlay
   cta TEXT,
   footer TEXT,
   status_pill TEXT,
@@ -695,6 +908,12 @@ CREATE TABLE pipeline_pieces (
   angle TEXT,
   narrative_angle TEXT,
   funnel_stage TEXT,
+
+  -- Multi-channel copy (Componente 6.5)
+  overlay_variant TEXT,         -- 'professional' | 'square' | 'vertical'
+  caption_body TEXT,            -- texto del post (fuera de la imagen). NULL para banner/story.
+  caption_bullets JSONB,        -- ["▪ punto 1", ...] solo para linkedin/facebook si aplica
+  caption_hashtags JSONB,       -- ["#tag1", ...] solo para instagram-post
   
   -- Image
   image_type TEXT,              -- fotografia, infografia, mapa_rutas
@@ -722,7 +941,10 @@ CREATE TABLE pipeline_pieces (
   
   CONSTRAINT valid_piece_status CHECK (piece_status IN (
     'draft', 'content_ready', 'image_ready', 'html_ready', 'rendered', 'approved'
-  ))
+  )),
+  CONSTRAINT valid_overlay_variant CHECK (
+    overlay_variant IS NULL OR overlay_variant IN ('professional', 'square', 'vertical')
+  )
 );
 
 ALTER TABLE pipeline_pieces ENABLE ROW LEVEL SECURITY;
@@ -894,6 +1116,18 @@ erDiagram
 *Para toda* Edge Function migrada, invocarla con parámetros en formato legacy produce un output con la misma estructura que antes de la migración. Las funciones operan de forma independiente sin requerir el Pipeline_Orchestrator.
 
 **Validates: Requirements 10.1, 10.2, 10.3**
+
+### Property 11: Coherencia multi-canal
+
+*Para toda* `PieceV2` generada por el Content Agent, las 3 variantes de `overlays` y las 3 variantes de `captions` comparten el mismo `shared.angle`, `shared.imageIntent` y `shared.funnelStage`. Solo difieren en longitud, tono y formato según las reglas por variante. El orchestrator nunca crea `pipeline_pieces` con `overlay_variant` que no corresponde a su `platform` según `PLATFORM_TO_OVERLAY_VARIANT`.
+
+**Validates: Requirements 18.1, 18.2, 18.3, 18.7**
+
+### Property 12: Reuso de imagen por aspect ratio
+
+*Para todo* `pipeline_run` con múltiples plataformas, las plataformas que comparten `ImageAspect` reusan exactamente el mismo `image_storage_path`. Concretamente, `linkedin-post`, `facebook-post` y `banner` comparten una imagen landscape, sin regeneración independiente.
+
+**Validates: Requirements 18.4, 18.5, 18.6**
 
 ## Error Handling
 

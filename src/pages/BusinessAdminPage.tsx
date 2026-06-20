@@ -17,9 +17,12 @@ import {
   GitBranch,
   ArrowLeft,
   Loader2,
+  Save,
 } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -30,6 +33,7 @@ import { StrategicConfigEditor } from '@/components/StrategicConfigEditor';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useCommercialBranches } from '@/hooks/useCommercialBranches';
 import { useCampaignCategories } from '@/hooks/useCampaignCategories';
+import { useBusinessConfig } from '@/hooks/useBusinessConfig';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
 import type { CommercialBranch, StrategicConfig } from '@/types/xendingDesign';
@@ -62,6 +66,196 @@ function useIsAdmin() {
     enabled: !!activeBusinessId,
     staleTime: 5 * 60 * 1000,
   });
+}
+
+/**
+ * BrandIdentityEditor — Inline editor for brand identity fields (logo, colors, fonts).
+ */
+function BrandIdentityEditor({ businessId }: { businessId: string }) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const { data: config, isLoading } = useBusinessConfig();
+  const [saving, setSaving] = useState(false);
+  const [logoUrl, setLogoUrl] = useState('');
+  const [primaryColor, setPrimaryColor] = useState('');
+  const [secondaryColor, setSecondaryColor] = useState('');
+  const [accentColor, setAccentColor] = useState('');
+  const [displayFont, setDisplayFont] = useState('');
+  const [bodyFont, setBodyFont] = useState('');
+  const [disclaimer, setDisclaimer] = useState('');
+  const [initialized, setInitialized] = useState(false);
+
+  // Populate form when config loads
+  if (config && !initialized) {
+    setLogoUrl(config.logo_url ?? '');
+    setPrimaryColor(config.primary_color ?? '');
+    setSecondaryColor(config.secondary_color ?? '');
+    setAccentColor(config.accent_color ?? '');
+    setDisplayFont(config.fonts?.display ?? '');
+    setBodyFont(config.fonts?.body ?? '');
+    setDisclaimer(config.disclaimer ?? '');
+    setInitialized(true);
+  }
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const { error, count } = await supabase
+        .from('business_tenants')
+        .update({
+          logo_url: logoUrl || null,
+          primary_color: primaryColor || null,
+          secondary_color: secondaryColor || null,
+          accent_color: accentColor || null,
+          fonts: { display: displayFont || 'Inter', body: bodyFont || 'Inter', mono: 'JetBrains Mono' },
+          disclaimer: disclaimer || null,
+        })
+        .eq('id', businessId);
+
+      if (error) throw error;
+
+      // Invalidate queries so Design Studio picks up the change
+      await queryClient.invalidateQueries({ queryKey: ['business-config'] });
+      toast({ title: 'Identidad de marca guardada', description: 'Los cambios se reflejarán en el Design Studio.' });
+    } catch (err: any) {
+      console.error('Error saving brand identity:', err);
+      toast({ title: 'Error al guardar', description: err.message ?? 'Error desconocido', variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (isLoading) {
+    return <Skeleton className="h-64 w-full" />;
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Identidad de Marca</CardTitle>
+        <CardDescription>
+          Logo, colores, tipografías y disclaimer del negocio.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Logo URL */}
+        <div className="space-y-2">
+          <Label htmlFor="admin-logo-url">URL del Logo *</Label>
+          <Input
+            id="admin-logo-url"
+            value={logoUrl}
+            onChange={(e) => setLogoUrl(e.target.value)}
+            placeholder="https://tu-bucket.supabase.co/storage/v1/object/public/Brand/logo.png"
+          />
+          {logoUrl && (
+            <img
+              src={logoUrl}
+              alt="Logo preview"
+              className="h-12 w-auto object-contain rounded border p-1"
+              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+            />
+          )}
+        </div>
+
+        {/* Colors */}
+        <div className="grid grid-cols-3 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="admin-primary">Color Primario *</Label>
+            <div className="flex gap-2 items-center">
+              <input
+                type="color"
+                value={primaryColor || '#000000'}
+                onChange={(e) => setPrimaryColor(e.target.value)}
+                className="h-9 w-9 rounded border cursor-pointer"
+              />
+              <Input
+                id="admin-primary"
+                value={primaryColor}
+                onChange={(e) => setPrimaryColor(e.target.value)}
+                placeholder="#0F1419"
+                className="flex-1"
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="admin-secondary">Color Secundario</Label>
+            <div className="flex gap-2 items-center">
+              <input
+                type="color"
+                value={secondaryColor || '#333333'}
+                onChange={(e) => setSecondaryColor(e.target.value)}
+                className="h-9 w-9 rounded border cursor-pointer"
+              />
+              <Input
+                id="admin-secondary"
+                value={secondaryColor}
+                onChange={(e) => setSecondaryColor(e.target.value)}
+                placeholder="#2ED4C7"
+                className="flex-1"
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="admin-accent">Color Acento</Label>
+            <div className="flex gap-2 items-center">
+              <input
+                type="color"
+                value={accentColor || '#2ED4C7'}
+                onChange={(e) => setAccentColor(e.target.value)}
+                className="h-9 w-9 rounded border cursor-pointer"
+              />
+              <Input
+                id="admin-accent"
+                value={accentColor}
+                onChange={(e) => setAccentColor(e.target.value)}
+                placeholder="#FF7A4A"
+                className="flex-1"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Fonts */}
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="admin-display-font">Tipografía Display</Label>
+            <Input
+              id="admin-display-font"
+              value={displayFont}
+              onChange={(e) => setDisplayFont(e.target.value)}
+              placeholder="Fraunces"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="admin-body-font">Tipografía Body</Label>
+            <Input
+              id="admin-body-font"
+              value={bodyFont}
+              onChange={(e) => setBodyFont(e.target.value)}
+              placeholder="Inter"
+            />
+          </div>
+        </div>
+
+        {/* Disclaimer */}
+        <div className="space-y-2">
+          <Label htmlFor="admin-disclaimer">Disclaimer</Label>
+          <Input
+            id="admin-disclaimer"
+            value={disclaimer}
+            onChange={(e) => setDisclaimer(e.target.value)}
+            placeholder="Texto legal que aparece en las piezas..."
+          />
+        </div>
+
+        {/* Save */}
+        <Button onClick={handleSave} disabled={saving} className="gap-2">
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+          Guardar cambios
+        </Button>
+      </CardContent>
+    </Card>
+  );
 }
 
 function BusinessAdminPage() {
@@ -237,30 +431,7 @@ function BusinessAdminPage() {
 
         {/* Config Tab */}
         <TabsContent value="config">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">
-                Configuración del Negocio
-              </CardTitle>
-              <CardDescription>
-                Identidad de marca, colores, fuentes y disclaimers.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm">
-              <div className="grid grid-cols-2 gap-2">
-                <span className="text-muted-foreground">Nombre:</span>
-                <span>{activeBusiness?.name}</span>
-                <span className="text-muted-foreground">Slug:</span>
-                <span>{activeBusiness?.slug}</span>
-                <span className="text-muted-foreground">Industria:</span>
-                <span>{(activeBusiness as any)?.industry ?? '—'}</span>
-              </div>
-              <p className="text-xs text-muted-foreground pt-2">
-                Para editar la identidad de marca, usa el Wizard de Onboarding o
-                contacta al administrador.
-              </p>
-            </CardContent>
-          </Card>
+          <BrandIdentityEditor businessId={activeBusinessId} />
         </TabsContent>
       </Tabs>
     </div>

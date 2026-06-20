@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveBusiness } from './useActiveBusiness';
+import type { PieceV2 } from './useRenderMultichannel';
 
 export interface GeneratedIdeaRow {
   id: string;
@@ -21,6 +22,9 @@ export interface GeneratedIdeaRow {
   copy_base?: string | null;
   slides?: string[] | null;
   image_text?: string | null;
+  // V2 multi-channel piece (overlays + captions for all platforms).
+  // NULL on legacy rows; populated when generate-ideas returned a v2 schema.
+  piece_v2?: PieceV2 | null;
 }
 
 export function useGeneratedIdeas(branchId?: string | null) {

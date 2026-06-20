@@ -17,6 +17,8 @@ export interface HydrateInput {
   templateType: string;
   /** Platform format: instagram-story, instagram-post, facebook-post, linkedin-post, banner */
   platform: string;
+  /** Layout variation: A (default), B (card centered), C (split lateral) */
+  layoutVariation?: "A" | "B" | "C";
   /** Copy data */
   copy: {
     headline: string;
@@ -70,6 +72,80 @@ const PLATFORM_DIMENSIONS: Record<string, { width: number; height: number }> = {
   "linkedin-post": { width: 1200, height: 627 },
   "banner": { width: 1920, height: 1080 },
 };
+
+// ---------------------------------------------------------------------------
+// Layout Variation CSS
+// ---------------------------------------------------------------------------
+
+/**
+ * Layout B CSS — Card centered with internal image.
+ * Applied via class "layout-b" on <body>.
+ */
+const LAYOUT_B_CSS = `
+/* Layout B: Card centered with internal image */
+body.layout-b { justify-content: center; align-items: center; }
+body.layout-b .card { position: relative; top: auto; left: 50px; right: 50px; display: flex; flex-direction: row; flex-wrap: wrap; align-items: flex-start; gap: 20px; padding: 48px 56px; }
+body.layout-b .content-wrapper { flex-direction: row; flex-wrap: wrap; align-items: flex-start; gap: 20px; padding: 48px 56px; }
+body.layout-b .brand-lockup { width: 100%; flex-shrink: 0; }
+body.layout-b .image-area { width: 45%; height: 480px; flex-shrink: 0; order: 1; }
+body.layout-b .headline { width: 50%; font-size: 48px; order: 2; margin-bottom: 8px; }
+body.layout-b .subcopy { width: 50%; font-size: 20px; order: 3; }
+body.layout-b .stat-pill { width: 100%; order: 4; }
+body.layout-b .accent-bar { width: 100%; order: 5; }
+body.layout-b .footer { position: relative; bottom: auto; left: auto; right: auto; width: 100%; padding: 32px 50px; }
+body.layout-b .punchline { font-size: 38px; }
+/* Layout B: Horizontal formats — image becomes internal thumbnail */
+body.layout-b .image-side { width: 35%; height: auto; position: absolute; top: 50%; left: 5%; transform: translateY(-50%); border-radius: 16px; overflow: hidden; max-height: 80%; }
+body.layout-b .image-side img { border-radius: 16px; }
+body.layout-b .content-side { width: 55%; margin-left: 42%; padding: 32px 40px; }
+`;
+
+/**
+ * Layout C CSS — Split lateral (image left, copy right).
+ * Applied via class "layout-c" on <body>.
+ */
+const LAYOUT_C_CSS = `
+/* Layout C: Split lateral (image|copy) */
+body.layout-c { flex-direction: row !important; }
+body.layout-c .card { position: absolute; top: 0; left: 0; width: 50%; height: 100%; border-radius: 0; padding: 0; box-shadow: none; background: transparent !important; border: none !important; overflow: hidden; }
+body.layout-c .content-wrapper { flex-direction: row; padding: 0; }
+body.layout-c .card .brand-lockup, body.layout-c .card .headline, body.layout-c .card .subcopy, body.layout-c .card .stat-pill, body.layout-c .card .accent-bar { display: none; }
+body.layout-c .image-area { width: 100%; height: 100%; border-radius: 0; margin: 0; }
+body.layout-c .image-area img { width: 100%; height: 100%; object-fit: cover; object-position: center center; border-radius: 0; }
+body.layout-c .footer { position: absolute; top: 0; left: 50%; right: 0; bottom: 0; width: 50%; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; padding: 60px 48px; text-align: left; z-index: 3; }
+body.layout-c .punchline { font-size: 36px; text-align: left; margin-bottom: 20px; }
+body.layout-c .cta { font-size: 20px; padding: 18px 36px; align-self: flex-start; }
+body.layout-c .disclaimer { margin-top: auto; text-align: left; }
+/* Layout C: Horizontal formats — 60/40 split */
+body.layout-c .image-side { width: 60%; }
+body.layout-c .content-side { width: 40%; padding: 28px 36px; }
+body.layout-c .content-side .headline { font-size: 28px; }
+body.layout-c .content-side .subcopy { font-size: 14px; }
+`;
+
+/**
+ * Get layout CSS for a given variation.
+ */
+function getRendererLayoutCSS(layout: "A" | "B" | "C"): string {
+  switch (layout) {
+    case "A": return "";
+    case "B": return LAYOUT_B_CSS;
+    case "C": return LAYOUT_C_CSS;
+    default: return "";
+  }
+}
+
+/**
+ * Get layout class name for a given variation.
+ */
+function getRendererLayoutClass(layout: "A" | "B" | "C"): string {
+  switch (layout) {
+    case "A": return "layout-a";
+    case "B": return "layout-b";
+    case "C": return "layout-c";
+    default: return "layout-a";
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Component builders
@@ -127,8 +203,30 @@ export function hydrateTemplate(
   const partnerBadge = buildPartnerBadge(input.partner);
   const promoterArea = buildPromoterArea(input.promoter);
 
+  // Resolve layout variation
+  const layout = input.layoutVariation ?? "A";
+  const layoutCSS = getRendererLayoutCSS(layout);
+  const layoutClass = getRendererLayoutClass(layout);
+
   // Replace all placeholders
   let html = templateHtml;
+
+  // Inject layout class on <body> tag
+  if (layout !== "A") {
+    html = html.replace(/<body([^>]*)>/i, `<body$1 class="${layoutClass}">`);
+    // If body already has a class attribute, append to it
+    html = html.replace(
+      /class="([^"]*)" class="([^"]*)"/,
+      `class="$1 $2"`,
+    );
+    // Inject layout CSS before </style>
+    if (layoutCSS) {
+      html = html.replace(
+        /<\/style>/i,
+        `\n/* Layout variation: ${layout} */\n${layoutCSS}\n</style>`,
+      );
+    }
+  }
 
   // Component placeholders
   html = html.replace(/\{\{brandLockup\}\}/g, brandLockup);
@@ -158,8 +256,9 @@ export function hydrateTemplate(
   html = html.replace(/\{\{message\}\}/g, input.copy.punchline ?? "");
   html = html.replace(/\{\{visualTheme\}\}/g, input.templateType.toUpperCase());
 
-  // Generate filename
-  const filename = `${input.templateType}_${input.platform}${input.promoter ? `_${input.promoter.name.replace(/\s+/g, "-").toLowerCase()}` : ""}.png`;
+  // Generate filename (includes layout variation if not A)
+  const layoutSuffix = layout !== "A" ? `_layout-${layout.toLowerCase()}` : "";
+  const filename = `${input.templateType}_${input.platform}${layoutSuffix}${input.promoter ? `_${input.promoter.name.replace(/\s+/g, "-").toLowerCase()}` : ""}.png`;
 
   return { html, width: dims.width, height: dims.height, filename };
 }

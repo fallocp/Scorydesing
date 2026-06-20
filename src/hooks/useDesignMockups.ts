@@ -25,6 +25,8 @@ interface SaveMockupParams {
   platform: string;
   selections?: Record<string, unknown>;
   promptUsed?: string;
+  parentMockupId?: string;
+  iterationFeedback?: string;
 }
 
 /**
@@ -72,6 +74,8 @@ export function useSaveMockup() {
           platform: params.platform,
           selections: params.selections || null,
           prompt_used: params.promptUsed || null,
+          parent_mockup_id: params.parentMockupId || null,
+          iteration_feedback: params.iterationFeedback || null,
           status: 'saved',
         });
 

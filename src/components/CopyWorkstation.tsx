@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import {
   Sparkles, Download, Loader2, Eye, Code, X, RotateCcw,
   ImagePlus, Upload, Check, Pencil, ChevronDown, ChevronUp, ImageIcon, Move,
-  Trash2, Maximize2, MessageSquare, Send, Zap,
+  Trash2, Maximize2, MessageSquare, Send, Zap, Layers,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -31,6 +31,9 @@ import { useCustomTemplates } from '@/hooks/useCustomTemplates';
 import { HtmlSectionEditor } from './HtmlSectionEditor';
 import { VisualDesignEditor } from './VisualDesignEditor';
 import { ImageLightbox } from './ImageLightbox';
+import { MultichannelRenderer } from './multichannel/MultichannelRenderer';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 
 interface GeneratedVariant {
   id: string;
@@ -674,6 +677,12 @@ export function CopyWorkstation({ branch, branchName, initialBrainstormOpen = fa
 
   // Lightbox for viewing designs full-size
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+
+  // Multi-channel renderer modal — index of copy whose pieceV2 is being applied
+  const [multichannelIndex, setMultichannelIndex] = useState<number | null>(null);
+
+  // Active business for multi-channel renderer
+  const { activeBusinessId } = useActiveBusiness();
 
   // Image generation style per copy
   const [imageStyles, setImageStyles] = useState<Record<number, string>>({});
@@ -2757,6 +2766,18 @@ export function CopyWorkstation({ branch, branchName, initialBrainstormOpen = fa
                       </Button>
                     )}
 
+                    {state.renderedPng && idea.pieceV2 && getSelectedImageUrl(index) && activeBusinessId && (
+                      <Button
+                        size="sm"
+                        variant="default"
+                        onClick={() => setMultichannelIndex(index)}
+                        className="bg-[#2ED4C7] hover:bg-[#27b8ad] text-white"
+                        title="Aplicar esta imagen + copy a múltiples plataformas"
+                      >
+                        <Layers className="h-3.5 w-3.5 mr-1" /> Multi-plataforma
+                      </Button>
+                    )}
+
                     {state.savedDesigns.length > 0 && (
                       <Badge variant="outline" className="text-xs text-green-600 border-green-600/30 self-center">
                         <Check className="h-3 w-3 mr-0.5" /> {state.savedDesigns.length} diseño{state.savedDesigns.length !== 1 ? 's' : ''} guardado{state.savedDesigns.length !== 1 ? 's' : ''}
@@ -2950,6 +2971,38 @@ export function CopyWorkstation({ branch, branchName, initialBrainstormOpen = fa
           />
         </div>
       )}
+
+      {/* Multi-channel renderer modal */}
+      <Dialog
+        open={multichannelIndex !== null}
+        onOpenChange={(open) => {
+          if (!open) setMultichannelIndex(null);
+        }}
+      >
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Renderizar para múltiples plataformas</DialogTitle>
+          </DialogHeader>
+          {multichannelIndex !== null &&
+            activeBusinessId &&
+            branch.copyIdeas[multichannelIndex]?.pieceV2 &&
+            getSelectedImageUrl(multichannelIndex) && (
+              <MultichannelRenderer
+                businessId={activeBusinessId}
+                pieceV2={
+                  branch.copyIdeas[multichannelIndex].pieceV2 as unknown as Parameters<
+                    typeof MultichannelRenderer
+                  >[0]['pieceV2']
+                }
+                imageUrl={getSelectedImageUrl(multichannelIndex)!}
+                defaultTemplateType={
+                  templates[multichannelIndex] || defaultTemplateId || 'card-light'
+                }
+                onClose={() => setMultichannelIndex(null)}
+              />
+            )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

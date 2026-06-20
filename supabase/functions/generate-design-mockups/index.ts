@@ -1,5 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.53.0";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -51,6 +52,7 @@ interface BranchContentIngredients {
 }
 
 interface GenerateMockupsRequest {
+  business_id?: string;
   brand_palette: BrandPalette;
   mode: 'visual' | 'reference';
   selections?: VisualSelections;
@@ -67,12 +69,162 @@ interface GenerateMockupsRequest {
   // Piece-level copy and image prompt
   piece_copy?: { headline: string; body?: string; cta?: string; punchline?: string };
   piece_image_prompt?: { type: string; prompt: string };
+  // Iteration feedback — user corrections on previous mockup
+  iteration_feedback?: string;
+  previous_prompt?: string;
 }
 
 interface GeneratedMockup {
   index: number;
   image_base64: string;
   prompt_used: string;
+}
+
+// ---------------------------------------------------------------------------
+// Learned Preferences — Query & Build Prompt Section
+// ---------------------------------------------------------------------------
+
+/** Configuration for how many feedback items to query */
+const FEEDBACK_QUERY_LIMITS = {
+  likes: 10,
+  dislikes: 10,
+  chat: 10,
+};
+
+interface LearnedPreferences {
+  prefer: string[];
+  avoid: string[];
+}
+
+/**
+ * Query recent design_feedback for a business and build structured preferences.
+ * Respects brand isolation: only reads feedback from the given business_id.
+ */
+async function fetchLearnedPreferences(
+  supabase: SupabaseClient,
+  businessId: string,
+): Promise<LearnedPreferences> {
+  const preferences: LearnedPreferences = { prefer: [], avoid: [] };
+
+  try {
+    // Query recent likes — extract selections and prompt patterns
+    const { data: likes } = await supabase
+      .from('design_feedback')
+      .select('selections, prompt_used, interpreted_changes')
+      .eq('business_id', businessId)
+      .eq('feedback_type', 'like')
+      .order('created_at', { ascending: false })
+      .limit(FEEDBACK_QUERY_LIMITS.likes);
+
+    // Query recent dislikes — extract what to avoid
+    const { data: dislikes } = await supabase
+      .from('design_feedback')
+      .select('selections, prompt_used, interpreted_changes')
+      .eq('business_id', businessId)
+      .eq('feedback_type', 'dislike')
+      .order('created_at', { ascending: false })
+      .limit(FEEDBACK_QUERY_LIMITS.dislikes);
+
+    // Query recent chat feedback — extract interpreted_changes
+    const { data: chatFeedback } = await supabase
+      .from('design_feedback')
+      .select('message, interpreted_changes')
+      .eq('business_id', businessId)
+      .eq('feedback_type', 'chat')
+      .order('created_at', { ascending: false })
+      .limit(FEEDBACK_QUERY_LIMITS.chat);
+
+    // --- Build PREFER list from likes ---
+    if (likes && likes.length > 0) {
+      // Extract visual style patterns from liked mockups' selections
+      const likedStyles = new Set<string>();
+      for (const like of likes) {
+        const sel = like.selections as Record<string, unknown> | null;
+        if (sel) {
+          if (sel.background) likedStyles.add(`fondo: ${sel.background}`);
+          if (sel.visualStyle) likedStyles.add(`estilo: ${sel.visualStyle}`);
+          if (sel.contentType) likedStyles.add(`tipo: ${sel.contentType}`);
+          if (sel.heroElement) likedStyles.add(`hero: ${sel.heroElement}`);
+        }
+        // Extract increase from interpreted_changes if present
+        const changes = like.interpreted_changes as { increase?: string[]; decrease?: string[] } | null;
+        if (changes?.increase) {
+          for (const item of changes.increase) likedStyles.add(item);
+        }
+      }
+      preferences.prefer.push(...Array.from(likedStyles));
+    }
+
+    // --- Build AVOID list from dislikes ---
+    if (dislikes && dislikes.length > 0) {
+      const dislikedPatterns = new Set<string>();
+      for (const dislike of dislikes) {
+        const sel = dislike.selections as Record<string, unknown> | null;
+        if (sel) {
+          if (sel.background) dislikedPatterns.add(`fondo: ${sel.background}`);
+          if (sel.visualStyle) dislikedPatterns.add(`estilo: ${sel.visualStyle}`);
+          if (sel.contentType) dislikedPatterns.add(`tipo: ${sel.contentType}`);
+          if (sel.heroElement) dislikedPatterns.add(`hero: ${sel.heroElement}`);
+        }
+        // Extract decrease from interpreted_changes if present
+        const changes = dislike.interpreted_changes as { increase?: string[]; decrease?: string[] } | null;
+        if (changes?.decrease) {
+          for (const item of changes.decrease) dislikedPatterns.add(item);
+        }
+      }
+      preferences.avoid.push(...Array.from(dislikedPatterns));
+    }
+
+    // --- Merge chat feedback interpreted_changes ---
+    if (chatFeedback && chatFeedback.length > 0) {
+      const chatPrefer = new Set<string>();
+      const chatAvoid = new Set<string>();
+      for (const chat of chatFeedback) {
+        const changes = chat.interpreted_changes as { increase?: string[]; decrease?: string[] } | null;
+        if (changes?.increase) {
+          for (const item of changes.increase) chatPrefer.add(item);
+        }
+        if (changes?.decrease) {
+          for (const item of changes.decrease) chatAvoid.add(item);
+        }
+      }
+      preferences.prefer.push(...Array.from(chatPrefer));
+      preferences.avoid.push(...Array.from(chatAvoid));
+    }
+
+    // Deduplicate
+    preferences.prefer = [...new Set(preferences.prefer)];
+    preferences.avoid = [...new Set(preferences.avoid)];
+  } catch (err) {
+    // Non-fatal: if preferences can't be loaded, continue without them
+    console.warn('Failed to fetch learned preferences:', err);
+  }
+
+  return preferences;
+}
+
+/**
+ * Build the "PREFERENCIAS APRENDIDAS" prompt section from learned preferences.
+ * Returns empty string if no preferences are available.
+ */
+function buildLearnedPreferencesSection(preferences: LearnedPreferences): string {
+  if (preferences.prefer.length === 0 && preferences.avoid.length === 0) {
+    return '';
+  }
+
+  const lines: string[] = ['PREFERENCIAS APRENDIDAS (del historial de feedback del usuario):'];
+
+  if (preferences.prefer.length > 0) {
+    lines.push(`PREFIERO: ${preferences.prefer.join(', ')}`);
+  }
+
+  if (preferences.avoid.length > 0) {
+    lines.push(`EVITAR: ${preferences.avoid.join(', ')}`);
+  }
+
+  lines.push('Aplica estas preferencias sutilmente al diseño sin ignorar las selecciones explícitas del usuario.');
+
+  return lines.join('\n');
 }
 
 // ---------------------------------------------------------------------------
@@ -117,6 +269,7 @@ function buildGenerationPrompt(
   customIdea?: string,
   pieceCopy?: { headline: string; body?: string; cta?: string; punchline?: string },
   pieceImagePrompt?: { type: string; prompt: string },
+  learnedPreferencesSection?: string,
 ): string {
   const sections: string[] = [];
 
@@ -198,6 +351,11 @@ Generate a COMPLETE, FINISHED advertising piece — not just a background. The o
   }
   brandLines.push(`The ad must include the brand name "${businessName || 'Xending'}" as the logo text (top-left or top-center)`);
   sections.push(`Brand Identity:\n${brandLines.join('\n')}`);
+
+  // Section 3b: Learned Preferences (from feedback history)
+  if (learnedPreferencesSection) {
+    sections.push(learnedPreferencesSection);
+  }
 
   // Section 4: Content Context (branch ingredients or custom idea)
   const contentMode = selections.contentMode || 'free';
@@ -312,6 +470,7 @@ function buildReferencePrompt(
   variationIndex: number,
   businessName?: string,
   businessContext?: string,
+  learnedPreferencesSection?: string,
 ): string {
   const sections: string[] = [];
 
@@ -351,6 +510,11 @@ The output must be a real, publishable ad — not just a background. Include:
     brandLines.push(`Body font style: ${brandPalette.fonts.body}`);
   }
   sections.push(`Brand Identity:\n${brandLines.join('\n')}`);
+
+  // Section 3b: Learned Preferences (from feedback history)
+  if (learnedPreferencesSection) {
+    sections.push(learnedPreferencesSection);
+  }
 
   // Section 4: Instructions
   const variationHints = [
@@ -504,11 +668,35 @@ serve(async (req) => {
     }
 
     const size = platformToSize(platform);
-    // Generate only 1 image to stay within timeout
-    const timeoutMs = 55_000;
+    // Generate only 1 image. gpt-image (quality "medium") often takes 60-120s,
+    // so allow up to 140s — just under Supabase's 150s response-initiation limit
+    // that triggers a raw gateway 504.
+    const timeoutMs = 140_000;
 
     // Pick a random variation index for variety on regenerate
     const variationIndex = Math.floor(Math.random() * 3);
+
+    // --- Fetch learned preferences (brand-isolated) ---
+    let learnedPreferencesSection = '';
+    if (body.business_id) {
+      try {
+        const authHeader = req.headers.get('Authorization');
+        const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+        const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
+
+        if (authHeader && supabaseUrl && supabaseAnonKey) {
+          const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+            global: { headers: { Authorization: authHeader } },
+          });
+
+          const preferences = await fetchLearnedPreferences(supabase, body.business_id);
+          learnedPreferencesSection = buildLearnedPreferencesSection(preferences);
+        }
+      } catch (prefError) {
+        // Non-fatal: continue without preferences
+        console.warn('Error fetching learned preferences:', prefError);
+      }
+    }
 
     let prompt: string;
     if (mode === 'visual') {
@@ -523,9 +711,28 @@ serve(async (req) => {
         body.custom_idea,
         body.piece_copy,
         body.piece_image_prompt,
+        learnedPreferencesSection,
       );
     } else {
-      prompt = buildReferencePrompt(body.reference_description, brand_palette, platform, variationIndex, body.business_name, body.business_context);
+      prompt = buildReferencePrompt(body.reference_description, brand_palette, platform, variationIndex, body.business_name, body.business_context, learnedPreferencesSection);
+    }
+
+    // --- Iteration feedback: if user provided corrections, use previous prompt + feedback ---
+    if (body.iteration_feedback && body.previous_prompt) {
+      prompt = `${body.previous_prompt}
+
+---
+CORRECCIONES DEL USUARIO (aplicar obligatoriamente a la nueva versión):
+${body.iteration_feedback}
+
+Genera una nueva versión de la imagen aplicando estas correcciones. Mantén todo lo demás igual.`;
+    } else if (body.iteration_feedback) {
+      // No previous prompt available, append feedback to current prompt
+      prompt = `${prompt}
+
+---
+CORRECCIONES DEL USUARIO (aplicar obligatoriamente):
+${body.iteration_feedback}`;
     }
 
     const result = await generateSingleImage(openAIApiKey, prompt, size, timeoutMs);

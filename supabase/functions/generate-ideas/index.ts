@@ -3,7 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.53.0";
 import { fetchBusinessContext, fetchMasterPromptByType } from "../_shared/fetchBusinessContext.ts";
 import { interpolateTemplate } from "../_shared/interpolateTemplate.ts";
-import { validateContentResponse } from "../_shared/validateResponse.ts";
+import { validateContentResponse, validateContentResponseAuto } from "../_shared/validateResponse.ts";
 import { mapPiecesToIdeas } from "../_shared/mapPiecesToIdeas.ts";
 import { buildBranchContextBlock, getBranchContextDebugInfo } from "../_shared/buildBranchContextBlock.ts";
 
@@ -538,6 +538,8 @@ No uses estas frases genéricas salvo que estén conectadas a una situación con
 ## IDEAS YA GENERADAS (NO repetir):
 {{previousIdeas}}
 
+> Las reglas detalladas para usar este bloque están en la sección "REGLAS DE NO-REPETICIÓN ENTRE LLAMADAS" más abajo.
+
 ## REGLAS DE COPY
 
 1. Body: MÁXIMO 2 oraciones CORTAS. LÍMITE ABSOLUTO: 30 palabras total. Si superas 30 palabras, REESCRIBE más corto. NO uses 3+ oraciones. NO uses estructura "Antes: ... Después: ...".
@@ -728,30 +730,133 @@ Si una idea no cumple, no la entregues. Reescríbela hasta que cumpla.
 
 No muestres esta evaluación al usuario. Solo entrega las ideas finales corregidas.
 
+## REGLAS DE NO-REPETICIÓN ENTRE LLAMADAS
+
+Recibes una lista de headlines ya generados anteriormente:
+
+HEADLINES YA GENERADOS:
+{{previousIdeas}}
+
+Tratar {{previousIdeas}} como FILTRO DE PATRONES, no solo de texto literal:
+
+1. Antes de escribir cada headline nuevo, identifica patrones de los anteriores:
+   - Estructura sintáctica (ej: "X no significa Y", "Si pasa A, consecuencia B")
+   - Primera palabra (ej: muchos empiezan con "Tu", "Cuando", "El")
+   - Fórmula narrativa (ej: contraste antes/después, pregunta retórica, condicional)
+   - Dolor mencionado (ej: si 5 anteriores hablan de "mercancía detenida", evitar ese dolor)
+
+2. Para cada headline nuevo, valida internamente:
+   - "¿Esto ya lo dije con otras palabras?" → si sí, reescribir
+   - "¿Estoy reusando la misma estructura sintáctica de un anterior?" → si sí, cambiar fórmula
+   - "¿Mi primera palabra coincide con más del 25% de los anteriores?" → si sí, cambiar arranque
+
+3. Si todas las fórmulas obvias del banco ya se usaron en {{previousIdeas}}, fuerza una fórmula menos obvia.
+
+4. NO reescribas variantes cercanas. "Tu pago no llegó hoy" y "El pago no llega hoy" son la misma idea con palabras movidas — eso cuenta como repetición.
+
+### Cuando NO hay material para "{{quantity}}" piezas distintas
+
+Si la rama solo tiene 2 dolores específicos en su prompt_kit y se piden 4 piezas, NO inventes dolores que no existen. Mejor:
+- Genera tantas piezas como dolores reales hay (ej: 2)
+- En cada pieza, agrega en complianceNotes: "Generadas N piezas en lugar de quantity solicitada por agotamiento de dolores específicos de la rama. Considerar refrescar prompt_kit."
+
 ## OUTPUT
 
-Genera exactamente 4 ideas. Responde SOLO con JSON válido. Sin explicación fuera del JSON.
+Genera exactamente {{quantity}} piezas. Responde SOLO con JSON válido. Sin explicación fuera del JSON.
 
-Para cada idea, genera internamente 10 candidatos de headline y selecciona el más fuerte. Incluye los 10 candidatos en el output para transparencia.
+Cada pieza tiene UNA estrategia compartida y MÚLTIPLES adaptaciones por canal:
+- shared: estrategia común (ángulo, dolor, imageIntent, footer, statusPill, dataBadge)
+- overlays: 3 variantes de texto sobre la imagen (professional, square, vertical)
+- captions: 3 variantes de texto del post (linkedin, facebook, instagram)
 
-[
-  {
-    "headline": "string — el headline ganador, máx 9 palabras",
-    "headline_candidates": ["opción 1", "opción 2", "opción 3", "opción 4", "opción 5", "opción 6", "opción 7", "opción 8", "opción 9", "opción 10"],
-    "headline_score_reason": "string — por qué este headline es el más fuerte",
-    "subheadline": "string — amplía la tensión del headline en una frase",
-    "body": "string — máx 2 oraciones, situación real de negocio con consecuencia",
-    "copyBase": "string — texto completo para LinkedIn/email. 3-5 párrafos cortos: apertura fuerte con el dolor, desarrollo del escenario, consecuencia, cierre reflexivo",
-    "cta": "string — accionable y específico, conectado con el dolor",
-    "slides": ["frase 1 para carrusel", "frase 2", "frase 3", "frase 4", "frase 5 opcional"],
-    "imageText": "string — máx 12 palabras para overlay en imagen",
-    "imageSuggestion": "string — dirección visual concreta para generar la imagen. Debe describir una ESCENA ESPECÍFICA con elementos visuales concretos (no abstractos). Si el contexto de rama tiene visual_language, úsalo. Incluye: objetos concretos (dashboards, monedas con símbolos USD/EUR/MXN, interfaces, gráficas, pantallas), composición (qué se ve en primer plano, qué en fondo), y mood (profesional, limpio, premium). Cada idea debe tener una dirección visual DIFERENTE — varía escenarios, elementos y composición. NO repitas la misma escena para todas las ideas.",
-    "imageIntent": "string — concepto semántico de lo que la imagen debe COMUNICAR. Describe la intención comunicativa (qué debe sentir/entender el espectador), no la escena técnica. Ejemplo: 'Urgencia de un pago detenido que frena la operación'. Este campo alimenta al Image Agent.",
-    "angle": "{{commercialBranch}}",
-    "pain_point": "string — el dolor operativo concreto detrás de esta idea",
-    "business_scenario": "string — la situación real donde aparece este dolor"
-  }
-]`;
+Reglas duras:
+- Las 3 overlays + 3 captions de UNA pieza comparten shared. Solo cambian longitud, tono y formato según canal.
+- Las piezas DISTINTAS (cuando quantity > 1) sí varían entre sí en al menos 3 ejes (protagonista, escenario, dolor, consecuencia, estructura narrativa).
+- En overlays.vertical, el campo subcopy puede ser cadena vacía si el headline carga el mensaje.
+
+Longitudes por variante de overlay:
+- professional (LinkedIn / Facebook / Banner): headline máx 9 palabras, subcopy 1 oración hasta 18 palabras, cta consultivo
+- square (Instagram Post): headline máx 8 palabras, subcopy 1 oración hasta 12 palabras, cta corto
+- vertical (Instagram Story): headline máx 6 palabras, subcopy opcional máx 8 palabras o vacío, cta acción inmediata no agresiva
+
+Longitudes por caption:
+- linkedin: 90 a 180 palabras. Estructura: gancho → educativo → dolor → Xending natural → cierre por funnel stage. Bullets opcionales con formato "▪".
+- facebook: 60 a 120 palabras. Tono ejecutivo más concentrado. Bullets opcionales.
+- instagram: 40 a 80 palabras. Gancho fuerte, dolor breve, cierre. Hashtags al final (3-5 hashtags B2B relevantes).
+
+Cierres por funnel stage (aplican en captions y, cuando hay espacio, en subcopy):
+- atraccion: reflexión, no venta. NO menciones la marca como protagonista.
+- conexion: autoridad y criterio. Refuerza que entiendes el problema.
+- conversion: invitación consultiva a revisar el proceso. NO presión de venta.
+
+Frases prohibidas (genéricas y vendedoras): "agenda ya", "agenda ahora", "contáctanos hoy", "compra ahora", "contrata ya", "transformamos tu negocio", "solución integral", "revolucionamos", "la mejor plataforma del mercado", "descubre cómo transformar tu negocio".
+
+Frases prohibidas (acusatorias / alarmistas): "te están robando", "tu banco te roba", "estás perdiendo miles de dólares", "última oportunidad", "actúa antes de que sea tarde".
+
+Reglas duras de negocio (nunca contradecir):
+- El precio queda cerrado al pactar. NO digas "el tipo de cambio se mueve después de pactar".
+- Xending NO es banco. Es plataforma de pagos internacionales.
+- No inventes porcentajes de ahorro, tiempos exactos ni garantías.
+
+ESQUEMA DE SALIDA:
+
+{
+  "pieces": [
+    {
+      "id": "piece_001",
+      "brand": "{{brand}}",
+      "productLine": "{{productLine}}",
+      "campaignCategory": "{{campaignCategory}}",
+      "commercialBranch": "{{commercialBranch}}",
+      "industryVertical": "{{industryVertical}}",
+      "marketMoment": "{{marketMoment}}",
+
+      "shared": {
+        "angle": "string",
+        "narrativeAngle": "string",
+        "funnelStage": "atraccion | conexion | conversion",
+        "footer": "string",
+        "statusPill": "string",
+        "dataBadge": "string",
+        "imageIntent": "string — concepto semántico, sin texto literal en la imagen",
+        "imageSuggestion": "string — DIRECCIÓN VISUAL CONCRETA. Describe una ESCENA ESPECÍFICA con elementos visuales concretos (no abstractos). Si el contexto de rama tiene visual_language, úsalo. Incluye: objetos concretos (dashboards, monedas con símbolos USD/EUR/MXN, interfaces, gráficas, pantallas, contenedores, bodega, mercancía), composición (qué se ve en primer plano, qué en fondo), iluminación, mood (profesional, limpio, premium). Cada pieza debe tener una dirección visual DIFERENTE — varía escenarios, elementos y composición.",
+        "visualStyle": "string",
+        "recommendedTemplate": "string",
+        "targetAudience": "string",
+        "industryContext": "string",
+        "complianceNotes": ["string"],
+        "variationReason": "string"
+      },
+
+      "overlays": {
+        "professional": { "headline": "string", "subcopy": "string", "cta": "string" },
+        "square":       { "headline": "string", "subcopy": "string", "cta": "string" },
+        "vertical":     { "headline": "string", "subcopy": "string", "cta": "string" }
+      },
+
+      "captions": {
+        "linkedin":  { "body": "string", "bullets": ["▪ punto 1"] },
+        "facebook":  { "body": "string", "bullets": [] },
+        "instagram": { "body": "string", "hashtags": ["#PagosInternacionales", "#ComercioExterior"] }
+      },
+
+      "qualityScore": {
+        "overlays": {
+          "professional": { "clarity": 0, "businessImpact": 0, "complianceSafety": 0, "overall": 0 },
+          "square":       { "clarity": 0, "businessImpact": 0, "complianceSafety": 0, "overall": 0 },
+          "vertical":     { "clarity": 0, "businessImpact": 0, "complianceSafety": 0, "overall": 0 }
+        },
+        "captions": {
+          "linkedin":  { "clarity": 0, "authority": 0, "complianceSafety": 0, "overall": 0 },
+          "facebook":  { "clarity": 0, "authority": 0, "complianceSafety": 0, "overall": 0 },
+          "instagram": { "clarity": 0, "authority": 0, "complianceSafety": 0, "overall": 0 }
+        },
+        "visualPotential": 0,
+        "differentiation": 0
+      }
+    }
+  ]
+}`;
 
 const PROMPT_STAGE_ATRACCION = `Eres un estratega de contenido B2B especializado en generar awareness, curiosidad y tensión estratégica.
 
@@ -1042,25 +1147,77 @@ serve(async (req) => {
           : (await fetchMasterPromptByType(supabase, business_id, 'content')
             ?? assembleContentPrompt(selectStagePrompt('atraccion'), branchContextBlock));
 
-        // --- Fetch existing headlines from content_library for no-repetition (Req 2.8, 8.6) ---
+        // --- Fetch existing headlines from content_library for no-repetition ---
+        // Cascade strategy (Req 18.1, mitigates user-reported repetition):
+        //   Level 1 (strict): same branch + same narrative_angle → 50 headlines
+        //   Level 2 (medium): same branch, any narrative_angle    → 30 headlines
+        //   Level 3 (broad):  same business, last 60 days         → 20 headlines
+        // Headlines are deduped while preserving cascade priority.
         let previousIdeasFromDB: string[] = [];
-        if (body.narrativeAngleId && branch_id) {
-          const { data: existingPieces } = await supabase
+        try {
+          const collected = new Set<string>();
+
+          // Level 1: most strict — exact branch + angle match
+          if (body.narrativeAngleId && branch_id) {
+            const { data: rows } = await supabase
+              .from('content_library')
+              .select('piece_data')
+              .eq('business_id', business_id)
+              .eq('commercial_branch_id', branch_id)
+              .eq('narrative_angle_id', body.narrativeAngleId)
+              .order('created_at', { ascending: false })
+              .limit(50);
+            if (rows) {
+              for (const row of rows as { piece_data: Record<string, unknown> }[]) {
+                const headline = (row.piece_data as Record<string, unknown>)?.headline as string | undefined;
+                if (typeof headline === 'string' && headline.trim().length > 0) {
+                  collected.add(headline);
+                }
+              }
+            }
+          }
+
+          // Level 2: same branch, any angle (only if branch_id is present)
+          if (branch_id) {
+            const { data: rows } = await supabase
+              .from('content_library')
+              .select('piece_data')
+              .eq('business_id', business_id)
+              .eq('commercial_branch_id', branch_id)
+              .order('created_at', { ascending: false })
+              .limit(30);
+            if (rows) {
+              for (const row of rows as { piece_data: Record<string, unknown> }[]) {
+                const headline = (row.piece_data as Record<string, unknown>)?.headline as string | undefined;
+                if (typeof headline === 'string' && headline.trim().length > 0) {
+                  collected.add(headline);
+                }
+              }
+            }
+          }
+
+          // Level 3: business-wide, last 60 days
+          const sixtyDaysAgo = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString();
+          const { data: rows } = await supabase
             .from('content_library')
             .select('piece_data')
             .eq('business_id', business_id)
-            .eq('commercial_branch_id', branch_id)
-            .eq('narrative_angle_id', body.narrativeAngleId)
+            .gte('created_at', sixtyDaysAgo)
             .order('created_at', { ascending: false })
-            .limit(50);
-
-          if (existingPieces && existingPieces.length > 0) {
-            previousIdeasFromDB = existingPieces
-              .map((row: { piece_data: Record<string, unknown> }) =>
-                (row.piece_data as Record<string, unknown>)?.headline as string
-              )
-              .filter((h: unknown): h is string => typeof h === 'string' && h.length > 0);
+            .limit(20);
+          if (rows) {
+            for (const row of rows as { piece_data: Record<string, unknown> }[]) {
+              const headline = (row.piece_data as Record<string, unknown>)?.headline as string | undefined;
+              if (typeof headline === 'string' && headline.trim().length > 0) {
+                collected.add(headline);
+              }
+            }
           }
+
+          previousIdeasFromDB = Array.from(collected);
+        } catch (cascadeErr) {
+          // Non-blocking: if any level fails, continue with whatever we have
+          console.error('previousIdeas cascade error (non-blocking):', cascadeErr);
         }
 
         // Merge DB headlines with any explicitly passed previousIdeas
@@ -1100,7 +1257,9 @@ serve(async (req) => {
           narrativeAngle: body.narrativeAngle,
           funnelStage: body.funnelStage,
           promptInstruction: body.promptInstruction,
-          previousIdeas: allPreviousIdeas.length > 0 ? allPreviousIdeas : undefined,
+          previousIdeas: allPreviousIdeas.length > 0
+            ? allPreviousIdeas.map((h) => `- "${h}"`).join('\n')
+            : 'Ninguna. Genera con libertad estratégica.',
           // Real business differentiators from strategic_config (if available)
           diferenciadores: ctx.strategicConfig?.diferenciadores_vs_banco,
         };
@@ -1115,7 +1274,7 @@ serve(async (req) => {
             ctx.branchName ?? 'General',
             branchContextBlock,
           );
-          console.log('🔍 DEBUG-TEMP: prompt_context', JSON.stringify({
+          console.log('[debug_prompt_context] prompt_context', JSON.stringify({
             ...debugInfo,
             funnelStage: body.funnelStage ?? 'atraccion',
             narrativeAngle: body.narrativeAngle ?? 'none',
@@ -1124,6 +1283,8 @@ serve(async (req) => {
         }
 
         // Call OpenAI gpt-5.4-mini with the assembled prompt
+        // max_completion_tokens raised from 4000 → 12000 to fit v2 multi-channel output
+        // (~1100 tokens/piece × quantity vs ~250 in v1). See task 11.2b.
         const mcpResponse = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
           headers: {
@@ -1132,7 +1293,11 @@ serve(async (req) => {
           },
           body: JSON.stringify({
             model: 'gpt-5.4-mini',
-            max_completion_tokens: 4000,
+            max_completion_tokens: 12000,
+            // Force syntactically valid JSON at the API level — eliminates
+            // intermittent parse_error from stray/unescaped characters in the
+            // model's output. The prompt already instructs "Responde SOLO con JSON".
+            response_format: { type: 'json_object' },
             messages: [
               { role: 'system', content: interpolatedPrompt },
               { role: 'user', content: `Genera ${body.quantity ?? 4} piezas de contenido publicitario siguiendo las instrucciones del sistema. Responde SOLO con JSON válido.` },
@@ -1157,10 +1322,26 @@ serve(async (req) => {
         }
 
         const mcpData = await mcpResponse.json();
-        const mcpContent = mcpData.choices?.[0]?.message?.content || '';
+        const mcpChoice = mcpData.choices?.[0];
+        const mcpContent = mcpChoice?.message?.content || '';
+        const finishReason = mcpChoice?.finish_reason as string | undefined;
+        const usage = mcpData.usage as { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number } | undefined;
 
-        // Validate with shared validator (Req 1.3, 1.7, 7.1)
-        const validation = validateContentResponse(mcpContent);
+        // Detect truncated responses BEFORE attempting to parse half a JSON
+        if (finishReason === 'length') {
+          return new Response(
+            JSON.stringify({
+              error: 'truncated_response',
+              message: 'La respuesta del modelo fue truncada por límite de tokens. Intenta con menor cantidad de piezas o reporta este caso al equipo.',
+              completion_tokens: usage?.completion_tokens,
+              max_completion_tokens: 12000,
+            }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Validate with auto-version validator (handles v1 legacy and v2 multi-channel)
+        const validation = validateContentResponseAuto(mcpContent);
 
         if (!validation.success) {
           return new Response(
@@ -1173,39 +1354,65 @@ serve(async (req) => {
           );
         }
 
-        // Map pieces → ideas for backward compatibility (Req 1.4, 1.5)
         const pieces = validation.data!;
+        const schemaVersion = validation.version ?? 'v1';
         const mapped = mapPiecesToIdeas(pieces);
 
-        // --- Save generated ideas to content_library (Req 8.2, 8.3) ---
+        // --- Save generated ideas to content_library (with retry, historyRecorded flag) ---
+        let historyRecorded = false;
         if (body.narrativeAngle && body.narrativeAngleId) {
-          try {
-            const contentLibraryRows = pieces.map((piece: Record<string, unknown>) => ({
+          // For v2 pieces, the headline used for future de-duplication is the
+          // professional overlay headline. Promote it to top-level so the
+          // cascade query that reads `piece_data.headline` keeps working.
+          const contentLibraryRows = pieces.map((piece: Record<string, unknown>) => {
+            const isV2 = piece.overlays !== undefined;
+            const headlineForHistory = isV2
+              ? ((piece.overlays as Record<string, unknown>)?.professional as Record<string, unknown> | undefined)?.headline as string ?? null
+              : (piece.headline as string) ?? null;
+
+            return {
               business_id,
-              piece_data: piece,
+              piece_data: { ...piece, headline: headlineForHistory },
               commercial_branch_id: branch_id ?? null,
               narrative_angle_id: body.narrativeAngleId,
               funnel_stage: body.funnelStage ?? 'atraccion',
               status: 'generated',
               pipeline_run_id: body.pipelineRunId ?? null,
-            }));
+            };
+          });
 
+          // Try INSERT with one retry on transient error
+          let lastError: unknown = null;
+          for (let attempt = 1; attempt <= 2; attempt++) {
             const { error: insertError } = await supabase
               .from('content_library')
               .insert(contentLibraryRows);
 
-            if (insertError) {
-              console.error('Error saving ideas to content_library:', insertError.message);
-              // Non-blocking: log error but still return the ideas
+            if (!insertError) {
+              historyRecorded = true;
+              break;
             }
-          } catch (saveError) {
-            console.error('Exception saving ideas to content_library:', saveError);
-            // Non-blocking: log error but still return the ideas
+
+            lastError = insertError;
+            console.error(`content_library insert attempt ${attempt} failed:`, insertError.message);
+            if (attempt < 2) {
+              await new Promise((resolve) => setTimeout(resolve, 200));
+            }
+          }
+
+          if (!historyRecorded && lastError) {
+            console.error('content_library insert FINAL failure (non-blocking):', lastError);
           }
         }
 
+        // Return mapped output along with metadata so frontend / orchestrator
+        // know the schema version and whether history was persisted.
         return new Response(
-          JSON.stringify(mapped),
+          JSON.stringify({
+            ...mapped,
+            schemaVersion,
+            historyRecorded,
+          }),
           { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       } else {

@@ -10,6 +10,8 @@
 import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.53.0";
 import { isAwaitingState, getAllowedResumeActions } from "./stateMachine.ts";
 import { runPipeline, fetchRun } from "./runPipeline.ts";
+import { saveImageSnapshot, getIterationCount, getLatestSnapshot, DEFAULT_MAX_ITERATIONS } from "../../_shared/snapshots.ts";
+import { executeIteration } from "./imageIterationEngine.ts";
 import type { PipelineRunRow, ResumeAction } from "./types.ts";
 
 // ---------------------------------------------------------------------------
@@ -115,34 +117,126 @@ export async function resumePipeline(
     }
 
     case "iterate_image": {
-      // User wants to iterate on the image — re-run image generation with feedback
-      // Reset current_step to 4 so runPipeline picks up step 5 again
-      await supabase
-        .from("pipeline_runs")
-        .update({
-          status: "running_image_generation",
-          current_step: 4,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", runId);
+      // Enforce iteration limit (Property 8)
+      const maxIterations = run.options.imageIterations ?? DEFAULT_MAX_ITERATIONS;
+      const assetId = `${runId}:${action.ideaId}`;
+      const currentIterations = await getIterationCount(supabase, "image", assetId);
 
-      // Store the feedback in the step input for the image agent
-      await supabase.from("pipeline_steps").upsert(
-        {
+      if (currentIterations >= maxIterations) {
+        return {
+          success: false,
+          error: `Iteration limit reached: ${currentIterations}/${maxIterations}. Cannot iterate further on this image.`,
+        };
+      }
+
+      // Retrieve the original prompt and image from the latest snapshot or step output
+      const latestSnapshot = await getLatestSnapshot(supabase, "image", assetId);
+      const originalPrompt = (latestSnapshot?.metadata as Record<string, unknown>)?.prompt_used as string ?? "";
+      const originalImage = latestSnapshot?.content ?? "";
+
+      // Resolve brand rules from the business context
+      const { data: businessData } = await supabase
+        .from("business_tenants")
+        .select("compliance_rules, brand_identity")
+        .eq("id", run.business_id)
+        .single();
+
+      const complianceRules = businessData?.compliance_rules as Record<string, unknown> | undefined;
+      const brandIdentity = businessData?.brand_identity as Record<string, unknown> | undefined;
+      const brandRules = {
+        visual_language: (brandIdentity?.visual_language as string[]) ?? [],
+        restrictions: (complianceRules?.forbidden_terms as string[]) ?? [],
+      };
+
+      // Find the pipeline_piece for this idea to persist iteration history
+      const { data: pieceData } = await supabase
+        .from("pipeline_pieces")
+        .select("id")
+        .eq("pipeline_run_id", runId)
+        .eq("idea_id", action.ideaId)
+        .limit(1)
+        .maybeSingle();
+
+      // Execute iteration via the Image Iteration Engine (refine prompt + persist)
+      if (pieceData?.id) {
+        const iterResult = await executeIteration({
+          supabase,
           pipeline_run_id: runId,
-          step_number: 5,
-          agent_name: "generate-design-image-generate",
-          status: "pending",
-          input: {
-            pipelineRunId: runId,
-            mode: "generate",
-            business_id: run.business_id,
-            feedback: action.feedback,
-            ideaId: action.ideaId,
+          idea_id: action.ideaId,
+          piece_id: pieceData.id,
+          business_id: run.business_id,
+          original_prompt: originalPrompt,
+          original_image_base64: originalImage,
+          user_feedback: action.feedback,
+          brand_rules: brandRules,
+          max_iterations: maxIterations,
+        });
+
+        if (!iterResult.success) {
+          return { success: false, error: iterResult.error ?? "Iteration failed" };
+        }
+
+        // Use the refined prompt for the next image generation
+        const refinedPrompt = iterResult.refined?.prompt_final ?? originalPrompt;
+        const negativeInstructions = iterResult.refined?.negative_instructions ?? "";
+
+        // Reset current_step to 4 so runPipeline picks up step 5 again
+        await supabase
+          .from("pipeline_runs")
+          .update({
+            status: "running_image_generation",
+            current_step: 4,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", runId);
+
+        // Store the refined prompt in the step input for the image agent
+        await supabase.from("pipeline_steps").upsert(
+          {
+            pipeline_run_id: runId,
+            step_number: 5,
+            agent_name: "generate-design-image-generate",
+            status: "pending",
+            input: {
+              pipelineRunId: runId,
+              mode: "generate",
+              business_id: run.business_id,
+              feedback: action.feedback,
+              ideaId: action.ideaId,
+              promptFinal: refinedPrompt,
+              negativeInstructions,
+            },
           },
-        },
-        { onConflict: "pipeline_run_id,step_number" },
-      );
+          { onConflict: "pipeline_run_id,step_number" },
+        );
+      } else {
+        // No piece found — fallback to original behavior (just pass feedback)
+        await supabase
+          .from("pipeline_runs")
+          .update({
+            status: "running_image_generation",
+            current_step: 4,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", runId);
+
+        await supabase.from("pipeline_steps").upsert(
+          {
+            pipeline_run_id: runId,
+            step_number: 5,
+            agent_name: "generate-design-image-generate",
+            status: "pending",
+            input: {
+              pipelineRunId: runId,
+              mode: "generate",
+              business_id: run.business_id,
+              feedback: action.feedback,
+              ideaId: action.ideaId,
+            },
+          },
+          { onConflict: "pipeline_run_id,step_number" },
+        );
+      }
 
       run = await fetchRun(supabase, runId);
       // Continue execution from image generation

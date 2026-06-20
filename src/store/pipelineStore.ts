@@ -1,6 +1,10 @@
 /**
  * Zustand store for Creative OS Pipeline
  * Manages pipeline run state, adaptive polling, and orchestrator actions.
+ *
+ * Data fetching is also available via TanStack Query hooks in `usePipelineRun.ts`
+ * for components that prefer declarative polling. This store provides imperative
+ * control for actions and can be used standalone or alongside the query hooks.
  */
 
 import { create } from 'zustand';
@@ -140,9 +144,15 @@ interface PipelineStore {
 // Helpers
 // ---------------------------------------------------------------------------
 
-const POLL_INTERVAL_RUNNING = 1000;
-const POLL_INTERVAL_AWAITING = 5000;
+const POLL_INTERVAL_RUNNING = 1_000;
+const POLL_INTERVAL_AWAITING = 5_000;
 const TERMINAL_STATUSES: PipelineStatus[] = ['completed', 'failed', 'cancelled'];
+
+/** Query keys for TanStack Query integration (used by usePipelineRun hook) */
+export const pipelineQueryKeys = {
+  run: (runId: string) => ['pipeline-run', runId] as const,
+  steps: (runId: string) => ['pipeline-steps', runId] as const,
+};
 
 let pollingTimer: ReturnType<typeof setTimeout> | null = null;
 

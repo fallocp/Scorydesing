@@ -5,7 +5,14 @@
  *
  * "ai" = Claude generates everything (original flow, needs API call).
  * Others = instant string replacement, no API call for structure.
+ *
+ * Layout Variations (CSS-only modifiers via class on body/.story):
+ *   A — Image top, copy bottom (hero → content → CTA) [DEFAULT]
+ *   B — Card centered with internal image (logo → card[image+copy] → footer)
+ *   C — Split lateral (50/50 or 60/40 image|copy)
  */
+
+import { getLayoutCSS, getLayoutClass, type LayoutVariation } from './layoutVariations';
 
 export interface DesignTemplate {
   id: string;
@@ -33,10 +40,11 @@ function buildTemplate(styles: string): string {
   <link href="${FONTS}" rel="stylesheet">
   <style>
     ${styles}
+    {{layoutCSS}}
   </style>
 </head>
-<body>
-  <div class="story">
+<body class="{{layoutClass}}">
+  <div class="story {{layoutClass}}">
     <div class="bg-mesh"></div>
     <div class="grain"></div>
     <div class="card">
@@ -626,9 +634,15 @@ export function fillTemplate(
     bgImageUrl?: string;
   },
   format?: string,
+  layout?: LayoutVariation,
 ): string {
   const defaultFloating = '';
   const defaultStat = 'Cobertura cambiaria disponible';
+
+  // Resolve layout variation CSS and class
+  const resolvedLayout: LayoutVariation = layout || 'A';
+  const layoutCSS = getLayoutCSS(resolvedLayout);
+  const layoutClass = getLayoutClass(resolvedLayout);
 
   const accentedHeadline = autoAccentText(data.headline, 2);
   const accentedPunchline = autoAccentText(data.punchline, 2);
@@ -645,6 +659,8 @@ export function fillTemplate(
   }
 
   let result = templateHtml
+    .replace(/\{\{layoutCSS\}\}/g, layoutCSS)
+    .replace(/\{\{layoutClass\}\}/g, layoutClass)
     .replace(/\{\{headline\}\}/g, accentedHeadline)
     .replace(/<p class="subcopy">\{\{subcopy\}\}<\/p>/g, `<p class="subcopy"${subcopyStyle}>${data.subcopy}</p>`)
     .replace(/\{\{cta\}\}/g, data.cta)
@@ -693,3 +709,7 @@ export function fillTemplate(
 
   return result;
 }
+
+// Re-export layout types for convenience
+export type { LayoutVariation } from './layoutVariations';
+export { getLayoutCSS, getLayoutClass, ALL_LAYOUTS, LAYOUT_METADATA } from './layoutVariations';

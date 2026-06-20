@@ -103,6 +103,13 @@ export async function executeStep(
         return { success: false, error: result.error, durationMs };
       }
 
+      // Render service unavailable — no point retrying immediately
+      if (result.error?.error === "render_service_unavailable") {
+        const durationMs = Date.now() - startTime;
+        await persistStepError(supabase, pipelineRunId, stepNumber, result.error, attempt, durationMs);
+        return { success: false, error: result.error, durationMs };
+      }
+
       lastError = result.error;
 
       // If we have retries left, apply backoff

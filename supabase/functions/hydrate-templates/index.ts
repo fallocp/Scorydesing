@@ -19,6 +19,7 @@ import {
   type HydrateInput,
   type HydrateOutput,
 } from "../_shared/hydrateTemplate.ts";
+import { saveHtmlSnapshot } from "../_shared/htmlSnapshots.ts";
 
 // ---------------------------------------------------------------------------
 // CORS
@@ -76,6 +77,8 @@ interface HydrateRequest {
   templates: string[];
   /** Platforms to generate for */
   platforms: string[];
+  /** Layout variation: A (default), B (card centered), C (split lateral) */
+  layoutVariation?: "A" | "B" | "C";
   /** Copy data per channel (from adapt-channel output) */
   adaptations?: Record<string, {
     headline: string;
@@ -107,7 +110,55 @@ interface HydrateRequest {
     logoUrl: string;
     badgeText: string;
   };
+
+  // ───────────── v2 multi-channel additions (Componente 6.5) ─────────────
+  // When `pieceV2` is present, the hydrator uses overlays + captions per
+  // platform from the V2 schema instead of the legacy `adaptations` field.
+  // Each generated pipeline_piece gets:
+  //   - overlay_variant (professional / square / vertical)
+  //   - caption_body, caption_bullets, caption_hashtags (NULL for banner/story)
+  // The shared image is reused for all platforms.
+  pieceV2?: {
+    id: string;
+    shared: {
+      angle?: string;
+      narrativeAngle?: string;
+      funnelStage?: string;
+      footer?: string;
+      statusPill?: string;
+      dataBadge?: string;
+      imageIntent?: string;
+    };
+    overlays: {
+      professional: { headline: string; subcopy: string; cta: string };
+      square: { headline: string; subcopy: string; cta: string };
+      vertical: { headline: string; subcopy: string; cta: string };
+    };
+    captions: {
+      linkedin: { body: string; bullets?: string[] };
+      facebook: { body: string; bullets?: string[] };
+      instagram: { body: string; hashtags?: string[] };
+    };
+  };
 }
+
+// ─── v2 mappings (mirror createPiecesFromPieceV2) ──────────────────────────
+
+const PLATFORM_TO_OVERLAY_VARIANT_V2: Record<string, "professional" | "square" | "vertical"> = {
+  "linkedin-post": "professional",
+  "facebook-post": "professional",
+  "banner": "professional",
+  "instagram-post": "square",
+  "instagram-story": "vertical",
+};
+
+const PLATFORM_TO_CAPTION_V2: Record<string, "linkedin" | "facebook" | "instagram" | null> = {
+  "linkedin-post": "linkedin",
+  "facebook-post": "facebook",
+  "instagram-post": "instagram",
+  "instagram-story": null,
+  "banner": null,
+};
 
 // ---------------------------------------------------------------------------
 // Main handler
@@ -166,8 +217,21 @@ serve(async (req) => {
     // --- Build hydration inputs for each template × platform × promoter ----
     const results: HydrateOutput[] = [];
     const errors: string[] = [];
+    /** When `pieceV2` is provided, we track per-result the platform + variant so
+     *  the persistence step can write overlay_variant + caption fields. */
+    const resultMeta: Array<{
+      platform: string;
+      templateType: string;
+      overlayVariant?: "professional" | "square" | "vertical";
+      captionBody?: string | null;
+      captionBullets?: string[] | null;
+      captionHashtags?: string[] | null;
+      headline: string;
+      body: string;
+      cta: string;
+    }> = [];
 
-    // Map platform to channel name for adaptations lookup
+    // Map platform to channel name for adaptations lookup (legacy path)
     const platformToChannel: Record<string, string> = {
       "instagram-story": "instagram",
       "instagram-post": "instagram",
@@ -178,24 +242,86 @@ serve(async (req) => {
 
     for (const templateType of templates) {
       for (const platform of platforms) {
-        // Get copy for this platform
-        const channel = platformToChannel[platform] ?? "instagram";
-        const adaptation = body.adaptations?.[channel];
-        const copy = adaptation
-          ? {
-              headline: adaptation.headline,
-              subcopy: adaptation.body,
-              cta: adaptation.cta,
-              punchline: body.copy?.punchline,
-              dataPoint: adaptation.dataBadge ?? body.copy?.dataPoint,
-            }
-          : body.copy ?? { headline: "", subcopy: "", cta: "" };
+        // ──────────── Build copy for this platform ────────────
+        let copyForTemplate: {
+          headline: string;
+          subcopy: string;
+          cta: string;
+          punchline?: string;
+          dataPoint?: string;
+        };
 
-        // Build base hydrate input
+        let v2Meta: {
+          overlayVariant?: "professional" | "square" | "vertical";
+          captionBody?: string | null;
+          captionBullets?: string[] | null;
+          captionHashtags?: string[] | null;
+        } = {};
+
+        if (body.pieceV2) {
+          // V2 path: read overlays + captions per platform from PieceV2
+          const variant = PLATFORM_TO_OVERLAY_VARIANT_V2[platform] ?? "professional";
+          const captionKey = PLATFORM_TO_CAPTION_V2[platform] ?? null;
+          const overlay = body.pieceV2.overlays[variant];
+
+          copyForTemplate = {
+            headline: overlay.headline,
+            subcopy: overlay.subcopy,
+            cta: overlay.cta,
+            dataPoint: body.pieceV2.shared.dataBadge,
+          };
+
+          if (captionKey === "linkedin") {
+            v2Meta = {
+              overlayVariant: variant,
+              captionBody: body.pieceV2.captions.linkedin.body,
+              captionBullets: body.pieceV2.captions.linkedin.bullets ?? [],
+              captionHashtags: null,
+            };
+          } else if (captionKey === "facebook") {
+            v2Meta = {
+              overlayVariant: variant,
+              captionBody: body.pieceV2.captions.facebook.body,
+              captionBullets: body.pieceV2.captions.facebook.bullets ?? [],
+              captionHashtags: null,
+            };
+          } else if (captionKey === "instagram") {
+            v2Meta = {
+              overlayVariant: variant,
+              captionBody: body.pieceV2.captions.instagram.body,
+              captionBullets: null,
+              captionHashtags: body.pieceV2.captions.instagram.hashtags ?? [],
+            };
+          } else {
+            // banner / instagram-story → no caption
+            v2Meta = {
+              overlayVariant: variant,
+              captionBody: null,
+              captionBullets: null,
+              captionHashtags: null,
+            };
+          }
+        } else {
+          // Legacy path: use adaptations or fallback copy
+          const channel = platformToChannel[platform] ?? "instagram";
+          const adaptation = body.adaptations?.[channel];
+          copyForTemplate = adaptation
+            ? {
+                headline: adaptation.headline,
+                subcopy: adaptation.body,
+                cta: adaptation.cta,
+                punchline: body.copy?.punchline,
+                dataPoint: adaptation.dataBadge ?? body.copy?.dataPoint,
+              }
+            : body.copy ?? { headline: "", subcopy: "", cta: "" };
+        }
+
+        // ──────────── Build base hydrate input ────────────
         const baseInput: HydrateInput = {
           templateType,
           platform,
-          copy,
+          layoutVariation: body.layoutVariation,
+          copy: copyForTemplate,
           imageUrl: imageUrl ?? "",
           brand: {
             name: ctx.brandIdentity.name,
@@ -210,40 +336,78 @@ serve(async (req) => {
         const templateHtml = await fetchTemplateHtml(supabase, templateType, platform);
 
         if (!templateHtml) {
-          // Template not available in storage — record error but continue
           errors.push(`Template not found: ${templateType}/${platform}.html`);
           continue;
         }
+
+        const pushResult = (output: HydrateOutput) => {
+          results.push(output);
+          resultMeta.push({
+            platform,
+            templateType,
+            ...v2Meta,
+            headline: copyForTemplate.headline,
+            body: copyForTemplate.subcopy,
+            cta: copyForTemplate.cta,
+          });
+        };
 
         // If promoters are specified, generate one piece per promoter
         if (body.promoters && body.promoters.length > 0) {
           for (const promoter of body.promoters) {
             const input: HydrateInput = { ...baseInput, promoter };
-            const output = hydrateTemplate(templateHtml, input);
-            results.push(output);
+            pushResult(hydrateTemplate(templateHtml, input));
           }
         } else {
-          // No promoters — generate single piece
-          const output = hydrateTemplate(templateHtml, baseInput);
-          results.push(output);
+          pushResult(hydrateTemplate(templateHtml, baseInput));
         }
       }
     }
 
     // --- Store hydrated pieces in pipeline_pieces --------------------------
     if (results.length > 0) {
-      const piecesInsert = results.map((r) => ({
-        pipeline_run_id: pipelineRunId,
-        business_id,
-        idea_id: "hydrated",
-        headline: body.copy?.headline ?? body.adaptations?.instagram?.headline ?? "",
-        body: body.copy?.subcopy ?? body.adaptations?.instagram?.body ?? "",
-        cta: body.copy?.cta ?? body.adaptations?.instagram?.cta ?? "",
-        platform: r.filename.split("_")[1]?.replace(".png", "") ?? "instagram-story",
-        template_type: r.filename.split("_")[0] ?? "card-light",
-        html_content: r.html,
-        piece_status: "html_ready",
-      }));
+      const ideaId = body.pieceV2?.id ?? "hydrated";
+      const sharedFooter = body.pieceV2?.shared.footer ?? null;
+      const sharedStatusPill = body.pieceV2?.shared.statusPill ?? null;
+      const sharedDataBadge = body.pieceV2?.shared.dataBadge ?? null;
+      const sharedImageIntent = body.pieceV2?.shared.imageIntent ?? null;
+      const sharedAngle = body.pieceV2?.shared.angle ?? null;
+      const sharedNarrativeAngle = body.pieceV2?.shared.narrativeAngle ?? null;
+      const sharedFunnelStage = body.pieceV2?.shared.funnelStage ?? null;
+
+      const piecesInsert = results.map((r, idx) => {
+        const meta = resultMeta[idx];
+        return {
+          pipeline_run_id: pipelineRunId,
+          business_id,
+          idea_id: ideaId,
+          headline: meta.headline,
+          body: meta.body,
+          cta: meta.cta,
+          platform: meta.platform,
+          template_type: meta.templateType,
+          html_content: r.html,
+          piece_status: "html_ready",
+
+          // v2 multi-channel fields (NULL when no pieceV2 was provided)
+          overlay_variant: meta.overlayVariant ?? null,
+          caption_body: meta.captionBody ?? null,
+          caption_bullets: meta.captionBullets ?? null,
+          caption_hashtags: meta.captionHashtags ?? null,
+
+          // Shared strategic context (only populated when pieceV2 is provided)
+          footer: sharedFooter,
+          status_pill: sharedStatusPill,
+          data_badge: sharedDataBadge,
+          image_intent: sharedImageIntent,
+          angle: sharedAngle,
+          narrative_angle: sharedNarrativeAngle,
+          funnel_stage: sharedFunnelStage,
+
+          // The shared image used for all platforms (when pieceV2 path)
+          image_storage_path: imageUrl ?? null,
+        };
+      });
 
       const { error: insertError } = await supabase
         .from("pipeline_pieces")
@@ -251,6 +415,34 @@ serve(async (req) => {
 
       if (insertError) {
         console.error("Error inserting pipeline_pieces:", insertError);
+      }
+
+      // --- Save HTML snapshots for result preservation (Property 4) --------
+      for (let i = 0; i < results.length; i++) {
+        const r = results[i];
+        const meta = resultMeta[i];
+        const assetId = `${pipelineRunId}:${meta.templateType}:${meta.platform}`;
+
+        try {
+          await saveHtmlSnapshot(supabase, {
+            businessId: business_id,
+            assetId,
+            htmlContent: r.html,
+            metadata: {
+              template_type: meta.templateType,
+              platform: meta.platform,
+              dimensions: { width: r.width, height: r.height },
+              visual_tone: body.templates?.[0] ?? undefined,
+              layout_variation: body.layoutVariation ?? "A",
+              changes_summary: body.pieceV2
+                ? `Multi-channel hydrate (overlay: ${meta.overlayVariant ?? "n/a"})`
+                : "Initial HTML assembly",
+            },
+          });
+        } catch (snapshotErr) {
+          // Snapshot failure should not block the pipeline
+          console.error("Error saving HTML snapshot:", snapshotErr);
+        }
       }
     }
 

@@ -17,6 +17,7 @@ const CATEGORY_CONFIGS: CategoryConfig[] = [
     options: [
       { value: 'dark-navy', label: 'Oscuro/Navy' },
       { value: 'light-cream', label: 'Claro/Cream' },
+      { value: 'white-minimal', label: 'Blanco' },
       { value: 'color-turquoise', label: 'Color/Turquesa' },
     ],
   },

@@ -98,7 +98,7 @@ function truncate(str: string, maxLen: number): string {
 }
 
 // ---------------------------------------------------------------------------
-// Content Response Validator
+// Content Response Validator (v1 — single-channel, kept for backward compat)
 // ---------------------------------------------------------------------------
 
 /**
@@ -195,6 +195,235 @@ export function validateContentResponse(
     success: true,
     data: pieces as Record<string, unknown>[],
   };
+}
+
+// ---------------------------------------------------------------------------
+// Content Response Validator v2 (multi-channel: shared + overlays + captions)
+// ---------------------------------------------------------------------------
+
+/**
+ * Validates a masterContentPrompt v2 response (multi-channel output).
+ *
+ * Expects each piece to contain:
+ *   - shared:    common strategic fields (angle, imageIntent, funnelStage, ...)
+ *   - overlays:  { professional, square, vertical } each with headline/subcopy/cta
+ *   - captions:  { linkedin, facebook, instagram } each with body and bullets/hashtags
+ *
+ * Returns the pieces array if all required fields are present.
+ *
+ * See: docs/prompts/_drafts/masterContentPrompt.draft.md
+ * Requirements: 18.1, 18.7
+ */
+export function validateContentResponseV2(
+  raw: string,
+): ValidationResult<Record<string, unknown>[]> {
+  const parsed = extractJSON(raw);
+
+  if (parsed === null) {
+    return {
+      success: false,
+      error: "Failed to extract valid JSON from content response (v2)",
+      rawContent: truncate(raw, 500),
+    };
+  }
+
+  // Accept either { pieces: [...] } or a bare array
+  let pieces: unknown[];
+  if (Array.isArray(parsed)) {
+    pieces = parsed;
+  } else if (
+    typeof parsed === "object" &&
+    parsed !== null &&
+    Array.isArray((parsed as Record<string, unknown>).pieces)
+  ) {
+    pieces = (parsed as Record<string, unknown>).pieces as unknown[];
+  } else {
+    return {
+      success: false,
+      error: "Content response (v2) must contain a 'pieces' array or be an array itself",
+      rawContent: truncate(raw, 500),
+    };
+  }
+
+  if (pieces.length === 0) {
+    return {
+      success: false,
+      error: "Content response (v2) 'pieces' array is empty",
+      rawContent: truncate(raw, 500),
+    };
+  }
+
+  const requiredOverlayVariants = ["professional", "square", "vertical"] as const;
+  const requiredCaptionKeys = ["linkedin", "facebook", "instagram"] as const;
+
+  for (let i = 0; i < pieces.length; i++) {
+    const piece = pieces[i];
+    if (typeof piece !== "object" || piece === null) {
+      return {
+        success: false,
+        error: `Piece at index ${i} is not an object`,
+        rawContent: truncate(raw, 500),
+      };
+    }
+
+    const p = piece as Record<string, unknown>;
+
+    // shared
+    const shared = p.shared as Record<string, unknown> | undefined;
+    if (!shared || typeof shared !== "object") {
+      return {
+        success: false,
+        error: `Piece at index ${i} is missing required 'shared' object`,
+        rawContent: truncate(raw, 500),
+      };
+    }
+    if (!isNonEmptyString(shared.angle)) {
+      return {
+        success: false,
+        error: `Piece at index ${i} 'shared' is missing required field 'angle'`,
+        rawContent: truncate(raw, 500),
+      };
+    }
+    if (!isNonEmptyString(shared.imageIntent)) {
+      return {
+        success: false,
+        error: `Piece at index ${i} 'shared' is missing required field 'imageIntent'`,
+        rawContent: truncate(raw, 500),
+      };
+    }
+
+    // overlays
+    const overlays = p.overlays as Record<string, unknown> | undefined;
+    if (!overlays || typeof overlays !== "object") {
+      return {
+        success: false,
+        error: `Piece at index ${i} is missing required 'overlays' object`,
+        rawContent: truncate(raw, 500),
+      };
+    }
+
+    for (const variant of requiredOverlayVariants) {
+      const overlay = overlays[variant] as Record<string, unknown> | undefined;
+      if (!overlay || typeof overlay !== "object") {
+        return {
+          success: false,
+          error: `Piece at index ${i} 'overlays.${variant}' is missing`,
+          rawContent: truncate(raw, 500),
+        };
+      }
+      if (!isNonEmptyString(overlay.headline)) {
+        return {
+          success: false,
+          error: `Piece at index ${i} 'overlays.${variant}.headline' is missing or empty`,
+          rawContent: truncate(raw, 500),
+        };
+      }
+      if (!isNonEmptyString(overlay.cta)) {
+        return {
+          success: false,
+          error: `Piece at index ${i} 'overlays.${variant}.cta' is missing or empty`,
+          rawContent: truncate(raw, 500),
+        };
+      }
+      // subcopy may be empty for vertical (story); only enforce string type
+      if (overlay.subcopy !== undefined && typeof overlay.subcopy !== "string") {
+        return {
+          success: false,
+          error: `Piece at index ${i} 'overlays.${variant}.subcopy' must be a string when present`,
+          rawContent: truncate(raw, 500),
+        };
+      }
+    }
+
+    // captions
+    const captions = p.captions as Record<string, unknown> | undefined;
+    if (!captions || typeof captions !== "object") {
+      return {
+        success: false,
+        error: `Piece at index ${i} is missing required 'captions' object`,
+        rawContent: truncate(raw, 500),
+      };
+    }
+
+    for (const key of requiredCaptionKeys) {
+      const caption = captions[key] as Record<string, unknown> | undefined;
+      if (!caption || typeof caption !== "object") {
+        return {
+          success: false,
+          error: `Piece at index ${i} 'captions.${key}' is missing`,
+          rawContent: truncate(raw, 500),
+        };
+      }
+      if (!isNonEmptyString(caption.body)) {
+        return {
+          success: false,
+          error: `Piece at index ${i} 'captions.${key}.body' is missing or empty`,
+          rawContent: truncate(raw, 500),
+        };
+      }
+    }
+  }
+
+  return {
+    success: true,
+    data: pieces as Record<string, unknown>[],
+  };
+}
+
+/**
+ * Auto-detect content response version and validate accordingly.
+ *
+ * - If the first piece has `overlays` and `captions`, validate as v2.
+ * - Otherwise validate as v1 (legacy single-channel).
+ *
+ * This lets `generate-ideas/index.ts` route the new prompt and the legacy
+ * prompt through a single validator call, keeping backward compatibility
+ * with any caller still emitting the old shape.
+ */
+export function validateContentResponseAuto(
+  raw: string,
+): ValidationResult<Record<string, unknown>[]> & { version?: "v1" | "v2" } {
+  const parsed = extractJSON(raw);
+  if (parsed === null) {
+    return {
+      success: false,
+      error: "Failed to extract valid JSON from content response",
+      rawContent: truncate(raw, 500),
+    };
+  }
+
+  let pieces: unknown[] | null = null;
+  if (Array.isArray(parsed)) {
+    pieces = parsed;
+  } else if (
+    typeof parsed === "object" &&
+    parsed !== null &&
+    Array.isArray((parsed as Record<string, unknown>).pieces)
+  ) {
+    pieces = (parsed as Record<string, unknown>).pieces as unknown[];
+  } else if (
+    typeof parsed === "object" &&
+    parsed !== null &&
+    Array.isArray((parsed as Record<string, unknown>).ideas)
+  ) {
+    pieces = (parsed as Record<string, unknown>).ideas as unknown[];
+  }
+
+  const firstPiece =
+    pieces && pieces.length > 0 ? (pieces[0] as Record<string, unknown>) : null;
+  const looksLikeV2 =
+    firstPiece !== null &&
+    typeof firstPiece === "object" &&
+    firstPiece.overlays !== undefined &&
+    firstPiece.captions !== undefined;
+
+  if (looksLikeV2) {
+    const result = validateContentResponseV2(raw);
+    return { ...result, version: "v2" };
+  }
+
+  const result = validateContentResponse(raw);
+  return { ...result, version: "v1" };
 }
 
 // ---------------------------------------------------------------------------

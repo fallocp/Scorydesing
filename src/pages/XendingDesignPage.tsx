@@ -230,25 +230,56 @@ function XendingDesignPage() {
   }, []);
 
   const handleIdeasGenerated = useCallback((data: unknown) => {
-    const result = data as { ideas?: CopyIdea[] };
+    // The edge function returns { ideas, mapped, type, metadata, schemaVersion, historyRecorded }.
+    // - `ideas` is the legacy v1 shape (headline/subcopy/cta) for backward compat.
+    // - `metadata.pieces` carries the FULL output: v1 raw or v2 (shared+overlays+captions).
+    // We persist `piece_v2` only when the row in metadata has `overlays` + `captions`.
+    const result = data as {
+      ideas?: CopyIdea[];
+      metadata?: { pieces?: Record<string, unknown>[]; schemaVersion?: 'v1' | 'v2' };
+      schemaVersion?: 'v1' | 'v2';
+    };
     if (result?.ideas && activeBusinessId && selectedBranch) {
       // Read current dimensions from store for angle/funnel metadata
       const dims = useDesignStore.getState().selectedDimensions;
+      const rawPieces = result.metadata?.pieces ?? [];
+      const isV2 = result.schemaVersion === 'v2' || result.metadata?.schemaVersion === 'v2';
 
       // Persist generated ideas to Supabase
-      const rows = result.ideas.map((idea) => ({
-        business_id: activeBusinessId,
-        branch_id: selectedBranch.id ?? null,
-        vertical_id: selectedVertical?.id ?? null,
-        moment_id: selectedMoment?.id ?? null,
-        channel: dims.channel ?? null,
-        angle: dims.narrativeAngle ?? idea.angle ?? null,
-        headline: idea.headline,
-        subcopy: idea.subcopy,
-        cta: idea.cta,
-        image_suggestion: idea.imageSuggestion ?? null,
-        status: 'generated',
-      }));
+      const rows = result.ideas.map((idea, idx) => {
+        const rawPiece = rawPieces[idx];
+        // Build piece_v2 only if the raw piece has overlays + captions
+        let piece_v2: Record<string, unknown> | null = null;
+        if (
+          isV2 &&
+          rawPiece &&
+          typeof rawPiece === 'object' &&
+          'overlays' in rawPiece &&
+          'captions' in rawPiece
+        ) {
+          piece_v2 = {
+            id: (rawPiece.id as string) ?? `idea_${idx + 1}`,
+            shared: rawPiece.shared ?? {},
+            overlays: rawPiece.overlays,
+            captions: rawPiece.captions,
+          };
+        }
+
+        return {
+          business_id: activeBusinessId,
+          branch_id: selectedBranch.id ?? null,
+          vertical_id: selectedVertical?.id ?? null,
+          moment_id: selectedMoment?.id ?? null,
+          channel: dims.channel ?? null,
+          angle: dims.narrativeAngle ?? idea.angle ?? null,
+          headline: idea.headline,
+          subcopy: idea.subcopy,
+          cta: idea.cta,
+          image_suggestion: idea.imageSuggestion ?? null,
+          status: 'generated',
+          piece_v2,
+        };
+      });
       saveIdeas.mutate(rows, {
         onError: () => {
           toast({ title: 'Error al guardar ideas', variant: 'destructive' });
@@ -312,6 +343,7 @@ function XendingDesignPage() {
           subcopy: idea.subcopy,
           cta: idea.cta,
           imageSuggestion: idea.image_suggestion ?? undefined,
+          pieceV2: idea.piece_v2 ?? null,
         }));
         const mergedCopyIdeas = [...existingCopyIdeas, ...newCopyIdeas];
 
@@ -359,6 +391,7 @@ function XendingDesignPage() {
           subcopy: idea.subcopy,
           cta: idea.cta,
           imageSuggestion: idea.image_suggestion ?? undefined,
+          pieceV2: idea.piece_v2 ?? null,
         })),
         imageDescriptions: approvedIdeas
           .map((idea) => idea.image_suggestion)

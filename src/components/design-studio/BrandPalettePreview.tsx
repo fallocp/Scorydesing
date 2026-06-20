@@ -57,7 +57,7 @@ export function BrandPalettePreview({
             variant="outline"
             size="sm"
             className="shrink-0"
-            onClick={() => navigate('/brand-palette')}
+            onClick={() => navigate('/admin/business')}
           >
             <ExternalLink className="h-3 w-3 mr-1" />
             Configurar

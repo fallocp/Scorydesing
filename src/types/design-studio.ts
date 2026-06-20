@@ -85,9 +85,26 @@ export interface VisualSelections {
   contentMode: ContentMode;
   commercialBranchSlug: string | null;  // only when contentMode === 'branch'
   customIdea: string | null;            // only when contentMode === 'custom'
+  // Narrative angle (only when contentMode === 'branch'). Drives copy variety
+  // and enables persistence to content_library for cross-session de-duplication.
+  // Mirrors the dimensions used by the Generador Combinable flow.
+  narrativeAngleId: string | null;
+  narrativeAngleSlug: string | null;
+  narrativeAngleName: string | null;
+  funnelStage: string | null;
+  narrativePromptInstruction: string | null;
   // Piece-level copy and image prompt (optional, for full-package mode)
   pieceCopy: PieceCopy | null;
   pieceImagePrompt: PieceImagePrompt | null;
+}
+
+/** Full narrative angle payload returned by AngleSelector. */
+export interface NarrativeAngleSelection {
+  id: string;
+  slug: string;
+  name: string;
+  funnelStage: string;
+  promptInstruction: string;
 }
 
 export type SelectionCategory = 'background' | 'visualStyle' | 'contentType' | 'heroElement' | 'platform';
@@ -220,6 +237,9 @@ export interface GenerateMockupsRequest {
   // Piece-level copy and image prompt
   piece_copy?: PieceCopy;
   piece_image_prompt?: PieceImagePrompt;
+  // Iteration feedback — regenerate with user corrections
+  iteration_feedback?: string;
+  previous_prompt?: string;
   // Common
   platform: PlatformFormat;
   count: 3;
@@ -316,6 +336,7 @@ export interface DesignStudioActions {
   setContentMode(mode: ContentMode): void;
   setCommercialBranch(slug: string | null): void;
   setCustomIdea(idea: string): void;
+  setNarrativeAngle(angle: NarrativeAngleSelection | null): void;
 
   // Piece copy & image prompt
   setPieceCopy(copy: PieceCopy | null): void;

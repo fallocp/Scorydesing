@@ -6,10 +6,56 @@ import type {
   Promoter,
 } from '@/types/xendingDesign';
 import { PLATFORM_DIMENSIONS } from '@/types/xendingDesign';
+import { PLATFORM_DIMENSIONS as STUDIO_PLATFORM_DIMENSIONS } from '@/types/design-studio';
+import type { PlatformFormat as StudioPlatformFormat } from '@/types/design-studio';
+import type { LayoutVariation } from '@/constants/layoutVariations';
 import { getBrandConfig } from './brandConfig';
+import { supabase } from '@/integrations/supabase/client';
+import { getTemplateById } from '@/constants/designTemplates';
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+export type VisualTone = 'light' | 'medium' | 'dark';
+
+export type ContentType =
+  | 'breaking-news'
+  | 'corporate'
+  | 'market-update'
+  | 'stat-of-the-day'
+  | 'event-special';
 
 /**
- * Parameters for the assembleTemplate function.
+ * Parameters for resolving a template from the DB registry.
+ */
+export interface TemplateParams {
+  contentType: ContentType;
+  platform: PlatformFormat | StudioPlatformFormat;
+  visualTone: VisualTone;
+  layoutVariation: LayoutVariation;
+  business_id: string;
+}
+
+/**
+ * A compiled template ready for hydration.
+ */
+export interface CompiledTemplate {
+  html: string;
+  css: string;
+  slots: TemplateSlot[];
+  dimensions: { width: number; height: number };
+}
+
+export interface TemplateSlot {
+  name: string;
+  type: 'text' | 'image' | 'component' | 'optional';
+  maxLength?: number;
+  required: boolean;
+}
+
+/**
+ * Parameters for the assembleTemplate function (unchanged API).
  */
 export interface AssembleTemplateParams {
   template: string;
@@ -19,6 +65,65 @@ export interface AssembleTemplateParams {
   promoter: Promoter | null;
   platformFormat: PlatformFormat;
 }
+
+// ---------------------------------------------------------------------------
+// getTemplate — DB-first template resolution
+// ---------------------------------------------------------------------------
+
+/**
+ * Resolves a template from the template_registry DB with fallback chain:
+ * 1. Brand-specific template (business_id = given, is_active = true)
+ * 2. Starter/global template (business_id IS NULL, is_active = true)
+ * 3. Fallback to designTemplates.ts constants (backward compatible)
+ *
+ * Validates that output dimensions match PLATFORM_DIMENSIONS[platform].
+ *
+ * Requirements: Property 5 (Template consistency), Property 7 (Brand isolation)
+ */
+export async function getTemplate(params: TemplateParams): Promise<CompiledTemplate> {
+  const { contentType, platform, visualTone, layoutVariation, business_id } = params;
+
+  // Resolve expected dimensions for the platform
+  const dimensions = resolveDimensions(platform);
+
+  try {
+    // Step 1: Query brand-specific template
+    const brandTemplate = await queryTemplateRegistry({
+      contentType,
+      platform,
+      visualTone,
+      layoutVariation,
+      businessId: business_id,
+    });
+
+    if (brandTemplate) {
+      return buildCompiledTemplate(brandTemplate, dimensions);
+    }
+
+    // Step 2: Query starter/global template (business_id IS NULL)
+    const starterTemplate = await queryTemplateRegistry({
+      contentType,
+      platform,
+      visualTone,
+      layoutVariation,
+      businessId: null,
+    });
+
+    if (starterTemplate) {
+      return buildCompiledTemplate(starterTemplate, dimensions);
+    }
+  } catch (error) {
+    // DB query failed — fall through to constants fallback
+    console.warn('[templateAssembler] DB query failed, falling back to constants:', error);
+  }
+
+  // Step 3: Fallback to designTemplates.ts constants
+  return fallbackToConstants(params, dimensions);
+}
+
+// ---------------------------------------------------------------------------
+// assembleTemplate — unchanged public API
+// ---------------------------------------------------------------------------
 
 /**
  * Assembles a complete HTML document from a template string and campaign data.
@@ -62,7 +167,162 @@ export function assembleTemplate(params: AssembleTemplateParams): string {
 }
 
 // ---------------------------------------------------------------------------
-// Internal helpers
+// DB query helpers
+// ---------------------------------------------------------------------------
+
+interface TemplateRegistryRow {
+  id: string;
+  html_template: string;
+  css_overrides: string | null;
+  slots: TemplateSlot[];
+}
+
+interface QueryParams {
+  contentType: string;
+  platform: string;
+  visualTone: string;
+  layoutVariation: string;
+  businessId: string | null;
+}
+
+/**
+ * Queries the template_registry table for a matching template.
+ * Returns null if no match found.
+ */
+async function queryTemplateRegistry(
+  params: QueryParams,
+): Promise<TemplateRegistryRow | null> {
+  const { contentType, platform, visualTone, layoutVariation, businessId } = params;
+
+  let query = supabase
+    .from('template_registry')
+    .select('id, html_template, css_overrides, slots')
+    .eq('content_type', contentType)
+    .eq('platform', platform)
+    .eq('visual_tone', visualTone)
+    .eq('layout_variation', layoutVariation)
+    .eq('is_active', true);
+
+  if (businessId !== null) {
+    query = query.eq('business_id', businessId);
+  } else {
+    query = query.is('business_id', null);
+  }
+
+  const { data, error } = await query.limit(1).single();
+
+  if (error || !data) {
+    return null;
+  }
+
+  return {
+    id: data.id,
+    html_template: data.html_template,
+    css_overrides: data.css_overrides,
+    slots: Array.isArray(data.slots) ? data.slots as TemplateSlot[] : [],
+  };
+}
+
+/**
+ * Builds a CompiledTemplate from a DB row, validating dimensions.
+ */
+function buildCompiledTemplate(
+  row: TemplateRegistryRow,
+  dimensions: { width: number; height: number },
+): CompiledTemplate {
+  return {
+    html: row.html_template,
+    css: row.css_overrides || '',
+    slots: row.slots,
+    dimensions,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Fallback to constants
+// ---------------------------------------------------------------------------
+
+/**
+ * Maps TemplateParams to a designTemplates.ts constant as last-resort fallback.
+ * Uses the tone mapping: light→card-light, dark→card-dark, medium→card-coral/card-turquesa
+ */
+function fallbackToConstants(
+  params: TemplateParams,
+  dimensions: { width: number; height: number },
+): CompiledTemplate {
+  const { visualTone, contentType } = params;
+
+  // Map visual tone + content type to a template ID from designTemplates.ts
+  const templateId = mapToLegacyTemplateId(visualTone, contentType);
+  const template = getTemplateById(templateId);
+
+  const html = template?.html || '';
+  const defaultSlots: TemplateSlot[] = [
+    { name: 'headline', type: 'text', required: true, maxLength: 80 },
+    { name: 'subcopy', type: 'text', required: true, maxLength: 200 },
+    { name: 'imageUrl', type: 'image', required: true },
+    { name: 'cta', type: 'text', required: true, maxLength: 30 },
+    { name: 'punchline', type: 'text', required: false, maxLength: 60 },
+    { name: 'disclaimer', type: 'text', required: true },
+  ];
+
+  return {
+    html,
+    css: '',
+    slots: defaultSlots,
+    dimensions,
+  };
+}
+
+/**
+ * Maps visual tone and content type to a legacy template ID.
+ * Tone mapping from design doc:
+ *   light  → card-light
+ *   dark   → card-dark (corporate) or card-navy (market-update/breaking-news)
+ *   medium → card-coral (corporate) or card-turquesa (market-update)
+ */
+function mapToLegacyTemplateId(tone: VisualTone, contentType: ContentType): string {
+  switch (tone) {
+    case 'light':
+      return 'card-light';
+    case 'dark':
+      if (contentType === 'market-update' || contentType === 'breaking-news') {
+        return 'card-navy';
+      }
+      return 'card-dark';
+    case 'medium':
+      if (contentType === 'market-update') {
+        return 'card-turquesa';
+      }
+      return 'card-coral';
+    default:
+      return 'card-light';
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Dimension resolution
+// ---------------------------------------------------------------------------
+
+/**
+ * Resolves dimensions for a platform, supporting both base PlatformFormat
+ * and the extended StudioPlatformFormat (which includes facebook-post).
+ */
+function resolveDimensions(platform: string): { width: number; height: number } {
+  // Check studio dimensions first (includes facebook-post)
+  if (platform in STUDIO_PLATFORM_DIMENSIONS) {
+    return STUDIO_PLATFORM_DIMENSIONS[platform as StudioPlatformFormat];
+  }
+  // Fallback to base dimensions
+  if (platform in PLATFORM_DIMENSIONS) {
+    return PLATFORM_DIMENSIONS[platform as PlatformFormat];
+  }
+  // Default to instagram-story if unknown platform
+  return { width: 1080, height: 1920 };
+}
+
+// ---------------------------------------------------------------------------
+// Internal helpers (unchanged from original)
 // ---------------------------------------------------------------------------
 
 interface BuildParams {
@@ -284,26 +544,26 @@ function injectIntoTemplate(p: BuildParams & { template: string }): string {
   html = html.replace(/\{\{width\}\}/g, String(dimensions.width));
   html = html.replace(/\{\{height\}\}/g, String(dimensions.height));
 
-  // Inject content
-  html = html.replace(/\{\{headline\}\}/g, escapeHtml(content.headline));
-  html = html.replace(/\{\{subcopy\}\}/g, escapeHtml(content.subcopy));
-  html = html.replace(/\{\{cta\}\}/g, escapeHtml(content.cta));
+  // Inject content (use function replacer to avoid $& special patterns in replacement strings)
+  html = html.replace(/\{\{headline\}\}/g, () => escapeHtml(content.headline));
+  html = html.replace(/\{\{subcopy\}\}/g, () => escapeHtml(content.subcopy));
+  html = html.replace(/\{\{cta\}\}/g, () => escapeHtml(content.cta));
   html = html.replace(
     /\{\{imageUrl\}\}/g,
-    content.imageUrl ? content.imageUrl : '',
+    () => content.imageUrl ? content.imageUrl : '',
   );
 
   // Inject brand lockup
-  html = html.replace(/\{\{brandLockup\}\}/g, buildBrandLockup(brand));
+  html = html.replace(/\{\{brandLockup\}\}/g, () => buildBrandLockup(brand));
 
   // Inject disclaimer
-  html = html.replace(/\{\{disclaimer\}\}/g, buildDisclaimer(brandConfig.disclaimer));
+  html = html.replace(/\{\{disclaimer\}\}/g, () => buildDisclaimer(brandConfig.disclaimer));
 
   // Inject partner badge
-  html = html.replace(/\{\{partnerBadge\}\}/g, buildPartnerBadge(partner));
+  html = html.replace(/\{\{partnerBadge\}\}/g, () => buildPartnerBadge(partner));
 
   // Inject promoter area
-  html = html.replace(/\{\{promoterArea\}\}/g, buildPromoterArea(promoter));
+  html = html.replace(/\{\{promoterArea\}\}/g, () => buildPromoterArea(promoter));
 
   // Ensure dimensions are set on html and body elements
   html = ensureDimensions(html, dimensions);

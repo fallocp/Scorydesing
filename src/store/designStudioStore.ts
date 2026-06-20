@@ -31,6 +31,11 @@ const initialSelections: VisualSelections = {
   contentMode: 'free',
   commercialBranchSlug: null,
   customIdea: null,
+  narrativeAngleId: null,
+  narrativeAngleSlug: null,
+  narrativeAngleName: null,
+  funnelStage: null,
+  narrativePromptInstruction: null,
   pieceCopy: null,
   pieceImagePrompt: null,
 };
@@ -192,6 +197,22 @@ export const useDesignStudioStore = create<DesignStudioStore>()(
           }),
           false,
           'setCustomIdea'
+        ),
+
+      setNarrativeAngle: (angle) =>
+        set(
+          (state) => ({
+            selections: {
+              ...state.selections,
+              narrativeAngleId: angle?.id ?? null,
+              narrativeAngleSlug: angle?.slug ?? null,
+              narrativeAngleName: angle?.name ?? null,
+              funnelStage: angle?.funnelStage ?? null,
+              narrativePromptInstruction: angle?.promptInstruction ?? null,
+            },
+          }),
+          false,
+          'setNarrativeAngle'
         ),
 
       // --- Piece Copy & Image Prompt ---

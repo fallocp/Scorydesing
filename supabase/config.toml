@@ -1,6 +1,9 @@
 [functions.generate-design-image]
 verify_jwt = false
 
+[functions.generate-design-mockups]
+verify_jwt = false
+
 [functions.generate-design-copy]
 verify_jwt = false
 

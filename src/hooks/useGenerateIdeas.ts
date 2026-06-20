@@ -30,6 +30,8 @@ export interface GenerateIdeasRequest {
   narrativeAngleId?: string;
   funnelStage?: string;
   promptInstruction?: string;
+  /** Number of pieces to generate (backend defaults to 4) */
+  quantity?: number;
   /** Existing copy fields for context */
   headline?: string;
   subcopy?: string;

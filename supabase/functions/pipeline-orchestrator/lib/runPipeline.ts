@@ -4,15 +4,22 @@
  * Sequence: Strategy → Content → Validation → Image Prompts →
  *           Image Generation → Channel Adapter → HTML Assembly → Render
  *
+ * Before Strategy, Content, and Image agents, the Prompt Composer is invoked
+ * to build enriched prompts with brand memory (creative profile, learning deltas,
+ * compliance rules). This ensures brand isolation — only data from the current
+ * business_id is injected.
+ *
  * Pauses at approval gates and returns current state.
  * Each step's result is persisted immediately after completion.
  *
- * Requirements: 2.1, 2.2, 4.4, 9.1, 9.2, 9.3, 11.1, 11.2, 11.3, 11.4, 11.5
+ * Requirements: 2.1, 2.2, 4.4, 7.1, 7.2, 9.1, 9.2, 9.3, 11.1, 11.2, 11.3, 11.4, 11.5
  */
 
 import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.53.0";
 import { validateTransition } from "./stateMachine.ts";
 import { executeStep } from "./executeStep.ts";
+import { compose, type ComposedPrompt, type CampaignContext } from "../../_shared/promptComposer.ts";
+import { saveImageSnapshot, getLatestSnapshot } from "../../_shared/snapshots.ts";
 import type {
   PipelineRunRow,
   PipelineStatus,
@@ -40,6 +47,104 @@ interface StepDef {
   /** Whether this step can be skipped via options */
   skippable: boolean;
   skipWhen?: (options: PipelineOptions) => boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Prompt Composer Integration
+// ---------------------------------------------------------------------------
+
+/**
+ * Agents that receive enriched prompts from the Prompt Composer.
+ * Only Strategy, Content, and Image agents get brand-enriched context.
+ * Other agents (validation, channel adapter, hydrate, render) operate on
+ * structured data and don't need creative brand context.
+ */
+const PROMPT_COMPOSED_AGENTS = new Set([
+  "generate-strategy",
+  "generate-ideas",
+  "generate-design-image-prompts",
+  "generate-design-image-generate",
+]);
+
+/**
+ * System role descriptions per agent type for the Prompt Composer.
+ * These tell the composer what role the agent plays so it can tailor
+ * the system message accordingly.
+ */
+const AGENT_SYSTEM_ROLES: Record<string, string> = {
+  "generate-strategy":
+    "Eres un estratega de marketing digital experto. Tu rol es definir la estrategia creativa " +
+    "de una campaña publicitaria: ángulo narrativo, tono, audiencia objetivo, y enfoque de contenido. " +
+    "Respetas la identidad de marca y las preferencias aprendidas del cliente.",
+  "generate-ideas":
+    "Eres un creativo publicitario experto en generación de ideas de contenido. " +
+    "Generas headlines, copy, CTAs y direcciones de imagen que son persuasivos, " +
+    "coherentes con la marca, y adaptados al canal y audiencia objetivo.",
+  "generate-design-image-prompts":
+    "Eres un director de arte digital experto en generación de prompts para imágenes. " +
+    "Creas instrucciones detalladas para generación de imágenes que respetan la identidad visual " +
+    "de la marca, su estética, y las restricciones de compliance.",
+  "generate-design-image-generate":
+    "Eres un director de arte digital experto en generación de imágenes publicitarias. " +
+    "Generas imágenes que son visualmente coherentes con la marca, respetan las restricciones " +
+    "de compliance, y comunican el mensaje de la campaña de forma efectiva.",
+};
+
+/**
+ * Build campaign context from the pipeline run's brief for the Prompt Composer.
+ */
+function buildCampaignContext(run: PipelineRunRow): CampaignContext {
+  const brief = run.brief;
+  return {
+    brand: brief.brand,
+    topic: brief.topic,
+    audience: brief.audience,
+    objective: brief.objective,
+    platforms: brief.platforms ?? [],
+    channel: brief.channel,
+    angle: brief.angle,
+    narrativeAngle: brief.narrative_angle_id,
+    funnelStage: brief.funnel_stage,
+  };
+}
+
+/**
+ * Invoke the Prompt Composer for agents that need brand-enriched context.
+ * Returns null for agents that don't need composed prompts.
+ *
+ * Brand isolation is enforced by the Prompt Composer itself — it only queries
+ * data for the specified business_id (creative_profiles, learning_deltas,
+ * compliance_rules are all filtered by business_id).
+ */
+async function composePromptForAgent(
+  supabase: SupabaseClient,
+  run: PipelineRunRow,
+  agentName: string,
+): Promise<ComposedPrompt | null> {
+  if (!PROMPT_COMPOSED_AGENTS.has(agentName)) {
+    return null;
+  }
+
+  const systemRole = AGENT_SYSTEM_ROLES[agentName];
+  const campaign = buildCampaignContext(run);
+
+  try {
+    const composed = await compose({
+      businessId: run.business_id,
+      campaign,
+      supabase,
+      systemRole,
+    });
+    return composed;
+  } catch (_err) {
+    // If Prompt Composer fails (e.g., no creative_profile yet), continue without it.
+    // The agents can still function with their default prompts.
+    console.warn(
+      `[pipeline-orchestrator] Prompt Composer failed for agent '${agentName}' ` +
+      `(business_id: ${run.business_id}). Continuing without enriched prompt.`,
+    );
+    return null;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -178,7 +283,8 @@ export async function runPipeline(ctx: RunContext): Promise<PipelineRunRow> {
     }
 
     // Build payload and execute
-    const payload = buildAgentPayload(run, stepDef);
+    const composedPrompt = await composePromptForAgent(supabase, run, stepDef.agentName);
+    const payload = buildAgentPayload(run, stepDef, composedPrompt);
     const result = await executeStep(supabase, {
       pipelineRunId: run.id,
       stepNumber: stepDef.stepNumber,
@@ -189,6 +295,25 @@ export async function runPipeline(ctx: RunContext): Promise<PipelineRunRow> {
     });
 
     if (!result.success) {
+      // Special handling: render_service_unavailable pauses the pipeline
+      // instead of failing it, allowing retry when the service is back.
+      // Requirement 12.3: Pipeline pauses with render_service_unavailable error.
+      if (result.error?.error === "render_service_unavailable") {
+        await supabase
+          .from("pipeline_runs")
+          .update({
+            error: {
+              error: "render_service_unavailable",
+              message: result.error.message ?? "Render service is not reachable",
+              timestamp: new Date().toISOString(),
+            },
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", run.id);
+        // Keep status as running_render — pipeline is paused, not failed
+        return await fetchRun(supabase, run.id);
+      }
+
       await transitionToFailed(supabase, run.id, {
         error: result.error?.error ?? "api_error",
         message: result.error?.message ?? "Step execution failed",
@@ -198,6 +323,11 @@ export async function runPipeline(ctx: RunContext): Promise<PipelineRunRow> {
 
     // Persist step output in the run row
     run = await persistStepOutput(supabase, run, stepDef, result.output ?? {});
+
+    // Save image snapshot after image generation completes (Property 8)
+    if (stepDef.agentName === "generate-design-image-generate" && result.output) {
+      await saveImageSnapshotFromStep(supabase, run, result.output);
+    }
 
     // Check approval gate
     if (stepDef.gateAfter && !options.autoApprove) {
@@ -224,8 +354,20 @@ export async function runPipeline(ctx: RunContext): Promise<PipelineRunRow> {
 function buildAgentPayload(
   run: PipelineRunRow,
   step: StepDef,
+  composedPrompt: ComposedPrompt | null,
 ): Record<string, unknown> {
   const brief = run.brief;
+
+  // Base prompt context injected for agents that receive composed prompts.
+  // The systemMessage contains brand identity, strategy, preferences, learnings,
+  // compliance rules, and negatives. The userMessage contains campaign context.
+  const promptContext = composedPrompt
+    ? {
+        composedSystemMessage: composedPrompt.systemMessage,
+        composedUserMessage: composedPrompt.userMessage,
+        promptMetadata: composedPrompt.metadata,
+      }
+    : {};
 
   switch (step.agentName) {
     case "generate-strategy":
@@ -233,6 +375,7 @@ function buildAgentPayload(
         context: `Topic: ${brief.topic}\nAudience: ${brief.audience}\nObjective: ${brief.objective}`,
         brand: brief.brand,
         business_id: run.business_id,
+        ...promptContext,
       };
 
     case "generate-ideas":
@@ -257,6 +400,7 @@ function buildAgentPayload(
           funnelStage: brief.funnel_stage ?? "atraccion",
           promptInstruction: "",
         },
+        ...promptContext,
       };
 
     case "validate-claim":
@@ -278,6 +422,7 @@ function buildAgentPayload(
         body: idea?.body ?? "",
         angle: idea?.angle ?? "",
         funnelStage: brief.funnel_stage ?? "atraccion",
+        ...promptContext,
       };
     }
 
@@ -288,6 +433,7 @@ function buildAgentPayload(
         business_id: run.business_id,
         imageType: "fotografia",
         promptFinal: "",
+        ...promptContext,
       };
 
     case "adapt-channel": {
@@ -342,11 +488,11 @@ function buildAgentPayload(
     }
 
     case "render-design-png": {
-      // Collect all hydrated HTML pieces for rendering
+      // Batch mode: the render function reads pipeline_pieces from DB directly.
+      // We pass pipelineRunId so it can query pieces with piece_status='html_ready'.
       return {
         pipelineRunId: run.id,
         mode: "batch",
-        items: [], // Will be populated from pipeline_pieces in executeStep
       };
     }
 
@@ -432,6 +578,32 @@ async function transitionStatus(
   run: PipelineRunRow,
   status: PipelineStatus,
 ): Promise<PipelineRunRow> {
+  // Property 9: Before completing, verify at least one rendered piece exists
+  if (status === "completed") {
+    const { count } = await supabase
+      .from("pipeline_pieces")
+      .select("id", { count: "exact", head: true })
+      .eq("pipeline_run_id", run.id)
+      .eq("piece_status", "rendered")
+      .not("png_storage_path", "is", null);
+
+    if (!count || count === 0) {
+      // Cannot complete — no rendered pieces. Transition to failed instead.
+      await supabase
+        .from("pipeline_runs")
+        .update({
+          status: "failed",
+          error: {
+            error: "no_rendered_pieces",
+            message: "Pipeline cannot complete: no pipeline_piece with piece_status='rendered' and png_storage_path found.",
+          },
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", run.id);
+      return await fetchRun(supabase, run.id);
+    }
+  }
+
   const updateData: Record<string, unknown> = {
     status,
     updated_at: new Date().toISOString(),
@@ -532,4 +704,64 @@ export async function fetchRun(
   }
 
   return data as PipelineRunRow;
+}
+
+// ---------------------------------------------------------------------------
+// Snapshot Integration
+// ---------------------------------------------------------------------------
+
+/**
+ * Save an image snapshot after the image generation step completes.
+ *
+ * Uses the pipeline_run_id + first approved idea_id as the asset_id.
+ * Retrieves the parent snapshot (if any) to maintain the iteration chain.
+ */
+async function saveImageSnapshotFromStep(
+  supabase: SupabaseClient,
+  run: PipelineRunRow,
+  output: Record<string, unknown>,
+): Promise<void> {
+  const ideaId = run.approved_idea_ids?.[0] ?? "default";
+  const assetId = `${run.id}:${ideaId}`;
+  const maxIterations = run.options.imageIterations ?? 3;
+
+  // Extract image content from the step output
+  const imageContent =
+    (output.imageBase64 as string) ??
+    (output.image_base64 as string) ??
+    (output.imageUrl as string) ??
+    (output.image_storage_path as string) ??
+    "";
+
+  if (!imageContent) return;
+
+  // Get the latest snapshot to use as parent (for iteration chains)
+  const latestSnapshot = await getLatestSnapshot(supabase, "image", assetId);
+
+  // Extract feedback from the step input (if this was an iteration)
+  const { data: stepData } = await supabase
+    .from("pipeline_steps")
+    .select("input")
+    .eq("pipeline_run_id", run.id)
+    .eq("step_number", 5)
+    .single();
+
+  const stepInput = stepData?.input as Record<string, unknown> | undefined;
+  const feedback = (stepInput?.feedback as string) ?? undefined;
+
+  await saveImageSnapshot(supabase, {
+    businessId: run.business_id,
+    assetType: "image",
+    assetId,
+    content: imageContent,
+    metadata: {
+      pipeline_run_id: run.id,
+      idea_id: ideaId,
+      prompt_used: (output.promptUsed as string) ?? (stepInput?.promptFinal as string) ?? "",
+      image_type: (output.imageType as string) ?? (stepInput?.imageType as string) ?? "",
+    },
+    feedback,
+    parentSnapshotId: latestSnapshot?.id,
+    maxIterations,
+  });
 }

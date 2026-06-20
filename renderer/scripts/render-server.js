@@ -21,6 +21,7 @@ const puppeteer = require('puppeteer');
 const PORT = process.env.PORT || 3333;
 const AUTH_TOKEN = process.env.RENDER_SERVICE_TOKEN || null;
 const MAX_CONCURRENT = parseInt(process.env.MAX_CONCURRENT || '3', 10);
+const startTime = Date.now();
 
 let browser = null;
 let activePages = 0;
@@ -29,6 +30,7 @@ async function getBrowser() {
   if (!browser || !browser.isConnected()) {
     browser = await puppeteer.launch({
       headless: 'new',
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
@@ -154,11 +156,13 @@ const server = http.createServer(async (req, res) => {
 
   // Health check (no auth required)
   if (req.method === 'GET' && req.url === '/health') {
+    const puppeteerConnected = !!browser && browser.isConnected();
     jsonResponse(res, 200, {
-      status: 'ok',
-      puppeteer: !!browser && browser.isConnected(),
+      status: puppeteerConnected || activePages === 0 ? 'ok' : 'degraded',
+      puppeteer: puppeteerConnected,
       activePages,
       maxConcurrent: MAX_CONCURRENT,
+      uptime: Math.floor((Date.now() - startTime) / 1000),
     });
     return;
   }
@@ -180,10 +184,12 @@ const server = http.createServer(async (req, res) => {
       }
 
       console.log(`Rendering ${filename || 'piece'} (${width}x${height})...`);
+      const renderStart = Date.now();
       const pngBase64 = await renderHtml(html, width, height, waitForFonts ?? true);
-      console.log(`  ✅ Done: ${filename || 'piece'}`);
+      const renderTime = Date.now() - renderStart;
+      console.log(`  ✅ Done: ${filename || 'piece'} (${renderTime}ms)`);
 
-      jsonResponse(res, 200, { pngBase64, filename: filename || 'piece.png' });
+      jsonResponse(res, 200, { pngBase64, filename: filename || 'piece.png', renderTime });
     } catch (err) {
       console.error('Render error:', err.message);
       jsonResponse(res, 500, { error: err.message });
@@ -211,11 +217,13 @@ const server = http.createServer(async (req, res) => {
       }
 
       console.log(`Batch rendering ${items.length} items (max ${MAX_CONCURRENT} concurrent)...`);
+      const batchStart = Date.now();
       const results = await renderBatch(items, waitForFonts ?? true);
+      const totalTime = Date.now() - batchStart;
       const successCount = results.filter((r) => r.success).length;
-      console.log(`  ✅ Batch done: ${successCount}/${items.length} successful`);
+      console.log(`  ✅ Batch done: ${successCount}/${items.length} successful (${totalTime}ms)`);
 
-      jsonResponse(res, 200, { results });
+      jsonResponse(res, 200, { results, totalTime });
     } catch (err) {
       console.error('Batch render error:', err.message);
       jsonResponse(res, 500, { error: err.message });

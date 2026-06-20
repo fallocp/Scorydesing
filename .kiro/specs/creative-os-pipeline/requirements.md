@@ -256,3 +256,20 @@ Este documento define los requisitos formales para el Creative OS Pipeline de SC
 2. THE Brand_Registry SHALL verificar la existencia de: logo_url, primary_color, al menos un master_prompt, y al menos una commercial_branch para considerar un business como ready
 3. IF el business no cumple los requisitos mínimos, THEN THE Pipeline_Orchestrator SHALL rechazar la ejecución retornando la lista de campos faltantes y warnings
 4. WHEN validatePipelineReadiness detecta campos opcionales no configurados, THE Brand_Registry SHALL incluirlos como warnings sin bloquear la ejecución
+
+
+---
+
+### Requirement 18: Multi-Channel Copy Output (Overlays + Captions)
+
+**User Story:** Como operador, quiero que el Content Agent genere en una sola llamada el copy para imagen (overlay) y el copy para post (caption) adaptados a cada plataforma, para que la comunicación se sienta nativa en LinkedIn, Instagram y Facebook sin sacrificar coherencia narrativa entre canales ni costo de imagen.
+
+#### Acceptance Criteria
+
+1. WHEN el Content Agent recibe un brief con `channels` que incluyen plataformas mixtas (linkedin-post, instagram-post, instagram-story, facebook-post, banner), THE Content_Agent SHALL retornar para cada pieza un objeto `shared` (estrategia común) más `overlays` con las 3 variantes (`professional`, `square`, `vertical`) y `captions` con las 3 variantes (`linkedin`, `facebook`, `instagram`) en una sola respuesta
+2. THE Pipeline_Orchestrator SHALL aplicar el mapping `PLATFORM_TO_OVERLAY_VARIANT` (linkedin-post / facebook-post / banner → professional, instagram-post → square, instagram-story → vertical) al crear pipeline_pieces
+3. THE Pipeline_Orchestrator SHALL aplicar el mapping `PLATFORM_TO_CAPTION` (linkedin-post → linkedin, facebook-post → facebook, instagram-post → instagram, instagram-story → null, banner → null) al crear pipeline_pieces, dejando `caption_body=NULL` para banner y story
+4. WHEN se generan pipeline_pieces para plataformas que comparten ImageAspect (linkedin-post + facebook-post + banner → landscape), THE Pipeline_Orchestrator SHALL reusar el mismo `image_storage_path` sin regenerar la imagen
+5. THE Image_Agent SHALL generar imágenes que NO contienen texto, palabras, números ni elementos tipográficos; el texto se inyecta exclusivamente por el template engine al renderizar
+6. THE Pipeline_Orchestrator SHALL generar imágenes en orden secuencial por aspect ratio (landscape → square → vertical) con un gate de aprobación independiente por aspect, saltando aspects no requeridos por las plataformas seleccionadas
+7. WHEN una variante corta (square o vertical) recortaría un calificador requerido por compliance (por ejemplo "hasta", "hábil"), THE Content_Agent SHALL preservar el calificador aunque cueste palabras
