@@ -3,6 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.53.0";
 import { fetchBusinessContext } from "../_shared/fetchBusinessContext.ts";
 import { callOpenAI } from '../_shared/callOpenAI.ts';
+import { buildSlideExamples } from '../_shared/slideExamples.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -484,6 +485,152 @@ El HTML debe mantener exactamente ${dims.width}px × ${dims.height}px (plataform
 Responde SOLO con el HTML completo refinado. Sin explicaciones, sin markdown fences.`;
 }
 
+// ─── Presentation Slides: "Xending Light Editorial" design system ───
+// Fuente de verdad documentada: docs/prompts/masterSlidePrompt.md
+
+const SLIDE_FONTS_URL = 'https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..700&family=Poppins:wght@400;500;600;700&display=swap';
+const SLIDE_ICON_PLACEHOLDER = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='280' height='280'%3E%3Crect x='6' y='6' width='268' height='268' rx='28' fill='%23F5F7FA' stroke='%23CBD5E1' stroke-width='2' stroke-dasharray='9 7'/%3E%3Ctext x='50%25' y='50%25' font-family='Poppins,sans-serif' font-size='20' fill='%2394A3B8' text-anchor='middle' dominant-baseline='middle'%3Eicono%3C/text%3E%3C/svg%3E";
+const SLIDE_HERO_PLACEHOLDER = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='760' height='380'%3E%3Crect x='4' y='4' width='752' height='372' rx='22' fill='%23F5F7FA' stroke='%23CBD5E1' stroke-width='2' stroke-dasharray='11 8'/%3E%3Ctext x='50%25' y='50%25' font-family='Poppins,sans-serif' font-size='24' fill='%2394A3B8' text-anchor='middle' dominant-baseline='middle'%3Eimagen%3C/text%3E%3C/svg%3E";
+
+/**
+ * System prompt for generating presentation slides in the unified
+ * "Xending Light Editorial" design system (1920×1080).
+ * Used by both text→slide and image(reference)→slide flows.
+ */
+/**
+ * System prompt for generating presentation slides in the unified
+ * "Xending Light Editorial" design system (1920×1080).
+ * Used by both text→slide and image(reference)→slide flows.
+ *
+ * @param style Estilo del sistema de diseño. Hoy solo 'light' (claro). En el
+ *   futuro se agregarán otros (p.ej. 'navy') como un nuevo set de tokens +
+ *   ejemplos; por ahora cualquier valor desconocido cae a 'light'.
+ */
+type SlideStyle = 'light' | 'navy';
+
+function buildSlideSystemPrompt(logoUrl: string, style: SlideStyle = 'light'): string {
+  // 'navy' aún no está diseñado: se renderiza con 'light' hasta tener su set.
+  void style;
+  const examples = buildSlideExamples(SLIDE_FONTS_URL, SLIDE_ICON_PLACEHOLDER, SLIDE_HERO_PLACEHOLDER);
+  return `Eres un diseñador front-end senior especializado en slides de pitch deck B2B fintech.
+Generas UN slide HTML completo y autónomo de 1920×1080 en el sistema de diseño "Xending Light Editorial".
+NO inventas estilos nuevos: combinas EXCLUSIVAMENTE los componentes de la librería de abajo.
+
+## TOKENS
+:root { --mint:#2ED4C7; --coral:#FF7A4A; --navy:#0F1419; --navy-title:#081B57; --gray:#6B7280; }
+- Fuentes: Fraunces (títulos, peso 600; acento en *itálica* con degradado coral) + Poppins (cuerpo 400/500/600/700).
+- Fondo del slide: linear-gradient(180deg,#ffffff 0%,#fbfcfd 100%). NUNCA fondo navy o coral lleno.
+- Import de fuentes (obligatorio en <head>): @import url('${SLIDE_FONTS_URL}');
+
+## REGLA DE ORO DE LAS CAJAS
+Las cajas/paneles son BLANCOS (#ffffff) con borde NEUTRO 1px solid rgba(8,27,87,0.06) y sombra suave 0 20px 55px rgba(15,20,25,0.06). NUNCA color de marca en el borde exterior. El único color dentro de la caja es la línea coral, el pill turquesa o un <span class="hl"> turquesa.
+
+## REGLA DE IMÁGENES / ICONOS
+Todo icono o ilustración es un PLACEHOLDER de imagen swappable con id ÚNICO en el src (#c1, #c2, #hero, #b1…). Jamás incrustes emojis o SVG fijos en los slots de icono.
+- Placeholder de icono (cuadrado): src="${SLIDE_ICON_PLACEHOLDER}#idUnico"
+- Placeholder de imagen (rectangular): src="${SLIDE_HERO_PLACEHOLDER}#idUnico"
+- Logo Xending (cuando aplique): <img src="${logoUrl}" /> + <span> "xending" en minúsculas. UN solo logo.
+
+## SCAFFOLD OBLIGATORIO
+<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<style>
+@import url('${SLIDE_FONTS_URL}');
+:root{--mint:#2ED4C7;--coral:#FF7A4A;--navy:#0F1419;--navy-title:#081B57;--gray:#6B7280;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{margin:0;overflow:hidden;background:#ffffff;}
+.slide{width:1920px;height:1080px;position:relative;overflow:hidden;font-family:'Poppins',sans-serif;background:linear-gradient(180deg,#ffffff 0%,#fbfcfd 100%);transform-origin:top left;}
+/* …estilos de componentes… */
+</style>
+<script>(function(){function resize(){var s=document.querySelector('.slide');if(!s)return;var w=document.documentElement.clientWidth||window.innerWidth;var h=document.documentElement.clientHeight||window.innerHeight;s.style.transform='scale('+Math.min(w/1920,h/1080)+')';}window.addEventListener('resize',resize);resize();setTimeout(resize,50);setTimeout(resize,200);})();</script>
+</head><body style="margin:0;overflow:hidden;background:#ffffff;width:100%;height:100vh;"><div class="slide"><!-- contenido --></div></body></html>
+
+## LIBRERÍA DE COMPONENTES (HTML + CSS exacto)
+
+### Eyebrow
+HTML: <div class="eyebrow-row"><span class="eyebrow-line"></span><span class="eyebrow">Texto</span></div>
+CSS: .eyebrow-row{display:flex;align-items:center;gap:14px;} .eyebrow-line{width:44px;height:3px;background:var(--coral);border-radius:999px;} .eyebrow{color:var(--coral);font-weight:600;font-size:15px;letter-spacing:3px;text-transform:uppercase;}
+
+### Título con acento coral + línea
+HTML: <h1>Texto <span class="accent">parte acentuada</span></h1><div class="accent-line"></div>
+CSS: h1{font-family:'Fraunces',serif;font-weight:600;font-size:84px;line-height:1.02;color:var(--navy-title);letter-spacing:-1px;} h1 .accent{font-style:italic;background:linear-gradient(135deg,#FF7A4A,#FF9468);-webkit-background-clip:text;background-clip:text;color:transparent;} .accent-line{width:60px;height:4px;background:var(--coral);border-radius:999px;margin:32px 0 28px;}
+(Para acento en bloque añade display:block al .accent.)
+
+### Subtítulo
+HTML: <p class="subtitle">Texto.</p>
+CSS: .subtitle{font-weight:400;font-size:22px;line-height:1.6;color:#1a2a62;max-width:540px;}
+
+### CAJA (card) — componente clave, SIN color exterior
+HTML:
+<div class="card"><div class="icon-slot"><img class="stat-icon" src="${SLIDE_ICON_PLACEHOLDER}#c1" alt=""/></div><div class="card-line"></div><h3>Título</h3><div class="card-sub">Subtítulo.</div><div class="card-body">Texto con <span class="hl">resaltado</span>.</div><div class="pill">✓ Etiqueta</div></div>
+CSS: .cards{display:flex;gap:28px;align-items:stretch;} .card{flex:1;background:#fff;border:1px solid rgba(8,27,87,0.06);border-radius:26px;padding:40px 34px;box-shadow:0 20px 55px rgba(15,20,25,0.06);display:flex;flex-direction:column;} .icon-slot{width:190px;height:190px;align-self:center;margin:6px 0 10px;} .stat-icon{width:100%;height:100%;object-fit:contain;} .card-line{width:52px;height:3px;background:var(--coral);border-radius:999px;margin:30px 0 20px;} .card h3{font-family:'Fraunces',serif;font-weight:600;font-size:30px;line-height:1.18;color:var(--navy-title);} .card-sub{font-weight:600;font-size:18px;line-height:1.4;color:var(--navy-title);margin-top:20px;} .card-body{font-weight:400;font-size:16px;line-height:1.6;color:var(--gray);margin-top:12px;} .card-body .hl{color:var(--mint);font-weight:600;} .pill{margin-top:auto;align-self:flex-start;display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:999px;background:rgba(46,212,199,0.12);color:#1FB8AC;font-weight:600;font-size:13px;}
+(El pill es opcional. Si las cajas deben igualar altura, usa una height fija común, p.ej. 810px.)
+
+### Panel con checklist (borde neutro, hero + lista)
+HTML:
+<div class="panel"><div class="hero-slot"><img src="${SLIDE_ICON_PLACEHOLDER}#hero" alt=""/></div><div class="checklist"><div class="check-item"><span class="check-mark">✓</span><span class="check-text">Punto.</span></div></div></div>
+CSS: .panel{background:#fff;border:1px solid rgba(8,27,87,0.06);border-radius:30px;box-shadow:0 24px 60px rgba(15,20,25,0.06);padding:50px 56px;display:flex;align-items:center;gap:48px;} .hero-slot{width:330px;height:330px;flex:none;display:flex;align-items:center;justify-content:center;} .hero-slot img{width:100%;height:100%;object-fit:contain;} .checklist{flex:1;display:flex;flex-direction:column;gap:30px;} .check-item{display:flex;align-items:flex-start;gap:16px;} .check-mark{flex:none;width:30px;height:30px;border-radius:50%;border:2px solid var(--coral);display:flex;align-items:center;justify-content:center;color:var(--coral);font-size:15px;font-weight:700;margin-top:2px;} .check-text{font-weight:500;font-size:21px;line-height:1.4;color:var(--navy-title);}
+
+### Franja de features (footer strip)
+HTML:
+<div class="strip"><div class="feat"><div class="feat-icon"><img src="${SLIDE_ICON_PLACEHOLDER}#b1" alt=""/></div><div><div class="feat-title">Título</div><div class="feat-body">Texto corto.</div></div></div><div class="strip-divider"></div></div>
+CSS: .strip{display:flex;align-items:stretch;background:linear-gradient(180deg,#fff 0%,#f8fafc 100%);border:1px solid rgba(8,27,87,0.08);border-radius:22px;padding:30px;} .feat{flex:1;display:flex;align-items:center;gap:18px;padding:0 30px;} .feat-icon{flex:none;width:66px;height:66px;} .feat-icon img{width:100%;height:100%;object-fit:contain;} .feat-title{font-weight:600;font-size:19px;color:var(--navy-title);} .feat-body{font-weight:400;font-size:14px;line-height:1.45;color:var(--gray);margin-top:5px;} .strip-divider{width:1px;background:rgba(8,27,87,0.10);align-self:center;height:78px;}
+
+### Stats (columnas número + label + divisor)
+HTML:
+<div class="cols"><div class="col"><div class="icon-slot"><img class="stat-icon" src="${SLIDE_ICON_PLACEHOLDER}#i1" alt=""/></div><div class="stat-line"></div><div class="number">30+</div><div class="label">label</div></div><div class="divider"></div></div>
+CSS: .cols{display:flex;align-items:stretch;justify-content:center;} .col{flex:1;display:flex;flex-direction:column;align-items:center;text-align:center;padding:0 40px;} .divider{width:1px;background:rgba(8,27,87,0.12);align-self:center;height:420px;} .stat-line{width:60px;height:4px;background:var(--coral);border-radius:999px;margin:30px 0 22px;} .number{font-family:'Fraunces',serif;font-weight:600;font-size:88px;line-height:1;color:var(--navy-title);} .number.same-day{font-style:italic;font-weight:500;font-size:72px;} .label{font-weight:500;font-size:24px;line-height:1.4;color:var(--gray);margin-top:16px;}
+
+## REGLAS DURAS
+1. Lienzo 1920×1080 SIEMPRE, con el <script> de resize del scaffold.
+2. Fondo claro (gradiente blanco). Prohibido fondo navy/coral lleno.
+3. Cajas/paneles blancos con borde neutro. Sin color en el borde exterior.
+4. Acentos de color SOLO en: línea coral, título acento coral, pill turquesa, .hl turquesa, marcas/divisores. Nunca saturar.
+5. Iconos e imágenes = placeholders con id ÚNICO. Jamás iconos fijos.
+6. Títulos en Fraunces; cuerpo en Poppins. Respeta pesos/tamaños.
+7. Texto en español. No inventes datos ni claims.
+
+## EJEMPLOS DE REFERENCIA (GOLD STANDARD)
+Estos son slides REALES del deck. Replica EXACTAMENTE este nivel de detalle: estructura, clases, tamaños, espaciados, sombras, líneas coral, tipografía y colores. NO cambies los estilos del sistema; SOLO adapta el texto, el número de cajas/columnas y los ids de las imágenes según lo que se pida o lo que muestre la imagen de referencia.
+
+### EJEMPLO A — Grid de cajas (cards blancas, borde neutro, icono + línea coral + título + sub + body + pill opcional)
+\`\`\`html
+${examples.cards}
+\`\`\`
+
+### EJEMPLO B — Eyebrow + título con acento coral + panel con checklist + franja de features
+\`\`\`html
+${examples.onboarding}
+\`\`\`
+
+### EJEMPLO C — Stats (header centrado + 3 columnas número/label con icono y divisores)
+\`\`\`html
+${examples.stats}
+\`\`\`
+
+### EJEMPLO D — Foto hero de fondo (capa detrás, con máscara radial) + 3 cards a la derecha
+\`\`\`html
+${examples.heroCards}
+\`\`\`
+
+## OUTPUT
+Responde SOLO con el HTML completo del slide. Sin explicaciones, sin markdown fences.`;
+}
+
+/** Refinement prompt for slide HTML→HTML iteration (chat estilo Canva). */
+function buildSlideIterationPrompt(): string {
+  return `Eres un diseñador front-end senior. Refinas un slide HTML existente (1920×1080, sistema "Xending Light Editorial") según el feedback del usuario.
+
+## REGLAS
+1. Aplica SOLO los cambios solicitados; mantén todo lo demás intacto.
+2. Conserva el lienzo 1920×1080 y el <script> de resize.
+3. Respeta los tokens y componentes del sistema (cajas blancas borde neutro, Fraunces/Poppins, acentos coral/turquesa, placeholders de imagen con id único).
+4. No elimines ids de imágenes existentes salvo que se pida.
+5. Devuelve HTML completo y funcional.
+
+## OUTPUT
+Responde SOLO con el HTML completo refinado. Sin explicaciones, sin markdown fences.`;
+}
+
 // ─── Serve handler ───
 
 serve(async (req) => {
@@ -494,6 +641,106 @@ serve(async (req) => {
   try {
 
     const body = await req.json();
+
+    // ─── Presentation Slide flow: text/image → slide HTML (Xending Light Editorial) ───
+    // Detect by design_system === 'xending-slide'
+    if (body.design_system === 'xending-slide') {
+      const {
+        instruction,
+        image_base64,
+        image_url,
+        current_html,
+        iteration_feedback,
+        logo_url,
+        style,
+      } = body as {
+        instruction?: string;
+        image_base64?: string;
+        image_url?: string;
+        current_html?: string;
+        iteration_feedback?: string;
+        logo_url?: string;
+        style?: SlideStyle;
+      };
+
+      const slideLogoUrl = logo_url || XENDING_LOGO_URL;
+      const slideStyle: SlideStyle = style === 'navy' ? 'navy' : 'light';
+      let messages: Array<{ role: string; content: any }>;
+
+      if (current_html && iteration_feedback) {
+        // --- Iteration refinement (chat estilo Canva) ---
+        messages = [
+          { role: 'system', content: buildSlideIterationPrompt() },
+          {
+            role: 'user',
+            content: `## SLIDE HTML ACTUAL:\n\`\`\`html\n${current_html}\n\`\`\`\n\n## FEEDBACK DEL USUARIO:\n${iteration_feedback}\n\nAplica los cambios y devuelve el HTML completo del slide.`,
+          },
+        ];
+      } else {
+        // --- Initial generation: text and/or reference image → slide HTML ---
+        if (!instruction && !image_base64 && !image_url) {
+          return new Response(
+            JSON.stringify({ error: 'parse_error', message: 'Missing: instruction o image (base64/url)' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const systemPrompt = buildSlideSystemPrompt(slideLogoUrl, slideStyle);
+        const refImage = image_base64
+          ? (image_base64.startsWith('data:') ? image_base64 : `data:image/png;base64,${image_base64}`)
+          : image_url;
+
+        if (refImage) {
+          // Vision: la imagen es REFERENCIA de diseño; recréala con la librería de componentes.
+          const textPart = `Analiza esta imagen como REFERENCIA DE DISEÑO y recréala como un slide HTML usando EXCLUSIVAMENTE los componentes y estilos de los EJEMPLOS DE REFERENCIA del sistema (mismas clases, tamaños, sombras, líneas coral, tipografía Fraunces/Poppins y colores). Mapea lo que ves al componente más cercano: cajas→cards, lista con checks→panel checklist, fila inferior de features→strip, columnas con número→stats. Todo icono/ilustración debe ser un placeholder de imagen con id único. Respeta el layout, la jerarquía y el número de cajas/columnas que se ven en la imagen. NO uses fondos de color ni bordes de color saturados.${instruction ? `\n\nINTENCIÓN / TEXTO DEL USUARIO:\n${instruction}` : ''}`;
+          messages = [
+            { role: 'system', content: systemPrompt },
+            {
+              role: 'user',
+              content: [
+                { type: 'image_url', image_url: { url: refImage } },
+                { type: 'text', text: textPart },
+              ],
+            },
+          ];
+        } else {
+          // Solo texto → slide.
+          messages = [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: `Genera un slide a partir de esta intención:\n\n${instruction}` },
+          ];
+        }
+      }
+
+      const result = await callOpenAI({
+        model: 'gpt-4o',
+        messages: messages as any,
+        max_completion_tokens: 8000,
+        timeoutMs: 120_000,
+      });
+
+      if (!result.success) {
+        return new Response(
+          JSON.stringify({ error: result.error, message: result.message }),
+          { status: result.status || 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      let html = result.content || '';
+      html = html.replace(/^```html\n?/i, '').replace(/\n?```$/i, '').trim();
+
+      if (!html.includes('<!DOCTYPE') && !html.includes('<html')) {
+        return new Response(
+          JSON.stringify({ error: 'parse_error', message: 'LLM no generó HTML válido' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ html }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // ─── Design Studio flow: mockup-to-HTML conversion ───
     // Detect by presence of mockup_image_base64 in the request body

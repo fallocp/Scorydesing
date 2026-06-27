@@ -11,6 +11,7 @@ import {
   Move, Type, MousePointer2, Save, X, Undo2, ZoomIn, ZoomOut,
   Eye, Code, Hand, Plus, Trash2, Copy, Image as ImageIcon, Square, Circle, Minus,
   ArrowUp, ArrowDown,
+  CircleDot, Pill, Diamond, Dot, Check, Star, Asterisk, ArrowRight, Ruler,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -26,7 +27,7 @@ export interface ElementDef {
   selector: string;       // CSS selector to find in iframe
   editable: boolean;      // Can edit text?
   draggable: boolean;     // Can drag to reposition?
-  kind?: 'text' | 'image' | 'image-bg' | 'shape' | 'circle' | 'line'; // tipo (solo para elementos insertados)
+  kind?: 'text' | 'image' | 'image-bg' | 'shape' | 'circle' | 'line' | 'ring' | 'pill' | 'line-gradient' | 'diamond'; // tipo (solo para elementos insertados)
   inserted?: boolean;     // true si fue agregado desde el editor (se puede borrar/duplicar)
 }
 
@@ -126,7 +127,15 @@ function buildFeatherMask(f: FeatherConfig): string {
 
 // --- Inserción de elementos nuevos (Canva-like) ---
 
-type InsertKind = 'text' | 'image' | 'shape' | 'circle' | 'line';
+type InsertKind =
+  | 'text' | 'image'
+  | 'shape' | 'circle' | 'ring' | 'pill' | 'line' | 'line-gradient' | 'diamond'
+  | 'bullet' | 'check' | 'star' | 'asterisk' | 'arrow';
+
+// Glifos (se insertan como texto editable y se colorean con el color de texto)
+const GLYPH_KINDS: InsertKind[] = ['bullet', 'check', 'star', 'asterisk', 'arrow'];
+// Formas (se colorean con relleno y borde)
+const SHAPE_KINDS = ['shape', 'circle', 'ring', 'pill', 'line', 'line-gradient', 'diamond'];
 
 // Placeholder gris para imágenes nuevas (data URI; el # + eid lo hace único por elemento)
 const NEW_IMG_PLACEHOLDER =
@@ -135,6 +144,8 @@ const NEW_IMG_PLACEHOLDER =
 /** Genera el HTML de un elemento nuevo con su data-eid. */
 function buildInsertSnippet(eid: string, kind: InsertKind): string {
   const pos = `position:absolute;left:140px;top:140px;z-index:60;`;
+  const glyph = (char: string, color: string, weight = 400) =>
+    `\n<div data-eid="${eid}" style="${pos}font-family:'Poppins',sans-serif;font-size:72px;font-weight:${weight};color:${color};line-height:1;">${char}</div>`;
   switch (kind) {
     case 'text':
       return `\n<div data-eid="${eid}" style="${pos}font-family:'Inter',sans-serif;font-size:48px;font-weight:600;color:#0F1419;line-height:1.2;">Texto nuevo</div>`;
@@ -144,8 +155,26 @@ function buildInsertSnippet(eid: string, kind: InsertKind): string {
       return `\n<div data-eid="${eid}" style="${pos}width:280px;height:180px;background:#2ED4C7;border-radius:12px;"></div>`;
     case 'circle':
       return `\n<div data-eid="${eid}" style="${pos}width:220px;height:220px;background:#FF7A4A;border-radius:50%;"></div>`;
+    case 'ring':
+      return `\n<div data-eid="${eid}" style="${pos}width:180px;height:180px;background:transparent;border:8px solid #FF7A4A;border-radius:50%;"></div>`;
+    case 'pill':
+      return `\n<div data-eid="${eid}" style="${pos}width:240px;height:64px;background:#2ED4C7;border-radius:999px;"></div>`;
     case 'line':
-      return `\n<div data-eid="${eid}" style="${pos}width:320px;height:4px;background:#0F1419;border-radius:2px;"></div>`;
+      return `\n<div data-eid="${eid}" style="${pos}width:320px;height:4px;background:#FF7A4A;border-radius:2px;"></div>`;
+    case 'line-gradient':
+      return `\n<div data-eid="${eid}" style="${pos}width:360px;height:4px;background:linear-gradient(90deg,#FF7A4A,#2ED4C7);border-radius:2px;"></div>`;
+    case 'diamond':
+      return `\n<div data-eid="${eid}" style="${pos}width:150px;height:150px;background:#2ED4C7;clip-path:polygon(50% 0%,100% 50%,50% 100%,0% 50%);"></div>`;
+    case 'bullet':
+      return glyph('●', '#FF7A4A');
+    case 'check':
+      return glyph('✓', '#2ED4C7', 700);
+    case 'star':
+      return glyph('★', '#FF7A4A');
+    case 'asterisk':
+      return glyph('✱', '#FF7A4A');
+    case 'arrow':
+      return glyph('→', '#0F1419', 700);
     default:
       return '';
   }
@@ -657,8 +686,14 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tool, setTool] = useState<'select' | 'move' | 'text'>('select');
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
+  // Guías de alineación: estáticas (centro/tercios) + dinámicas al arrastrar (snap)
+  const [showGuides, setShowGuides] = useState(false);
+  const [dragGuides, setDragGuides] = useState<Array<{ orient: 'v' | 'h'; pos: number }>>([]);
   const inlineEditRef = useRef<{ selector: string; oldHTML: string } | null>(null);
   const commitRef = useRef<() => void>(() => {});
+  const scaleRef = useRef(0.35);
+  const startEditRef = useRef<(o: ElementOverlay, clickPoint?: { x: number; y: number }) => void>(() => {});
+  const duplicateRef = useRef<() => void>(() => {});
   const lastRangeRef = useRef<Range | null>(null);
   const selChangeRef = useRef<(() => void) | null>(null);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
@@ -721,12 +756,31 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
     }
     overrideCss += '</style>\n';
 
+    // Persistimos la config del editor (radial/difuminado/fondo) como un <script> JSON
+    // oculto, para poder RECUPERARLA al reentrar (la máscara CSS sola no es reversible).
+    const cfg = {
+      radial: radialRef.current,
+      feather: featherConfigRef.current,
+      bg: bgConfigRef.current,
+    };
+    const hasCfg =
+      Object.keys(cfg.radial).length > 0 ||
+      Object.keys(cfg.feather).length > 0 ||
+      Object.keys(cfg.bg).length > 0;
+    const cfgScript = hasCfg
+      ? `<script id="__ed_cfg" type="application/json">${JSON.stringify(cfg).replace(/</g, '\\u003c')}</script>\n`
+      : '';
+
+    // Quita cualquier config previa para no acumular versiones viejas.
+    const cleanHtml = workingHtml.replace(/\s*<script id="__ed_cfg"[\s\S]*?<\/script>/g, '');
+    const inject = `${overrideCss}${cfgScript}`;
+
     // Inject before </head>
-    if (workingHtml.includes('</head>')) {
-      return workingHtml.replace('</head>', `${overrideCss}</head>`);
+    if (cleanHtml.includes('</head>')) {
+      return cleanHtml.replace('</head>', `${inject}</head>`);
     }
     // Fallback: inject before </body>
-    return workingHtml.replace('</body>', `${overrideCss}</body>`);
+    return cleanHtml.replace('</body>', `${inject}</body>`);
   }, [workingHtml, styleOverrides, usedFonts]);
 
   // Build iframe src — reloads whenever htmlWithOverrides changes
@@ -749,6 +803,24 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
 
     const doc = iframe.contentDocument;
     const win = iframe.contentWindow;
+
+    // Recupera la config del editor persistida en el HTML (modo radial, puntos,
+    // suavidad, difuminado, fondo). Solo rellena claves que aún no estén en memoria,
+    // para no pisar ediciones en curso de esta sesión.
+    try {
+      const cfgEl = doc.getElementById('__ed_cfg');
+      if (cfgEl?.textContent) {
+        const parsed = JSON.parse(cfgEl.textContent) as {
+          radial?: Record<string, RadialCfg>;
+          feather?: Record<string, FeatherConfig>;
+          bg?: Record<string, BgConfig>;
+        };
+        if (parsed.radial) for (const k in parsed.radial) if (!radialRef.current[k]) radialRef.current[k] = parsed.radial[k];
+        if (parsed.feather) for (const k in parsed.feather) if (!featherConfigRef.current[k]) featherConfigRef.current[k] = parsed.feather[k];
+        if (parsed.bg) for (const k in parsed.bg) if (!bgConfigRef.current[k]) bgConfigRef.current[k] = parsed.bg[k];
+      }
+    } catch { /* ignore config inválida */ }
+
     const root = doc.querySelector('.slide') || doc.querySelector('.card') || doc.body;
     if (!root) return;
     const rootSel = root.classList.length ? `.${root.classList[0]}` : root.tagName.toLowerCase();
@@ -773,7 +845,10 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
       const cs = win.getComputedStyle(el);
       if (cs.display === 'none' || cs.visibility === 'hidden' || parseFloat(cs.opacity) === 0) return;
       const rect = el.getBoundingClientRect();
-      if (rect.width < 8 || rect.height < 8) return;
+      // Descarta solo elementos diminutos en AMBAS dimensiones (ruido).
+      // Las líneas finas (p.ej. 320×4) se conservan para poder seleccionarlas.
+      if (rect.width < 4 && rect.height < 4) return;
+      if (rect.width < 1 || rect.height < 1) return;
 
       // Clasificar el elemento
       let kind: ElementDef['kind'];
@@ -910,6 +985,7 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
         fontFamily: fontComputed.fontFamily, fontStyle: fontComputed.fontStyle,
         textAlign: computed.textAlign, textDecorationLine: fontComputed.textDecorationLine,
         color: fontComputed.color, backgroundColor: computed.backgroundColor,
+        borderColor: computed.borderTopColor, borderWidth: computed.borderTopWidth,
         filter: computed.filter,
       });
     };
@@ -944,6 +1020,29 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
     setChanges((prev) => [...prev, { id: overlay.def.selector, property: cssProp, oldValue: selectedStyles[property] || '', newValue: value }]);
   }, [selectedId, overlays, selectedStyles, pushUndo]);
 
+  // Aplica borde (color y/o grosor) de una forma en un solo paso
+  const applyBorder = useCallback((patch: { color?: string; width?: string }) => {
+    if (!selectedId) return;
+    const overlay = overlays.find((o) => o.id === selectedId);
+    if (!overlay) return;
+    pushUndo();
+    const sel = overlay.def.selector;
+    setStyleOverrides((prev) => {
+      const cur = { ...(prev[sel] || {}) };
+      cur['border-style'] = 'solid';
+      if (!cur['border-width'] && !patch.width) cur['border-width'] = '3px';
+      if (patch.width) cur['border-width'] = patch.width;
+      if (patch.color) cur['border-color'] = patch.color;
+      return { ...prev, [sel]: cur };
+    });
+    setSelectedStyles((prev) => ({
+      ...prev,
+      ...(patch.color ? { borderColor: patch.color } : {}),
+      ...(patch.width ? { borderWidth: patch.width } : {}),
+    }));
+    setChanges((prev) => [...prev, { id: sel, property: 'border', oldValue: '', newValue: JSON.stringify(patch) }]);
+  }, [selectedId, overlays, pushUndo]);
+
   // Apply font-family (al elemento y sus hijos) + cargar la Google Font
   const applyFontFamily = useCallback((value: string, google: string | null) => {
     if (!selectedId) return;
@@ -975,11 +1074,23 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
       image:  { label: 'Imagen',     emoji: '🖼️' },
       shape:  { label: 'Rectángulo', emoji: '▭' },
       circle: { label: 'Círculo',    emoji: '⬤' },
+      ring:   { label: 'Aro',        emoji: '⭕' },
+      pill:   { label: 'Píldora',    emoji: '💊' },
       line:   { label: 'Línea',      emoji: '➖' },
+      'line-gradient': { label: 'Línea degradada', emoji: '🌈' },
+      diamond:{ label: 'Diamante',   emoji: '🔷' },
+      bullet: { label: 'Viñeta',     emoji: '•' },
+      check:  { label: 'Palomita',   emoji: '✓' },
+      star:   { label: 'Estrella',   emoji: '★' },
+      asterisk:{ label: 'Asterisco', emoji: '✱' },
+      arrow:  { label: 'Flecha',     emoji: '→' },
     };
+    const isGlyph = GLYPH_KINDS.includes(kind);
+    // Los glifos se tratan como texto (editable + se colorean con color de texto)
+    const storedKind: ElementDef['kind'] = isGlyph ? 'text' : (kind as ElementDef['kind']);
     const def: ElementDef = {
       id: eid, label: meta[kind].label, emoji: meta[kind].emoji, color: '#8B5CF6',
-      selector, editable: kind === 'text', draggable: true, kind, inserted: true,
+      selector, editable: kind === 'text' || isGlyph, draggable: true, kind: storedKind, inserted: true,
     };
     setInsertedElements((prev) => [...prev, def]);
     setSelectedId(eid);
@@ -1006,26 +1117,115 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
     setSelectedId(null);
   }, [selectedId, overlays, pushUndo]);
 
+  // Atajo de teclado: Supr/Delete borra; Ctrl/Cmd+D duplica el elemento seleccionado
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (editingTextId) return; // editando texto: no interferir
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      if (!selectedId) return;
+      if (e.key === 'Delete') {
+        e.preventDefault();
+        deleteSelected();
+      } else if ((e.ctrlKey || e.metaKey) && (e.key === 'd' || e.key === 'D')) {
+        e.preventDefault();
+        duplicateRef.current();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [editingTextId, selectedId, deleteSelected]);
+
   const duplicateSelected = useCallback(() => {
     if (!selectedId) return;
     const overlay = overlays.find((o) => o.id === selectedId);
-    if (!overlay?.def.inserted) return; // solo elementos insertados
-    const node = extractNodeByEid(workingHtml, selectedId);
-    if (!node) return;
+    if (!overlay) return;
     pushUndo();
     const newEid = `eid-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
-    // Clona el nodo: nuevo eid + offset de 24px en left/top
-    let clone = node
-      .replace(new RegExp(`data-eid="${selectedId}"`), `data-eid="${newEid}"`)
-      .replace(new RegExp(`#${selectedId}`, 'g'), `#${newEid}`)
-      .replace(/left:\s*(\d+)px/, (_m, n) => `left:${parseInt(n, 10) + 24}px`)
-      .replace(/top:\s*(\d+)px/, (_m, n) => `top:${parseInt(n, 10) + 24}px`);
-    setWorkingHtml((prev) => insertIntoRoot(prev, `\n${clone}`));
-    const def: ElementDef = { ...overlay.def, id: newEid, selector: `[data-eid="${newEid}"]` };
+    const newSelector = `[data-eid="${newEid}"]`;
+
+    // Caso 1: elemento ya insertado → clona su HTML por data-eid con offset
+    if (overlay.def.inserted) {
+      const node = extractNodeByEid(workingHtml, selectedId);
+      if (!node) return;
+      const clone = node
+        .replace(new RegExp(`data-eid="${selectedId}"`), `data-eid="${newEid}"`)
+        .replace(new RegExp(`#${selectedId}`, 'g'), `#${newEid}`)
+        .replace(/left:\s*(\d+)px/, (_m, n) => `left:${parseInt(n, 10) + 24}px`)
+        .replace(/top:\s*(\d+)px/, (_m, n) => `top:${parseInt(n, 10) + 24}px`);
+      setWorkingHtml((prev) => insertIntoRoot(prev, `\n${clone}`));
+      const def: ElementDef = { ...overlay.def, id: newEid, selector: newSelector };
+      setInsertedElements((prev) => [...prev, def]);
+      setSelectedId(newEid);
+      setChanges((prev) => [...prev, { id: def.selector, property: 'duplicate', oldValue: '', newValue: overlay.def.kind || '' }]);
+      return;
+    }
+
+    // Caso 2: elemento del template → clona desde el DOM como copia absoluta
+    const iframe = iframeRef.current;
+    const el = iframe?.contentDocument?.querySelector(overlay.def.selector) as HTMLElement | null;
+    if (!el) return;
+    const clone = el.cloneNode(true) as HTMLElement;
+    clone.removeAttribute('contenteditable');
+    clone.querySelectorAll('[contenteditable]').forEach((n) => (n as HTMLElement).removeAttribute('contenteditable'));
+    clone.setAttribute('data-eid', newEid);
+
+    // Copia los estilos COMPUTADOS clave inline, para que la copia se vea igual
+    // aunque salga de su contenedor (los estilos venían del CSS/herencia del padre).
+    const win = iframe?.contentWindow;
+    if (win) {
+      const cs = win.getComputedStyle(el);
+      const props = [
+        'font-family', 'font-size', 'font-weight', 'font-style', 'line-height',
+        'letter-spacing', 'text-align', 'text-transform', 'text-decoration', 'color',
+        'background-color', 'background-image', 'background-size', 'background-position', 'background-repeat',
+        'border-top-width', 'border-right-width', 'border-bottom-width', 'border-left-width',
+        'border-style', 'border-color', 'border-radius', 'box-shadow',
+        'padding-top', 'padding-right', 'padding-bottom', 'padding-left',
+        'opacity', 'clip-path', '-webkit-background-clip', 'background-clip',
+        '-webkit-text-fill-color', 'display', 'align-items', 'justify-content', 'gap', 'flex-direction',
+      ];
+      for (const p of props) {
+        const v = cs.getPropertyValue(p);
+        if (v) clone.style.setProperty(p, v);
+      }
+    }
+
+    const left = Math.round(overlay.rect.left) + 24;
+    const top = Math.round(overlay.rect.top) + 24;
+    clone.style.position = 'absolute';
+    clone.style.left = `${left}px`;
+    clone.style.top = `${top}px`;
+    clone.style.margin = '0';
+    clone.style.zIndex = '60';
+    // Las formas/imágenes/líneas conservan tamaño explícito; el texto se deja fluir
+    const isTextLike = overlay.def.editable || overlay.def.kind === 'text';
+    if (!isTextLike) {
+      clone.style.width = `${Math.round(overlay.rect.width)}px`;
+      clone.style.height = `${Math.round(overlay.rect.height)}px`;
+    } else {
+      // El texto conserva su ancho para mantener saltos de línea/estética
+      clone.style.width = `${Math.round(overlay.rect.width)}px`;
+    }
+    const outer = clone.outerHTML;
+    setWorkingHtml((prev) => insertIntoRoot(prev, `\n${outer}`));
+    const def: ElementDef = {
+      id: newEid,
+      label: `${overlay.def.label} (copia)`,
+      emoji: overlay.def.emoji,
+      color: overlay.def.color,
+      selector: newSelector,
+      editable: overlay.def.editable,
+      draggable: true,
+      kind: overlay.def.kind ?? (el.tagName === 'IMG' ? 'image' : (el.children.length === 0 ? 'shape' : 'text')),
+      inserted: true,
+    };
     setInsertedElements((prev) => [...prev, def]);
     setSelectedId(newEid);
-    setChanges((prev) => [...prev, { id: def.selector, property: 'duplicate', oldValue: '', newValue: overlay.def.kind || '' }]);
+    setChanges((prev) => [...prev, { id: newSelector, property: 'duplicate', oldValue: '', newValue: 'template' }]);
   }, [selectedId, overlays, workingHtml, pushUndo]);
+
+  useEffect(() => { duplicateRef.current = duplicateSelected; }, [duplicateSelected]);
 
   const bringToFront = useCallback(() => applyStyleChange('zIndex', '100'), [applyStyleChange]);
   const sendToBack = useCallback(() => applyStyleChange('zIndex', '1'), [applyStyleChange]);
@@ -1227,16 +1427,31 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
   // --- Drag handling ---
 
   const handleMouseDown = useCallback((e: React.MouseEvent, overlay: ElementOverlay) => {
-    if (!overlay.def.draggable || tool === 'text') return;
+    // Entrar a edición de texto con UN clic cuando:
+    //  - la herramienta Texto está activa, o
+    //  - el elemento editable ya estaba seleccionado (segundo clic).
+    // El cursor se coloca justo donde se hizo clic; luego se selecciona texto nativamente.
+    if (
+      overlay.def.editable &&
+      editingTextId !== overlay.id &&
+      (tool === 'text' || (tool === 'select' && selectedId === overlay.id))
+    ) {
+      e.preventDefault();
+      e.stopPropagation();
+      startEditRef.current(overlay, { x: e.clientX, y: e.clientY });
+      return;
+    }
+
+    if (!overlay.def.draggable || tool === 'text') {
+      setSelectedId(overlay.id);
+      return;
+    }
     e.preventDefault();
     e.stopPropagation();
 
     setSelectedId(overlay.id);
 
-    // Si es fondo del slide, solo se selecciona (no se arrastra ni mueve)
-    const ovr = styleOverrides[overlay.def.selector];
-    if (ovr?.position === 'absolute' && ovr?.width === '100%' && ovr?.['z-index'] === '0') return;
-
+    // El fondo del slide también se puede mover/redimensionar una vez seleccionado.
     setIsDragging(true);
 
     dragRef.current = {
@@ -1246,7 +1461,7 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
       origTop: overlay.rect.top,
       origLeft: overlay.rect.left,
     };
-  }, [tool, styleOverrides]);
+  }, [tool, styleOverrides, editingTextId, selectedId]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     // Arrastre del fundido radial
@@ -1293,26 +1508,56 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
 
     if (!isDragging || !dragRef.current) return;
 
-    const dx = (e.clientX - dragRef.current.startX) / scale;
-    const dy = (e.clientY - dragRef.current.startY) / scale;
+    const dxRaw = (e.clientX - dragRef.current.startX) / scale;
+    const dyRaw = (e.clientY - dragRef.current.startY) / scale;
+    const dragId = dragRef.current.id;
+    const moving = overlays.find((o) => o.id === dragId);
+    if (!moving) return;
+
+    const w = moving.rect.width;
+    const h = moving.rect.height;
+    let left = dragRef.current.origLeft + dxRaw;
+    let top = dragRef.current.origTop + dyRaw;
+
+    // Snap a centro/orillas del lienzo y a bordes/centros de otros elementos
+    const TOL = 7;
+    const vTargets = [0, designWidth / 2, designWidth];
+    const hTargets = [0, designHeight / 2, designHeight];
+    for (const o of overlays) {
+      if (o.id === dragId) continue;
+      vTargets.push(o.rect.left, o.rect.left + o.rect.width / 2, o.rect.left + o.rect.width);
+      hTargets.push(o.rect.top, o.rect.top + o.rect.height / 2, o.rect.top + o.rect.height);
+    }
+    const guides: Array<{ orient: 'v' | 'h'; pos: number }> = [];
+    let bestX: { adjust: number; guide: number } | null = null;
+    for (const val of [left, left + w / 2, left + w]) {
+      for (const t of vTargets) {
+        const d = t - val;
+        if (Math.abs(d) <= TOL && (!bestX || Math.abs(d) < Math.abs(bestX.adjust))) bestX = { adjust: d, guide: t };
+      }
+    }
+    if (bestX) { left += bestX.adjust; guides.push({ orient: 'v', pos: bestX.guide }); }
+    let bestY: { adjust: number; guide: number } | null = null;
+    for (const val of [top, top + h / 2, top + h]) {
+      for (const t of hTargets) {
+        const d = t - val;
+        if (Math.abs(d) <= TOL && (!bestY || Math.abs(d) < Math.abs(bestY.adjust))) bestY = { adjust: d, guide: t };
+      }
+    }
+    if (bestY) { top += bestY.adjust; guides.push({ orient: 'h', pos: bestY.guide }); }
+    setDragGuides(guides);
 
     setOverlays((prev) =>
       prev.map((o) =>
-        o.id === dragRef.current!.id
-          ? {
-              ...o,
-              rect: {
-                ...o.rect,
-                top: dragRef.current!.origTop + dy,
-                left: dragRef.current!.origLeft + dx,
-              },
-            }
+        o.id === dragId
+          ? { ...o, rect: { ...o.rect, top, left } }
           : o
       )
     );
-  }, [isDragging, isResizing, scale, radial, applyRadial]);
+  }, [isDragging, isResizing, scale, radial, applyRadial, overlays, designWidth, designHeight]);
 
   const handleMouseUp = useCallback(() => {
+    setDragGuides([]);
     // Fin de arrastre radial
     if (radialDragRef.current) {
       radialDragRef.current = null;
@@ -1393,8 +1638,10 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
 
   // --- Text editing (inline, en el lienzo) ---
 
-  const startInlineEdit = useCallback((overlay: ElementOverlay) => {
+  const startInlineEdit = useCallback((overlay: ElementOverlay, clickPoint?: { x: number; y: number }) => {
     if (!overlay.def.editable) return;
+    // Si ya estamos editando este mismo elemento, no reiniciar (evita resetear el cursor)
+    if (inlineEditRef.current?.selector === overlay.def.selector) return;
     const iframe = iframeRef.current;
     if (!iframe?.contentDocument || !iframe.contentWindow) return;
     const el = iframe.contentDocument.querySelector(overlay.def.selector) as HTMLElement | null;
@@ -1411,11 +1658,36 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
     setTimeout(() => {
       el.focus();
       try {
-        // Coloca el cursor al final (no selecciona todo); el usuario elige qué seleccionar
-        const range = iframe.contentDocument!.createRange();
-        range.selectNodeContents(el);
-        range.collapse(false);
-        const sel = iframe.contentWindow!.getSelection();
+        const doc = iframe.contentDocument!;
+        const win = iframe.contentWindow!;
+        const sel = win.getSelection();
+        let range: Range | null = null;
+
+        // Si hay punto de clic, coloca el cursor exactamente ahí (Canva-like)
+        if (clickPoint) {
+          const rect = iframe.getBoundingClientRect();
+          const x = (clickPoint.x - rect.left) / scaleRef.current;
+          const y = (clickPoint.y - rect.top) / scaleRef.current;
+          const docAny = doc as unknown as {
+            caretRangeFromPoint?: (x: number, y: number) => Range | null;
+            caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null;
+          };
+          if (typeof docAny.caretRangeFromPoint === 'function') {
+            range = docAny.caretRangeFromPoint(x, y);
+          } else if (typeof docAny.caretPositionFromPoint === 'function') {
+            const pos = docAny.caretPositionFromPoint(x, y);
+            if (pos) { range = doc.createRange(); range.setStart(pos.offsetNode, pos.offset); range.collapse(true); }
+          }
+          // Solo válido si el cursor cayó dentro del elemento editable
+          if (range && !el.contains(range.startContainer)) range = null;
+        }
+
+        // Fallback: cursor al final (no selecciona todo)
+        if (!range) {
+          range = doc.createRange();
+          range.selectNodeContents(el);
+          range.collapse(false);
+        }
         sel?.removeAllRanges();
         sel?.addRange(range);
       } catch { /* noop */ }
@@ -1465,28 +1737,48 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
   // Mantener una referencia estable al commit para el listener de blur
   useEffect(() => { commitRef.current = () => finishInlineEdit(true); }, [finishInlineEdit]);
 
+  // Refs estables para usar en handleMouseDown sin problemas de orden de declaración
+  useEffect(() => { scaleRef.current = scale; }, [scale]);
+  useEffect(() => { startEditRef.current = startInlineEdit; }, [startInlineEdit]);
+
+  // Refs para sincronizar la config recordada SOLO cuando cambia la selección,
+  // no en cada re-escaneo de overlays (eso reiniciaba el modo del fundido —
+  // p. ej. "Forma libre" volvía a "Elipse" al aplicar un cambio).
+  const featherSyncId = useRef<string | null>(null);
+  const bgSyncId = useRef<string | null>(null);
+  const radialSyncId = useRef<string | null>(null);
+
   // Sincroniza el control de difuminado con el elemento seleccionado (config recordada)
   useEffect(() => {
-    if (!selectedId) { setFeather(DEFAULT_FEATHER); return; }
+    if (featherSyncId.current === selectedId) return;
+    if (!selectedId) { featherSyncId.current = null; setFeather(DEFAULT_FEATHER); return; }
     const overlay = overlays.find((o) => o.id === selectedId);
-    const sel = overlay?.def.selector;
+    if (!overlay) return; // aún no escaneado; espera
+    featherSyncId.current = selectedId;
+    const sel = overlay.def.selector;
     setFeather(sel && featherConfigRef.current[sel] ? featherConfigRef.current[sel] : DEFAULT_FEATHER);
   }, [selectedId, overlays]);
 
   // Sincroniza el control de fondo (image-bg) con el elemento seleccionado
   useEffect(() => {
-    if (!selectedId) { setBg(DEFAULT_BG); return; }
+    if (bgSyncId.current === selectedId) return;
+    if (!selectedId) { bgSyncId.current = null; setBg(DEFAULT_BG); return; }
     const overlay = overlays.find((o) => o.id === selectedId);
-    if (!overlay || overlay.def.kind !== 'image-bg') { setBg(DEFAULT_BG); return; }
+    if (!overlay) return;
+    bgSyncId.current = selectedId;
+    if (overlay.def.kind !== 'image-bg') { setBg(DEFAULT_BG); return; }
     const sel = overlay.def.selector;
     setBg(bgConfigRef.current[sel] || { ...DEFAULT_BG, url: getBgUrl(sel) });
   }, [selectedId, overlays, getBgUrl]);
 
   // Sincroniza el fundido radial con el elemento seleccionado
   useEffect(() => {
-    if (!selectedId) { setRadial(DEFAULT_RADIAL); return; }
+    if (radialSyncId.current === selectedId) return;
+    if (!selectedId) { radialSyncId.current = null; setRadial(DEFAULT_RADIAL); return; }
     const overlay = overlays.find((o) => o.id === selectedId);
-    const sel = overlay?.def.selector;
+    if (!overlay) return;
+    radialSyncId.current = selectedId;
+    const sel = overlay.def.selector;
     setRadial(sel && radialRef.current[sel] ? radialRef.current[sel] : DEFAULT_RADIAL);
   }, [selectedId, overlays]);
 
@@ -1580,6 +1872,17 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
             >
               <Type className="h-4 w-4" />
             </button>
+            <button
+              type="button"
+              onClick={() => setShowGuides((v) => !v)}
+              className={cn(
+                'p-1.5 rounded text-xs transition-colors',
+                showGuides ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'
+              )}
+              title="Guías de alineación (centro y tercios)"
+            >
+              <Ruler className="h-4 w-4" />
+            </button>
           </div>
 
           {/* Biblioteca de elementos (Canva-like) */}
@@ -1595,14 +1898,47 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
             {addMenuOpen && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setAddMenuOpen(false)} />
-                <div className="absolute left-0 top-8 z-50 w-44 bg-background border rounded-lg shadow-xl p-1">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide px-2 py-1">Elementos</p>
+                <div className="absolute left-0 top-8 z-50 w-52 max-h-96 overflow-y-auto bg-background border rounded-lg shadow-xl p-1">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide px-2 py-1">Básicos</p>
                   {([
                     { kind: 'text', icon: <Type className="h-4 w-4" />, label: 'Texto' },
                     { kind: 'image', icon: <ImageIcon className="h-4 w-4" />, label: 'Imagen' },
+                  ] as const).map((it) => (
+                    <button
+                      key={it.kind}
+                      type="button"
+                      onClick={() => { addElement(it.kind); setAddMenuOpen(false); }}
+                      className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs hover:bg-muted text-left"
+                    >
+                      {it.icon} {it.label}
+                    </button>
+                  ))}
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide px-2 py-1 mt-1">Formas</p>
+                  {([
                     { kind: 'shape', icon: <Square className="h-4 w-4" />, label: 'Rectángulo' },
                     { kind: 'circle', icon: <Circle className="h-4 w-4" />, label: 'Círculo' },
+                    { kind: 'ring', icon: <CircleDot className="h-4 w-4" />, label: 'Aro (contorno)' },
+                    { kind: 'pill', icon: <Pill className="h-4 w-4" />, label: 'Píldora' },
+                    { kind: 'diamond', icon: <Diamond className="h-4 w-4" />, label: 'Diamante' },
                     { kind: 'line', icon: <Minus className="h-4 w-4" />, label: 'Línea' },
+                    { kind: 'line-gradient', icon: <Minus className="h-4 w-4 text-[#FF7A4A]" />, label: 'Línea degradada' },
+                  ] as const).map((it) => (
+                    <button
+                      key={it.kind}
+                      type="button"
+                      onClick={() => { addElement(it.kind); setAddMenuOpen(false); }}
+                      className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs hover:bg-muted text-left"
+                    >
+                      {it.icon} {it.label}
+                    </button>
+                  ))}
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide px-2 py-1 mt-1">Símbolos</p>
+                  {([
+                    { kind: 'bullet', icon: <Dot className="h-4 w-4" />, label: 'Viñeta' },
+                    { kind: 'check', icon: <Check className="h-4 w-4" />, label: 'Palomita' },
+                    { kind: 'star', icon: <Star className="h-4 w-4" />, label: 'Estrella' },
+                    { kind: 'asterisk', icon: <Asterisk className="h-4 w-4" />, label: 'Asterisco' },
+                    { kind: 'arrow', icon: <ArrowRight className="h-4 w-4" />, label: 'Flecha' },
                   ] as const).map((it) => (
                     <button
                       key={it.kind}
@@ -1649,9 +1985,11 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
         </div>
       </div>
 
-      {/* Element legend */}
+      {/* Element legend — lista TODOS los elementos detectados (incluye auto-detectados
+          y el fondo del slide), para que siempre se puedan seleccionar desde aquí
+          aunque estén tapados o al fondo en el lienzo. */}
       <div className="flex flex-wrap gap-1.5 px-1">
-        {[...(editableElements ?? EDITABLE_ELEMENTS), ...insertedElements].filter((e) => overlays.some((o) => o.id === e.id)).map((def) => (
+        {overlays.map((o) => o.def).map((def) => (
           <button
             key={def.id}
             type="button"
@@ -1698,7 +2036,7 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
               width={designWidth}
               height={designHeight}
               onLoad={handleIframeLoad}
-              sandbox="allow-same-origin"
+              sandbox="allow-same-origin allow-scripts"
               className="origin-top-left border-0"
               style={{
                 transform: `scale(${scale})`,
@@ -1707,29 +2045,94 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
               }}
             />
 
+            {/* Guías de alineación */}
+            {(showGuides || dragGuides.length > 0) && (
+              <div className="absolute inset-0 pointer-events-none z-50" style={{ width: scaledWidth, height: scaledHeight }}>
+                {/* Estáticas: centro + tercios */}
+                {showGuides && [
+                  { o: 'v' as const, p: designWidth / 2 }, { o: 'v' as const, p: designWidth / 3 }, { o: 'v' as const, p: (2 * designWidth) / 3 },
+                  { o: 'h' as const, p: designHeight / 2 }, { o: 'h' as const, p: designHeight / 3 }, { o: 'h' as const, p: (2 * designHeight) / 3 },
+                ].map((g, i) => (
+                  <div
+                    key={`static-${i}`}
+                    className="absolute"
+                    style={g.o === 'v'
+                      ? { left: g.p * scale, top: 0, width: 1, height: scaledHeight, background: 'rgba(46,212,199,0.45)' }
+                      : { top: g.p * scale, left: 0, height: 1, width: scaledWidth, background: 'rgba(46,212,199,0.45)' }}
+                  />
+                ))}
+                {/* Dinámicas: snap al arrastrar (coral) */}
+                {dragGuides.map((g, i) => (
+                  <div
+                    key={`drag-${i}`}
+                    className="absolute"
+                    style={g.orient === 'v'
+                      ? { left: g.pos * scale, top: 0, width: 2, height: scaledHeight, background: '#FF7A4A' }
+                      : { top: g.pos * scale, left: 0, height: 2, width: scaledWidth, background: '#FF7A4A' }}
+                  />
+                ))}
+              </div>
+            )}
+
             {/* Overlay handles */}
-            {overlays.map((overlay) => {
+            {overlays.map((overlay, idx) => {
               const isSelected = selectedId === overlay.id;
               const isEditing = editingTextId === overlay.id;
+              const isDraggingThis = isDragging && dragRef.current?.id === overlay.id;
+              const isResizingThis = isResizing && resizeRef.current?.id === overlay.id;
+              // z-index basado en el área (overlays vienen ordenados de mayor a menor):
+              // los elementos más pequeños quedan SIEMPRE encima y por lo tanto son
+              // clicables aunque estén dentro del área de uno más grande. No promovemos
+              // el seleccionado al frente, porque taparía a los textos pequeños y no
+              // se podrían volver a elegir. Solo lo que se arrastra/redimensiona sube.
               const ovr = styleOverrides[overlay.def.selector];
               const isSlideBg = ovr?.position === 'absolute' && ovr?.width === '100%' && ovr?.['z-index'] === '0';
+              // ORDEN DE CAPAS POR TIPO (de arriba hacia abajo):
+              //   texto (banda 3) → formas/decorativos (banda 2) → imágenes y su
+              //   difuminado (banda 1) → fondo del slide (banda 0).
+              // Dentro de cada banda, los más pequeños quedan encima (idx ya viene
+              // ordenado por área) para poder seleccionar elementos solapados.
+              const kind = overlay.def.kind;
+              const isText = kind === 'text';
+              const band = isSlideBg
+                ? 0
+                : (kind === 'image' || kind === 'image-bg')
+                  ? 1
+                  : isText
+                    ? 3
+                    : 2;
+              const baseZ = band * 1000 + idx;
+              // Al seleccionar un elemento que NO es texto (imagen, forma, fondo) lo
+              // traemos al frente para manipular sus tiradores y el fundido radial.
+              // El texto NO se promueve, para reseleccionar textos solapados con un clic.
+              const overlayZ = (isDraggingThis || isResizingThis)
+                ? 9999
+                : (isSelected && !isText)
+                  ? 8000
+                  : baseZ;
+              // Área mínima de selección para elementos delgados/pequeños (líneas, etc.)
+              const wPx = overlay.rect.width * scale;
+              const hPx = overlay.rect.height * scale;
+              const MIN_HIT = 16;
+              const padX = wPx < MIN_HIT ? (MIN_HIT - wPx) / 2 : 0;
+              const padY = hPx < MIN_HIT ? (MIN_HIT - hPx) / 2 : 0;
 
               return (
                 <div
                   key={overlay.id}
-                  className={cn(
-                    'absolute transition-all',
-                    isDragging && dragRef.current?.id === overlay.id ? 'z-50' : 'z-10',
-                    isSelected ? 'z-40' : '',
-                  )}
+                  className="absolute transition-all"
                   style={{
-                    top: overlay.rect.top * scale,
-                    left: overlay.rect.left * scale,
-                    width: overlay.rect.width * scale,
-                    height: overlay.rect.height * scale,
-                    // Mientras se edita este elemento, el overlay no captura el mouse:
-                    // así el arrastre llega al iframe y puedes seleccionar parte del texto.
-                    pointerEvents: isEditing ? 'none' : undefined,
+                    top: overlay.rect.top * scale - padY,
+                    left: overlay.rect.left * scale - padX,
+                    width: Math.max(wPx, MIN_HIT),
+                    height: Math.max(hPx, MIN_HIT),
+                    zIndex: overlayZ,
+                    // Mientras se edita CUALQUIER texto, todos los overlays dejan
+                    // pasar el mouse al iframe. Si solo el overlay editado fuera
+                    // "pasa-través", otro overlay que lo solape (p.ej. el del título
+                    // que cubre ambas líneas) interceptaría el clic y sacaría del
+                    // modo edición, impidiendo posicionar el cursor o seleccionar texto.
+                    pointerEvents: editingTextId !== null ? 'none' : undefined,
                   }}
                 >
                   {/* Selection border */}
@@ -1772,7 +2175,7 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
                   )}
 
                   {/* Resize handles (corners) for selected element */}
-                  {isSelected && overlay.def.draggable && !isSlideBg && (
+                  {isSelected && overlay.def.draggable && (
                     <>
                       <div
                         className="absolute -top-1.5 -left-1.5 w-3 h-3 rounded-full border-2 bg-white z-50"
@@ -2606,8 +3009,10 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
                 </div>
               )}
 
-              {/* Relleno (formas/líneas insertadas) */}
-              {(selectedOverlay.def.kind === 'shape' || selectedOverlay.def.kind === 'circle' || selectedOverlay.def.kind === 'line') && (
+              {/* Relleno y borde (formas insertadas o cualquier elemento con relleno/borde) */}
+              {(SHAPE_KINDS.includes(selectedOverlay.def.kind ?? '')
+                || (parseInt(selectedStyles.borderWidth || '0', 10) || 0) > 0
+                || (!!selectedStyles.backgroundColor && selectedStyles.backgroundColor !== 'transparent' && selectedStyles.backgroundColor !== 'rgba(0, 0, 0, 0)')) && (
                 <div className="space-y-2 border-t pt-2">
                   <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Relleno</p>
                   <div className="flex items-center justify-between">
@@ -2624,11 +3029,11 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
                       />
                     </div>
                   </div>
-                  {/* Swatches de marca */}
+                  {/* Swatches de marca para relleno */}
                   <div className="flex items-center gap-1.5 flex-wrap">
                     {BRAND_COLORS.map((c) => (
                       <button
-                        key={c.hex}
+                        key={`fill-${c.hex}`}
                         type="button"
                         title={`${c.name} (${c.hex})`}
                         onClick={() => applyStyleChange('background', c.hex)}
@@ -2636,6 +3041,56 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
                         style={{ backgroundColor: c.hex }}
                       />
                     ))}
+                    <button
+                      type="button"
+                      title="Sin relleno (transparente)"
+                      onClick={() => applyStyleChange('background', 'transparent')}
+                      className="w-6 h-6 rounded-full border border-black/15 hover:scale-110 transition-transform bg-white"
+                      style={{ backgroundImage: 'linear-gradient(45deg,#ddd 25%,transparent 25%,transparent 75%,#ddd 75%),linear-gradient(45deg,#ddd 25%,transparent 25%,transparent 75%,#ddd 75%)', backgroundSize: '8px 8px', backgroundPosition: '0 0,4px 4px' }}
+                    />
+                  </div>
+
+                  {/* Borde */}
+                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide pt-1">Borde</p>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Color</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] font-mono text-muted-foreground">
+                        {selectedStyles.borderColor ? rgbToHex(selectedStyles.borderColor) : ''}
+                      </span>
+                      <input
+                        type="color"
+                        value={selectedStyles.borderColor ? rgbToHex(selectedStyles.borderColor) : '#FF7A4A'}
+                        onChange={(e) => applyBorder({ color: e.target.value })}
+                        className="w-7 h-7 rounded border cursor-pointer bg-transparent p-0"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {BRAND_COLORS.map((c) => (
+                      <button
+                        key={`border-${c.hex}`}
+                        type="button"
+                        title={`${c.name} (${c.hex})`}
+                        onClick={() => applyBorder({ color: c.hex })}
+                        className="w-6 h-6 rounded-full border border-black/15 hover:scale-110 transition-transform"
+                        style={{ backgroundColor: c.hex }}
+                      />
+                    ))}
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs text-muted-foreground">Grosor</span>
+                    <input
+                      type="range"
+                      min={0}
+                      max={24}
+                      value={selectedStyles.borderWidth ? parseInt(selectedStyles.borderWidth, 10) || 0 : 0}
+                      onChange={(e) => applyBorder({ width: `${e.target.value}px` })}
+                      className="flex-1"
+                    />
+                    <span className="text-[10px] font-mono text-muted-foreground w-8 text-right">
+                      {selectedStyles.borderWidth ? `${parseInt(selectedStyles.borderWidth, 10) || 0}px` : '0px'}
+                    </span>
                   </div>
                 </div>
               )}
@@ -2658,11 +3113,9 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
                   </div>
                 </div>
                 <div className="flex gap-1">
-                  {selectedOverlay.def.inserted && (
-                    <button type="button" onClick={duplicateSelected} className="flex-1 h-7 rounded border text-xs hover:bg-muted flex items-center justify-center gap-1">
-                      <Copy className="h-3.5 w-3.5" /> Duplicar
-                    </button>
-                  )}
+                  <button type="button" onClick={duplicateSelected} className="flex-1 h-7 rounded border text-xs hover:bg-muted flex items-center justify-center gap-1">
+                    <Copy className="h-3.5 w-3.5" /> Duplicar
+                  </button>
                   <button
                     type="button"
                     onClick={deleteSelected}

@@ -2598,7 +2598,8 @@ export const slide01_cover_v11: string = `<!DOCTYPE html>
       z-index: 2;
     }
 
-    /* The image container — feathered edges + blend mode */
+    /* The image container — imagen limpia (sin fundido/blend automático).
+       El difuminado es OPCIONAL: aplícalo desde el control "Difuminar" del editor. */
     .img-placeholder {
       position: relative;
       width: 100%;
@@ -2609,41 +2610,15 @@ export const slide01_cover_v11: string = `<!DOCTYPE html>
       color: rgba(255,255,255,0.35);
       font-size: 16px;
       font-style: italic;
-      /* Soft radial mask — edges fade to transparent, blending with navy */
-      -webkit-mask-image: radial-gradient(ellipse 75% 75% at center, #000 40%, rgba(0,0,0,0.6) 65%, transparent 90%);
-      mask-image: radial-gradient(ellipse 75% 75% at center, #000 40%, rgba(0,0,0,0.6) 65%, transparent 90%);
+      overflow: hidden;
+      border-radius: 16px;
     }
 
     .img-placeholder img {
       width: 100%;
       height: 100%;
       object-fit: cover;
-      /* Blend dark navy pixels with the slide background */
-      mix-blend-mode: screen;
-      /* Lift shadows slightly so the image doesn't get too washed */
-      filter: brightness(1.05) contrast(1.1) saturate(1.15);
-    }
-
-    /* Color unify overlay — subtle teal tint across the whole image area */
-    .img-placeholder::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(135deg, rgba(46,212,199,0.08) 0%, rgba(255,122,74,0.06) 100%);
-      mix-blend-mode: color;
-      pointer-events: none;
-      -webkit-mask-image: radial-gradient(ellipse 75% 75% at center, #000 50%, transparent 95%);
-      mask-image: radial-gradient(ellipse 75% 75% at center, #000 50%, transparent 95%);
-    }
-
-    /* Vignette towards the left — fades image into text zone */
-    .img-placeholder::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(90deg, #0A0E14 0%, rgba(10,14,20,0.6) 10%, transparent 30%, transparent 100%);
-      pointer-events: none;
-      z-index: 2;
+      border-radius: 16px;
     }
   </style>
   <script>
@@ -6752,6 +6727,233 @@ export const slide03_porque_xending: string = `<!DOCTYPE html>
 </body>
 </html>`;
 
+// ─── SLIDE 4 2.0: Onboarding empresarial con IA (panel + franja de features) ─
+
+export const slide04_onboarding_ia: string = `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width">
+  <style>
+    @import url('${PG_FONTS}');
+    :root { --mint: #2ED4C7; --coral: #FF7A4A; --navy: #0F1419; --navy-title: #081B57; --gray: #6B7280; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { margin: 0; overflow: hidden; background: #ffffff; }
+
+    .slide {
+      width: 1920px; height: 1080px; position: relative; overflow: hidden;
+      font-family: 'Poppins', sans-serif;
+      background: linear-gradient(180deg, #ffffff 0%, #fbfcfd 100%);
+      transform-origin: top left;
+      display: flex; flex-direction: column; padding: 78px 90px 56px;
+    }
+
+    /* Barra superior fina */
+    .topbar { position: absolute; left: 0; top: 0; width: 100%; height: 8px; background: var(--navy-title); }
+
+    /* Bloque principal */
+    .top { display: flex; gap: 70px; flex: 1; align-items: stretch; }
+
+    /* Columna izquierda */
+    .left { flex: 0.92; display: flex; flex-direction: column; justify-content: center; max-width: 720px; }
+    .eyebrow-row { display: flex; align-items: center; gap: 14px; }
+    .eyebrow-line { width: 44px; height: 3px; background: var(--coral); border-radius: 999px; }
+    .eyebrow { color: var(--coral); font-weight: 600; font-size: 15px; letter-spacing: 3px; text-transform: uppercase; }
+    h1 { font-family: 'Fraunces', serif; font-weight: 600; font-size: 84px; line-height: 1.02; color: var(--navy-title); margin-top: 24px; letter-spacing: -1px; }
+    h1 .accent { display: block; font-style: italic; background: linear-gradient(135deg, #FF7A4A, #FF9468); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .accent-line { width: 60px; height: 4px; background: var(--coral); border-radius: 999px; margin: 32px 0 28px; }
+    .subtitle { font-family: 'Poppins', sans-serif; font-weight: 400; font-size: 22px; line-height: 1.6; color: #1a2a62; max-width: 540px; }
+
+    /* Panel derecho con borde coral */
+    .panel { flex: 1.22; align-self: center; background: #ffffff; border: 1.5px solid rgba(255,122,74,0.32); border-radius: 30px; box-shadow: 0 24px 60px rgba(15,20,25,0.06); padding: 50px 56px; display: flex; align-items: center; gap: 48px; }
+    .hero-slot { width: 330px; height: 330px; flex: none; display: flex; align-items: center; justify-content: center; }
+    .hero-slot img { width: 100%; height: 100%; object-fit: contain; }
+    .checklist { flex: 1; display: flex; flex-direction: column; gap: 30px; }
+    .check-item { display: flex; align-items: flex-start; gap: 16px; }
+    .check-mark { flex: none; width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--coral); display: flex; align-items: center; justify-content: center; color: var(--coral); font-size: 15px; font-weight: 700; margin-top: 2px; }
+    .check-text { font-family: 'Poppins', sans-serif; font-weight: 500; font-size: 21px; line-height: 1.4; color: var(--navy-title); }
+
+    /* Franja inferior de features */
+    .strip { display: flex; align-items: stretch; background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%); border: 1px solid rgba(8,27,87,0.08); border-radius: 22px; padding: 30px 30px; margin-top: 44px; }
+    .feat { flex: 1; display: flex; align-items: center; gap: 18px; padding: 0 30px; }
+    .feat-icon { flex: none; width: 66px; height: 66px; }
+    .feat-icon img { width: 100%; height: 100%; object-fit: contain; }
+    .feat-title { font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 19px; color: var(--navy-title); }
+    .feat-body { font-family: 'Poppins', sans-serif; font-weight: 400; font-size: 14px; line-height: 1.45; color: var(--gray); margin-top: 5px; }
+    .strip-divider { width: 1px; background: rgba(8,27,87,0.10); align-self: center; height: 78px; }
+  </style>
+  <script>
+    (function() {
+      function resize() {
+        var slide = document.querySelector('.slide');
+        if (!slide) return;
+        var w = document.documentElement.clientWidth || window.innerWidth;
+        var h = document.documentElement.clientHeight || window.innerHeight;
+        var scale = Math.min(w / 1920, h / 1080);
+        slide.style.transform = 'scale(' + scale + ')';
+      }
+      window.addEventListener('resize', resize);
+      resize(); setTimeout(resize, 50); setTimeout(resize, 200);
+    })();
+  </script>
+</head>
+<body style="margin:0;overflow:hidden;background:#ffffff;width:100%;height:100vh;">
+  <div class="slide">
+    <div class="topbar"></div>
+
+    <div class="top">
+      <!-- Izquierda -->
+      <div class="left">
+        <div class="eyebrow-row">
+          <span class="eyebrow-line"></span>
+          <span class="eyebrow">Por qué Xending</span>
+        </div>
+        <h1>Onboarding <span class="accent">empresarial con IA</span></h1>
+        <div class="accent-line"></div>
+        <p class="subtitle">Alta digital, validación documental y cumplimiento operativo para empezar a operar con mayor rapidez. Cumpliendo con las regulaciones de FinCEN, OFAC y organismos internacionales.</p>
+      </div>
+
+      <!-- Panel derecho -->
+      <div class="panel">
+        <div class="hero-slot"><img src="${PG_ICON}#hero" alt="" /></div>
+        <div class="checklist">
+          <div class="check-item">
+            <span class="check-mark">✓</span>
+            <span class="check-text">Validación digital de empresa y representantes.</span>
+          </div>
+          <div class="check-item">
+            <span class="check-mark">✓</span>
+            <span class="check-text">Procesos seguros, auditables y alineados a estándares globales.</span>
+          </div>
+          <div class="check-item">
+            <span class="check-mark">✓</span>
+            <span class="check-text">Monitoreo preventivo de riesgos operativos.</span>
+          </div>
+          <div class="check-item">
+            <span class="check-mark">✓</span>
+            <span class="check-text">Menos fricción, más velocidad de activación.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Franja de features -->
+    <div class="strip">
+      <div class="feat">
+        <div class="feat-icon"><img src="${PG_ICON}#b1" alt="" /></div>
+        <div>
+          <div class="feat-title">Seguridad institucional</div>
+          <div class="feat-body">Protección avanzada para tus operaciones y datos.</div>
+        </div>
+      </div>
+      <div class="strip-divider"></div>
+      <div class="feat">
+        <div class="feat-icon"><img src="${PG_ICON}#b2" alt="" /></div>
+        <div>
+          <div class="feat-title">Eficiencia operativa</div>
+          <div class="feat-body">Menos procesos manuales, más tiempo para crecer.</div>
+        </div>
+      </div>
+      <div class="strip-divider"></div>
+      <div class="feat">
+        <div class="feat-icon"><img src="${PG_ICON}#b3" alt="" /></div>
+        <div>
+          <div class="feat-title">Tecnología global</div>
+          <div class="feat-body">Infraestructura robusta, escalable y segura.</div>
+        </div>
+      </div>
+      <div class="strip-divider"></div>
+      <div class="feat">
+        <div class="feat-icon"><img src="${PG_ICON}#b4" alt="" /></div>
+        <div>
+          <div class="feat-title">Cumplimiento inteligente</div>
+          <div class="feat-body">Procesos claros, auditables y sin complicaciones.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+
+// ─── PLANTILLA: 3 Cajas (cards reutilizables, sin color exterior) ───────────
+
+export const slide_cards3_template: string = `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width">
+  <style>
+    @import url('${PG_FONTS}');
+    :root { --mint: #2ED4C7; --coral: #FF7A4A; --navy: #0F1419; --navy-title: #081B57; --gray: #6B7280; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { margin: 0; overflow: hidden; background: #ffffff; }
+
+    .slide {
+      width: 1920px; height: 1080px; position: relative; overflow: hidden;
+      font-family: 'Poppins', sans-serif;
+      background: linear-gradient(180deg, #ffffff 0%, #fbfcfd 100%);
+      transform-origin: top left;
+      display: flex; align-items: center; justify-content: center; padding: 90px 96px;
+    }
+
+    .cards { display: flex; gap: 28px; align-items: stretch; width: 100%; max-width: 1640px; }
+    .card { flex: 1; height: 810px; background: #ffffff; border: 1px solid rgba(8,27,87,0.06); border-radius: 26px; padding: 40px 34px; box-shadow: 0 20px 55px rgba(15,20,25,0.06); display: flex; flex-direction: column; }
+    .icon-slot { width: 190px; height: 190px; align-self: center; margin: 6px 0 10px; }
+    .stat-icon { width: 100%; height: 100%; object-fit: contain; }
+    .card-line { width: 52px; height: 3px; background: var(--coral); border-radius: 999px; margin: 30px 0 20px; }
+    .card h3 { font-family: 'Fraunces', serif; font-weight: 600; font-size: 30px; line-height: 1.18; color: var(--navy-title); }
+    .card-sub { font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 18px; line-height: 1.4; color: var(--navy-title); margin-top: 20px; }
+    .card-body { font-family: 'Poppins', sans-serif; font-weight: 400; font-size: 16px; line-height: 1.6; color: var(--gray); margin-top: 12px; }
+    .card-body .hl { color: var(--mint); font-weight: 600; }
+    .pill { margin-top: auto; align-self: flex-start; display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px; border-radius: 999px; background: rgba(46,212,199,0.12); color: #1FB8AC; font-weight: 600; font-size: 13px; }
+  </style>
+  <script>
+    (function() {
+      function resize() {
+        var slide = document.querySelector('.slide');
+        if (!slide) return;
+        var w = document.documentElement.clientWidth || window.innerWidth;
+        var h = document.documentElement.clientHeight || window.innerHeight;
+        var scale = Math.min(w / 1920, h / 1080);
+        slide.style.transform = 'scale(' + scale + ')';
+      }
+      window.addEventListener('resize', resize);
+      resize(); setTimeout(resize, 50); setTimeout(resize, 200);
+    })();
+  </script>
+</head>
+<body style="margin:0;overflow:hidden;background:#ffffff;width:100%;height:100vh;">
+  <div class="slide">
+    <div class="cards">
+      <div class="card">
+        <div class="icon-slot"><img class="stat-icon" src="${PG_ICON}#c1" alt="" /></div>
+        <div class="card-line"></div>
+        <h3>Título de la caja</h3>
+        <div class="card-sub">Subtítulo breve y directo.</div>
+        <div class="card-body">Texto descriptivo de apoyo para explicar el beneficio o la idea principal de esta caja.</div>
+      </div>
+
+      <div class="card">
+        <div class="icon-slot"><img class="stat-icon" src="${PG_ICON}#c2" alt="" /></div>
+        <div class="card-line"></div>
+        <h3>Título de la caja</h3>
+        <div class="card-sub">Subtítulo breve y directo.</div>
+        <div class="card-body">Texto descriptivo de apoyo para explicar el beneficio o la idea principal de esta caja.</div>
+        <div class="pill">✓ Etiqueta destacada</div>
+      </div>
+
+      <div class="card">
+        <div class="icon-slot"><img class="stat-icon" src="${PG_ICON}#c3" alt="" /></div>
+        <div class="card-line"></div>
+        <h3>Título de la caja</h3>
+        <div class="card-sub">Subtítulo breve y directo.</div>
+        <div class="card-body">Texto descriptivo de apoyo con un <span class="hl">término resaltado</span> dentro del contenido.</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+
 // ─── EXPORT ──────────────────────────────────────────────────────────────────
 
 export const PRESENTATION_TEMPLATES_V2 = [
@@ -6765,6 +6967,8 @@ export const PRESENTATION_TEMPLATES_V2 = [
   { title: 'Portada (Aliado Mapa)', html: slide01_cover_v13 },
   { title: 'Presencia Global', html: slide02_presencia_global },
   { title: 'Slide 3 2.0', html: slide03_porque_xending },
+  { title: 'Slide 4 2.0 (Onboarding IA)', html: slide04_onboarding_ia },
+  { title: 'Plantilla · 3 Cajas', html: slide_cards3_template },
   { title: 'Portada (Halo Portal)', html: slide01_cover_v9 },
   { title: 'Portada (Navy Foto Halo)', html: slide01_cover_v10 },
   { title: 'Portada (Aliado Fusion)', html: slide01_cover_v11 },

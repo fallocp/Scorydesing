@@ -9,7 +9,7 @@
  * - Format: 1920x1080 (16:9 presentation)
  */
 
-import { slide01_cover_v2, slide01_cover_v3, slide01_cover_v4, slide01_cover_v5, slide01_cover_v6, slide01_cover_v7, slide01_cover_v8, slide01_cover_v9, slide01_cover_v10, slide01_cover_v11, slide01_cover_v12, slide01_cover_v13, slide02_presencia_global, slide03_porque_xending, slide02_services_v1, slide03_services_v2, slide04_differentiators_v1, slide05_hedging_v1, slide06_capital_v1, slide07_closing_v1 } from './presentationTemplates_v2';
+import { slide01_cover_v2, slide01_cover_v3, slide01_cover_v4, slide01_cover_v5, slide01_cover_v6, slide01_cover_v7, slide01_cover_v8, slide01_cover_v9, slide01_cover_v10, slide01_cover_v11, slide01_cover_v12, slide01_cover_v13, slide02_presencia_global, slide03_porque_xending, slide04_onboarding_ia, slide_cards3_template, slide02_services_v1, slide03_services_v2, slide04_differentiators_v1, slide05_hedging_v1, slide06_capital_v1, slide07_closing_v1 } from './presentationTemplates_v2';
 
 export interface PresentationSlide {
   title: string;
@@ -932,6 +932,8 @@ export const PRESENTATION_TEMPLATES: PresentationSlide[] = [
   { title: 'Portada (Aliado Mapa)', html: slide01_cover_v13 },
   { title: 'Presencia Global', html: slide02_presencia_global },
   { title: 'Slide 3 2.0', html: slide03_porque_xending },
+  { title: 'Slide 4 2.0 (Onboarding IA)', html: slide04_onboarding_ia },
+  { title: 'Plantilla · 3 Cajas', html: slide_cards3_template },
   { title: 'El Problema', html: slide02_problem },
   { title: 'La Solución', html: slide03_solution },
   { title: 'Experiencia', html: slide04_experience },

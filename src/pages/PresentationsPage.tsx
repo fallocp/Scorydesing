@@ -27,6 +27,7 @@ import {
   Plus,
   Trash2,
   RefreshCw,
+  Sparkles,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -39,6 +40,7 @@ import { PRESENTATION_TEMPLATES, getPresentationHtml } from '@/constants/present
 import { renderHtmlToPng, renderSlidesToPdf } from '@/utils/xendingDesign/canvasRenderer';
 import { HtmlSectionEditor } from '@/components/HtmlSectionEditor';
 import { VisualDesignEditor, type ElementDef } from '@/components/VisualDesignEditor';
+import { SlideGeneratorPanel } from '@/components/presentations/SlideGeneratorPanel';
 
 /** Elements that can be edited/dragged in presentation slides */
 const PRESENTATION_ELEMENTS: ElementDef[] = [
@@ -56,6 +58,14 @@ const PRESENTATION_ELEMENTS: ElementDef[] = [
   { id: 'img-placeholder', label: 'Imagen', emoji: '📷', color: '#22C55E', selector: '.img-placeholder', editable: false, draggable: true },
   { id: 'hero-photo', label: 'Foto hero (slide 6)', emoji: '🖼️', color: '#14B8A6', selector: '.hero-photo', editable: false, draggable: false },
   { id: 'orb-halo',   label: 'Orb halo (slide 7)', emoji: '🌗', color: '#F97316', selector: '.orb-halo',   editable: false, draggable: true },
+  // Elementos decorativos (seleccionables para recolorear relleno/borde)
+  { id: 'check-mark', label: 'Círculo check', emoji: '⭕', color: '#FF7A4A', selector: '.check-mark', editable: false, draggable: false },
+  { id: 'card-line',  label: 'Línea card',    emoji: '➖', color: '#FF7A4A', selector: '.card-line',  editable: false, draggable: false },
+  { id: 'accent-line', label: 'Línea acento', emoji: '➖', color: '#FF7A4A', selector: '.accent-line', editable: false, draggable: false },
+  { id: 'eyebrow-line', label: 'Línea eyebrow', emoji: '➖', color: '#FF7A4A', selector: '.eyebrow-line', editable: false, draggable: false },
+  { id: 'stat-line',  label: 'Línea stat',    emoji: '➖', color: '#FF7A4A', selector: '.stat-line',  editable: false, draggable: false },
+  { id: 'title-line', label: 'Línea título',  emoji: '➖', color: '#FF7A4A', selector: '.title-line', editable: false, draggable: false },
+  { id: 'pill',       label: 'Pill / etiqueta', emoji: '💊', color: '#1FB8AC', selector: '.pill',      editable: true,  draggable: true },
 ];
 
 // Clave de autoguardado local (por navegador) para no perder ediciones/duplicados
@@ -432,6 +442,26 @@ function PresentationsPage() {
 
   // Inserta una plantilla (del catálogo) justo después del slide actual
   const [addSlideMenuOpen, setAddSlideMenuOpen] = useState(false);
+  const [generatorOpen, setGeneratorOpen] = useState(false);
+
+  // Inserta un slide generado con IA después del slide actual
+  const handleInsertGeneratedSlide = useCallback((html: string) => {
+    setSlides((prev) => {
+      const item = { title: 'Slide IA', html };
+      return [...prev.slice(0, currentSlide + 1), item, ...prev.slice(currentSlide + 1)];
+    });
+    setCurrentSlide((i) => i + 1);
+  }, [currentSlide]);
+
+  // Reemplaza el HTML del slide actual con la versión refinada por IA
+  const handleApplyGeneratedToCurrent = useCallback((html: string) => {
+    setSlides((prev) => {
+      const updated = [...prev];
+      updated[currentSlide] = { ...updated[currentSlide], html };
+      return updated;
+    });
+  }, [currentSlide]);
+
   const handleInsertTemplate = useCallback((tplIndex: number) => {
     const tpl = PRESENTATION_TEMPLATES[tplIndex];
     setSlides((prev) => {
@@ -535,6 +565,14 @@ function PresentationsPage() {
   // --- Main viewer ---
   return (
     <div className="container mx-auto py-6 space-y-6">
+      {generatorOpen && (
+        <SlideGeneratorPanel
+          currentHtml={slides[currentSlide]?.html}
+          onInsert={handleInsertGeneratedSlide}
+          onApplyToCurrent={handleApplyGeneratedToCurrent}
+          onClose={() => setGeneratorOpen(false)}
+        />
+      )}
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -653,6 +691,16 @@ function PresentationsPage() {
               </>
             )}
           </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setGeneratorOpen(true)}
+            className="gap-2 border-[#FF7A4A] text-[#E85A2C]"
+            title="Generar un slide con IA a partir de texto o una imagen"
+          >
+            <Sparkles className="h-4 w-4" />
+            Generar IA
+          </Button>
           <Button
             variant="outline"
             size="sm"
