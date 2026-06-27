@@ -2,6 +2,7 @@ import type { Brand } from '@/types/xendingDesign';
 import { supabase } from '@/integrations/supabase/client';
 
 const RENDER_SERVER_URL = 'http://localhost:3333/render';
+const RENDER_PDF_URL = 'http://localhost:3333/render-pdf';
 
 export interface RenderPieceParams {
   imageUrl: string;
@@ -105,4 +106,38 @@ export async function renderHtmlToPng(
 export async function renderPieceToCanvas(params: RenderPieceParams): Promise<string> {
   const html = await generatePieceHtml(params);
   return renderHtmlToPng(html, params.brand, params.width || 1080, params.height || 1920);
+}
+
+/**
+ * Render multiple slides into a single multi-page PDF with EXACT pixel dimensions
+ * (idénticas al export PNG). Devuelve el PDF como base64.
+ */
+export async function renderSlidesToPdf(
+  items: Array<{ html: string; width: number; height: number }>,
+  filename = 'presentation.pdf'
+): Promise<string> {
+  try {
+    const response = await fetch(RENDER_PDF_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items, filename, waitForFonts: true }),
+    });
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || `Render server error: ${response.status}`);
+    }
+
+    const { pdfBase64 } = await response.json();
+    if (!pdfBase64) throw new Error('El servidor no devolvió el PDF');
+    return pdfBase64;
+  } catch (err) {
+    if (err instanceof TypeError && err.message.includes('fetch')) {
+      throw new Error(
+        'No se pudo conectar al servidor de renderizado. ' +
+        'Ejecuta: cd renderer && node scripts/render-server.js'
+      );
+    }
+    throw err;
+  }
 }

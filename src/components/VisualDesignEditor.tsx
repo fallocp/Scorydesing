@@ -9,7 +9,8 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   Move, Type, MousePointer2, Save, X, Undo2, ZoomIn, ZoomOut,
-  Eye, Code, Hand,
+  Eye, Code, Hand, Plus, Trash2, Copy, Image as ImageIcon, Square, Circle, Minus,
+  ArrowUp, ArrowDown,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -25,6 +26,8 @@ export interface ElementDef {
   selector: string;       // CSS selector to find in iframe
   editable: boolean;      // Can edit text?
   draggable: boolean;     // Can drag to reposition?
+  kind?: 'text' | 'image' | 'image-bg' | 'shape' | 'circle' | 'line'; // tipo (solo para elementos insertados)
+  inserted?: boolean;     // true si fue agregado desde el editor (se puede borrar/duplicar)
 }
 
 const EDITABLE_ELEMENTS: ElementDef[] = [
@@ -45,6 +48,283 @@ const EDITABLE_ELEMENTS: ElementDef[] = [
   { id: 'cta',       label: 'CTA',               emoji: '🔘', color: '#10B981', selector: '.cta',              editable: true,  draggable: true },
   { id: 'footer',    label: 'Footer',            emoji: '🦶', color: '#6366F1', selector: '.footer',           editable: false, draggable: true },
 ];
+
+// --- Font options for the typography panel ---
+// `google` = parámetro family para Google Fonts (null = fuente de sistema).
+interface FontOption { label: string; value: string; google: string | null; }
+
+const FONT_OPTIONS: FontOption[] = [
+  { label: 'Montserrat',      value: "'Montserrat', sans-serif",      google: 'Montserrat:wght@400;500;600;700;800' },
+  { label: 'Poppins',         value: "'Poppins', sans-serif",         google: 'Poppins:wght@400;500;600;700' },
+  { label: 'Inter',           value: "'Inter', sans-serif",           google: 'Inter:wght@400;500;600;700;800' },
+  { label: 'Fraunces',        value: "'Fraunces', serif",             google: 'Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..700' },
+  { label: 'Playfair Display',value: "'Playfair Display', serif",     google: 'Playfair+Display:ital,wght@0,400..800;1,400..700' },
+  { label: 'Sora',            value: "'Sora', sans-serif",            google: 'Sora:wght@400;500;600;700;800' },
+  { label: 'Manrope',         value: "'Manrope', sans-serif",         google: 'Manrope:wght@400;500;600;700;800' },
+  { label: 'Work Sans',       value: "'Work Sans', sans-serif",       google: 'Work+Sans:wght@400;500;600;700' },
+  { label: 'Roboto',          value: "'Roboto', sans-serif",          google: 'Roboto:wght@400;500;700' },
+  { label: 'Lato',            value: "'Lato', sans-serif",            google: 'Lato:wght@400;700;900' },
+  { label: 'JetBrains Mono',  value: "'JetBrains Mono', monospace",   google: 'JetBrains+Mono:wght@400;500;600;700' },
+  { label: 'Georgia (sistema)', value: 'Georgia, serif',             google: null },
+  { label: 'Arial (sistema)',   value: 'Arial, Helvetica, sans-serif', google: null },
+];
+
+/** Convierte 'rgb(r, g, b)' a '#rrggbb' para el <input type="color">. */
+function rgbToHex(rgb: string): string {
+  const m = rgb.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+  if (!m) return '#000000';
+  const toHex = (n: string) => parseInt(n, 10).toString(16).padStart(2, '0');
+  return `#${toHex(m[1])}${toHex(m[2])}${toHex(m[3])}`;
+}
+
+// --- Difuminado / forma de imagen (configurable) ---
+interface FeatherConfig {
+  mode: 'lados' | 'radial' | 'diagonal';
+  amount: number;
+  top: boolean; right: boolean; bottom: boolean; left: boolean;
+  posX: number; posY: number;            // radial
+  corner: 'tl' | 'tr' | 'bl' | 'br';     // diagonal
+  shape: 'none' | 'circle' | 'ellipse';
+  radius: number;                        // esquinas redondeadas (px)
+  smooth: boolean;                       // curva suave (ease) vs lineal
+}
+const DEFAULT_FEATHER: FeatherConfig = {
+  mode: 'lados', amount: 0, top: true, right: true, bottom: true, left: false,
+  posX: 50, posY: 50, corner: 'tr', shape: 'none', radius: 0, smooth: true,
+};
+
+function buildFeatherMask(f: FeatherConfig): string {
+  if (f.shape !== 'none') return ''; // las formas usan border-radius, no máscara
+  if (f.amount <= 0) return '';
+  const a = f.amount;
+  const startRamp = f.smooth
+    ? `transparent 0%, rgba(0,0,0,0.35) ${Math.round(a * 0.5)}%, #000 ${a}%`
+    : `transparent 0%, #000 ${a}%`;
+  const endRamp = f.smooth
+    ? `#000 ${100 - a}%, rgba(0,0,0,0.35) ${100 - Math.round(a * 0.5)}%, transparent 100%`
+    : `#000 ${100 - a}%, transparent 100%`;
+
+  if (f.mode === 'radial') {
+    const solid = Math.max(0, 100 - Math.round(a * 1.6));
+    const mid = f.smooth ? `rgba(0,0,0,0.3) ${Math.round((solid + 100) / 2)}%, ` : '';
+    return `radial-gradient(ellipse 94% 92% at ${f.posX}% ${f.posY}%, #000 ${solid}%, ${mid}rgba(0,0,0,0) 100%)`;
+  }
+
+  if (f.mode === 'diagonal') {
+    const dir = { tl: 'to top left', tr: 'to top right', bl: 'to bottom left', br: 'to bottom right' }[f.corner];
+    const mid = f.smooth ? `rgba(0,0,0,0.35) ${100 - Math.round(a * 0.5)}%, ` : '';
+    return `linear-gradient(${dir}, #000 ${100 - a}%, ${mid}transparent 100%)`;
+  }
+
+  // mode 'lados'
+  const hLeft = f.left ? startRamp : '#000 0%';
+  const hRight = f.right ? endRamp : '#000 100%';
+  const vTop = f.top ? startRamp : '#000 0%';
+  const vBottom = f.bottom ? endRamp : '#000 100%';
+  return `linear-gradient(to right, ${hLeft}, ${hRight}), linear-gradient(to bottom, ${vTop}, ${vBottom})`;
+}
+
+// --- Inserción de elementos nuevos (Canva-like) ---
+
+type InsertKind = 'text' | 'image' | 'shape' | 'circle' | 'line';
+
+// Placeholder gris para imágenes nuevas (data URI; el # + eid lo hace único por elemento)
+const NEW_IMG_PLACEHOLDER =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='220'%3E%3Crect width='100%25' height='100%25' fill='%23e5e7eb'/%3E%3Ctext x='50%25' y='50%25' font-family='sans-serif' font-size='16' fill='%239ca3af' text-anchor='middle' dominant-baseline='middle'%3EImagen%3C/text%3E%3C/svg%3E";
+
+/** Genera el HTML de un elemento nuevo con su data-eid. */
+function buildInsertSnippet(eid: string, kind: InsertKind): string {
+  const pos = `position:absolute;left:140px;top:140px;z-index:60;`;
+  switch (kind) {
+    case 'text':
+      return `\n<div data-eid="${eid}" style="${pos}font-family:'Inter',sans-serif;font-size:48px;font-weight:600;color:#0F1419;line-height:1.2;">Texto nuevo</div>`;
+    case 'image':
+      return `\n<img data-eid="${eid}" style="${pos}width:320px;height:220px;object-fit:cover;border-radius:8px;" src="${NEW_IMG_PLACEHOLDER}#${eid}" alt="" />`;
+    case 'shape':
+      return `\n<div data-eid="${eid}" style="${pos}width:280px;height:180px;background:#2ED4C7;border-radius:12px;"></div>`;
+    case 'circle':
+      return `\n<div data-eid="${eid}" style="${pos}width:220px;height:220px;background:#FF7A4A;border-radius:50%;"></div>`;
+    case 'line':
+      return `\n<div data-eid="${eid}" style="${pos}width:320px;height:4px;background:#0F1419;border-radius:2px;"></div>`;
+    default:
+      return '';
+  }
+}
+
+/** Inserta un snippet dentro del contenedor raíz (.slide/.card): antes del último </div> previo a </body>. */
+function insertIntoRoot(html: string, snippet: string): string {
+  const bodyClose = html.lastIndexOf('</body>');
+  if (bodyClose === -1) return html + snippet;
+  const before = html.slice(0, bodyClose);
+  const lastDivClose = before.lastIndexOf('</div>');
+  if (lastDivClose === -1) return before + snippet + html.slice(bodyClose);
+  return html.slice(0, lastDivClose) + snippet + html.slice(lastDivClose);
+}
+
+/** Extrae el HTML de un nodo insertado por su data-eid. */
+function extractNodeByEid(html: string, eid: string): string | null {
+  const imgM = html.match(new RegExp(`<img data-eid="${eid}"[^>]*>`));
+  if (imgM) return imgM[0];
+  const divM = html.match(new RegExp(`<div data-eid="${eid}"[\\s\\S]*?</div>`));
+  return divM ? divM[0] : null;
+}
+
+/** Elimina un nodo insertado por su data-eid. */
+function removeNodeByEid(html: string, eid: string): string {
+  const node = extractNodeByEid(html, eid);
+  if (!node) return html;
+  return html.replace(node, '');
+}
+
+// --- Auto-detección de elementos del HTML (selección libre tipo Canva) ---
+
+const INLINE_TAGS = new Set(['SPAN', 'A', 'B', 'I', 'EM', 'STRONG', 'SMALL', 'U', 'SUB', 'SUP', 'MARK', 'LABEL', 'CODE', 'BR', 'WBR', 'BDI', 'BDO']);
+const SKIP_TAGS = new Set(['SCRIPT', 'STYLE', 'META', 'LINK', 'HEAD', 'BR', 'SVG', 'PATH', 'DEFS', 'FILTER', 'RECT', 'CIRCLE', 'LINE', 'POLYGON', 'G']);
+
+/** ¿El elemento es una "hoja de texto"? (tiene texto y solo hijos inline) */
+function isTextLeaf(el: Element): boolean {
+  const text = (el.textContent || '').trim();
+  if (!text) return false;
+  for (const c of Array.from(el.children)) {
+    if (!INLINE_TAGS.has(c.tagName)) return false;
+  }
+  return true;
+}
+
+/** Alpha del background-color ('transparent' o rgba(...,0) => 0). */
+function bgColorAlpha(c: string): number {
+  if (!c || c === 'transparent') return 0;
+  const m = c.match(/rgba?\(([^)]+)\)/);
+  if (!m) return 1;
+  const parts = m[1].split(',').map((s) => parseFloat(s));
+  return parts.length >= 4 ? parts[3] : 1;
+}
+
+/** Selector CSS único de un elemento, relativo a la raíz (con nth-of-type). */
+function cssUniquePath(el: Element, root: Element): string {
+  const parts: string[] = [];
+  let cur: Element | null = el;
+  while (cur && cur !== root && cur.tagName !== 'BODY' && cur.tagName !== 'HTML') {
+    const parent: Element | null = cur.parentElement;
+    let part = cur.tagName.toLowerCase();
+    if (parent) {
+      const sib = Array.from(parent.children).filter((c) => c.tagName === cur!.tagName);
+      if (sib.length > 1) part += `:nth-of-type(${sib.indexOf(cur) + 1})`;
+    }
+    parts.unshift(part);
+    cur = parent;
+  }
+  return parts.join(' > ');
+}
+
+function autoLabel(el: Element, kind: string): string {
+  if (kind === 'text') return ((el.textContent || '').trim().slice(0, 18)) || 'Texto';
+  if (kind === 'image') return 'Imagen';
+  if (kind === 'image-bg') return 'Fondo imagen';
+  return 'Forma';
+}
+
+function kindEmoji(kind: string): string {
+  switch (kind) {
+    case 'text': return '🔤';
+    case 'image': return '🖼️';
+    case 'image-bg': return '🗺️';
+    default: return '▭';
+  }
+}
+
+// Paleta de marca para swatches rápidos
+const BRAND_COLORS: Array<{ name: string; hex: string }> = [
+  { name: 'Navy', hex: '#0F1419' },
+  { name: 'Navy título', hex: '#081B57' },
+  { name: 'Coral', hex: '#FF7A4A' },
+  { name: 'Turquesa', hex: '#2ED4C7' },
+  { name: 'Blanco', hex: '#FFFFFF' },
+  { name: 'Negro', hex: '#000000' },
+];
+
+/** hex (#rrggbb) + alpha(0..1) → 'rgba(r,g,b,a)' */
+function hexToRgba(hex: string, alpha: number): string {
+  const h = hex.replace('#', '');
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+// --- Fondo de imagen (background-image): pan + tinte + fundir a color ---
+interface BgConfig {
+  url: string;
+  posX: number; posY: number;              // pan (background-position %)
+  size: number;                            // tamaño/zoom (background-size %)
+  tintColor: string; tintOpacity: number;  // overlay sólido de color (0-100)
+  fadeDir: 'none' | 'left' | 'right' | 'top' | 'bottom' | 'radial';
+  fadeColor: string; fadeAmount: number;   // fundir hacia un color (0-100)
+}
+const DEFAULT_BG: BgConfig = {
+  url: '', posX: 50, posY: 50, size: 100,
+  tintColor: '#0F1419', tintOpacity: 0,
+  fadeDir: 'none', fadeColor: '#FFFFFF', fadeAmount: 0,
+};
+
+function composeBgImage(cfg: BgConfig): string {
+  const layers: string[] = [];
+  if (cfg.tintOpacity > 0) {
+    const c = hexToRgba(cfg.tintColor, cfg.tintOpacity / 100);
+    layers.push(`linear-gradient(${c}, ${c})`);
+  }
+  if (cfg.fadeAmount > 0 && cfg.fadeDir !== 'none') {
+    if (cfg.fadeDir === 'radial') {
+      const solid = Math.max(0, 100 - Math.round(cfg.fadeAmount * 1.4));
+      layers.push(`radial-gradient(ellipse 95% 92% at 50% 50%, transparent ${solid}%, ${cfg.fadeColor} 100%)`);
+    } else {
+      const dir = { left: 'to left', right: 'to right', top: 'to top', bottom: 'to bottom' }[cfg.fadeDir];
+      layers.push(`linear-gradient(${dir}, transparent ${100 - cfg.fadeAmount}%, ${cfg.fadeColor} 100%)`);
+    }
+  }
+  layers.push(`url("${cfg.url}")`);
+  return layers.join(', ');
+}
+
+// --- Fundido radial arrastrable (elipse libre + forma libre por puntos) ---
+interface RadialCfg {
+  on: boolean; cx: number; cy: number; rx: number; ry: number; soft: number; invert: boolean;
+  mode: 'ellipse' | 'free';
+  points: Array<{ x: number; y: number }>;
+  blur: number;
+}
+const DEFAULT_RADIAL: RadialCfg = {
+  on: false, cx: 50, cy: 50, rx: 48, ry: 48, soft: 55, invert: false,
+  mode: 'ellipse', blur: 8,
+  points: [
+    { x: 50, y: 16 }, { x: 74, y: 26 }, { x: 84, y: 50 }, { x: 74, y: 74 },
+    { x: 50, y: 84 }, { x: 26, y: 74 }, { x: 16, y: 50 }, { x: 26, y: 26 },
+  ],
+};
+function buildRadialMask(c: RadialCfg): string {
+  if (!c.on) return '';
+  if (c.mode === 'free') {
+    const pts = c.points.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+    const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'><defs><filter id='f' x='-50%' y='-50%' width='200%' height='200%'><feGaussianBlur stdDeviation='${c.blur}'/></filter></defs><polygon points='${pts}' fill='#fff' filter='url(#f)'/></svg>`;
+    return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+  }
+  const inner = !c.invert;
+  const s = Math.max(0, Math.min(95, 100 - c.soft));
+  const span = 100 - s;
+  const v = (p: number) => inner ? p : (1 - p);
+  const stop = (frac: number) => (s + span * frac).toFixed(1);
+  const a = (op: number) => `rgba(0,0,0,${op.toFixed(2)})`;
+  const grad = [
+    `${a(v(1))} 0%`,
+    `${a(v(1))} ${stop(0)}%`,
+    `${a(v(0.78))} ${stop(0.28)}%`,
+    `${a(v(0.5))} ${stop(0.5)}%`,
+    `${a(v(0.26))} ${stop(0.72)}%`,
+    `${a(v(0.1))} ${stop(0.88)}%`,
+    `${a(v(0))} 100%`,
+  ].join(', ');
+  return `radial-gradient(ellipse ${c.rx.toFixed(1)}% ${c.ry.toFixed(1)}% at ${c.cx}% ${c.cy}%, ${grad})`;
+}
 
 // --- Types ---
 
@@ -77,6 +357,8 @@ interface VisualDesignEditorProps {
   dimensions?: { width: number; height: number };
   /** Override editable elements list */
   editableElements?: ElementDef[];
+  /** Aplica cambios al slide sin cerrar el editor */
+  onApply?: (html: string) => void;
 }
 
 // --- Image Picker Panel (inline in properties) ---
@@ -87,28 +369,97 @@ interface ImagePickerPanelProps {
 }
 
 function ImagePickerPanel({ onSelect, onUpload }: ImagePickerPanelProps) {
-  const [images, setImages] = useState<Array<{ url: string; id: string }>>([]);
+  const [images, setImages] = useState<Array<{ url: string; id: string; type?: string }>>([]);
   const [loading, setLoading] = useState(false);
-  const [showLibrary, setShowLibrary] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [search, setSearch] = useState('');
 
-  // Fetch recent images from library
+  // Fuente activa: tabla image_library o explorador de Storage
+  const [source, setSource] = useState<'library' | 'storage'>('library');
+  const [storagePath, setStoragePath] = useState('');
+  const [storageFolders, setStorageFolders] = useState<string[]>([]);
+  const [storageFiles, setStorageFiles] = useState<Array<{ name: string; url: string }>>([]);
+  const [storageLoading, setStorageLoading] = useState(false);
+
+  const BUCKET = 'design-images';
+  const IMG_RE = /\.(png|jpe?g|webp|gif|svg|avif)$/i;
+
+  // Carga TODA la biblioteca (image_url o image_base64)
   const loadImages = useCallback(async () => {
     setLoading(true);
     try {
       const { supabase } = await import('@/integrations/supabase/client');
       const { data } = await (supabase as any)
         .from('image_library')
-        .select('id, image_url')
+        .select('id, image_url, image_base64, image_type, created_at')
         .order('created_at', { ascending: false })
-        .limit(20);
+        .limit(500);
       if (data) {
-        setImages(data.map((d: any) => ({ url: d.image_url, id: d.id })));
+        setImages(
+          data
+            .map((d: any) => ({
+              id: d.id,
+              type: d.image_type ?? undefined,
+              url: d.image_url || (d.image_base64 ? `data:image/png;base64,${d.image_base64}` : ''),
+            }))
+            .filter((x: { url: string }) => x.url),
+        );
       }
     } catch (err) {
       console.error('Error loading images:', err);
     }
     setLoading(false);
   }, []);
+
+  // Lista archivos/carpetas del bucket de Storage en una ruta dada
+  const loadStorage = useCallback(async (path: string) => {
+    setStorageLoading(true);
+    try {
+      const { supabase } = await import('@/integrations/supabase/client');
+      const { data, error } = await supabase.storage
+        .from(BUCKET)
+        .list(path, { limit: 500, sortBy: { column: 'created_at', order: 'desc' } });
+      if (error) throw error;
+      const folders = (data || []).filter((it: any) => it.id === null).map((it: any) => it.name);
+      const files = (data || [])
+        .filter((it: any) => it.id !== null && IMG_RE.test(it.name))
+        .map((it: any) => {
+          const full = path ? `${path}/${it.name}` : it.name;
+          const { data: u } = supabase.storage.from(BUCKET).getPublicUrl(full);
+          return { name: it.name, url: u.publicUrl };
+        });
+      setStorageFolders(folders);
+      setStorageFiles(files);
+    } catch (err) {
+      console.error('Error listing storage:', err);
+      setStorageFolders([]);
+      setStorageFiles([]);
+    }
+    setStorageLoading(false);
+  }, []);
+
+  const openModal = useCallback(() => {
+    setModalOpen(true);
+    if (images.length === 0) loadImages();
+  }, [images.length, loadImages]);
+
+  const goToStorageFolder = useCallback((path: string) => {
+    setStoragePath(path);
+    loadStorage(path);
+  }, [loadStorage]);
+
+  const switchSource = useCallback((s: 'library' | 'storage') => {
+    setSource(s);
+    if (s === 'storage' && storageFolders.length === 0 && storageFiles.length === 0) {
+      loadStorage('');
+    }
+  }, [storageFolders.length, storageFiles.length, loadStorage]);
+
+  const filtered = search.trim()
+    ? images.filter((i) => (i.type || '').toLowerCase().includes(search.toLowerCase()) || i.url.toLowerCase().includes(search.toLowerCase()))
+    : images;
+
+  const breadcrumbs = storagePath ? storagePath.split('/') : [];
 
   return (
     <div className="space-y-2 border-t pt-2">
@@ -131,36 +482,14 @@ function ImagePickerPanel({ onSelect, onUpload }: ImagePickerPanelProps) {
         />
       </label>
 
-      {/* Library toggle */}
+      {/* Abrir biblioteca completa */}
       <button
         type="button"
-        onClick={() => { setShowLibrary(!showLibrary); if (!showLibrary && images.length === 0) loadImages(); }}
+        onClick={openModal}
         className="w-full text-xs text-center py-1.5 rounded border hover:bg-muted transition-colors"
       >
-        {showLibrary ? '▲ Cerrar biblioteca' : '📚 Seleccionar de biblioteca'}
+        📚 Ver biblioteca completa
       </button>
-
-      {/* Library grid */}
-      {showLibrary && (
-        <div className="space-y-1">
-          {loading && <p className="text-[10px] text-muted-foreground text-center py-2">Cargando...</p>}
-          {!loading && images.length === 0 && (
-            <p className="text-[10px] text-muted-foreground text-center py-2">No hay imágenes en la biblioteca</p>
-          )}
-          <div className="grid grid-cols-3 gap-1 max-h-40 overflow-y-auto">
-            {images.map((img) => (
-              <button
-                key={img.id}
-                type="button"
-                onClick={() => onSelect(img.url)}
-                className="aspect-square rounded overflow-hidden border hover:ring-2 hover:ring-[#2ED4C7] transition-all"
-              >
-                <img src={img.url} alt="" className="w-full h-full object-cover" />
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* URL paste */}
       <input
@@ -174,13 +503,152 @@ function ImagePickerPanel({ onSelect, onUpload }: ImagePickerPanelProps) {
           }
         }}
       />
+
+      {/* Modal grande con toda la biblioteca */}
+      {modalOpen && (
+        <div className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center p-6" onClick={() => setModalOpen(false)}>
+          <div
+            className="bg-background rounded-xl shadow-2xl w-full max-w-5xl max-h-[85vh] flex flex-col overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between gap-3 p-4 border-b">
+              <div className="flex items-center gap-2">
+                <span className="text-base">📚</span>
+                <h3 className="text-sm font-semibold">Biblioteca de imágenes</h3>
+              </div>
+              <div className="flex items-center gap-2">
+                {source === 'library' && (
+                  <input
+                    type="text"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Buscar por tipo…"
+                    className="text-xs border rounded px-2 py-1.5 bg-background w-44"
+                  />
+                )}
+                <button
+                  type="button"
+                  onClick={() => (source === 'library' ? loadImages() : loadStorage(storagePath))}
+                  className="text-xs px-2 py-1.5 rounded border hover:bg-muted"
+                >
+                  ↻ Recargar
+                </button>
+                <button type="button" onClick={() => setModalOpen(false)} className="text-xs px-3 py-1.5 rounded border hover:bg-muted">Cerrar</button>
+              </div>
+            </div>
+
+            {/* Tabs de fuente */}
+            <div className="flex items-center gap-2 px-4 pt-3">
+              <button
+                type="button"
+                onClick={() => switchSource('library')}
+                className={cn('text-xs px-3 py-1.5 rounded-md border', source === 'library' ? 'bg-primary text-primary-foreground border-primary' : 'hover:bg-muted')}
+              >
+                🗂️ Biblioteca (generadas)
+              </button>
+              <button
+                type="button"
+                onClick={() => switchSource('storage')}
+                className={cn('text-xs px-3 py-1.5 rounded-md border', source === 'storage' ? 'bg-primary text-primary-foreground border-primary' : 'hover:bg-muted')}
+              >
+                📁 Storage (archivos)
+              </button>
+              <span className="text-xs text-muted-foreground ml-auto">
+                {source === 'library' ? `${filtered.length} imágenes` : `${storageFiles.length} archivos`}
+              </span>
+            </div>
+
+            {/* Breadcrumb de carpetas (solo storage) */}
+            {source === 'storage' && (
+              <div className="flex items-center flex-wrap gap-1 px-4 pt-2 text-xs">
+                <button type="button" onClick={() => goToStorageFolder('')} className="px-1.5 py-0.5 rounded hover:bg-muted text-[#2ED4C7] font-medium">{BUCKET}</button>
+                {breadcrumbs.map((seg, i) => {
+                  const path = breadcrumbs.slice(0, i + 1).join('/');
+                  return (
+                    <span key={path} className="flex items-center gap-1">
+                      <span className="text-muted-foreground">/</span>
+                      <button type="button" onClick={() => goToStorageFolder(path)} className="px-1.5 py-0.5 rounded hover:bg-muted">{seg.length > 16 ? seg.slice(0, 16) + '…' : seg}</button>
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Contenido */}
+            <div className="flex-1 overflow-y-auto p-4">
+              {source === 'library' ? (
+                <>
+                  {loading && <p className="text-sm text-muted-foreground text-center py-12">Cargando imágenes…</p>}
+                  {!loading && filtered.length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center py-12">No hay imágenes en la biblioteca</p>
+                  )}
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
+                    {filtered.map((img) => (
+                      <button
+                        key={img.id}
+                        type="button"
+                        onClick={() => { onSelect(img.url); setModalOpen(false); }}
+                        className="group relative aspect-square rounded-lg overflow-hidden border hover:ring-2 hover:ring-[#2ED4C7] transition-all"
+                        title={img.type || ''}
+                      >
+                        <img src={img.url} alt="" className="w-full h-full object-cover" loading="lazy" />
+                        {img.type && (
+                          <span className="absolute bottom-0 left-0 right-0 text-[9px] bg-black/55 text-white px-1 py-0.5 truncate opacity-0 group-hover:opacity-100 transition-opacity">{img.type}</span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <>
+                  {storageLoading && <p className="text-sm text-muted-foreground text-center py-12">Cargando archivos…</p>}
+                  {/* Carpetas */}
+                  {!storageLoading && storageFolders.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      {storageFolders.map((f) => (
+                        <button
+                          key={f}
+                          type="button"
+                          onClick={() => goToStorageFolder(storagePath ? `${storagePath}/${f}` : f)}
+                          className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg border hover:bg-muted"
+                        >
+                          📁 {f.length > 22 ? f.slice(0, 22) + '…' : f}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {/* Archivos */}
+                  {!storageLoading && storageFiles.length === 0 && storageFolders.length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center py-12">Esta carpeta no tiene imágenes</p>
+                  )}
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
+                    {storageFiles.map((file) => (
+                      <button
+                        key={file.url}
+                        type="button"
+                        onClick={() => { onSelect(file.url); setModalOpen(false); }}
+                        className="group relative aspect-square rounded-lg overflow-hidden border hover:ring-2 hover:ring-[#2ED4C7] transition-all"
+                        title={file.name}
+                      >
+                        <img src={file.url} alt="" className="w-full h-full object-cover" loading="lazy" />
+                        <span className="absolute bottom-0 left-0 right-0 text-[9px] bg-black/55 text-white px-1 py-0.5 truncate opacity-0 group-hover:opacity-100 transition-opacity">{file.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 // --- Main Component ---
 
-export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensions, editableElements }: VisualDesignEditorProps) {
+export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensions, editableElements, onApply }: VisualDesignEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
@@ -189,20 +657,42 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tool, setTool] = useState<'select' | 'move' | 'text'>('select');
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
-  const [editingTextValue, setEditingTextValue] = useState('');
+  const inlineEditRef = useRef<{ selector: string; oldHTML: string } | null>(null);
+  const commitRef = useRef<() => void>(() => {});
+  const lastRangeRef = useRef<Range | null>(null);
+  const selChangeRef = useRef<(() => void) | null>(null);
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [workingHtml, setWorkingHtml] = useState(html);
   const [changes, setChanges] = useState<Array<PositionDelta | TextEdit>>([]);
   const [isDragging, setIsDragging] = useState(false);
   const dragRef = useRef<{ id: string; startX: number; startY: number; origTop: number; origLeft: number } | null>(null);
+  const [isResizing, setIsResizing] = useState(false);
+  const resizeRef = useRef<{ id: string; corner: string; startX: number; startY: number; w: number; h: number; top: number; left: number } | null>(null);
 
   // Computed styles of selected element
   const [selectedStyles, setSelectedStyles] = useState<Record<string, string>>({});
 
+  // Ajustes de imagen del elemento seleccionado (filtros CSS)
+  const [imgFilter, setImgFilter] = useState({ brightness: 100, contrast: 100, saturate: 100, blur: 0 });
+  const [feather, setFeather] = useState<FeatherConfig>(DEFAULT_FEATHER);
+  const featherConfigRef = useRef<Record<string, FeatherConfig>>({});
+  const [bg, setBg] = useState<BgConfig>(DEFAULT_BG);
+  const bgConfigRef = useRef<Record<string, BgConfig>>({});
+  const [radial, setRadial] = useState<RadialCfg>(DEFAULT_RADIAL);
+  const radialRef = useRef<Record<string, RadialCfg>>({});
+  const radialDragRef = useRef<{ type: 'center' | 'rx' | 'ry' | 'point'; pointIndex?: number; startX: number; startY: number; startCx: number; startCy: number; startRx: number; startRy: number; startPx?: number; startPy?: number; rectW: number; rectH: number } | null>(null);
+
   // Style overrides: selector -> { property: value } — injected as !important into HTML
   const [styleOverrides, setStyleOverrides] = useState<Record<string, Record<string, string>>>({});
 
+  // Google Fonts a cargar dentro del iframe (params 'family' del API css2)
+  const [usedFonts, setUsedFonts] = useState<string[]>([]);
+
+  // Elementos agregados desde el editor (Canva-like): se fusionan con la lista base
+  const [insertedElements, setInsertedElements] = useState<ElementDef[]>([]);
+
   // Undo history: stack of previous override snapshots
-  const [undoStack, setUndoStack] = useState<Array<{ overrides: Record<string, Record<string, string>>; workingHtml: string }>>([]);
+  const [undoStack, setUndoStack] = useState<Array<{ overrides: Record<string, Record<string, string>>; workingHtml: string; insertedElements: ElementDef[]; usedFonts: string[] }>>([]);
 
   // Design dimensions (configurable, defaults to Instagram Story)
   const designWidth = dimensions?.width ?? 1080;
@@ -214,12 +704,20 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
   // Build the HTML with style overrides injected
   const htmlWithOverrides = useMemo(() => {
     const overrideEntries = Object.entries(styleOverrides);
-    if (overrideEntries.length === 0) return workingHtml;
+    if (overrideEntries.length === 0 && usedFonts.length === 0) return workingHtml;
 
     let overrideCss = '\n<style id="visual-editor-overrides">\n';
+    // @import debe ir primero dentro del bloque <style>
+    if (usedFonts.length > 0) {
+      const families = usedFonts.map((f) => `family=${f}`).join('&');
+      overrideCss += `  @import url('https://fonts.googleapis.com/css2?${families}&display=swap');\n`;
+    }
     for (const [selector, props] of overrideEntries) {
-      const rules = Object.entries(props).map(([p, v]) => `${p}: ${v} !important`).join('; ');
-      overrideCss += `  ${selector} { ${rules}; }\n`;
+      const rules = Object.entries(props)
+        .filter(([, v]) => v !== '')
+        .map(([p, v]) => `${p}: ${v} !important`)
+        .join('; ');
+      if (rules) overrideCss += `  ${selector} { ${rules}; }\n`;
     }
     overrideCss += '</style>\n';
 
@@ -229,7 +727,7 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
     }
     // Fallback: inject before </body>
     return workingHtml.replace('</body>', `${overrideCss}</body>`);
-  }, [workingHtml, styleOverrides]);
+  }, [workingHtml, styleOverrides, usedFonts]);
 
   // Build iframe src — reloads whenever htmlWithOverrides changes
   const iframeSrc = useMemo(() => {
@@ -244,34 +742,84 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
     };
   }, [iframeSrc]);
 
-  // Scan iframe for editable elements and build overlays
+  // Scan iframe for editable elements and build overlays (auto-detección + nombres bonitos)
   const scanElements = useCallback(() => {
     const iframe = iframeRef.current;
-    if (!iframe?.contentDocument) return;
+    if (!iframe?.contentDocument || !iframe.contentWindow) return;
 
     const doc = iframe.contentDocument;
+    const win = iframe.contentWindow;
+    const root = doc.querySelector('.slide') || doc.querySelector('.card') || doc.body;
+    if (!root) return;
+    const rootSel = root.classList.length ? `.${root.classList[0]}` : root.tagName.toLowerCase();
+
+    // Defs con nombre (para etiquetas/colores bonitos) que existen en el DOM
+    const named = [...(editableElements ?? EDITABLE_ELEMENTS), ...insertedElements];
+    const namedMatches = named
+      .map((def) => {
+        let node: Element | null = null;
+        try { node = doc.querySelector(def.selector); } catch { node = null; }
+        return { def, node };
+      })
+      .filter((x) => x.node);
+
     const newOverlays: ElementOverlay[] = [];
-    const elements = editableElements ?? EDITABLE_ELEMENTS;
+    const seen = new Set<Element>();
 
-    for (const def of elements) {
-      const el = doc.querySelector(def.selector);
-      if (!el) continue;
+    root.querySelectorAll('*').forEach((el) => {
+      if (SKIP_TAGS.has(el.tagName)) return;
+      if (seen.has(el)) return;
 
+      const cs = win.getComputedStyle(el);
+      if (cs.display === 'none' || cs.visibility === 'hidden' || parseFloat(cs.opacity) === 0) return;
       const rect = el.getBoundingClientRect();
-      newOverlays.push({
-        id: def.id,
-        def,
-        rect: {
-          top: rect.top,
-          left: rect.left,
-          width: rect.width,
-          height: rect.height,
-        },
-      });
-    }
+      if (rect.width < 8 || rect.height < 8) return;
 
+      // Clasificar el elemento
+      let kind: ElementDef['kind'];
+      let editable = false;
+      if (el.tagName === 'IMG') {
+        kind = 'image';
+      } else if (cs.backgroundImage && cs.backgroundImage.includes('url(')) {
+        kind = 'image-bg';
+      } else if (isTextLeaf(el)) {
+        kind = 'text';
+        editable = true;
+      } else if (el.children.length === 0 && bgColorAlpha(cs.backgroundColor) > 0.05) {
+        kind = 'shape';
+      } else {
+        return; // contenedores/wrappers sin contenido editable → se omiten
+      }
+      seen.add(el);
+
+      // Asignar def: insertado > nombre conocido > auto
+      let def: ElementDef;
+      const eid = el.getAttribute('data-eid');
+      const insDef = eid ? insertedElements.find((e) => e.id === eid) : undefined;
+      const match = namedMatches.find((m) => m.node === el);
+      if (insDef) {
+        def = insDef;
+      } else if (match) {
+        const uniqueNamed = (() => { try { return doc.querySelectorAll(match.def.selector).length === 1; } catch { return false; } })();
+        def = { ...match.def, selector: uniqueNamed ? match.def.selector : `${rootSel} > ${cssUniquePath(el, root)}` };
+      } else {
+        const path = `${rootSel} > ${cssUniquePath(el, root)}`;
+        def = {
+          id: `auto:${path}`, label: autoLabel(el, kind!), emoji: kindEmoji(kind!),
+          color: '#64748B', selector: path, editable, draggable: true, kind,
+        };
+      }
+
+      newOverlays.push({
+        id: def.id, def,
+        rect: { top: rect.top, left: rect.left, width: rect.width, height: rect.height },
+      });
+    });
+
+    // Más grandes primero → los pequeños quedan "encima" y son clicables
+    newOverlays.sort((a, b) => (b.rect.width * b.rect.height) - (a.rect.width * a.rect.height));
     setOverlays(newOverlays);
-  }, [editableElements]);
+  }, [editableElements, insertedElements]);
 
   // Scan after iframe loads
   const handleIframeLoad = useCallback(() => {
@@ -291,19 +839,25 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
     setUndoStack((prev) => [...prev, {
       overrides: JSON.parse(JSON.stringify(styleOverrides)),
       workingHtml,
+      insertedElements,
+      usedFonts,
     }]);
-  }, [styleOverrides, workingHtml]);
+  }, [styleOverrides, workingHtml, insertedElements, usedFonts]);
 
   const handleUndo = useCallback(() => {
     if (undoStack.length > 0) {
       const prev = undoStack[undoStack.length - 1];
       setStyleOverrides(prev.overrides);
       setWorkingHtml(prev.workingHtml);
+      setInsertedElements(prev.insertedElements);
+      setUsedFonts(prev.usedFonts);
       setUndoStack((s) => s.slice(0, -1));
       setChanges((c) => c.slice(0, -1));
     } else {
       setWorkingHtml(html);
       setStyleOverrides({});
+      setInsertedElements([]);
+      setUsedFonts([]);
       setChanges([]);
       setSelectedId(null);
       setEditingTextId(null);
@@ -316,6 +870,10 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
   const handleSave = useCallback(() => {
     onSave(htmlWithOverrides);
   }, [htmlWithOverrides, onSave]);
+
+  const handleApply = useCallback(() => {
+    onApply?.(htmlWithOverrides);
+  }, [htmlWithOverrides, onApply]);
 
   // --- Zoom ---
 
@@ -349,6 +907,10 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
         fontWeight: fontComputed.fontWeight, padding: computed.padding,
         borderRadius: computed.borderRadius, width: computed.width,
         height: computed.height, opacity: computed.opacity,
+        fontFamily: fontComputed.fontFamily, fontStyle: fontComputed.fontStyle,
+        textAlign: computed.textAlign, textDecorationLine: fontComputed.textDecorationLine,
+        color: fontComputed.color, backgroundColor: computed.backgroundColor,
+        filter: computed.filter,
       });
     };
     const timer = setTimeout(readStyles, 600);
@@ -382,6 +944,286 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
     setChanges((prev) => [...prev, { id: overlay.def.selector, property: cssProp, oldValue: selectedStyles[property] || '', newValue: value }]);
   }, [selectedId, overlays, selectedStyles, pushUndo]);
 
+  // Apply font-family (al elemento y sus hijos) + cargar la Google Font
+  const applyFontFamily = useCallback((value: string, google: string | null) => {
+    if (!selectedId) return;
+    const overlay = overlays.find((o) => o.id === selectedId);
+    if (!overlay) return;
+    pushUndo();
+    if (google) setUsedFonts((prev) => (prev.includes(google) ? prev : [...prev, google]));
+    const sel = overlay.def.selector;
+    setStyleOverrides((prev) => ({
+      ...prev,
+      [sel]: { ...(prev[sel] || {}), 'font-family': value },
+      [`${sel} *`]: { ...(prev[`${sel} *`] || {}), 'font-family': value },
+    }));
+    setSelectedStyles((prev) => ({ ...prev, fontFamily: value }));
+    setChanges((prev) => [...prev, { id: sel, property: 'font-family', oldValue: selectedStyles.fontFamily || '', newValue: value }]);
+  }, [selectedId, overlays, selectedStyles, pushUndo]);
+
+  // --- Insertar / borrar / duplicar elementos (Canva-like) ---
+
+  const addElement = useCallback((kind: InsertKind) => {
+    pushUndo();
+    const eid = `eid-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+    const selector = `[data-eid="${eid}"]`;
+    const snippet = buildInsertSnippet(eid, kind);
+    setWorkingHtml((prev) => insertIntoRoot(prev, snippet));
+
+    const meta: Record<InsertKind, { label: string; emoji: string }> = {
+      text:   { label: 'Texto',      emoji: '🔤' },
+      image:  { label: 'Imagen',     emoji: '🖼️' },
+      shape:  { label: 'Rectángulo', emoji: '▭' },
+      circle: { label: 'Círculo',    emoji: '⬤' },
+      line:   { label: 'Línea',      emoji: '➖' },
+    };
+    const def: ElementDef = {
+      id: eid, label: meta[kind].label, emoji: meta[kind].emoji, color: '#8B5CF6',
+      selector, editable: kind === 'text', draggable: true, kind, inserted: true,
+    };
+    setInsertedElements((prev) => [...prev, def]);
+    setSelectedId(eid);
+    setChanges((prev) => [...prev, { id: selector, property: 'insert', oldValue: '', newValue: kind }]);
+  }, [pushUndo]);
+
+  const deleteSelected = useCallback(() => {
+    if (!selectedId) return;
+    const overlay = overlays.find((o) => o.id === selectedId);
+    if (!overlay) return;
+    pushUndo();
+    if (overlay.def.inserted) {
+      // Elemento insertado: se elimina del HTML
+      setWorkingHtml((prev) => removeNodeByEid(prev, selectedId));
+      setInsertedElements((prev) => prev.filter((e) => e.id !== selectedId));
+    } else {
+      // Elemento de plantilla: se oculta (no se borra para no romper el template)
+      setStyleOverrides((prev) => ({
+        ...prev,
+        [overlay.def.selector]: { ...(prev[overlay.def.selector] || {}), display: 'none' },
+      }));
+    }
+    setChanges((prev) => [...prev, { id: overlay.def.selector, property: 'delete', oldValue: '', newValue: '' }]);
+    setSelectedId(null);
+  }, [selectedId, overlays, pushUndo]);
+
+  const duplicateSelected = useCallback(() => {
+    if (!selectedId) return;
+    const overlay = overlays.find((o) => o.id === selectedId);
+    if (!overlay?.def.inserted) return; // solo elementos insertados
+    const node = extractNodeByEid(workingHtml, selectedId);
+    if (!node) return;
+    pushUndo();
+    const newEid = `eid-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+    // Clona el nodo: nuevo eid + offset de 24px en left/top
+    let clone = node
+      .replace(new RegExp(`data-eid="${selectedId}"`), `data-eid="${newEid}"`)
+      .replace(new RegExp(`#${selectedId}`, 'g'), `#${newEid}`)
+      .replace(/left:\s*(\d+)px/, (_m, n) => `left:${parseInt(n, 10) + 24}px`)
+      .replace(/top:\s*(\d+)px/, (_m, n) => `top:${parseInt(n, 10) + 24}px`);
+    setWorkingHtml((prev) => insertIntoRoot(prev, `\n${clone}`));
+    const def: ElementDef = { ...overlay.def, id: newEid, selector: `[data-eid="${newEid}"]` };
+    setInsertedElements((prev) => [...prev, def]);
+    setSelectedId(newEid);
+    setChanges((prev) => [...prev, { id: def.selector, property: 'duplicate', oldValue: '', newValue: overlay.def.kind || '' }]);
+  }, [selectedId, overlays, workingHtml, pushUndo]);
+
+  const bringToFront = useCallback(() => applyStyleChange('zIndex', '100'), [applyStyleChange]);
+  const sendToBack = useCallback(() => applyStyleChange('zIndex', '1'), [applyStyleChange]);
+  // Manda la imagen al fondo del slide (detrás de cards y texto)
+  const sendBehindAll = useCallback(() => applyStyleChange('zIndex', '-1'), [applyStyleChange]);
+
+  // Convierte la imagen en FONDO de todo el slide (capa absoluta detrás del contenido).
+  // No reacomoda el resto (sale del flujo) y cubre toda la diapositiva.
+  const useAsSlideBackground = useCallback(() => {
+    if (!selectedId) return;
+    const overlay = overlays.find((o) => o.id === selectedId);
+    if (!overlay) return;
+    pushUndo();
+    const sel = overlay.def.selector;
+    setStyleOverrides((prev) => ({
+      ...prev,
+      [sel]: {
+        ...(prev[sel] || {}),
+        position: 'absolute',
+        left: '0',
+        top: '0',
+        width: '100%',
+        height: '100%',
+        'z-index': '0',
+        'background-size': 'cover',
+        'background-position': 'center',
+        'object-fit': 'cover',
+        'pointer-events': 'none',
+        transform: '',
+      },
+    }));
+    setChanges((c) => [...c, { id: sel, property: 'slide-background', oldValue: '', newValue: '' }]);
+  }, [selectedId, overlays, pushUndo]);
+
+  // Sincroniza los sliders de filtro con el elemento seleccionado
+  useEffect(() => {
+    const f = selectedStyles.filter;
+    if (!f || f === 'none') { setImgFilter({ brightness: 100, contrast: 100, saturate: 100, blur: 0 }); return; }
+    const pct = (re: RegExp, def: number) => { const m = f.match(re); return m ? Math.round(parseFloat(m[1]) * 100) : def; };
+    const blurM = f.match(/blur\(([\d.]+)px\)/);
+    setImgFilter({
+      brightness: pct(/brightness\(([\d.]+)\)/, 100),
+      contrast: pct(/contrast\(([\d.]+)\)/, 100),
+      saturate: pct(/saturate\(([\d.]+)\)/, 100),
+      blur: blurM ? Math.round(parseFloat(blurM[1])) : 0,
+    });
+  }, [selectedStyles.filter, selectedId]);
+
+  const applyImgFilter = useCallback((next: { brightness: number; contrast: number; saturate: number; blur: number }) => {
+    setImgFilter(next);
+    const parts: string[] = [];
+    if (next.brightness !== 100) parts.push(`brightness(${next.brightness}%)`);
+    if (next.contrast !== 100) parts.push(`contrast(${next.contrast}%)`);
+    if (next.saturate !== 100) parts.push(`saturate(${next.saturate}%)`);
+    if (next.blur > 0) parts.push(`blur(${next.blur}px)`);
+    applyStyleChange('filter', parts.length ? parts.join(' ') : 'none');
+  }, [applyStyleChange]);
+
+  // Difumina los bordes de la imagen (configurable) — guarda config por elemento
+  const applyFeather = useCallback((nextF: FeatherConfig) => {
+    if (!selectedId) return;
+    const overlay = overlays.find((o) => o.id === selectedId);
+    if (!overlay) return;
+    pushUndo();
+    setFeather(nextF);
+    const sel = overlay.def.selector;
+    featherConfigRef.current[sel] = nextF;
+    const mask = buildFeatherMask(nextF);
+    const useComposite = !!mask && nextF.mode === 'lados';
+    const radius = (nextF.shape === 'circle' || nextF.shape === 'ellipse')
+      ? '50%'
+      : (nextF.radius > 0 ? `${nextF.radius}px` : '');
+    setStyleOverrides((prev) => ({
+      ...prev,
+      [sel]: {
+        ...(prev[sel] || {}),
+        'mask-image': mask,
+        '-webkit-mask-image': mask,
+        'mask-composite': useComposite ? 'intersect' : '',
+        '-webkit-mask-composite': useComposite ? 'source-in' : '',
+        'mask-repeat': mask ? 'no-repeat' : '',
+        '-webkit-mask-repeat': mask ? 'no-repeat' : '',
+        'mask-size': mask ? '100% 100%' : '',
+        '-webkit-mask-size': mask ? '100% 100%' : '',
+        'border-radius': radius,
+        'aspect-ratio': nextF.shape === 'circle' ? '1' : '',
+        'object-fit': (nextF.shape === 'circle' || nextF.shape === 'ellipse') ? 'cover' : '',
+      },
+    }));
+    setChanges((c) => [...c, { id: sel, property: 'feather', oldValue: '', newValue: nextF.mode }]);
+  }, [selectedId, overlays, pushUndo]);
+
+  // Lee la URL de la imagen de fondo del elemento (computado)
+  const getBgUrl = useCallback((sel: string): string => {
+    const iframe = iframeRef.current;
+    if (!iframe?.contentDocument || !iframe.contentWindow) return '';
+    const el = iframe.contentDocument.querySelector(sel) as HTMLElement | null;
+    if (!el) return '';
+    const bgi = iframe.contentWindow.getComputedStyle(el).backgroundImage || '';
+    const m = bgi.match(/url\(["']?([^"')]+)["']?\)/);
+    return m ? m[1] : '';
+  }, []);
+
+  // Aplica configuración de fondo (pan + tinte + fundir a color) a un elemento image-bg
+  const applyBg = useCallback((patch: Partial<BgConfig>) => {
+    if (!selectedId) return;
+    const overlay = overlays.find((o) => o.id === selectedId);
+    if (!overlay) return;
+    const sel = overlay.def.selector;
+    const prevCfg = bgConfigRef.current[sel] || { ...DEFAULT_BG, url: getBgUrl(sel) };
+    const next: BgConfig = { ...prevCfg, ...patch };
+    if (!next.url) next.url = getBgUrl(sel);
+    pushUndo();
+    setBg(next);
+    bgConfigRef.current[sel] = next;
+    setStyleOverrides((prev) => ({
+      ...prev,
+      [sel]: {
+        ...(prev[sel] || {}),
+        'background-image': composeBgImage(next),
+        'background-repeat': 'no-repeat',
+        'background-size': `${next.size}% auto`,
+        'background-position': `${next.posX}% ${next.posY}%`,
+      },
+    }));
+    setChanges((c) => [...c, { id: sel, property: 'bg', oldValue: '', newValue: '' }]);
+  }, [selectedId, overlays, pushUndo, getBgUrl]);
+
+  // Aplica el fundido radial (máscara) al elemento seleccionado
+  const applyRadial = useCallback((cfg: RadialCfg, doUndo = false) => {
+    if (!selectedId) return;
+    const overlay = overlays.find((o) => o.id === selectedId);
+    if (!overlay) return;
+    if (doUndo) pushUndo();
+    setRadial(cfg);
+    const sel = overlay.def.selector;
+    radialRef.current[sel] = cfg;
+    const mask = buildRadialMask(cfg);
+    setStyleOverrides((prev) => ({
+      ...prev,
+      [sel]: {
+        ...(prev[sel] || {}),
+        'mask-image': mask,
+        '-webkit-mask-image': mask,
+        'mask-repeat': mask ? 'no-repeat' : '',
+        '-webkit-mask-repeat': mask ? 'no-repeat' : '',
+        'mask-size': mask ? '100% 100%' : '',
+        '-webkit-mask-size': mask ? '100% 100%' : '',
+        'mask-composite': '',
+        '-webkit-mask-composite': '',
+      },
+    }));
+  }, [selectedId, overlays, pushUndo]);
+
+  const handleRadialDown = useCallback((e: React.MouseEvent, type: 'center' | 'rx' | 'ry' | 'point', pointIndex?: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const overlay = overlays.find((o) => o.id === selectedId);
+    if (!overlay) return;
+    pushUndo();
+    radialDragRef.current = {
+      type, pointIndex,
+      startX: e.clientX, startY: e.clientY,
+      startCx: radial.cx, startCy: radial.cy, startRx: radial.rx, startRy: radial.ry,
+      startPx: pointIndex != null ? radial.points[pointIndex]?.x : undefined,
+      startPy: pointIndex != null ? radial.points[pointIndex]?.y : undefined,
+      rectW: overlay.rect.width, rectH: overlay.rect.height,
+    };
+  }, [overlays, selectedId, radial, pushUndo]);
+
+  const addRadialPoint = useCallback(() => {
+    const pts = radial.points;
+    const a = pts[pts.length - 1];
+    const b = pts[0];
+    const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    applyRadial({ ...radial, points: [...pts, mid], on: true, mode: 'free' }, true);
+  }, [radial, applyRadial]);
+
+  const removeRadialPoint = useCallback(() => {
+    if (radial.points.length <= 3) return;
+    applyRadial({ ...radial, points: radial.points.slice(0, -1), on: true, mode: 'free' }, true);
+  }, [radial, applyRadial]);
+
+  // --- Resize handling (arrastrar esquinas) ---
+
+  const handleResizeStart = useCallback((e: React.MouseEvent, overlay: ElementOverlay, corner: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setSelectedId(overlay.id);
+    setIsResizing(true);
+    resizeRef.current = {
+      id: overlay.id, corner,
+      startX: e.clientX, startY: e.clientY,
+      w: overlay.rect.width, h: overlay.rect.height,
+      top: overlay.rect.top, left: overlay.rect.left,
+    };
+  }, []);
+
   // --- Drag handling ---
 
   const handleMouseDown = useCallback((e: React.MouseEvent, overlay: ElementOverlay) => {
@@ -390,6 +1232,11 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
     e.stopPropagation();
 
     setSelectedId(overlay.id);
+
+    // Si es fondo del slide, solo se selecciona (no se arrastra ni mueve)
+    const ovr = styleOverrides[overlay.def.selector];
+    if (ovr?.position === 'absolute' && ovr?.width === '100%' && ovr?.['z-index'] === '0') return;
+
     setIsDragging(true);
 
     dragRef.current = {
@@ -399,9 +1246,51 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
       origTop: overlay.rect.top,
       origLeft: overlay.rect.left,
     };
-  }, [tool]);
+  }, [tool, styleOverrides]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    // Arrastre del fundido radial
+    if (radialDragRef.current) {
+      const r = radialDragRef.current;
+      const dx = (e.clientX - r.startX) / scale;
+      const dy = (e.clientY - r.startY) / scale;
+      let next: RadialCfg;
+      if (r.type === 'center') {
+        const cx = Math.max(0, Math.min(100, r.startCx + (dx / r.rectW) * 100));
+        const cy = Math.max(0, Math.min(100, r.startCy + (dy / r.rectH) * 100));
+        next = { ...radial, cx, cy, on: true };
+      } else if (r.type === 'rx') {
+        const rx = Math.max(4, Math.min(120, r.startRx + (dx / r.rectW) * 100));
+        next = { ...radial, rx, on: true };
+      } else if (r.type === 'ry') {
+        const ry = Math.max(4, Math.min(120, r.startRy + (dy / r.rectH) * 100));
+        next = { ...radial, ry, on: true };
+      } else {
+        // arrastrar un punto de la forma libre
+        const idx = r.pointIndex ?? 0;
+        const nx = Math.max(0, Math.min(100, (r.startPx ?? 50) + (dx / r.rectW) * 100));
+        const ny = Math.max(0, Math.min(100, (r.startPy ?? 50) + (dy / r.rectH) * 100));
+        const pts = radial.points.map((p, i) => (i === idx ? { x: nx, y: ny } : p));
+        next = { ...radial, points: pts, on: true };
+      }
+      applyRadial(next);
+      return;
+    }
+    // Resize en curso
+    if (isResizing && resizeRef.current) {
+      const r = resizeRef.current;
+      const dx = (e.clientX - r.startX) / scale;
+      const dy = (e.clientY - r.startY) / scale;
+      let w = r.w, h = r.h, top = r.top, left = r.left;
+      const c = r.corner;
+      if (c.includes('e')) w = Math.max(8, r.w + dx);
+      if (c.includes('w')) { w = Math.max(8, r.w - dx); left = r.left + dx; }
+      if (c.includes('s')) h = Math.max(8, r.h + dy);
+      if (c.includes('n')) { h = Math.max(8, r.h - dy); top = r.top + dy; }
+      setOverlays((prev) => prev.map((o) => (o.id === r.id ? { ...o, rect: { top, left, width: w, height: h } } : o)));
+      return;
+    }
+
     if (!isDragging || !dragRef.current) return;
 
     const dx = (e.clientX - dragRef.current.startX) / scale;
@@ -421,9 +1310,45 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
           : o
       )
     );
-  }, [isDragging, scale]);
+  }, [isDragging, isResizing, scale, radial, applyRadial]);
 
   const handleMouseUp = useCallback(() => {
+    // Fin de arrastre radial
+    if (radialDragRef.current) {
+      radialDragRef.current = null;
+      return;
+    }
+    // Commit resize
+    if (isResizing && resizeRef.current) {
+      const r = resizeRef.current;
+      const overlay = overlays.find((o) => o.id === r.id);
+      setIsResizing(false);
+      resizeRef.current = null;
+      if (!overlay) return;
+      pushUndo();
+      const selector = overlay.def.selector;
+      const newW = Math.round(overlay.rect.width);
+      const newH = Math.round(overlay.rect.height);
+      const dxPos = overlay.rect.left - r.left;
+      const dyPos = overlay.rect.top - r.top;
+      setStyleOverrides((prev) => {
+        const existing = prev[selector] || {};
+        let transform = existing['transform'] || '';
+        if (Math.abs(dxPos) > 0.5 || Math.abs(dyPos) > 0.5) {
+          const m = transform.match(/translate\((-?[\d.]+)px,\s*(-?[\d.]+)px\)/);
+          const px = m ? parseFloat(m[1]) : 0;
+          const py = m ? parseFloat(m[2]) : 0;
+          transform = `translate(${Math.round(px + dxPos)}px, ${Math.round(py + dyPos)}px)`;
+        }
+        return {
+          ...prev,
+          [selector]: { ...existing, width: `${newW}px`, height: `${newH}px`, ...(transform ? { transform } : {}) },
+        };
+      });
+      setChanges((prev) => [...prev, { id: selector, property: 'resize', oldValue: '', newValue: `${newW}x${newH}` }]);
+      return;
+    }
+
     if (!isDragging || !dragRef.current) return;
 
     const dragData = dragRef.current;
@@ -464,51 +1389,147 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
       ...prev,
       { id: selector, property: 'translate', oldValue: '', newValue: `${Math.round(dx)}px, ${Math.round(dy)}px` },
     ]);
-  }, [isDragging, overlays, styleOverrides]);
+  }, [isDragging, isResizing, overlays, styleOverrides]);
 
-  // --- Text editing ---
+  // --- Text editing (inline, en el lienzo) ---
 
-  const handleDoubleClick = useCallback((overlay: ElementOverlay) => {
+  const startInlineEdit = useCallback((overlay: ElementOverlay) => {
     if (!overlay.def.editable) return;
-
     const iframe = iframeRef.current;
-    if (!iframe?.contentDocument) return;
-
-    const el = iframe.contentDocument.querySelector(overlay.def.selector);
+    if (!iframe?.contentDocument || !iframe.contentWindow) return;
+    const el = iframe.contentDocument.querySelector(overlay.def.selector) as HTMLElement | null;
     if (!el) return;
 
-    setEditingTextId(overlay.id);
-    setEditingTextValue(el.innerHTML);
+    inlineEditRef.current = { selector: overlay.def.selector, oldHTML: el.innerHTML };
+    el.setAttribute('contenteditable', 'true');
+    el.style.outline = '2px solid #2ED4C7';
+    el.style.outlineOffset = '2px';
+    el.style.cursor = 'text';
     setSelectedId(overlay.id);
+    setEditingTextId(overlay.id);
+
+    setTimeout(() => {
+      el.focus();
+      try {
+        // Coloca el cursor al final (no selecciona todo); el usuario elige qué seleccionar
+        const range = iframe.contentDocument!.createRange();
+        range.selectNodeContents(el);
+        range.collapse(false);
+        const sel = iframe.contentWindow!.getSelection();
+        sel?.removeAllRanges();
+        sel?.addRange(range);
+      } catch { /* noop */ }
+    }, 0);
+
+    // Guarda la última selección no vacía dentro del elemento (para aplicar color/formato a esa parte)
+    const doc = iframe.contentDocument;
+    const onSel = () => {
+      const s = iframe.contentWindow!.getSelection();
+      if (s && s.rangeCount > 0 && !s.isCollapsed && el.contains(s.anchorNode) && el.contains(s.focusNode)) {
+        lastRangeRef.current = s.getRangeAt(0).cloneRange();
+      }
+    };
+    doc.addEventListener('selectionchange', onSel);
+    selChangeRef.current = onSel;
+
+    el.addEventListener('blur', () => commitRef.current(), { once: true });
   }, []);
 
-  const handleTextSave = useCallback(() => {
-    if (!editingTextId) return;
-
-    const overlay = overlays.find((o) => o.id === editingTextId);
-    if (!overlay) return;
-
+  const finishInlineEdit = useCallback((save: boolean) => {
     const iframe = iframeRef.current;
-    if (!iframe?.contentDocument) return;
-
-    const el = iframe.contentDocument.querySelector(overlay.def.selector);
-    if (!el) return;
-
-    const oldText = el.innerHTML;
-
-    // Save undo snapshot
-    pushUndo();
-
-    // Update working HTML (structural change — will trigger iframe reload via htmlWithOverrides)
-    setWorkingHtml((prev) => prev.replace(oldText, editingTextValue));
-
-    setChanges((prev) => [
-      ...prev,
-      { id: overlay.id, selector: overlay.def.selector, oldText, newText: editingTextValue },
-    ]);
-
+    const ref = inlineEditRef.current;
+    inlineEditRef.current = null;
     setEditingTextId(null);
-  }, [editingTextId, editingTextValue, overlays, pushUndo]);
+    if (iframe?.contentDocument && selChangeRef.current) {
+      iframe.contentDocument.removeEventListener('selectionchange', selChangeRef.current);
+    }
+    selChangeRef.current = null;
+    lastRangeRef.current = null;
+    if (!iframe?.contentDocument || !ref) return;
+    const el = iframe.contentDocument.querySelector(ref.selector) as HTMLElement | null;
+    if (!el) return;
+    el.removeAttribute('contenteditable');
+    el.style.outline = '';
+    el.style.outlineOffset = '';
+    el.style.cursor = '';
+    const newHTML = el.innerHTML;
+    if (save && newHTML !== ref.oldHTML) {
+      pushUndo();
+      setWorkingHtml((prev) => prev.replace(ref.oldHTML, newHTML));
+      setChanges((prev) => [...prev, { id: ref.selector, selector: ref.selector, oldText: ref.oldHTML, newText: newHTML }]);
+    } else if (!save) {
+      el.innerHTML = ref.oldHTML;
+    }
+  }, [pushUndo]);
+
+  // Mantener una referencia estable al commit para el listener de blur
+  useEffect(() => { commitRef.current = () => finishInlineEdit(true); }, [finishInlineEdit]);
+
+  // Sincroniza el control de difuminado con el elemento seleccionado (config recordada)
+  useEffect(() => {
+    if (!selectedId) { setFeather(DEFAULT_FEATHER); return; }
+    const overlay = overlays.find((o) => o.id === selectedId);
+    const sel = overlay?.def.selector;
+    setFeather(sel && featherConfigRef.current[sel] ? featherConfigRef.current[sel] : DEFAULT_FEATHER);
+  }, [selectedId, overlays]);
+
+  // Sincroniza el control de fondo (image-bg) con el elemento seleccionado
+  useEffect(() => {
+    if (!selectedId) { setBg(DEFAULT_BG); return; }
+    const overlay = overlays.find((o) => o.id === selectedId);
+    if (!overlay || overlay.def.kind !== 'image-bg') { setBg(DEFAULT_BG); return; }
+    const sel = overlay.def.selector;
+    setBg(bgConfigRef.current[sel] || { ...DEFAULT_BG, url: getBgUrl(sel) });
+  }, [selectedId, overlays, getBgUrl]);
+
+  // Sincroniza el fundido radial con el elemento seleccionado
+  useEffect(() => {
+    if (!selectedId) { setRadial(DEFAULT_RADIAL); return; }
+    const overlay = overlays.find((o) => o.id === selectedId);
+    const sel = overlay?.def.selector;
+    setRadial(sel && radialRef.current[sel] ? radialRef.current[sel] : DEFAULT_RADIAL);
+  }, [selectedId, overlays]);
+
+  // Aplica color: si hay texto SELECCIONADO mientras editas, solo a esa selección;
+  // si no, al elemento completo.
+  const applyTextColor = useCallback((hex: string) => {
+    const iframe = iframeRef.current;
+    if (editingTextId && iframe?.contentDocument && iframe.contentWindow) {
+      const sel = iframe.contentWindow.getSelection();
+      if (sel) {
+        if (sel.isCollapsed && lastRangeRef.current) {
+          sel.removeAllRanges();
+          sel.addRange(lastRangeRef.current);
+        }
+        if (sel.rangeCount > 0 && !sel.isCollapsed) {
+          iframe.contentDocument.execCommand('styleWithCSS', false, 'true');
+          iframe.contentDocument.execCommand('foreColor', false, hex);
+          return;
+        }
+      }
+    }
+    applyStyleChange('color', hex);
+  }, [editingTextId, applyStyleChange]);
+
+  // Aplica negrita/cursiva/subrayado a la selección si estás editando; si no, al elemento.
+  const applyInlineFormat = useCallback((cmd: 'bold' | 'italic' | 'underline'): boolean => {
+    const iframe = iframeRef.current;
+    if (editingTextId && iframe?.contentDocument && iframe.contentWindow) {
+      const sel = iframe.contentWindow.getSelection();
+      if (sel) {
+        if (sel.isCollapsed && lastRangeRef.current) {
+          sel.removeAllRanges();
+          sel.addRange(lastRangeRef.current);
+        }
+        if (sel.rangeCount > 0 && !sel.isCollapsed) {
+          iframe.contentDocument.execCommand('styleWithCSS', false, 'true');
+          iframe.contentDocument.execCommand(cmd);
+          return true;
+        }
+      }
+    }
+    return false;
+  }, [editingTextId]);
 
   return (
     <div className="space-y-3">
@@ -561,6 +1582,42 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
             </button>
           </div>
 
+          {/* Biblioteca de elementos (Canva-like) */}
+          <div className="relative mr-2">
+            <button
+              type="button"
+              onClick={() => setAddMenuOpen((o) => !o)}
+              className="flex items-center gap-1 px-2 h-7 rounded-md border bg-background text-xs hover:bg-muted"
+              title="Agregar elemento"
+            >
+              <Plus className="h-3.5 w-3.5" /> Agregar
+            </button>
+            {addMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setAddMenuOpen(false)} />
+                <div className="absolute left-0 top-8 z-50 w-44 bg-background border rounded-lg shadow-xl p-1">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide px-2 py-1">Elementos</p>
+                  {([
+                    { kind: 'text', icon: <Type className="h-4 w-4" />, label: 'Texto' },
+                    { kind: 'image', icon: <ImageIcon className="h-4 w-4" />, label: 'Imagen' },
+                    { kind: 'shape', icon: <Square className="h-4 w-4" />, label: 'Rectángulo' },
+                    { kind: 'circle', icon: <Circle className="h-4 w-4" />, label: 'Círculo' },
+                    { kind: 'line', icon: <Minus className="h-4 w-4" />, label: 'Línea' },
+                  ] as const).map((it) => (
+                    <button
+                      key={it.kind}
+                      type="button"
+                      onClick={() => { addElement(it.kind); setAddMenuOpen(false); }}
+                      className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs hover:bg-muted text-left"
+                    >
+                      {it.icon} {it.label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+
           {/* Zoom */}
           <Button size="sm" variant="ghost" onClick={zoomOut} className="h-7 w-7 p-0">
             <ZoomOut className="h-3.5 w-3.5" />
@@ -581,6 +1638,11 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
           <Button size="sm" variant="outline" onClick={onCancel} className="h-7 text-xs">
             <X className="h-3.5 w-3.5 mr-1" /> Cancelar
           </Button>
+          {onApply && (
+            <Button size="sm" variant="outline" onClick={handleApply} className="h-7 text-xs border-[#2ED4C7] text-[#0F1419]">
+              <Save className="h-3.5 w-3.5 mr-1" /> Aplicar
+            </Button>
+          )}
           <Button size="sm" onClick={handleSave} className="h-7 text-xs">
             <Save className="h-3.5 w-3.5 mr-1" /> Guardar
           </Button>
@@ -589,7 +1651,7 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
 
       {/* Element legend */}
       <div className="flex flex-wrap gap-1.5 px-1">
-        {(editableElements ?? EDITABLE_ELEMENTS).filter((e) => overlays.some((o) => o.id === e.id)).map((def) => (
+        {[...(editableElements ?? EDITABLE_ELEMENTS), ...insertedElements].filter((e) => overlays.some((o) => o.id === e.id)).map((def) => (
           <button
             key={def.id}
             type="button"
@@ -641,7 +1703,7 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
               style={{
                 transform: `scale(${scale})`,
                 transformOrigin: 'top left',
-                pointerEvents: isDragging ? 'none' : 'auto',
+                pointerEvents: (isDragging || isResizing) ? 'none' : 'auto',
               }}
             />
 
@@ -649,6 +1711,8 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
             {overlays.map((overlay) => {
               const isSelected = selectedId === overlay.id;
               const isEditing = editingTextId === overlay.id;
+              const ovr = styleOverrides[overlay.def.selector];
+              const isSlideBg = ovr?.position === 'absolute' && ovr?.width === '100%' && ovr?.['z-index'] === '0';
 
               return (
                 <div
@@ -663,6 +1727,9 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
                     left: overlay.rect.left * scale,
                     width: overlay.rect.width * scale,
                     height: overlay.rect.height * scale,
+                    // Mientras se edita este elemento, el overlay no captura el mouse:
+                    // así el arrastre llega al iframe y puedes seleccionar parte del texto.
+                    pointerEvents: isEditing ? 'none' : undefined,
                   }}
                 >
                   {/* Selection border */}
@@ -671,7 +1738,7 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
                       'absolute inset-0 rounded transition-all pointer-events-none',
                       isSelected
                         ? 'border-2 shadow-lg'
-                        : 'border border-dashed opacity-0 hover:opacity-60',
+                        : 'border border-dashed opacity-30 hover:opacity-80',
                     )}
                     style={{
                       borderColor: overlay.def.color,
@@ -686,8 +1753,9 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
                       tool === 'text' ? 'cursor-text' : '',
                       !overlay.def.draggable && tool !== 'text' ? 'cursor-default' : '',
                     )}
+                    style={isEditing ? { pointerEvents: 'none' } : undefined}
                     onMouseDown={(e) => handleMouseDown(e, overlay)}
-                    onDoubleClick={() => handleDoubleClick(overlay)}
+                    onDoubleClick={() => startInlineEdit(overlay)}
                   />
 
                   {/* Label */}
@@ -704,12 +1772,48 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
                   )}
 
                   {/* Resize handles (corners) for selected element */}
-                  {isSelected && overlay.def.draggable && (
+                  {isSelected && overlay.def.draggable && !isSlideBg && (
                     <>
-                      <div className="absolute -top-1 -left-1 w-2.5 h-2.5 rounded-full border-2 bg-white" style={{ borderColor: overlay.def.color }} />
-                      <div className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full border-2 bg-white" style={{ borderColor: overlay.def.color }} />
-                      <div className="absolute -bottom-1 -left-1 w-2.5 h-2.5 rounded-full border-2 bg-white" style={{ borderColor: overlay.def.color }} />
-                      <div className="absolute -bottom-1 -right-1 w-2.5 h-2.5 rounded-full border-2 bg-white" style={{ borderColor: overlay.def.color }} />
+                      <div
+                        className="absolute -top-1.5 -left-1.5 w-3 h-3 rounded-full border-2 bg-white z-50"
+                        style={{ borderColor: overlay.def.color, cursor: 'nwse-resize' }}
+                        onMouseDown={(e) => handleResizeStart(e, overlay, 'nw')}
+                      />
+                      <div
+                        className="absolute -top-1.5 -right-1.5 w-3 h-3 rounded-full border-2 bg-white z-50"
+                        style={{ borderColor: overlay.def.color, cursor: 'nesw-resize' }}
+                        onMouseDown={(e) => handleResizeStart(e, overlay, 'ne')}
+                      />
+                      <div
+                        className="absolute -bottom-1.5 -left-1.5 w-3 h-3 rounded-full border-2 bg-white z-50"
+                        style={{ borderColor: overlay.def.color, cursor: 'nesw-resize' }}
+                        onMouseDown={(e) => handleResizeStart(e, overlay, 'sw')}
+                      />
+                      <div
+                        className="absolute -bottom-1.5 -right-1.5 w-3 h-3 rounded-full border-2 bg-white z-50"
+                        style={{ borderColor: overlay.def.color, cursor: 'nwse-resize' }}
+                        onMouseDown={(e) => handleResizeStart(e, overlay, 'se')}
+                      />
+                    </>
+                  )}
+
+                  {/* Manijas del fundido radial */}
+                  {isSelected && radial.on && radial.mode === 'ellipse' && (
+                    <>
+                      <div className="absolute rounded-full border-2 border-dashed pointer-events-none" style={{ left: `${radial.cx - radial.rx}%`, top: `${radial.cy - radial.ry}%`, width: `${2 * radial.rx}%`, height: `${2 * radial.ry}%`, borderColor: '#2ED4C7' }} />
+                      <div onMouseDown={(e) => handleRadialDown(e, 'center')} className="absolute w-4 h-4 rounded-full bg-white border-2 cursor-move z-50 shadow" style={{ left: `${radial.cx}%`, top: `${radial.cy}%`, transform: 'translate(-50%,-50%)', borderColor: '#2ED4C7' }} title="Mover" />
+                      <div onMouseDown={(e) => handleRadialDown(e, 'rx')} className="absolute w-4 h-4 rounded-full bg-[#2ED4C7] border-2 border-white cursor-ew-resize z-50 shadow" style={{ left: `${radial.cx + radial.rx}%`, top: `${radial.cy}%`, transform: 'translate(-50%,-50%)' }} title="Ancho" />
+                      <div onMouseDown={(e) => handleRadialDown(e, 'ry')} className="absolute w-4 h-4 rounded-full bg-[#FF7A4A] border-2 border-white cursor-ns-resize z-50 shadow" style={{ left: `${radial.cx}%`, top: `${radial.cy + radial.ry}%`, transform: 'translate(-50%,-50%)' }} title="Alto" />
+                    </>
+                  )}
+                  {isSelected && radial.on && radial.mode === 'free' && (
+                    <>
+                      <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none">
+                        <polygon points={radial.points.map((p) => `${p.x},${p.y}`).join(' ')} fill="rgba(46,212,199,0.10)" stroke="#2ED4C7" strokeWidth="0.5" vectorEffect="non-scaling-stroke" />
+                      </svg>
+                      {radial.points.map((p, i) => (
+                        <div key={i} onMouseDown={(e) => handleRadialDown(e, 'point', i)} className="absolute w-3.5 h-3.5 rounded-full bg-white border-2 cursor-move z-50 shadow" style={{ left: `${p.x}%`, top: `${p.y}%`, transform: 'translate(-50%,-50%)', borderColor: '#2ED4C7' }} />
+                      ))}
                     </>
                   )}
                 </div>
@@ -750,6 +1854,25 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
                 <div className="space-y-2 border-t pt-2">
                   <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Tipografía</p>
 
+                  {/* Font family */}
+                  <div className="space-y-1">
+                    <span className="text-xs text-muted-foreground">Tipo de letra</span>
+                    <select
+                      value={FONT_OPTIONS.find((f) => selectedStyles.fontFamily?.includes(f.label))?.value ?? ''}
+                      onChange={(e) => {
+                        const opt = FONT_OPTIONS.find((f) => f.value === e.target.value);
+                        if (opt) applyFontFamily(opt.value, opt.google);
+                      }}
+                      className="w-full text-xs border rounded px-2 py-1.5 bg-background"
+                      style={{ fontFamily: selectedStyles.fontFamily }}
+                    >
+                      <option value="" disabled>Selecciona fuente…</option>
+                      {FONT_OPTIONS.map((f) => (
+                        <option key={f.label} value={f.value} style={{ fontFamily: f.value }}>{f.label}</option>
+                      ))}
+                    </select>
+                  </div>
+
                   {/* Font size */}
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">Tamaño</span>
@@ -764,7 +1887,17 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
                       >
                         −
                       </button>
-                      <span className="text-xs font-mono w-12 text-center">{selectedStyles.fontSize}</span>
+                      <input
+                        type="number"
+                        min={6}
+                        max={400}
+                        value={parseInt(selectedStyles.fontSize) || ''}
+                        onChange={(e) => {
+                          const v = parseInt(e.target.value);
+                          if (!Number.isNaN(v)) applyStyleChange('fontSize', `${Math.min(400, Math.max(6, v))}px`);
+                        }}
+                        className="w-12 h-6 text-xs font-mono text-center border rounded bg-background"
+                      />
                       <button
                         type="button"
                         onClick={() => {
@@ -845,6 +1978,116 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
                       </div>
                     </div>
                   )}
+
+                  {/* Estilo: Negrita / Cursiva / Subrayado */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Estilo</span>
+                    <div className="flex gap-0.5">
+                      <button
+                        type="button"
+                        title="Negrita"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => {
+                          if (applyInlineFormat('bold')) return;
+                          const isBold = parseInt(selectedStyles.fontWeight) >= 700;
+                          applyStyleChange('fontWeight', isBold ? '400' : '700');
+                        }}
+                        className={cn(
+                          'w-7 h-7 rounded border text-xs font-bold transition-colors',
+                          parseInt(selectedStyles.fontWeight) >= 700 ? 'bg-primary text-primary-foreground border-primary' : 'hover:bg-muted'
+                        )}
+                      >
+                        B
+                      </button>
+                      <button
+                        type="button"
+                        title="Cursiva"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => {
+                          if (applyInlineFormat('italic')) return;
+                          applyStyleChange('fontStyle', selectedStyles.fontStyle === 'italic' ? 'normal' : 'italic');
+                        }}
+                        className={cn(
+                          'w-7 h-7 rounded border text-xs italic transition-colors',
+                          selectedStyles.fontStyle === 'italic' ? 'bg-primary text-primary-foreground border-primary' : 'hover:bg-muted'
+                        )}
+                      >
+                        I
+                      </button>
+                      <button
+                        type="button"
+                        title="Subrayado"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => {
+                          if (applyInlineFormat('underline')) return;
+                          const underlined = selectedStyles.textDecorationLine?.includes('underline');
+                          applyStyleChange('textDecoration', underlined ? 'none' : 'underline');
+                        }}
+                        className={cn(
+                          'w-7 h-7 rounded border text-xs underline transition-colors',
+                          selectedStyles.textDecorationLine?.includes('underline') ? 'bg-primary text-primary-foreground border-primary' : 'hover:bg-muted'
+                        )}
+                      >
+                        U
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Alineación */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Alineación</span>
+                    <div className="flex gap-0.5">
+                      {([
+                        { value: 'left', icon: '⬅' },
+                        { value: 'center', icon: '↔' },
+                        { value: 'right', icon: '➡' },
+                        { value: 'justify', icon: '☰' },
+                      ] as const).map((a) => (
+                        <button
+                          key={a.value}
+                          type="button"
+                          title={a.value}
+                          onClick={() => applyStyleChange('textAlign', a.value)}
+                          className={cn(
+                            'w-7 h-7 rounded border text-xs transition-colors',
+                            selectedStyles.textAlign === a.value ? 'bg-primary text-primary-foreground border-primary' : 'hover:bg-muted'
+                          )}
+                        >
+                          {a.icon}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Color de texto */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Color</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] font-mono text-muted-foreground">
+                        {selectedStyles.color ? rgbToHex(selectedStyles.color) : ''}
+                      </span>
+                      <input
+                        type="color"
+                        value={selectedStyles.color ? rgbToHex(selectedStyles.color) : '#000000'}
+                        onChange={(e) => applyStyleChange('color', e.target.value)}
+                        className="w-7 h-7 rounded border cursor-pointer bg-transparent p-0"
+                      />
+                    </div>
+                  </div>
+                  {/* Swatches de marca */}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {BRAND_COLORS.map((c) => (
+                      <button
+                        key={c.hex}
+                        type="button"
+                        title={`${c.name} (${c.hex})`}
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => applyTextColor(c.hex)}
+                        className="w-6 h-6 rounded-full border border-black/15 hover:scale-110 transition-transform"
+                        style={{ backgroundColor: c.hex }}
+                      />
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -1117,11 +2360,169 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
                 </div>
               )}
 
+              {/* Ajustes de imagen (filtros) — para imágenes y fondos */}
+              {(selectedOverlay.def.kind === 'image' || selectedOverlay.def.kind === 'image-bg' || selectedOverlay.id === 'photo' || selectedOverlay.id === 'hero-photo' || selectedOverlay.id === 'img-placeholder') && (
+                <div className="space-y-2 border-t pt-2">
+                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Ajustes de imagen</p>
+
+                  <button
+                    type="button"
+                    onClick={useAsSlideBackground}
+                    className="w-full text-[11px] py-1.5 rounded bg-[#0F1419] text-white hover:bg-[#1a2332]"
+                    title="Convierte la imagen en fondo de todo el slide, detrás del texto y las cards"
+                  >
+                    🖼️ Usar como fondo del slide
+                  </button>
+
+                  {([
+                    { key: 'brightness', label: 'Brillo', min: 0, max: 200 },
+                    { key: 'contrast', label: 'Contraste', min: 0, max: 200 },
+                    { key: 'saturate', label: 'Saturación', min: 0, max: 200 },
+                    { key: 'blur', label: 'Desenfoque', min: 0, max: 20 },
+                  ] as const).map(({ key, label, min, max }) => (
+                    <div key={key} className="flex items-center justify-between gap-2">
+                      <span className="text-xs text-muted-foreground w-20">{label}</span>
+                      <input
+                        type="range"
+                        min={min}
+                        max={max}
+                        value={imgFilter[key]}
+                        onChange={(e) => applyImgFilter({ ...imgFilter, [key]: parseInt(e.target.value) })}
+                        className="flex-1 accent-[#2ED4C7]"
+                      />
+                      <span className="text-[10px] font-mono w-10 text-right">{imgFilter[key]}{key === 'blur' ? 'px' : '%'}</span>
+                    </div>
+                  ))}
+
+                  {/* Opacidad */}
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs text-muted-foreground w-20">Opacidad</span>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      value={Math.round((parseFloat(selectedStyles.opacity) || 1) * 100)}
+                      onChange={(e) => applyStyleChange('opacity', `${parseInt(e.target.value) / 100}`)}
+                      className="flex-1 accent-[#2ED4C7]"
+                    />
+                    <span className="text-[10px] font-mono w-10 text-right">{Math.round((parseFloat(selectedStyles.opacity) || 1) * 100)}%</span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => { applyImgFilter({ brightness: 100, contrast: 100, saturate: 100, blur: 0 }); applyStyleChange('opacity', '1'); }}
+                    className="w-full text-[11px] py-1 rounded border hover:bg-muted"
+                  >
+                    Restablecer ajustes
+                  </button>
+
+                  {/* Difuminar bordes (simple) */}
+                  <div className="space-y-2 pt-1 border-t">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs text-muted-foreground w-20">Difuminar</span>
+                      <input type="range" min={0} max={45} value={feather.amount} onChange={(e) => applyFeather({ ...feather, mode: 'lados', shape: 'none', amount: parseInt(e.target.value) })} className="flex-1 accent-[#2ED4C7]" />
+                      <span className="text-[10px] font-mono w-10 text-right">{feather.amount}%</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground">Bordes</span>
+                      <div className="flex gap-0.5">
+                        {([{ k: 'top', i: '↑' }, { k: 'right', i: '→' }, { k: 'bottom', i: '↓' }, { k: 'left', i: '←' }] as const).map((s) => (
+                          <button key={s.k} type="button" onClick={() => applyFeather({ ...feather, mode: 'lados', shape: 'none', [s.k]: !feather[s.k] })} className={cn('w-7 h-7 rounded border text-xs', feather[s.k] ? 'bg-primary text-primary-foreground border-primary' : 'hover:bg-muted')}>{s.i}</button>
+                        ))}
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">Marca los bordes a fundir (↑→↓←) y sube "Difuminar".</p>
+
+                    {/* Fundido radial arrastrable */}
+                    <div className="border-t pt-2 space-y-2">
+                      <button
+                        type="button"
+                        onClick={() => applyRadial({ ...radial, on: !radial.on }, true)}
+                        className={cn('w-full text-[11px] py-1.5 rounded border', radial.on ? 'bg-primary text-primary-foreground border-primary' : 'hover:bg-muted')}
+                      >
+                        {radial.on ? '✓ Fundido radial (arrastra en la imagen)' : '◎ Fundido radial (arrastrable)'}
+                      </button>
+                      {radial.on && (
+                        <>
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-muted-foreground">Tipo</span>
+                            <div className="flex gap-0.5">
+                              <button type="button" onClick={() => applyRadial({ ...radial, mode: 'ellipse' }, true)} className={cn('px-2 py-0.5 rounded text-[10px] border', radial.mode === 'ellipse' ? 'bg-primary text-primary-foreground border-primary' : 'hover:bg-muted')}>Elipse</button>
+                              <button type="button" onClick={() => applyRadial({ ...radial, mode: 'free' }, true)} className={cn('px-2 py-0.5 rounded text-[10px] border', radial.mode === 'free' ? 'bg-primary text-primary-foreground border-primary' : 'hover:bg-muted')}>Forma libre</button>
+                            </div>
+                          </div>
+
+                          {radial.mode === 'ellipse' && (
+                            <>
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-xs text-muted-foreground w-20">Suavidad</span>
+                                <input type="range" min={5} max={95} value={radial.soft} onChange={(e) => applyRadial({ ...radial, soft: parseInt(e.target.value) }, false)} className="flex-1 accent-[#2ED4C7]" />
+                                <span className="text-[10px] font-mono w-10 text-right">{radial.soft}%</span>
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs text-muted-foreground">Invertir</span>
+                                <button type="button" onClick={() => applyRadial({ ...radial, invert: !radial.invert }, false)} className={cn('px-2 py-0.5 rounded text-[10px] border', radial.invert ? 'bg-primary text-primary-foreground border-primary' : 'hover:bg-muted')}>{radial.invert ? 'Centro' : 'Orillas'}</button>
+                              </div>
+                              <p className="text-[10px] text-muted-foreground">Arrastra el centro (mover), turquesa (ancho) y coral (alto).</p>
+                            </>
+                          )}
+
+                          {radial.mode === 'free' && (
+                            <>
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-xs text-muted-foreground w-20">Desenfoque</span>
+                                <input type="range" min={0} max={30} value={radial.blur} onChange={(e) => applyRadial({ ...radial, blur: parseInt(e.target.value) }, false)} className="flex-1 accent-[#2ED4C7]" />
+                                <span className="text-[10px] font-mono w-10 text-right">{radial.blur}</span>
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs text-muted-foreground">Puntos ({radial.points.length})</span>
+                                <div className="flex gap-1">
+                                  <button type="button" onClick={addRadialPoint} className="h-7 px-2 rounded border text-xs hover:bg-muted">+ punto</button>
+                                  <button type="button" onClick={removeRadialPoint} className="h-7 px-2 rounded border text-xs hover:bg-muted">− punto</button>
+                                </div>
+                              </div>
+                              <p className="text-[10px] text-muted-foreground">Arrastra cada punto blanco para esculpir la forma. Sube el desenfoque para suavizar.</p>
+                            </>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Tamaño y posición del fondo (image-bg) */}
+              {selectedOverlay.def.kind === 'image-bg' && (
+                <div className="space-y-2 border-t pt-2">
+                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Tamaño y posición</p>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs text-muted-foreground w-16">Tamaño</span>
+                    <input type="range" min={30} max={250} value={bg.size} onChange={(e) => applyBg({ size: parseInt(e.target.value) })} className="flex-1 accent-[#2ED4C7]" />
+                    <span className="text-[10px] font-mono w-10 text-right">{bg.size}%</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs text-muted-foreground w-16">Mover X</span>
+                    <input type="range" min={0} max={100} value={bg.posX} onChange={(e) => applyBg({ posX: parseInt(e.target.value) })} className="flex-1 accent-[#2ED4C7]" />
+                    <span className="text-[10px] font-mono w-10 text-right">{bg.posX}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs text-muted-foreground w-16">Mover Y</span>
+                    <input type="range" min={0} max={100} value={bg.posY} onChange={(e) => applyBg({ posY: parseInt(e.target.value) })} className="flex-1 accent-[#2ED4C7]" />
+                    <span className="text-[10px] font-mono w-10 text-right">{bg.posY}</span>
+                  </div>
+                </div>
+              )}
+
               {/* Image URL input — for photo or image placeholder elements */}
-              {(selectedOverlay.id === 'photo' || selectedOverlay.id === 'img-placeholder' || selectedOverlay.id === 'hero-photo') && (
+              {(selectedOverlay.id === 'photo' || selectedOverlay.id === 'img-placeholder' || selectedOverlay.id === 'hero-photo' || selectedOverlay.def.kind === 'image' || selectedOverlay.def.kind === 'image-bg') && (
                 <ImagePickerPanel
                   onSelect={(url) => {
                     pushUndo();
+                    // Fondo (background-image): se cambia conservando pan/tinte/fundido
+                    if (selectedOverlay.def.kind === 'image-bg') {
+                      applyBg({ url });
+                      return;
+                    }
                     const iframe = iframeRef.current;
                     if (!iframe?.contentDocument) return;
                     const el = iframe.contentDocument.querySelector(selectedOverlay.def.selector);
@@ -1158,6 +2559,120 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
                 />
               )}
 
+              {/* Dimensiones de elementos insertados (imagen/forma/línea) */}
+              {selectedOverlay.def.inserted && selectedOverlay.def.kind !== 'text' && selectedStyles.width && (
+                <div className="space-y-2 border-t pt-2">
+                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Dimensiones</p>
+                  {([
+                    { prop: 'width', label: 'Ancho' },
+                    { prop: 'height', label: 'Alto' },
+                  ] as const).map(({ prop, label }) => (
+                    <div key={prop} className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground">{label}</span>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const current = parseInt(selectedStyles[prop]) || 100;
+                            applyStyleChange(prop, `${Math.max(2, current - 10)}px`);
+                          }}
+                          className="w-6 h-6 rounded border text-xs hover:bg-muted flex items-center justify-center"
+                        >
+                          −
+                        </button>
+                        <input
+                          type="number"
+                          min={2}
+                          value={parseInt(selectedStyles[prop]) || ''}
+                          onChange={(e) => {
+                            const v = parseInt(e.target.value);
+                            if (!Number.isNaN(v)) applyStyleChange(prop, `${Math.max(2, v)}px`);
+                          }}
+                          className="w-14 h-6 text-xs font-mono text-center border rounded bg-background"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const current = parseInt(selectedStyles[prop]) || 100;
+                            applyStyleChange(prop, `${current + 10}px`);
+                          }}
+                          className="w-6 h-6 rounded border text-xs hover:bg-muted flex items-center justify-center"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Relleno (formas/líneas insertadas) */}
+              {(selectedOverlay.def.kind === 'shape' || selectedOverlay.def.kind === 'circle' || selectedOverlay.def.kind === 'line') && (
+                <div className="space-y-2 border-t pt-2">
+                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Relleno</p>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Color</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] font-mono text-muted-foreground">
+                        {selectedStyles.backgroundColor ? rgbToHex(selectedStyles.backgroundColor) : ''}
+                      </span>
+                      <input
+                        type="color"
+                        value={selectedStyles.backgroundColor ? rgbToHex(selectedStyles.backgroundColor) : '#2ED4C7'}
+                        onChange={(e) => applyStyleChange('background', e.target.value)}
+                        className="w-7 h-7 rounded border cursor-pointer bg-transparent p-0"
+                      />
+                    </div>
+                  </div>
+                  {/* Swatches de marca */}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {BRAND_COLORS.map((c) => (
+                      <button
+                        key={c.hex}
+                        type="button"
+                        title={`${c.name} (${c.hex})`}
+                        onClick={() => applyStyleChange('background', c.hex)}
+                        className="w-6 h-6 rounded-full border border-black/15 hover:scale-110 transition-transform"
+                        style={{ backgroundColor: c.hex }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Acciones del elemento: capas, duplicar, borrar */}
+              <div className="space-y-2 border-t pt-2">
+                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Elemento</p>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Capa</span>
+                  <div className="flex gap-1">
+                    <button type="button" onClick={bringToFront} title="Traer al frente" className="h-7 px-2 rounded border text-xs hover:bg-muted flex items-center gap-1">
+                      <ArrowUp className="h-3.5 w-3.5" /> Frente
+                    </button>
+                    <button type="button" onClick={sendToBack} title="Enviar atrás" className="h-7 px-2 rounded border text-xs hover:bg-muted flex items-center gap-1">
+                      <ArrowDown className="h-3.5 w-3.5" /> Atrás
+                    </button>
+                    <button type="button" onClick={sendBehindAll} title="Enviar al fondo (detrás de todo)" className="h-7 px-2 rounded border text-xs hover:bg-muted">
+                      Fondo
+                    </button>
+                  </div>
+                </div>
+                <div className="flex gap-1">
+                  {selectedOverlay.def.inserted && (
+                    <button type="button" onClick={duplicateSelected} className="flex-1 h-7 rounded border text-xs hover:bg-muted flex items-center justify-center gap-1">
+                      <Copy className="h-3.5 w-3.5" /> Duplicar
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={deleteSelected}
+                    className="flex-1 h-7 rounded border border-red-300 text-red-600 text-xs hover:bg-red-50 flex items-center justify-center gap-1"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" /> {selectedOverlay.def.inserted ? 'Borrar' : 'Ocultar'}
+                  </button>
+                </div>
+              </div>
+
               {/* Actions */}
               <div className="flex flex-wrap gap-1 pt-1 border-t">
                 {selectedOverlay.def.draggable && (
@@ -1182,21 +2697,18 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
             </div>
           )}
 
-          {/* Text editor */}
+          {/* Text editor (inline en el lienzo) */}
           {editingTextId && (
-            <div className="rounded-lg border p-3 space-y-2">
-              <p className="text-xs font-semibold">Editando texto:</p>
-              <textarea
-                value={editingTextValue}
-                onChange={(e) => setEditingTextValue(e.target.value)}
-                className="w-full h-32 text-xs font-mono p-2 rounded border bg-zinc-950 text-zinc-100 resize-y"
-                spellCheck={false}
-              />
+            <div className="rounded-lg border p-3 space-y-2 bg-[#2ED4C7]/5">
+              <p className="text-xs font-semibold">✏️ Editando en el lienzo</p>
+              <p className="text-[11px] text-muted-foreground">
+                Escribe directamente sobre el texto. Selecciona con el cursor para reemplazar.
+              </p>
               <div className="flex gap-1">
-                <Button size="sm" className="h-6 text-xs flex-1" onClick={handleTextSave}>
-                  Aplicar
+                <Button size="sm" className="h-6 text-xs flex-1" onClick={() => finishInlineEdit(true)}>
+                  Listo
                 </Button>
-                <Button size="sm" variant="outline" className="h-6 text-xs" onClick={() => setEditingTextId(null)}>
+                <Button size="sm" variant="outline" className="h-6 text-xs" onClick={() => finishInlineEdit(false)}>
                   Cancelar
                 </Button>
               </div>

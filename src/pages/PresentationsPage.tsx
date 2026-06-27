@@ -21,14 +21,22 @@ import {
   Maximize2,
   Code2,
   Move,
+  Copy,
+  Pencil,
+  UploadCloud,
+  Plus,
+  Trash2,
+  RefreshCw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
+import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { PRESENTATION_TEMPLATES, getPresentationHtml } from '@/constants/presentationTemplates';
 
-import { renderHtmlToPng } from '@/utils/xendingDesign/canvasRenderer';
+import { renderHtmlToPng, renderSlidesToPdf } from '@/utils/xendingDesign/canvasRenderer';
 import { HtmlSectionEditor } from '@/components/HtmlSectionEditor';
 import { VisualDesignEditor, type ElementDef } from '@/components/VisualDesignEditor';
 
@@ -50,17 +58,129 @@ const PRESENTATION_ELEMENTS: ElementDef[] = [
   { id: 'orb-halo',   label: 'Orb halo (slide 7)', emoji: '🌗', color: '#F97316', selector: '.orb-halo',   editable: false, draggable: true },
 ];
 
+// Clave de autoguardado local (por navegador) para no perder ediciones/duplicados
+const PRESENTATIONS_STORAGE_KEY = 'xending-presentations-v1';
+
 function PresentationsPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [slideHtmls, setSlideHtmls] = useState<string[]>(
-    () => PRESENTATION_TEMPLATES.map((s) => s.html),
-  );
+  const [slides, setSlides] = useState<Array<{ title: string; html: string }>>(() => {
+    // Restaura del navegador si hay una versión guardada
+    try {
+      const saved = localStorage.getItem(PRESENTATIONS_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0 && parsed.every((s) => typeof s?.html === 'string')) {
+          return parsed;
+        }
+      }
+    } catch { /* ignore */ }
+    return PRESENTATION_TEMPLATES.map((s) => ({ title: s.title, html: s.html }));
+  });
   const [editingMode, setEditingMode] = useState<'none' | 'html' | 'visual'>('none');
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const totalSlides = PRESENTATION_TEMPLATES.length;
+  const totalSlides = slides.length;
+
+  // Autoguardado en el navegador en cada cambio de slides
+  useEffect(() => {
+    try {
+      localStorage.setItem(PRESENTATIONS_STORAGE_KEY, JSON.stringify(slides));
+    } catch (err) {
+      console.warn('No se pudo autoguardar la presentación (posible límite de almacenamiento):', err);
+    }
+  }, [slides]);
+
+  // --- Persistencia en la nube (Supabase) ---
+  const { activeBusinessId } = useActiveBusiness();
+  const [presentationId, setPresentationId] = useState<string | null>(null);
+  const [cloudLoading, setCloudLoading] = useState(false);
+  const [cloudSaving, setCloudSaving] = useState(false);
+
+  // Carga la presentación del negocio activo al montar / cambiar de negocio
+  useEffect(() => {
+    if (!activeBusinessId) return;
+    let cancelled = false;
+    (async () => {
+      setCloudLoading(true);
+      try {
+        const { data, error } = await (supabase as any)
+          .from('presentations')
+          .select('id, slides')
+          .eq('business_id', activeBusinessId)
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (error) throw error;
+        if (!cancelled && data) {
+          setPresentationId(data.id);
+          if (Array.isArray(data.slides) && data.slides.length > 0) {
+            setSlides(data.slides);
+            setCurrentSlide(0);
+          }
+        }
+      } catch (err) {
+        console.error('Error cargando presentación de la nube:', err);
+      } finally {
+        if (!cancelled) setCloudLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [activeBusinessId]);
+
+  const saveToCloud = useCallback(async () => {
+    if (!activeBusinessId) {
+      toast({ title: 'No hay negocio activo', description: 'Selecciona un negocio para guardar en la nube.', variant: 'destructive' });
+      return;
+    }
+    setCloudSaving(true);
+    try {
+      if (presentationId) {
+        const { error } = await (supabase as any)
+          .from('presentations')
+          .update({ slides })
+          .eq('id', presentationId);
+        if (error) throw error;
+      } else {
+        const { data, error } = await (supabase as any)
+          .from('presentations')
+          .insert({ business_id: activeBusinessId, name: 'Presentación Xending', slides })
+          .select('id')
+          .single();
+        if (error) throw error;
+        setPresentationId(data.id);
+      }
+      toast({ title: '✅ Guardado en la nube' });
+    } catch (err) {
+      toast({ title: 'Error al guardar en la nube', description: err instanceof Error ? err.message : 'Error desconocido', variant: 'destructive' });
+    } finally {
+      setCloudSaving(false);
+    }
+  }, [activeBusinessId, presentationId, slides, toast]);
+
+  // Autoguardado en la nube (debounce) una vez que existe la presentación
+  useEffect(() => {
+    if (!presentationId || !activeBusinessId) return;
+    const t = setTimeout(async () => {
+      try {
+        await (supabase as any).from('presentations').update({ slides }).eq('id', presentationId);
+      } catch (err) {
+        console.error('Autoguardado en la nube falló:', err);
+      }
+    }, 2000);
+    return () => clearTimeout(t);
+  }, [slides, presentationId, activeBusinessId]);
+
+  const handleResetDeck = useCallback(() => {
+    const ok = window.confirm('¿Restablecer la presentación al diseño original? Se perderán los cambios y duplicados guardados en este navegador.');
+    if (!ok) return;
+    const fresh = PRESENTATION_TEMPLATES.map((s) => ({ title: s.title, html: s.html }));
+    setSlides(fresh);
+    setCurrentSlide(0);
+    try { localStorage.removeItem(PRESENTATIONS_STORAGE_KEY); } catch { /* ignore */ }
+    toast({ title: 'Presentación restablecida' });
+  }, [toast]);
 
   const goNext = useCallback(() => {
     setCurrentSlide((prev) => Math.min(prev + 1, totalSlides - 1));
@@ -103,23 +223,23 @@ function PresentationsPage() {
   }, [toast]);
 
   const handleDownloadSlide = useCallback(() => {
-    const html = slideHtmls[currentSlide];
+    const html = slides[currentSlide].html;
     const blob = new Blob([html], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `slide-${currentSlide + 1}-${PRESENTATION_TEMPLATES[currentSlide].title.toLowerCase().replace(/\s+/g, '-')}.html`;
+    a.download = `slide-${currentSlide + 1}-${slides[currentSlide].title.toLowerCase().replace(/\s+/g, '-')}.html`;
     a.click();
     URL.revokeObjectURL(url);
     toast({ title: 'Slide descargado' });
-  }, [currentSlide, slideHtmls, toast]);
+  }, [currentSlide, slides, toast]);
 
   // --- Export slides as PNG ---
   const [exporting, setExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
 
   const handleExportSlidesAsPng = useCallback(async (count: number = 6) => {
-    const total = Math.min(count, slideHtmls.length);
+    const total = Math.min(count, slides.length);
     setExporting(true);
     setExportProgress(0);
     toast({
@@ -130,8 +250,8 @@ function PresentationsPage() {
     try {
       for (let i = 0; i < total; i++) {
         setExportProgress(i);
-        const html = slideHtmls[i];
-        const slideInfo = PRESENTATION_TEMPLATES[i];
+        const html = slides[i].html;
+        const slideInfo = slides[i];
 
         // Render via Puppeteer server → PNG base64
         const pngDataUrl = await renderHtmlToPng(html, 'xending', 1920, 1080);
@@ -173,7 +293,101 @@ function PresentationsPage() {
     } finally {
       setExporting(false);
     }
-  }, [slideHtmls, toast]);
+  }, [slides, toast]);
+
+  // --- Export con selección (PDF o PNG, mismas dimensiones 1920×1080) ---
+  const [exportingPdf, setExportingPdf] = useState(false);
+  const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [exportFormat, setExportFormat] = useState<'pdf' | 'png'>('pdf');
+  const [exportSel, setExportSel] = useState<Set<number>>(new Set());
+
+  const downloadBlob = (blob: Blob, name: string) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const openExportModal = useCallback(() => {
+    setExportSel(new Set([currentSlide]));
+    setExportModalOpen(true);
+  }, [currentSlide]);
+
+  const runExport = useCallback(async () => {
+    const indices = [...exportSel].sort((a, b) => a - b);
+    if (indices.length === 0) {
+      toast({ title: 'Selecciona al menos una slide', variant: 'destructive' });
+      return;
+    }
+    setExportModalOpen(false);
+
+    if (exportFormat === 'pdf') {
+      setExportingPdf(true);
+      toast({ title: 'Generando PDF…', description: `${indices.length} slide(s) a 1920×1080.` });
+      try {
+        const items = indices.map((i) => ({ html: slides[i].html, width: 1920, height: 1080 }));
+        const pdfBase64 = await renderSlidesToPdf(items, 'xending-slides.pdf');
+        const bin = atob(pdfBase64);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        const name = indices.length === 1
+          ? `slide-${String(indices[0] + 1).padStart(2, '0')}.pdf`
+          : 'xending-slides.pdf';
+        downloadBlob(new Blob([bytes], { type: 'application/pdf' }), name);
+        toast({ title: '✅ PDF exportado', description: 'Cada página a 1920×1080.' });
+      } catch (err) {
+        toast({ title: 'Error al exportar PDF', description: err instanceof Error ? err.message : 'Error desconocido', variant: 'destructive' });
+      } finally {
+        setExportingPdf(false);
+      }
+    } else {
+      setExporting(true);
+      setExportProgress(0);
+      toast({ title: `Exportando ${indices.length} PNG…`, description: 'No cierres la pestaña.' });
+      try {
+        for (let k = 0; k < indices.length; k++) {
+          setExportProgress(k);
+          const i = indices[k];
+          const pngDataUrl = await renderHtmlToPng(slides[i].html, 'xending', 1920, 1080);
+          const base64 = pngDataUrl.replace(/^data:image\/png;base64,/, '');
+          const bin = atob(base64);
+          const bytes = new Uint8Array(bin.length);
+          for (let b = 0; b < bin.length; b++) bytes[b] = bin.charCodeAt(b);
+          const safe = slides[i].title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+          downloadBlob(new Blob([bytes], { type: 'image/png' }), `slide-${String(i + 1).padStart(2, '0')}-${safe}.png`);
+          await new Promise((r) => setTimeout(r, 300));
+        }
+        toast({ title: `✅ ${indices.length} PNG exportados` });
+      } catch (err) {
+        toast({ title: 'Error al exportar PNG', description: err instanceof Error ? err.message : 'Error desconocido', variant: 'destructive' });
+      } finally {
+        setExporting(false);
+      }
+    }
+  }, [exportSel, exportFormat, slides, toast]);
+
+  // Renombrar slide
+  const [renaming, setRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState('');
+
+  const startRename = useCallback(() => {
+    setRenameValue(slides[currentSlide].title);
+    setRenaming(true);
+  }, [slides, currentSlide]);
+
+  const commitRename = useCallback(() => {
+    setSlides((prev) => {
+      const updated = [...prev];
+      const name = renameValue.trim();
+      updated[currentSlide] = { ...updated[currentSlide], title: name || updated[currentSlide].title };
+      return updated;
+    });
+    setRenaming(false);
+  }, [renameValue, currentSlide]);
 
   const handleFullscreen = useCallback(() => {
     if (containerRef.current) {
@@ -186,21 +400,111 @@ function PresentationsPage() {
   }, []);
 
   const handleSaveHtml = useCallback((newHtml: string) => {
-    setSlideHtmls((prev) => {
+    setSlides((prev) => {
       const updated = [...prev];
-      updated[currentSlide] = newHtml;
+      updated[currentSlide] = { ...updated[currentSlide], html: newHtml };
       return updated;
     });
     setEditingMode('none');
-    toast({ title: 'Slide actualizado' });
+    toast({ title: 'Slide guardado' });
   }, [currentSlide, toast]);
+
+  // Aplica cambios al slide SIN salir del editor
+  const handleApplyHtml = useCallback((newHtml: string) => {
+    setSlides((prev) => {
+      const updated = [...prev];
+      updated[currentSlide] = { ...updated[currentSlide], html: newHtml };
+      return updated;
+    });
+    toast({ title: 'Cambios aplicados', description: 'Sigues editando. Usa Guardar para finalizar.' });
+  }, [currentSlide, toast]);
+
+  // Duplica el slide actual (como Canva) y se posiciona en la copia
+  const handleDuplicateSlide = useCallback(() => {
+    setSlides((prev) => {
+      const copy = { title: `${prev[currentSlide].title} (copia)`, html: prev[currentSlide].html };
+      const updated = [...prev.slice(0, currentSlide + 1), copy, ...prev.slice(currentSlide + 1)];
+      return updated;
+    });
+    setCurrentSlide((i) => i + 1);
+    toast({ title: 'Slide duplicado' });
+  }, [currentSlide, toast]);
+
+  // Inserta una plantilla (del catálogo) justo después del slide actual
+  const [addSlideMenuOpen, setAddSlideMenuOpen] = useState(false);
+  const handleInsertTemplate = useCallback((tplIndex: number) => {
+    const tpl = PRESENTATION_TEMPLATES[tplIndex];
+    setSlides((prev) => {
+      const item = { title: tpl.title, html: tpl.html };
+      return [...prev.slice(0, currentSlide + 1), item, ...prev.slice(currentSlide + 1)];
+    });
+    setCurrentSlide((i) => i + 1);
+    setAddSlideMenuOpen(false);
+    toast({ title: `Slide agregado: ${tpl.title}` });
+  }, [currentSlide, toast]);
+
+  // Reemplaza el HTML del slide actual con la versión más reciente de su plantilla (por nombre)
+  const handleReloadTemplate = useCallback(() => {
+    const title = slides[currentSlide].title;
+    const tpl = PRESENTATION_TEMPLATES.find((t) => t.title === title);
+    if (!tpl) {
+      toast({ title: 'No hay plantilla con este nombre', description: `"${title}" no coincide con ninguna plantilla del catálogo.`, variant: 'destructive' });
+      return;
+    }
+    const ok = window.confirm(`¿Reemplazar este slide con la versión más reciente de la plantilla "${title}"? Se perderán las ediciones hechas en ESTE slide (incluidas imágenes).`);
+    if (!ok) return;
+    setSlides((prev) => {
+      const updated = [...prev];
+      updated[currentSlide] = { ...updated[currentSlide], html: tpl.html };
+      return updated;
+    });
+    toast({ title: 'Plantilla recargada', description: 'El slide se actualizó al diseño más reciente.' });
+  }, [slides, currentSlide, toast]);
+
+  // Reordenar slides
+  const dragIndexRef = useRef<number | null>(null);
+  const moveSlideToIndex = useCallback((from: number, to: number) => {
+    setSlides((prev) => {
+      if (from === to || from < 0 || to < 0 || from >= prev.length || to >= prev.length) return prev;
+      const updated = [...prev];
+      const [item] = updated.splice(from, 1);
+      updated.splice(to, 0, item);
+      return updated;
+    });
+    setCurrentSlide(to);
+  }, []);
+
+  const moveSlide = useCallback((dir: -1 | 1) => {
+    setCurrentSlide((cur) => {
+      const to = cur + dir;
+      if (to < 0 || to >= slides.length) return cur;
+      setSlides((prev) => {
+        const updated = [...prev];
+        [updated[cur], updated[to]] = [updated[to], updated[cur]];
+        return updated;
+      });
+      return to;
+    });
+  }, [slides.length]);
+
+  const handleDeleteSlide = useCallback(() => {
+    if (slides.length <= 1) {
+      toast({ title: 'No puedes eliminar el único slide', variant: 'destructive' });
+      return;
+    }
+    const ok = window.confirm(`¿Eliminar el slide "${slides[currentSlide].title}"? Esta acción no se puede deshacer.`);
+    if (!ok) return;
+    setSlides((prev) => prev.filter((_, i) => i !== currentSlide));
+    setCurrentSlide((i) => Math.max(0, Math.min(i, slides.length - 2)));
+    toast({ title: 'Slide eliminado' });
+  }, [slides, currentSlide, toast]);
+
+  const currentHtml = slides[currentSlide].html;
+  const slideTitle = slides[currentSlide].title;
 
   const handleCancelEdit = useCallback(() => {
     setEditingMode('none');
   }, []);
-
-  const currentHtml = slideHtmls[currentSlide];
-  const slideTitle = PRESENTATION_TEMPLATES[currentSlide].title;
 
   // --- Editor modes ---
   if (editingMode === 'visual') {
@@ -211,6 +515,7 @@ function PresentationsPage() {
         dimensions={{ width: 1920, height: 1080 }}
         editableElements={PRESENTATION_ELEMENTS}
         onSave={handleSaveHtml}
+        onApply={handleApplyHtml}
         onCancel={handleCancelEdit}
       />
     );
@@ -282,6 +587,105 @@ function PresentationsPage() {
           <Button
             variant="outline"
             size="sm"
+            onClick={handleDuplicateSlide}
+            className="gap-2"
+          >
+            <Copy className="h-4 w-4" />
+            Duplicar slide
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => moveSlide(-1)}
+            disabled={currentSlide === 0}
+            title="Mover este slide una posición antes"
+            className="gap-1 px-2"
+          >
+            <ChevronLeft className="h-4 w-4" /> Mover
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => moveSlide(1)}
+            disabled={currentSlide === totalSlides - 1}
+            title="Mover este slide una posición después"
+            className="gap-1 px-2"
+          >
+            Mover <ChevronRight className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleDeleteSlide}
+            disabled={totalSlides <= 1}
+            title="Eliminar este slide"
+            className="gap-2 border-red-300 text-red-600 hover:bg-red-50"
+          >
+            <Trash2 className="h-4 w-4" />
+            Eliminar
+          </Button>
+          <div className="relative">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setAddSlideMenuOpen((o) => !o)}
+              className="gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              Agregar slide
+            </Button>
+            {addSlideMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setAddSlideMenuOpen(false)} />
+                <div className="absolute right-0 top-9 z-50 w-72 max-h-80 overflow-y-auto bg-background border rounded-lg shadow-xl p-1">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide px-2 py-1">Insertar plantilla aquí</p>
+                  {PRESENTATION_TEMPLATES.map((t, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => handleInsertTemplate(i)}
+                      className="w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted truncate"
+                    >
+                      {t.title}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={saveToCloud}
+            disabled={cloudSaving || cloudLoading}
+            className="gap-2 border-[#2ED4C7] text-[#0F1419]"
+            title="Guardar la presentación en la base de datos"
+          >
+            <UploadCloud className="h-4 w-4" />
+            {cloudSaving ? 'Guardando…' : cloudLoading ? 'Cargando…' : 'Guardar en la nube'}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleReloadTemplate}
+            className="gap-2 text-muted-foreground"
+            title="Reemplazar este slide con la última versión de su plantilla"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Recargar plantilla
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleResetDeck}
+            className="gap-2 text-muted-foreground"
+            title="Volver al diseño original (borra cambios locales)"
+          >
+            Restablecer
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
             onClick={handleDownloadSlide}
             className="gap-2"
           >
@@ -297,6 +701,15 @@ function PresentationsPage() {
           >
             <FileImage className="h-4 w-4" />
             {exporting ? `Exportando ${exportProgress + 1}/6…` : 'Exportar 6 PNG'}
+          </Button>
+          <Button
+            size="sm"
+            onClick={openExportModal}
+            disabled={exportingPdf || exporting}
+            className="gap-2 bg-[#0F1419] hover:bg-[#1a2332] text-white"
+          >
+            <Download className="h-4 w-4" />
+            {exportingPdf ? 'Generando PDF…' : 'Exportar…'}
           </Button>
           <Button
             size="sm"
@@ -338,13 +751,34 @@ function PresentationsPage() {
             Anterior
           </Button>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">
               {currentSlide + 1} / {totalSlides}
             </span>
-            <span className="text-sm font-medium text-foreground">
-              {slideTitle}
-            </span>
+            {renaming ? (
+              <input
+                autoFocus
+                value={renameValue}
+                onChange={(e) => setRenameValue(e.target.value)}
+                onBlur={commitRename}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') commitRename();
+                  if (e.key === 'Escape') setRenaming(false);
+                }}
+                className="text-sm font-medium border rounded px-2 py-0.5 bg-background w-56"
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={startRename}
+                title="Renombrar slide"
+                className="flex items-center gap-1.5 text-sm font-medium text-foreground border border-dashed border-muted-foreground/40 rounded-md px-2 py-0.5 hover:border-[#2ED4C7] hover:text-[#2ED4C7] transition-colors"
+              >
+                {slideTitle}
+                <Pencil className="h-3.5 w-3.5" />
+                <span className="text-[11px] text-muted-foreground">Renombrar</span>
+              </button>
+            )}
           </div>
 
           <Button
@@ -361,20 +795,29 @@ function PresentationsPage() {
 
         {/* Slide Thumbnails */}
         <div className="flex gap-2 overflow-x-auto pb-2">
-          {PRESENTATION_TEMPLATES.map((s, idx) => (
+          {slides.map((s, idx) => (
             <button
               key={idx}
               onClick={() => setCurrentSlide(idx)}
+              draggable
+              onDragStart={() => { dragIndexRef.current = idx; }}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={() => {
+                if (dragIndexRef.current !== null) moveSlideToIndex(dragIndexRef.current, idx);
+                dragIndexRef.current = null;
+              }}
               className={cn(
-                'flex-shrink-0 w-32 h-18 rounded-md border-2 transition-all overflow-hidden',
+                'flex-shrink-0 w-32 h-18 rounded-md border-2 transition-all overflow-hidden cursor-move',
                 'hover:border-[#2ED4C7]/50',
                 idx === currentSlide
                   ? 'border-[#2ED4C7] ring-2 ring-[#2ED4C7]/20'
                   : 'border-border opacity-70',
               )}
               aria-label={`Ir a slide ${idx + 1}: ${s.title}`}
+              title={`${idx + 1}. ${s.title} — arrástrala para reordenar`}
             >
-              <div className="w-full h-full bg-[#F5F3F0] flex items-center justify-center p-1">
+              <div className="w-full h-full bg-[#F5F3F0] flex flex-col items-center justify-center p-1 relative">
+                <span className="absolute top-0.5 left-1 text-[8px] text-[#0F1419]/40 font-mono">{idx + 1}</span>
                 <span className="text-[8px] text-[#0F1419]/70 text-center leading-tight truncate">
                   {s.title}
                 </span>
@@ -395,6 +838,77 @@ function PresentationsPage() {
           </p>
         </CardContent>
       </Card>
+
+      {/* Modal de exportación (seleccionar slides + formato) */}
+      {exportModalOpen && (
+        <div className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center p-6" onClick={() => setExportModalOpen(false)}>
+          <div className="bg-background rounded-xl shadow-2xl w-full max-w-md max-h-[85vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b">
+              <h3 className="text-sm font-semibold">Exportar slides</h3>
+              <button type="button" onClick={() => setExportModalOpen(false)} className="text-xs px-3 py-1.5 rounded border hover:bg-muted">Cerrar</button>
+            </div>
+
+            <div className="p-4 space-y-3">
+              {/* Formato */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">Formato:</span>
+                {(['pdf', 'png'] as const).map((f) => (
+                  <button
+                    key={f}
+                    type="button"
+                    onClick={() => setExportFormat(f)}
+                    className={cn('text-xs px-3 py-1.5 rounded border uppercase', exportFormat === f ? 'bg-primary text-primary-foreground border-primary' : 'hover:bg-muted')}
+                  >
+                    {f}
+                  </button>
+                ))}
+                <span className="text-[11px] text-muted-foreground ml-auto">1920×1080</span>
+              </div>
+
+              {/* Presets */}
+              <div className="flex items-center gap-2">
+                <button type="button" onClick={() => setExportSel(new Set([currentSlide]))} className="text-xs px-2 py-1 rounded border hover:bg-muted">Página actual</button>
+                <button type="button" onClick={() => setExportSel(new Set(slides.map((_, i) => i)))} className="text-xs px-2 py-1 rounded border hover:bg-muted">Todas</button>
+                <button type="button" onClick={() => setExportSel(new Set())} className="text-xs px-2 py-1 rounded border hover:bg-muted">Ninguna</button>
+                <span className="text-xs text-muted-foreground ml-auto">{exportSel.size} sel.</span>
+              </div>
+
+              {/* Lista con checkboxes */}
+              <div className="max-h-64 overflow-y-auto border rounded-md divide-y">
+                {slides.map((s, i) => (
+                  <label key={i} className="flex items-center gap-2 px-3 py-2 text-xs cursor-pointer hover:bg-muted">
+                    <input
+                      type="checkbox"
+                      checked={exportSel.has(i)}
+                      onChange={(e) => {
+                        setExportSel((prev) => {
+                          const n = new Set(prev);
+                          if (e.target.checked) n.add(i); else n.delete(i);
+                          return n;
+                        });
+                      }}
+                    />
+                    <span className="text-muted-foreground w-8">{i + 1}</span>
+                    <span className="truncate">{s.title}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="p-4 border-t flex justify-end gap-2">
+              <button type="button" onClick={() => setExportModalOpen(false)} className="text-xs px-3 py-1.5 rounded border hover:bg-muted">Cancelar</button>
+              <button
+                type="button"
+                onClick={runExport}
+                disabled={exportSel.size === 0}
+                className="text-xs px-4 py-1.5 rounded bg-[#FF7A4A] text-white disabled:opacity-50"
+              >
+                Exportar {exportFormat.toUpperCase()}{exportSel.size > 0 ? ` (${exportSel.size})` : ''}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

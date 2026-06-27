@@ -14,6 +14,17 @@ const FONTS = 'https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@
 
 const GRAIN = `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`;
 
+// ─── Portada "Aliado Mapa" (slide01_cover_v13) ──────────────────────────────
+// URL pública del mapa mundial subido al bucket de Supabase (Opción B).
+// TODO: reemplazar con la URL real del PNG hosteado.
+const MAP_COVER_URL = 'https://gdfhytvjnzdovjfovqfv.supabase.co/storage/v1/object/public/design-images/presentations/xending_mapa_extraido_transparente_fuerte.png';
+
+// Tipografía de la portada del mapa. Para cambiar el tipo de letra, edita SOLO
+// estas dos líneas (familia de Google Fonts + nombres CSS).
+const MAP_COVER_FONTS = 'https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Poppins:wght@500;600;700&display=swap';
+const MAP_COVER_FONT_TITLE = "'Montserrat', sans-serif";
+const MAP_COVER_FONT_BODY = "'Poppins', sans-serif";
+
 // ─── SLIDE 1 V2: Cover — Navy Split ─────────────────────────────────────────
 
 export const slide01_cover_v2: string = `<!DOCTYPE html>
@@ -6399,6 +6410,348 @@ export const slide07_closing_v1: string = `<!DOCTYPE html>
 </body>
 </html>`;
 
+// ─── SLIDE 1 V13: Cover — Aliado Mapa (mapa mundial + logo Xending) ─────────
+
+export const slide01_cover_v13: string = `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width">
+  <style>
+    @import url('${MAP_COVER_FONTS}');
+
+    :root {
+      --mint: #2ED4C7;
+      --coral: #FF7A4A;
+      --navy: #0F1419;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { margin: 0; overflow: hidden; background: #ffffff; }
+
+    .slide {
+      width: 1600px;
+      height: 900px;
+      position: relative;
+      overflow: hidden;
+      font-family: ${MAP_COVER_FONT_BODY};
+      background: linear-gradient(180deg, #ffffff 0%, #fcfcfc 100%);
+      transform-origin: top left;
+    }
+
+    /* Mapa mundial (lado derecho) */
+    .map-panel {
+      position: absolute; right: 0; top: 0; width: 880px; height: 100%;
+      background-image: url('${MAP_COVER_URL}');
+      background-repeat: no-repeat; background-position: center right; background-size: cover;
+      z-index: 1; opacity: 1; filter: contrast(1.20) brightness(.99) saturate(1.06);
+    }
+    .map-panel::before {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(90deg, rgba(255,255,255,0.86) 0%, rgba(255,255,255,0.52) 18%, rgba(255,255,255,0.12) 42%, rgba(255,255,255,0.00) 72%, rgba(255,255,255,0.00) 100%);
+    }
+    .slide::before {
+      content: ''; position: absolute; right: 110px; top: 120px; width: 560px; height: 560px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(46,212,199,.035) 0%, rgba(46,212,199,0) 72%); z-index: 0;
+    }
+
+    /* Logo Xending (orb hosteado + wordmark) */
+    .logo-row {
+      position: absolute; left: 76px; top: 60px; z-index: 5;
+      display: flex; align-items: center; gap: 14px;
+    }
+    .logo-row img { width: 48px; height: 48px; object-fit: contain; }
+    .logo-row .wordmark { font-family: ${MAP_COVER_FONT_BODY}; font-weight: 700; font-size: 28px; color: #081b57; }
+
+    .content { position: absolute; left: 76px; top: 200px; width: 710px; z-index: 3; }
+    h1 {
+      margin: 0; font-family: ${MAP_COVER_FONT_TITLE}; color: #081b57;
+      font-size: 106px; line-height: .95; letter-spacing: -0.055em; font-weight: 700;
+    }
+    h1 .highlight {
+      display: block; font-family: ${MAP_COVER_FONT_TITLE}; margin-top: 10px;
+      color: var(--mint); font-weight: 600; letter-spacing: -0.05em;
+    }
+    .accent-line { width: 60px; height: 4px; margin: 38px 0 34px; background: var(--coral); border-radius: 999px; }
+    .subtitle {
+      margin: 0; font-family: ${MAP_COVER_FONT_BODY}; max-width: 630px;
+      color: #1a2a62; font-size: 24px; line-height: 1.5; font-weight: 600;
+    }
+    .footer-nav {
+      position: absolute; font-family: ${MAP_COVER_FONT_BODY}; left: 76px; bottom: 64px; z-index: 4;
+      font-size: 18px; line-height: 1; letter-spacing: .28em; text-transform: uppercase;
+      font-weight: 500; color: #11235a; white-space: nowrap;
+    }
+    .footer-nav .dot { color: var(--coral); padding: 0 18px; font-weight: 700; }
+  </style>
+  <script>
+    (function() {
+      function resize() {
+        var slide = document.querySelector('.slide');
+        if (!slide) return;
+        var w = document.documentElement.clientWidth || window.innerWidth;
+        var h = document.documentElement.clientHeight || window.innerHeight;
+        var scale = Math.min(w / 1600, h / 900);
+        slide.style.transform = 'scale(' + scale + ')';
+      }
+      window.addEventListener('resize', resize);
+      resize(); setTimeout(resize, 50); setTimeout(resize, 200);
+    })();
+  </script>
+</head>
+<body style="margin:0;overflow:hidden;background:#ffffff;width:100%;height:100vh;">
+  <div class="slide">
+    <div class="map-panel"></div>
+
+    <div class="logo-row">
+      <img src="${LOGO_URL}" alt="Xending" />
+      <span class="wordmark">xending</span>
+    </div>
+
+    <div class="content">
+      <h1>Tu aliado financiero <span class="highlight">internacional</span></h1>
+      <div class="accent-line"></div>
+      <p class="subtitle">Tecnología, experiencia y soluciones financieras diseñadas para empresas globales.</p>
+    </div>
+
+    <div class="footer-nav">GLOBAL FX <span class="dot">•</span> PAYMENTS <span class="dot">•</span> TREASURY</div>
+  </div>
+</body>
+</html>`;
+
+// ─── SLIDE 2: Presencia global (3 stats con iconos reemplazables) ───────────
+
+const PG_FONTS = 'https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..700&family=Poppins:wght@400;500;600;700&display=swap';
+const PG_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='280' height='280'%3E%3Crect x='6' y='6' width='268' height='268' rx='28' fill='%23F5F7FA' stroke='%23CBD5E1' stroke-width='2' stroke-dasharray='9 7'/%3E%3Ctext x='50%25' y='50%25' font-family='Poppins,sans-serif' font-size='20' fill='%2394A3B8' text-anchor='middle' dominant-baseline='middle'%3Eicono%3C/text%3E%3C/svg%3E";
+
+export const slide02_presencia_global: string = `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width">
+  <style>
+    @import url('${PG_FONTS}');
+    :root { --mint: #2ED4C7; --coral: #FF7A4A; --navy: #0F1419; --navy-title: #081B57; --gray: #6B7280; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { margin: 0; overflow: hidden; background: #ffffff; }
+
+    .slide {
+      width: 1920px; height: 1080px; position: relative; overflow: hidden;
+      font-family: 'Poppins', sans-serif;
+      background: linear-gradient(180deg, #ffffff 0%, #fbfcfd 100%);
+      transform-origin: top left;
+      display: flex; flex-direction: column; align-items: center;
+      padding: 90px 120px 80px;
+    }
+
+    /* Header */
+    .header { text-align: center; }
+    h1 {
+      font-family: 'Fraunces', serif; font-weight: 600; font-size: 104px; line-height: 1;
+      color: var(--navy-title); letter-spacing: -1px;
+    }
+    h1 .accent {
+      font-style: italic; font-weight: 600;
+      background: linear-gradient(135deg, #FF7A4A, #FF9468);
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    .title-line { width: 72px; height: 4px; background: var(--coral); border-radius: 999px; margin: 28px auto 30px; }
+    .subtitle {
+      font-family: 'Poppins', sans-serif; font-weight: 500; font-size: 30px; line-height: 1.5;
+      color: #1a2a62; max-width: 900px; margin: 0 auto;
+    }
+
+    /* Columns */
+    .cols { display: flex; align-items: stretch; justify-content: center; gap: 0; width: 100%; margin-top: 70px; flex: 1; }
+    .col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; text-align: center; padding: 0 40px; }
+    .divider { width: 1px; background: rgba(8,27,87,0.12); align-self: center; height: 420px; }
+
+    /* Icon slot — reemplaza la imagen desde el Editor Visual */
+    .icon-slot { width: 300px; height: 300px; display: flex; align-items: center; justify-content: center; }
+    .stat-icon { width: 100%; height: 100%; object-fit: contain; }
+
+    .stat-line { width: 60px; height: 4px; background: var(--coral); border-radius: 999px; margin: 30px 0 22px; }
+    .number {
+      font-family: 'Fraunces', serif; font-weight: 600; font-size: 88px; line-height: 1;
+      color: var(--navy-title);
+    }
+    .number.same-day { font-style: italic; font-weight: 500; font-size: 72px; }
+    .label {
+      font-family: 'Poppins', sans-serif; font-weight: 500; font-size: 24px; line-height: 1.4;
+      color: var(--gray); margin-top: 16px;
+    }
+  </style>
+  <script>
+    (function() {
+      function resize() {
+        var slide = document.querySelector('.slide');
+        if (!slide) return;
+        var w = document.documentElement.clientWidth || window.innerWidth;
+        var h = document.documentElement.clientHeight || window.innerHeight;
+        var scale = Math.min(w / 1920, h / 1080);
+        slide.style.transform = 'scale(' + scale + ')';
+      }
+      window.addEventListener('resize', resize);
+      resize(); setTimeout(resize, 50); setTimeout(resize, 200);
+    })();
+  </script>
+</head>
+<body style="margin:0;overflow:hidden;background:#ffffff;width:100%;height:100vh;">
+  <div class="slide">
+    <div class="header">
+      <h1>Presencia <span class="accent">global</span></h1>
+      <div class="title-line"></div>
+      <p class="subtitle">Tecnología, experiencia y soluciones financieras diseñadas para empresas globales.</p>
+    </div>
+
+    <div class="cols">
+      <div class="col">
+        <div class="icon-slot"><img class="stat-icon" src="${PG_ICON}#i1" alt="" /></div>
+        <div class="stat-line"></div>
+        <div class="number">30+</div>
+        <div class="label">años de experiencia<br/>en el mercado fx</div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="col">
+        <div class="icon-slot"><img class="stat-icon" src="${PG_ICON}#i2" alt="" /></div>
+        <div class="stat-line"></div>
+        <div class="number">130+</div>
+        <div class="label">divisas<br/>disponibles</div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="col">
+        <div class="icon-slot"><img class="stat-icon" src="${PG_ICON}#i3" alt="" /></div>
+        <div class="stat-line"></div>
+        <div class="number same-day">Same Day</div>
+        <div class="label">pagos a asia<br/>en el mismo día</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+
+// ─── SLIDE 3 2.0: Por qué Xending (hero + 3 cards con iconos) ───────────────
+
+const PG_HERO = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='760' height='380'%3E%3Crect x='4' y='4' width='752' height='372' rx='22' fill='%23F5F7FA' stroke='%23CBD5E1' stroke-width='2' stroke-dasharray='11 8'/%3E%3Ctext x='50%25' y='50%25' font-family='Poppins,sans-serif' font-size='24' fill='%2394A3B8' text-anchor='middle' dominant-baseline='middle'%3Eimagen%3C/text%3E%3C/svg%3E";
+
+export const slide03_porque_xending: string = `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width">
+  <style>
+    @import url('${PG_FONTS}');
+    :root { --mint: #2ED4C7; --coral: #FF7A4A; --navy: #0F1419; --navy-title: #081B57; --gray: #6B7280; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { margin: 0; overflow: hidden; background: #ffffff; }
+
+    .slide {
+      width: 1920px; height: 1080px; position: relative; overflow: hidden;
+      font-family: 'Poppins', sans-serif;
+      background: linear-gradient(180deg, #ffffff 0%, #fbfcfd 100%);
+      transform-origin: top left;
+      display: flex; gap: 70px; padding: 80px 96px 96px;
+    }
+
+    /* Columna izquierda */
+    .left { flex: 0.92; display: flex; flex-direction: column; position: relative; z-index: 2; }
+    .eyebrow-row { display: flex; align-items: center; gap: 14px; }
+    .eyebrow-line { width: 44px; height: 3px; background: var(--coral); border-radius: 999px; }
+    .eyebrow { color: var(--coral); font-weight: 600; font-size: 15px; letter-spacing: 3px; text-transform: uppercase; }
+    h1 { font-family: 'Fraunces', serif; font-weight: 600; font-size: 76px; line-height: 1.05; color: var(--navy-title); margin-top: 24px; letter-spacing: -1px; }
+    h1 .accent { font-style: italic; background: linear-gradient(135deg, #FF7A4A, #FF9468); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .subtitle { font-family: 'Poppins', sans-serif; font-weight: 500; font-size: 22px; line-height: 1.55; color: #1a2a62; margin-top: 26px; max-width: 560px; }
+    .hero {
+      position: absolute; left: 0; top: 0; width: 100%; height: 100%;
+      background-size: 92% auto; background-position: left bottom; background-repeat: no-repeat;
+      z-index: 0;
+      pointer-events: none;
+      /* foto fuerte abajo-izquierda, se funde hacia el centro/arriba/derecha */
+      -webkit-mask-image: radial-gradient(ellipse 60% 60% at 22% 82%, #000 34%, rgba(0,0,0,0) 74%);
+              mask-image: radial-gradient(ellipse 60% 60% at 22% 82%, #000 34%, rgba(0,0,0,0) 74%);
+      -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+    }
+
+    /* Columna derecha — 3 cards (altura fija, balanceadas) */
+    .cards { flex: 1.18; display: flex; gap: 28px; align-items: flex-start; margin-top: 40px; position: relative; z-index: 2; }
+    .card { flex: 1; height: 810px; background: #ffffff; border: 1px solid rgba(8,27,87,0.06); border-radius: 26px; padding: 40px 34px; box-shadow: 0 20px 55px rgba(15,20,25,0.06); display: flex; flex-direction: column; }
+    .icon-slot { width: 190px; height: 190px; align-self: center; margin: 6px 0 10px; }
+    .stat-icon { width: 100%; height: 100%; object-fit: contain; }
+    .card-line { width: 52px; height: 3px; background: var(--coral); border-radius: 999px; margin: 30px 0 20px; }
+    .card h3 { font-family: 'Fraunces', serif; font-weight: 600; font-size: 30px; line-height: 1.18; color: var(--navy-title); }
+    .card-sub { font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 18px; line-height: 1.4; color: var(--navy-title); margin-top: 20px; }
+    .card-body { font-family: 'Poppins', sans-serif; font-weight: 400; font-size: 16px; line-height: 1.6; color: var(--gray); margin-top: 12px; }
+    .card-body .hl { color: var(--mint); font-weight: 600; }
+    .pill { margin-top: auto; align-self: flex-start; display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px; border-radius: 999px; background: rgba(46,212,199,0.12); color: #1FB8AC; font-weight: 600; font-size: 13px; }
+
+    .footer-note { position: absolute; left: 0; right: 0; bottom: 32px; text-align: center; font-family: 'Poppins', sans-serif; font-size: 14px; color: #9aa3af; z-index: 2; }
+  </style>
+  <script>
+    (function() {
+      function resize() {
+        var slide = document.querySelector('.slide');
+        if (!slide) return;
+        var w = document.documentElement.clientWidth || window.innerWidth;
+        var h = document.documentElement.clientHeight || window.innerHeight;
+        var scale = Math.min(w / 1920, h / 1080);
+        slide.style.transform = 'scale(' + scale + ')';
+      }
+      window.addEventListener('resize', resize);
+      resize(); setTimeout(resize, 50); setTimeout(resize, 200);
+    })();
+  </script>
+</head>
+<body style="margin:0;overflow:hidden;background:#ffffff;width:100%;height:100vh;">
+  <div class="slide">
+    <!-- Foto de fondo (capa detrás de todo el contenido) -->
+    <div class="hero" style="background-image:url('${PG_HERO}');"></div>
+
+    <!-- Izquierda -->
+    <div class="left">
+      <div class="eyebrow-row">
+        <span class="eyebrow-line"></span>
+        <span class="eyebrow">Por qué Xending</span>
+      </div>
+      <h1>Tu mejor opción para operar <span class="accent">globalmente</span></h1>
+      <p class="subtitle">Centraliza tus pagos, divisas y onboarding empresarial en una plataforma diseñada para empresas que operan globalmente con velocidad, cumplimiento y atención experta.</p>
+    </div>
+
+    <!-- Derecha: 3 cards -->
+    <div class="cards">
+      <div class="card">
+        <div class="icon-slot"><img class="stat-icon" src="${PG_ICON}#c1" alt="" /></div>
+        <div class="card-line"></div>
+        <h3>Velocidad operativa</h3>
+        <div class="card-sub">Sin fricciones, rápido y sencillo.</div>
+        <div class="card-body">Procesos digitales para cotizar, validar y ejecutar operaciones con mayor agilidad.</div>
+      </div>
+
+      <div class="card">
+        <div class="icon-slot"><img class="stat-icon" src="${PG_ICON}#c2" alt="" /></div>
+        <div class="card-line"></div>
+        <h3>Pagos a China el mismo día</h3>
+        <div class="card-sub">Conexión directa para pagos internacionales.</div>
+        <div class="card-body">Pagos a proveedores con seguimiento operativo, soporte especializado y mayor visibilidad en cada transferencia.</div>
+        <div class="pill">✓ Rápido, seguro y trazable</div>
+      </div>
+
+      <div class="card">
+        <div class="icon-slot"><img class="stat-icon" src="${PG_ICON}#c3" alt="" /></div>
+        <div class="card-line"></div>
+        <h3>Atención personalizada</h3>
+        <div class="card-sub">Expertos que entienden tu negocio.</div>
+        <div class="card-body">Un equipo especializado que acompaña a tu empresa en <span class="hl">pagos, divisas y decisiones financieras internacionales</span>.</div>
+      </div>
+    </div>
+
+    <div class="footer-note">*Sujeto a horario, divisa, banco destino y validación operativa.</div>
+  </div>
+</body>
+</html>`;
+
 // ─── EXPORT ──────────────────────────────────────────────────────────────────
 
 export const PRESENTATION_TEMPLATES_V2 = [
@@ -6409,6 +6762,9 @@ export const PRESENTATION_TEMPLATES_V2 = [
   { title: 'Portada (Orb Halo Dark)', html: slide01_cover_v6 },
   { title: 'Portada (Orb Halo Light)', html: slide01_cover_v7 },
   { title: 'Portada (Aliado Internacional)', html: slide01_cover_v8 },
+  { title: 'Portada (Aliado Mapa)', html: slide01_cover_v13 },
+  { title: 'Presencia Global', html: slide02_presencia_global },
+  { title: 'Slide 3 2.0', html: slide03_porque_xending },
   { title: 'Portada (Halo Portal)', html: slide01_cover_v9 },
   { title: 'Portada (Navy Foto Halo)', html: slide01_cover_v10 },
   { title: 'Portada (Aliado Fusion)', html: slide01_cover_v11 },

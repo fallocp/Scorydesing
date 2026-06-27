@@ -114,6 +114,52 @@ async function renderBatch(items, waitForFonts = false) {
   return results;
 }
 
+// Render multiple slides into a single multi-page PDF at exact pixel dimensions.
+// Cada slide se renderiza primero a PNG (mismas dimensiones que el export PNG) y
+// luego se ensamblan como páginas a tamaño completo, garantizando dimensiones idénticas.
+async function renderPdf(items, waitForFonts = true) {
+  const results = await renderBatch(items, waitForFonts);
+  const ok = results.filter((r) => r.success);
+  if (ok.length === 0) throw new Error('No slides rendered for PDF');
+
+  const W = items[0].width;
+  const H = items[0].height;
+  const pages = ok
+    .map((r) => `<div class="page"><img src="data:image/png;base64,${r.pngBase64}"/></div>`)
+    .join('');
+  const html = `<!doctype html><html><head><meta charset="utf-8"><style>
+@page { size: ${W}px ${H}px; margin: 0; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+.page { width: ${W}px; height: ${H}px; overflow: hidden; page-break-after: always; }
+.page:last-child { page-break-after: auto; }
+img { width: ${W}px; height: ${H}px; display: block; }
+</style></head><body>${pages}</body></html>`;
+
+  // page.pdf() crashea con '--single-process'; usamos un navegador dedicado sin ese flag.
+  const pdfBrowser = await puppeteer.launch({
+    headless: 'new',
+    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
+  });
+  activePages++;
+  try {
+    const page = await pdfBrowser.newPage();
+    await page.setViewport({ width: W, height: H });
+    await page.setContent(html, { waitUntil: 'networkidle0', timeout: 60000 });
+    const pdf = await page.pdf({
+      width: `${W}px`,
+      height: `${H}px`,
+      printBackground: true,
+      preferCSSPageSize: true,
+    });
+    return Buffer.from(pdf).toString('base64');
+  } finally {
+    activePages--;
+    await pdfBrowser.close();
+  }
+}
+
 function validateAuth(req) {
   if (!AUTH_TOKEN) return true; // No token configured = open access
   const authHeader = req.headers['authorization'] || '';
@@ -231,6 +277,36 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // POST /render-pdf — Render slides to a single multi-page PDF (mismas dimensiones que PNG)
+  if (req.method === 'POST' && req.url === '/render-pdf') {
+    try {
+      const { items, waitForFonts, filename } = await readBody(req);
+
+      if (!items || !Array.isArray(items) || items.length === 0) {
+        jsonResponse(res, 400, { error: 'Missing or empty items array' });
+        return;
+      }
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (!item.html || !item.width || !item.height) {
+          jsonResponse(res, 400, { error: `Item ${i}: missing html, width, or height` });
+          return;
+        }
+      }
+
+      console.log(`Rendering PDF (${items.length} pages)...`);
+      const pdfStart = Date.now();
+      const pdfBase64 = await renderPdf(items, waitForFonts ?? true);
+      console.log(`  ✅ PDF done (${Date.now() - pdfStart}ms)`);
+
+      jsonResponse(res, 200, { pdfBase64, filename: filename || 'presentation.pdf' });
+    } catch (err) {
+      console.error('PDF render error:', err.message);
+      jsonResponse(res, 500, { error: err.message });
+    }
+    return;
+  }
+
   jsonResponse(res, 404, { error: 'Not found' });
 });
 
@@ -238,6 +314,7 @@ server.listen(PORT, () => {
   console.log(`\n🎨 Render Service running on port ${PORT}`);
   console.log(`   POST /render       — Single HTML → PNG`);
   console.log(`   POST /render-batch — Batch HTML → PNG (max ${MAX_CONCURRENT} concurrent)`);
+  console.log(`   POST /render-pdf   — Slides → single multi-page PDF`);
   console.log(`   GET  /health       — Health check`);
   console.log(`   Auth: ${AUTH_TOKEN ? 'ENABLED (Bearer token)' : 'DISABLED (open)'}\n`);
 });
