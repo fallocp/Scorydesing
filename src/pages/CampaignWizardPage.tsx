@@ -145,6 +145,7 @@ function CampaignWizardPage() {
         skipClaimValidation: false,
         channels: platforms.length > 0 ? platforms : ['instagram-story'],
         selectedTemplates: config.selectedTemplates,
+        textInImage: config.textInImage,
         promoters: config.includePromoter ? config.selectedPromoters.map((p) => ({
           name: p.name,
           role: p.role,

@@ -2,6 +2,12 @@
 
 Guía completa del sistema de dos pasos para generar imágenes on-brand con la API de GPT Image 2 (`gpt-image-2`).
 
+> **Estilo navy (dirección de arte) — fuente de verdad:** la definición del estilo
+> `navy` (dark premium graphite: materiales, halo teal, acentos de marca, dirección
+> por escena y negative prompt) vive en el bloque `### navy` de
+> `MASTER_IMAGE_PROMPT_FALLBACK` en `supabase/functions/generate-design-image/index.ts`.
+> Los ejemplos de esta guía son ilustrativos del flujo legacy y NO redefinen ese estilo.
+
 ---
 
 ## Arquitectura: Sistema de Dos Pasos

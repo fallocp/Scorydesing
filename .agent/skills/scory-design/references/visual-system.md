@@ -2,6 +2,12 @@
 
 Especificación completa del sistema visual compartido por ambas marcas. Todos los templates y piezas generadas DEBEN seguir estas reglas.
 
+> **Alcance:** este documento define la **capa HTML de render** (fondos CSS, mesh
+> gradient, tipografía y layout que el template engine aplica sobre la imagen). NO
+> define la dirección de arte de la imagen generada por IA. El estilo `navy` de la
+> imagen (dark premium graphite) vive en el bloque `### navy` de
+> `MASTER_IMAGE_PROMPT_FALLBACK` (`supabase/functions/generate-design-image/index.ts`).
+
 ---
 
 ## Paleta de Colores

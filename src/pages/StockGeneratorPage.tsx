@@ -45,6 +45,7 @@ function StockGeneratorPage() {
   const [variations, setVariations] = useState<ImageVariation[]>([]);
   const [newVariation, setNewVariation] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [textInImage, setTextInImage] = useState(false);
 
   const generateImage = useGenerateImage();
 
@@ -200,7 +201,7 @@ function StockGeneratorPage() {
           userRequest: `${theme}: ${variation.prompt}`,
           brand: selectedBrand,
           style: 'hyperrealistic premium corporate',
-          includeText: false,
+          includeText: textInImage,
         });
 
         setVariations((prev) =>
@@ -283,6 +284,27 @@ function StockGeneratorPage() {
       <section className="space-y-3">
         <h2 className="text-lg font-semibold text-foreground">Marca</h2>
         <BrandSelector value={selectedBrand} onChange={setBrand} />
+      </section>
+
+      {/* Text in image toggle */}
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold text-foreground">Texto en la imagen</h2>
+        <div className="flex gap-2">
+          {[
+            { value: false, label: 'Sin texto', hint: 'Imagen limpia, el texto va en el caption' },
+            { value: true, label: 'Con texto', hint: 'La IA incorpora texto en la imagen' },
+          ].map((opt) => (
+            <Button
+              key={String(opt.value)}
+              variant={textInImage === opt.value ? 'default' : 'outline'}
+              size="sm"
+              title={opt.hint}
+              onClick={() => setTextInImage(opt.value)}
+            >
+              {opt.label}
+            </Button>
+          ))}
+        </div>
       </section>
 
       {/* Theme Selection */}

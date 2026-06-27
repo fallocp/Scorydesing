@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Xending portada v2</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --mint: #2ED4C7;
+      --coral: #FF7A4A;
+      --navy: #0F1419;
+      --white: #FFFFFF;
+      --light-gray: #F5F5F5;
+      --cream: #F5F3F0;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: #edf0f2; }
+    body { font-family: 'Poppins', sans-serif; }
+    .stage { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
+    .slide {
+      width: 1600px; height: 900px; position: relative; overflow: hidden;
+      background: linear-gradient(180deg, #ffffff 0%, #fcfcfc 100%);
+      box-shadow: 0 24px 80px rgba(15,20,25,.12);
+    }
+    [contenteditable="true"]:focus {
+      outline: 2px dashed rgba(46,212,199,.65);
+      outline-offset: 6px; border-radius: 8px;
+    }
+
+    /* Logo de Xending (esquina superior izquierda) */
+    .brand-logo { position: absolute; left: 76px; top: 60px; z-index: 5; display: flex; align-items: center; }
+    .brand-logo img { height: 56px; width: auto; display: block; }
+    /* Fallback wordmark: se muestra si no carga la imagen del logo */
+    .brand-logo .wordmark {
+      font-family: 'Montserrat', sans-serif; font-weight: 800;
+      font-size: 34px; letter-spacing: -0.03em; color: #081b57;
+    }
+    .brand-logo .wordmark .accent { color: var(--mint); }
+
+    .content { position: absolute; left: 76px; top: 200px; width: 710px; z-index: 3; }
+    .title {
+      margin: 0; font-family: 'Montserrat', sans-serif; color: #081b57;
+      font-size: 106px; line-height: .95; letter-spacing: -0.055em; font-weight: 700;
+    }
+    .title .highlight {
+      display: block; font-family: 'Montserrat', sans-serif; margin-top: 10px;
+      color: var(--mint); font-weight: 600; letter-spacing: -0.05em;
+    }
+    .accent-line { width: 60px; height: 4px; margin: 38px 0 34px; background: var(--coral); border-radius: 999px; }
+    .subtitle {
+      margin: 0; font-family: 'Poppins', sans-serif; max-width: 630px;
+      color: #1a2a62; font-size: 24px; line-height: 1.5; font-weight: 600;
+    }
+    .footer-nav {
+      position: absolute; font-family: 'Poppins', sans-serif; left: 76px; bottom: 64px; z-index: 4;
+      font-size: 18px; line-height: 1; letter-spacing: .28em; text-transform: uppercase;
+      font-weight: 500; color: #11235a; white-space: nowrap;
+    }
+    .footer-nav .dot { color: var(--coral); padding: 0 18px; font-weight: 700; }
+    .map-panel {
+      position: absolute; right: 0; top: 0; width: 880px; height: 100%;
+      background-image: url('xending_mapa_extraido_transparente_fuerte.png');
+      background-repeat: no-repeat; background-position: center right; background-size: cover;
+      z-index: 1; opacity: 1; filter: contrast(1.20) brightness(.99) saturate(1.06);
+    }
+    .map-panel::before {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(90deg, rgba(255,255,255,0.86) 0%, rgba(255,255,255,0.52) 18%, rgba(255,255,255,0.12) 42%, rgba(255,255,255,0.00) 72%, rgba(255,255,255,0.00) 100%);
+    }
+    .slide::before {
+      content: ''; position: absolute; right: 110px; top: 120px; width: 560px; height: 560px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(46,212,199,.035) 0%, rgba(46,212,199,0) 72%); z-index: 0;
+    }
+    .note { position: absolute; left: 76px; top: 36px; font-size: 12px; color: rgba(15,20,25,.28); letter-spacing: .05em; z-index: 5; display: none; }
+    @media (max-width: 1680px) {
+      .slide { transform: scale(calc((100vw - 48px) / 1600)); transform-origin: top center; }
+      .stage { align-items: start; }
+    }
+    @page { size: 1600px 900px; margin: 0; }
+    @media print {
+      html, body { background: #fff; }
+      .stage { padding: 0; }
+      .slide { box-shadow: none; transform: none !important; }
+      .note { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <section class="slide">
+      <div class="map-panel"></div>
+
+      <!-- Logo: archivo SVG en F:\ScoryDesign.
+           Si no carga, se muestra el wordmark de texto como respaldo. -->
+      <div class="brand-logo">
+        <img src="Xending Logo (Vector) (1).svg" alt="Xending"
+             onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" />
+        <span class="wordmark" style="display:none;">Xend<span class="accent">ing</span></span>
+      </div>
+
+      <div class="content">
+        <h1 class="title" contenteditable="true">Tu aliado financiero <span class="highlight">internacional</span></h1>
+        <div class="accent-line"></div>
+        <p class="subtitle" contenteditable="true">Tecnología, experiencia y soluciones financieras diseñadas para empresas globales.</p>
+      </div>
+
+      <div class="footer-nav" contenteditable="true">GLOBAL FX <span class="dot">•</span> PAYMENTS <span class="dot">•</span> TREASURY</div>
+      <div class="note">Portada con logo · Montserrat títulos · Poppins SemiBold textos pequeños · mapa reforzado</div>
+    </section>
+  </div>
+</body>
+</html>

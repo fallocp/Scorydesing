@@ -89,6 +89,13 @@ interface GenerateImageRequest {
   aspectRatio?: '1:1' | '4:5' | '9:16' | '16:9';
   includeText?: boolean;
   avoid?: string[];
+  // Background style selector (master path). 'navy' = current default style,
+  // 'light_cream' = clean near-white/off-white style (opt-in per piece).
+  backgroundStyle?: 'navy' | 'light_cream';
+  // When true, the AI bakes the exact provided text into the image (headline +
+  // optional CTA, exact spelling, brand highlights). When false/undefined the
+  // image stays text-free and the template engine overlays the copy.
+  textInImage?: boolean;
   // New optional fields for master image prompt path (Req 2.1)
   business_id?: string;
   branch_id?: string;
@@ -164,6 +171,8 @@ Formato / aspect ratio: {{format}}
 Colores de marca: {{brandColors}}
 Estilo visual de marca: {{visualStyle}}
 Restricciones visuales: {{visualRestrictions}}
+Estilo de fondo: {{backgroundStyle}}
+Texto en imagen: {{textInImage}}
 
 ## CÓMO USAR imageIntent
 
@@ -205,15 +214,70 @@ El funnelStage ajusta el tono visual de los 3 prompts:
 - conexion: Educativo, profesional, que genere confianza. Composición equilibrada, tono serio pero accesible.
 - conversion: Directo, urgente, que impulse acción. Composición enfocada, elementos de urgencia, espacio para CTA prominente.
 
+## ESTILO DE FONDO (aplicar SOLO el bloque que indique backgroundStyle)
+
+El campo backgroundStyle define la base visual de los 3 prompts. Si viene vacío, usar "navy".
+
+### navy  (DEFAULT — estilo principal de marca: dark premium graphite)
+Base visual oscura y premium, tipo campaña fintech B2B para empresas importadoras/exportadoras. NO es negro plano ni navy plano: es un dark premium con aire, contraste y lectura clara. NO llevar logo de ninguna marca (se añade después en la capa HTML).
+
+APLICACIÓN POR TIPO DE IMAGEN (importante)
+- Fotografía: adoptar SOLO el AMBIENTE de este estilo (fondo oscuro premium con mesh gradient, halo teal, iluminación, paleta de acentos de marca en objetos/entorno). La persona y la escena siguen HIPERREALISTAS, con piel, ropa y materiales NATURALES. NO convertir a la persona ni la escena en graphite, metal ni render 3D. El tratamiento graphite/acero solo aplica a objetos físicos de la escena si los hubiera (ej. un contenedor de fondo).
+- Infografía: aquí vive de lleno la dirección de OBJETO 3D premium en graphite/acero/charcoal/aluminio descrita abajo (materiales, objeto principal, elementos secundarios, dirección por escena).
+- Mapa/Rutas: aplicar el fondo oscuro premium + iluminación; el color de regiones y rutas lo manda la sección "Mapa / Rutas".
+
+FONDO E ILUMINACIÓN
+- Fondo oscuro profundo con mesh gradient sutil sobre la base navy (#0F1419). Evitar fondo negro plano y evitar que los objetos se pierdan contra el fondo.
+- Halo teal sutil detrás del sujeto/objeto principal. Luz ambiental suave desde el centro-derecha. Sombras profundas pero no aplastadas. Reflejos suaves sobre materiales metálicos.
+
+MATERIALES Y PALETA
+- El sujeto/objeto principal se construye en materiales graphite, acero satinado, charcoal, aluminio cepillado, gris claro y reflejos suaves. Debe verse sólido, industrial, financiero y corporativo. NO completamente negro, navy, coral ni turquesa.
+- Los colores de marca viven SOLO en acentos, detalles, rutas, checks, etiquetas, luces o señales de validación: turquesa (#2ED4C7) para comercio exterior, tecnología, trazabilidad y conexión global; coral (#FF7A4A) para acción, énfasis y "aprobado". Sin saturar de turquesa ni coral.
+
+OBJETO / SUJETO PRINCIPAL (derivado del imageIntent)
+- Un solo elemento protagonista relacionado con el tema: contenedor de carga, barco, avión de carga, pallets, caja de exportación, maquinaria industrial, brazo robótico, pieza metálica, motor, engranes, factura, orden de compra, laptop con dashboard, escudo, candado, wallet multimoneda o documento financiero, según el imageIntent.
+- Máximo 2 elementos secundarios pequeños que apoyen la narrativa (moneda USD/EUR, etiqueta de embarque, línea de ruta, check, sello aprobado, documento, caja, punto de trazabilidad). No deben competir con el principal.
+
+DIRECCIÓN POR TIPO DE ESCENA
+- Logística/embarques: contenedores, pallets, puerto, barco, avión, caja sellada o guía de embarque. Contenedores y cajas en graphite/acero/charcoal con etiquetas o sellos en turquesa/coral; rutas internacionales sutiles. No industrial sucio ni saturado.
+- Maquinaria/piezas: brazo robótico, engranes, motor, pieza metálica, CNC o componente de precisión. Acero satinado/graphite claro/aluminio cepillado, con pequeñas luces de inspección, líneas de trazabilidad, etiquetas o checks en turquesa/coral. Premium y limpio, no fábrica sucia ni render técnico excesivo.
+- Proveedores/pagos: factura, checklist, laptop con dashboard, orden de compra, carpeta o documento financiero. Check coral, ruta turquesa, moneda USD/EUR o sello de operación aprobada. Debe comunicar claridad, seguimiento y control.
+- Seguridad: escudo, candado, documento validado, trazabilidad o dashboard de monitoreo. Escudo/candado en graphite oscuro con bordes metálicos claros, check coral y luces turquesa sutiles.
+- Globo terráqueo (si aparece): gris graphite claro (NO negro, NO navy). Pintar solo regiones estratégicas siguiendo la lógica de color de Mapa/Rutas (México siempre turquesa #2ED4C7; región destino en coral #FF7A4A); el resto del mundo en gris graphite neutro. Rutas delgadas turquesa/coral, sutiles, corporativas y con brillo suave.
+
+SENSACIÓN FINAL: confianza, seguridad, operación global, comercio exterior, trazabilidad, control financiero, claridad y tecnología. Campaña premium de fintech B2B. NO cripto, NO gamer, NO infantil, NO cartoon, NO genérico, NO sobrecargado.
+
+NEGATIVE (añadir a negative_instructions de cada tipo cuando el estilo sea navy): pure black background, black-on-black composition, overly dark objects, navy objects blending into background, crushed shadows, low contrast, excessive glow, neon colors, too many icons, too many coins, too many routes, too many pins, overloaded scene, noisy background, dirty factory, messy warehouse, crypto aesthetic, gamer aesthetic, childish 3D, cartoon style, wrong brand colors, excessive coral, excessive turquoise.
+
+### light_cream  (estilo OPT-IN — solo para piezas marcadas así)
+- Fondo claro casi blanco / blanco roto (~#FAFAF7). El blanco DEBE leerse como blanco limpio: NO pastel, NO crema fuerte, NO amarillento, NO sucio.
+- Iluminación neutra, suave y luminosa, con sombras delicadas.
+- Acentos de marca (turquesa #2ED4C7, coral #FF7A4A) SOLO en objetos de la escena, máximo 2-3 elementos. El resto de la paleta neutra (grises claros, blancos).
+- Composición aireada y equilibrada, sensación clean y moderna.
+
+## TEXTO EN LA IMAGEN (controlado por textInImage)
+
+### textInImage = false  (DEFAULT)
+- La imagen NO contiene ningún texto. El copy lo inyecta el template engine.
+- Aplica la regla general #1 y los negative_instructions completos de cada tipo.
+
+### textInImage = true  (opt-in)
+- La imagen SÍ incorpora texto, pero SOLO el texto exacto provisto: el Headline ({{headline}}) y, si aplica, el CTA. NADA más.
+- Ortografía EXACTA. El nombre de marca se escribe tal cual (ej. "Xending", JAMÁS "Sending" u otra variante).
+- Poco texto: titular corto, sin párrafos, sin body largo, sin disclaimers, sin números inventados.
+- Patrón de marca: resaltar UNA palabra clave en turquesa (#2ED4C7) y OTRA en coral (#FF7A4A); el resto en color neutro legible según el fondo.
+- Tipografía sans-serif limpia, bien colocada en el espacio negativo, sin tapar el sujeto principal.
+- En este modo, los negative_instructions NO deben prohibir el texto del headline/CTA, pero SÍ deben seguir prohibiendo: texto inventado, palabras mal escritas, marcas/nombres falsos, logos de terceros, marcas de agua, números o datos inventados.
+
 ## REGLAS GENERALES (aplican a los 3 tipos)
 
-1. PROHIBIDO incluir cualquier forma de texto, palabras, números, letras o elementos tipográficos dentro de la imagen. NO headline, NO subcopy, NO CTA, NO disclaimers, NO marcas de agua, NO títulos. La imagen contiene SOLO la escena visual y composición. El texto se inyecta APARTE por el template engine al renderizar.
+1. Si textInImage = false (default): PROHIBIDO incluir cualquier forma de texto, palabras, números, letras o elementos tipográficos dentro de la imagen. NO headline, NO subcopy, NO CTA, NO disclaimers, NO marcas de agua, NO títulos. La imagen contiene SOLO la escena visual y composición. El texto se inyecta APARTE por el template engine al renderizar. Si textInImage = true: aplicar la sección "TEXTO EN LA IMAGEN" (solo headline/CTA exactos).
 2. No usar logos de marcas, bancos, gobiernos o instituciones reales.
 3. Dejar espacio negativo amplio en composición para que el template engine pueda colocar headline, subcopy y CTA encima sin tapar elementos importantes.
 4. Calidad premium, estética comercial, lista para paid ads.
 5. Los colores de marca deben estar presentes en el ambiente visual.
 6. El prompt debe ser coherente con el headline y el ángulo de la pieza.
-7. En el campo `negative_instructions` SIEMPRE incluir: "no text, no words, no numbers, no letters, no typography, no logos, no captions, no watermarks, no titles, no labels, no signage with readable text".
+7. En el campo negative_instructions: si textInImage = false, SIEMPRE incluir "no text, no words, no numbers, no letters, no typography, no logos, no captions, no watermarks, no titles, no labels, no signage with readable text". Si textInImage = true, NO prohibir el texto del headline/CTA, pero SÍ incluir "no invented text, no misspelled words, no fake brand names, no third-party logos, no watermarks, no invented numbers or data".
 
 ## REGLAS POR TIPO
 
@@ -231,10 +295,13 @@ El funnelStage ajusta el tono visual de los 3 prompts:
 - Restrictions: no text, no words, no numbers, no letters, no typography, no logos, no labels, no chart axis labels, no captions, no people, no photorealistic elements, no clutter
 
 ### Mapa / Rutas
-- Traducir el imageIntent a abstracción geográfica con líneas de conexión luminosas
-- Líneas de ruta en turquoise, nodos de destino en coral, fondo navy
-- Sin texto, sin nombres de países escritos, sin etiquetas de ciudades, sin imágenes satelitales realistas
-- Restrictions: no text, no words, no numbers, no country names, no city names, no labels, no logos, no people, no realistic satellite imagery, no compass with text, no legend
+- Mapa estilizado, limpio y minimalista, enfocado en DOS regiones conectadas: el país origen (México) y el país/región destino que sugiera el copy o el imageIntent (por defecto China, USA o Europa).
+- México SIEMPRE pintado en turquesa (#2ED4C7). El país/región destino en coral (#FF7A4A). Regiones de apoyo (ej. Europa cuando no es el destino) en azul muy claro y sutil.
+- El resto del mundo en gris muy claro o line-art tenue, para que las 2 regiones protagonistas destaquen.
+- Conexión OBLIGATORIA entre ambas regiones: líneas de ruta curvas y luminosas con degradado turquesa→coral, nodos en los extremos y sensación de flujo/movimiento direccional.
+- El fondo sigue el backgroundStyle indicado (navy o light_cream). NUNCA pastel saturado.
+- Composición equilibrada con amplio espacio negativo (≥40%) para el texto del template (salvo que textInImage = true).
+- Restrictions: no city names, no labels, no legend, no compass with text, no realistic satellite imagery, no logos, no people. (El texto de país solo se permite si textInImage = true; de lo contrario, sin nombres de países escritos.)
 
 ## FORMATO DE SALIDA
 
@@ -508,6 +575,8 @@ async function handleMasterImagePath(
     visualRestrictions: businessCtx.complianceRules.forbidden_terms.length > 0
       ? businessCtx.complianceRules.forbidden_terms.join(', ')
       : undefined,
+    backgroundStyle: requestBody.backgroundStyle ?? 'navy',
+    textInImage: (requestBody.textInImage ?? requestBody.includeText ?? false) ? 'true' : 'false',
   };
 
   const interpolatedPrompt = interpolateTemplate(promptTemplate, templateVariables);
@@ -515,7 +584,7 @@ async function handleMasterImagePath(
   // 7. Step 1: Generate all 3 prompts in a single call to gpt-5.4-mini
   console.log('Step 1 (prompts mode): Generating 3 image prompts via gpt-5.4-mini...');
 
-  const step1UserMessage = `Traduce el siguiente imageIntent a los tres prompts técnicos (fotografía, infografía, mapa/rutas). imageIntent: "${requestBody.imageIntent ?? requestBody.imageDirection ?? requestBody.userRequest}". Headline de la pieza: "${requestBody.headline ?? ''}". Responde SOLO con JSON válido con las claves: fotografia, infografia, mapa_rutas.`;
+  const step1UserMessage = `Traduce el siguiente imageIntent a los tres prompts técnicos (fotografía, infografía, mapa/rutas). imageIntent: "${requestBody.imageIntent ?? requestBody.imageDirection ?? requestBody.userRequest}". Headline de la pieza: "${requestBody.headline ?? ''}". Estilo de fondo: ${requestBody.backgroundStyle ?? 'navy'}. Texto en imagen: ${(requestBody.textInImage ?? requestBody.includeText ?? false) ? 'true' : 'false'}. Responde SOLO con JSON válido con las claves: fotografia, infografia, mapa_rutas.`;
 
   const step1Response = await fetchWithRetry(
     'https://api.openai.com/v1/chat/completions',

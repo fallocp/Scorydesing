@@ -38,6 +38,7 @@ const initialSelections: VisualSelections = {
   narrativePromptInstruction: null,
   pieceCopy: null,
   pieceImagePrompt: null,
+  textInImage: false,
 };
 
 // Initial state values (extracted for reset)
@@ -278,6 +279,15 @@ export const useDesignStudioStore = create<DesignStudioStore>()(
           }),
           false,
           'setPieceImagePromptText'
+        ),
+
+      setTextInImage: (value: boolean) =>
+        set(
+          (state) => ({
+            selections: { ...state.selections, textInImage: value },
+          }),
+          false,
+          'setTextInImage'
         ),
 
       // --- Reference ---

@@ -41,6 +41,8 @@ export interface BatchConfig {
   selectedPlatforms: string[];
   selectedPromoters: PromoterOption[];
   includePromoter: boolean;
+  /** When true, the AI bakes the headline/CTA into the generated image. */
+  textInImage: boolean;
 }
 
 interface BatchTemplateSelectorProps {
@@ -90,6 +92,7 @@ export function BatchTemplateSelector({
   const [selectedPromoters, setSelectedPromoters] = useState<string[]>([]);
   const [includePromoter, setIncludePromoter] = useState(false);
   const [showAllTemplates, setShowAllTemplates] = useState(false);
+  const [textInImage, setTextInImage] = useState(false);
 
   // Fetch custom templates for the active business
   const { data: customTemplates = [] } = useCustomTemplates();
@@ -136,6 +139,7 @@ export function BatchTemplateSelector({
       selectedPlatforms,
       selectedPromoters: selectedPromoterObjects,
       includePromoter,
+      textInImage,
     });
   };
 
@@ -372,6 +376,34 @@ export function BatchTemplateSelector({
             </div>
           </Collapsible>
         )}
+
+        {/* Text in image */}
+        <div className="space-y-2 border-t pt-4">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <Image className="h-4 w-4 text-[#2ED4C7]" />
+            Texto en la imagen
+          </div>
+          <div className="flex gap-2">
+            {[
+              { value: false, label: 'Sin texto', hint: 'Imagen limpia; el texto lo pone el template' },
+              { value: true, label: 'Con texto', hint: 'La IA escribe el headline dentro de la imagen' },
+            ].map((opt) => (
+              <button
+                key={String(opt.value)}
+                type="button"
+                title={opt.hint}
+                onClick={() => setTextInImage(opt.value)}
+                className={`flex-1 rounded-lg border px-3 py-2 text-xs font-medium transition-all ${
+                  textInImage === opt.value
+                    ? 'border-[#2ED4C7] bg-[#2ED4C7]/5 text-foreground'
+                    : 'border-border text-muted-foreground hover:border-[#2ED4C7]/40'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
 
         {/* Summary & Launch */}
         <div className="flex items-center justify-between border-t pt-4">

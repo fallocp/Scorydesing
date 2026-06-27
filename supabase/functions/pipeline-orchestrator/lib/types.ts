@@ -67,6 +67,8 @@ export interface PipelineOptions {
   templateVariant?: string;
   imageIterations?: number;
   channels: PlatformFormat[];
+  /** When true, the AI bakes the headline/CTA into the generated image. */
+  textInImage?: boolean;
   /** Promoters to include (generates one piece per promoter per template) */
   promoters?: Array<{
     name: string;

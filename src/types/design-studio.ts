@@ -96,6 +96,9 @@ export interface VisualSelections {
   // Piece-level copy and image prompt (optional, for full-package mode)
   pieceCopy: PieceCopy | null;
   pieceImagePrompt: PieceImagePrompt | null;
+  // When true, the AI bakes the exact headline/CTA into the generated image.
+  // When false (default), the image stays text-free and the template overlays copy.
+  textInImage: boolean;
 }
 
 /** Full narrative angle payload returned by AngleSelector. */
@@ -344,6 +347,7 @@ export interface DesignStudioActions {
   setPieceImagePrompt(prompt: PieceImagePrompt | null): void;
   setPieceImageType(type: DesignImageType): void;
   setPieceImagePromptText(text: string): void;
+  setTextInImage(value: boolean): void;
 
   // Reference
   setReferenceImage(file: File | null): void;

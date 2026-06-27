@@ -25,6 +25,8 @@ interface PieceCopyEditorProps {
   onCopyFieldChange: (field: keyof PieceCopy, value: string) => void;
   onImageTypeChange: (type: DesignImageType) => void;
   onImagePromptChange: (text: string) => void;
+  textInImage?: boolean;
+  onTextInImageChange?: (value: boolean) => void;
   onGenerateCopy?: () => Promise<void>;
   isGeneratingCopy?: boolean;
   disabled?: boolean;
@@ -43,6 +45,8 @@ export function PieceCopyEditor({
   onCopyFieldChange,
   onImageTypeChange,
   onImagePromptChange,
+  textInImage = false,
+  onTextInImageChange,
   onGenerateCopy,
   isGeneratingCopy = false,
   disabled = false,
@@ -147,6 +151,42 @@ export function PieceCopyEditor({
           })}
         </div>
       </div>
+
+      {/* Text-in-image toggle */}
+      {onTextInImageChange && (
+        <div className="space-y-3">
+          <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+            Texto en la imagen
+          </Label>
+          <div className="flex gap-2">
+            {[
+              { value: false, label: 'Sin texto', hint: 'El texto lo pone el template' },
+              { value: true, label: 'Con texto', hint: 'La IA escribe el headline' },
+            ].map((opt) => {
+              const isSelected = textInImage === opt.value;
+              return (
+                <button
+                  key={String(opt.value)}
+                  type="button"
+                  disabled={disabled}
+                  title={opt.hint}
+                  onClick={() => onTextInImageChange(opt.value)}
+                  className={cn(
+                    'flex-1 rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
+                    'border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                    'disabled:cursor-not-allowed disabled:opacity-50',
+                    isSelected
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'bg-background text-foreground border-input hover:bg-accent hover:text-accent-foreground'
+                  )}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Image prompt */}
       <div className="space-y-2">

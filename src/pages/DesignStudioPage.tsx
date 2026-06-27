@@ -251,6 +251,8 @@ export default function DesignStudioPage() {
             imageIntent: headline,
             angle: selections.narrativeAngleSlug ?? 'general',
             funnelStage: selections.funnelStage ?? undefined,
+            backgroundStyle: selections.background === 'light-cream' ? 'light_cream' : 'navy',
+            textInImage: selections.textInImage,
             aspectRatio: store.selections.platform === 'instagram-story' ? '9:16' : '1:1',
           },
         });
@@ -765,6 +767,8 @@ export default function DesignStudioPage() {
                     }
                   }}
                   onImagePromptChange={(text) => store.setPieceImagePromptText(text)}
+                  textInImage={store.selections.textInImage}
+                  onTextInImageChange={(value) => store.setTextInImage(value)}
                   onGenerateCopy={handleGenerateCopy}
                   isGeneratingCopy={isGeneratingCopy}
                   disabled={isAnyLoading}

@@ -422,6 +422,7 @@ function buildAgentPayload(
         body: idea?.body ?? "",
         angle: idea?.angle ?? "",
         funnelStage: brief.funnel_stage ?? "atraccion",
+        textInImage: run.options?.textInImage ?? false,
         ...promptContext,
       };
     }

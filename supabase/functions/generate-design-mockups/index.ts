@@ -282,7 +282,7 @@ function buildGenerationPrompt(
   sections.push(`You are a senior advertising creative director designing a complete social media ad mockup for the brand "${brandDesc}".${contextLine}
 
 Generate a COMPLETE, FINISHED advertising piece — not just a background. The output must look like a real ad ready to publish, including:
-- A visible brand logo area (top-left or top-center)
+- Clean empty negative space reserved in the top-left or top-center for a logo to be added LATER. Do NOT draw any logo, wordmark, brand name, symbol or icon there — leave it blank.
 - A bold headline text (short, impactful, in Spanish)
 - A supporting body text or subcopy (1-2 lines, in Spanish)
 - A clear CTA button with text (in Spanish)
@@ -349,7 +349,7 @@ Generate a COMPLETE, FINISHED advertising piece — not just a background. The o
   if (brandPalette.fonts.body) {
     brandLines.push(`Body font style: ${brandPalette.fonts.body} (clean sans-serif)`);
   }
-  brandLines.push(`The ad must include the brand name "${businessName || 'Xending'}" as the logo text (top-left or top-center)`);
+  brandLines.push(`Do NOT render any logo, wordmark, brand name, symbol or icon in the image — leave the top-left/top-center area as clean negative space so the "${businessName || 'Xending'}" logo can be placed there later.`);
   sections.push(`Brand Identity:\n${brandLines.join('\n')}`);
 
   // Section 3b: Learned Preferences (from feedback history)
@@ -455,7 +455,7 @@ Generate a COMPLETE, FINISHED advertising piece — not just a background. The o
     '- Make it look premium, modern, and ready for paid advertising on social media',
     '- The overall quality should match top-tier fintech brands like Stripe, Wise, or Mercury',
     `- Include a small legal disclaimer at the very bottom: "${brandPalette.disclaimer || 'Aplican términos y condiciones.'}"`,
-    `- The brand name in the logo area MUST say "${businessName || 'Xending'}" — do NOT invent a different name`,
+    `- Do NOT include any logo, wordmark, brand name, symbol or icon anywhere in the image (it will be added later). Keep the top-left/top-center as clean negative space reserved for it.`,
   ];
 
   sections.push(instructions.join('\n'));
@@ -483,7 +483,7 @@ function buildReferencePrompt(
   sections.push(`You are a senior advertising creative director. Generate a COMPLETE, FINISHED social media ad mockup for "${brandDesc}" inspired by a reference image.${contextLine}
 
 The output must be a real, publishable ad — not just a background. Include:
-- Brand logo area (top-left or top-center)
+- Clean empty negative space in the top-left or top-center reserved for a logo to be added LATER (do NOT draw any logo, wordmark, brand name, symbol or icon there)
 - Bold headline in Spanish (4-8 words, with accent color on 1-2 key words)
 - Supporting subcopy (1-2 lines in Spanish)
 - CTA button with text in Spanish
