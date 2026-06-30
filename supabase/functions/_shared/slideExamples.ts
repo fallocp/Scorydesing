@@ -13,6 +13,7 @@ export function buildSlideExamples(fontsUrl: string, iconPlaceholder: string, he
   onboarding: string;
   stats: string;
   heroCards: string;
+  hedging: string;
 } {
   const cards = `<!DOCTYPE html>
 <html lang="es">
@@ -358,5 +359,161 @@ export function buildSlideExamples(fontsUrl: string, iconPlaceholder: string, he
 </body>
 </html>`;
 
-  return { cards, onboarding, stats, heroCards };
+  const hedging = `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width">
+  <style>
+    @import url('${fontsUrl}');
+    :root { --mint: #2ED4C7; --coral: #FF7A4A; --navy: #0F1419; --navy-title: #081B57; --gray: #6B7280; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { margin: 0; overflow: hidden; background: #ffffff; }
+
+    .slide {
+      width: 1920px; height: 1080px; position: relative; overflow: hidden;
+      font-family: 'Poppins', sans-serif;
+      background: linear-gradient(180deg, #ffffff 0%, #fbfcfd 100%);
+      transform-origin: top left;
+      display: flex; flex-direction: column; padding: 56px 64px 40px; gap: 26px;
+    }
+
+    /* Header: 2 columnas (izq titulo / der mini-grid 2x2) */
+    .hedge-header { display: grid; grid-template-columns: 1.05fr 1fr; gap: 56px; align-items: start; }
+    .eyebrow-row { display: flex; align-items: center; gap: 14px; }
+    .eyebrow-line { width: 44px; height: 3px; background: var(--coral); border-radius: 999px; }
+    .eyebrow { color: var(--coral); font-weight: 600; font-size: 15px; letter-spacing: 4px; text-transform: uppercase; }
+    h1 { font-family: 'Fraunces', serif; font-weight: 600; font-size: 68px; line-height: 1.0; color: var(--navy-title); letter-spacing: -1px; margin-top: 16px; }
+    h1 .accent { font-style: italic; background: linear-gradient(135deg, #FF7A4A, #FF9468); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .subtitle { font-weight: 400; font-size: 20px; line-height: 1.55; color: #1a2a62; max-width: 560px; margin-top: 18px; }
+
+    .mini-label { font-weight: 600; font-size: 14px; letter-spacing: 3px; text-transform: uppercase; color: var(--gray); }
+    .mini-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 24px; margin-top: 16px; }
+    .mini-item { display: flex; align-items: flex-start; gap: 14px; background: #fff; border: 1px solid rgba(8,27,87,0.06); border-radius: 16px; box-shadow: 0 12px 30px rgba(15,20,25,0.05); padding: 16px 18px; }
+    .mini-icon { flex: none; width: 48px; height: 48px; border-radius: 12px; background: #fff; border: 1px solid rgba(8,27,87,0.06); display: flex; align-items: center; justify-content: center; }
+    .mini-icon img { width: 26px; height: 26px; object-fit: contain; }
+    .mini-title { font-weight: 600; font-size: 16px; line-height: 1.25; color: var(--navy-title); }
+    .mini-desc { font-weight: 400; font-size: 12px; line-height: 1.4; color: var(--gray); margin-top: 3px; }
+
+    /* Split-cards de estrategias */
+    .split-row { display: flex; gap: 28px; align-items: stretch; }
+    .split-card { flex: 1; background: #fff; border: 1px solid rgba(8,27,87,0.06); border-radius: 26px; box-shadow: 0 20px 55px rgba(15,20,25,0.06); padding: 34px 38px; display: flex; align-items: flex-start; gap: 28px; }
+    .split-icon { flex: none; width: 150px; height: 150px; display: flex; align-items: center; justify-content: center; }
+    .split-icon img { width: 100%; height: 100%; object-fit: contain; }
+    .split-body { flex: 1; min-width: 0; }
+    .split-card h3 { font-family: 'Fraunces', serif; font-weight: 600; font-size: 28px; line-height: 1.1; color: var(--navy-title); }
+    .split-tagline { font-weight: 600; font-size: 15px; margin-top: 4px; }
+    .split-tagline.tq { color: var(--mint); }
+    .split-tagline.cr { color: var(--coral); }
+    .split-text { font-weight: 400; font-size: 14px; line-height: 1.5; color: var(--gray); margin-top: 12px; }
+    .split-list-label { font-weight: 600; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--gray); margin-top: 16px; }
+    .split-list { display: grid; grid-template-columns: 1fr 1fr; gap: 7px 20px; margin-top: 10px; }
+    .split-li { font-weight: 500; font-size: 13px; line-height: 1.3; color: var(--navy-title); display: flex; align-items: center; gap: 8px; }
+    .split-li::before { content: '\u203a'; color: var(--coral); font-weight: 700; font-size: 15px; line-height: 1; }
+
+    /* Franja de beneficios (4 columnas) */
+    .bstrip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+    .benefit { background: #fff; border: 1px solid rgba(8,27,87,0.06); border-radius: 16px; box-shadow: 0 12px 30px rgba(15,20,25,0.05); padding: 18px 20px; display: flex; align-items: flex-start; gap: 14px; }
+    .benefit-icon { flex: none; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; }
+    .benefit-icon img { width: 26px; height: 26px; object-fit: contain; }
+    .benefit-title { font-weight: 600; font-size: 15px; color: var(--navy-title); line-height: 1.2; }
+    .benefit-desc { font-weight: 400; font-size: 12px; line-height: 1.4; color: var(--gray); margin-top: 4px; }
+
+    /* Banda de cierre (pill con borde degradado) */
+    .closing { position: relative; border-radius: 999px; padding: 18px 32px; text-align: center; background: #fff; }
+    .closing::before { content: ''; position: absolute; inset: 0; border-radius: 999px; padding: 1.5px; background: linear-gradient(90deg, var(--mint), var(--coral)); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none; }
+    .closing-text { font-family: 'Fraunces', serif; font-weight: 500; font-size: 26px; color: var(--navy-title); }
+    .closing-text .tq { color: var(--mint); font-style: italic; }
+    .closing-text .cr { color: var(--coral); font-style: italic; }
+
+    .footnote { text-align: center; font-size: 12px; font-style: italic; color: #9aa3af; }
+  </style>
+  <script>
+    (function() {
+      function resize() {
+        var slide = document.querySelector('.slide');
+        if (!slide) return;
+        var w = document.documentElement.clientWidth || window.innerWidth;
+        var h = document.documentElement.clientHeight || window.innerHeight;
+        var scale = Math.min(w / 1920, h / 1080);
+        slide.style.transform = 'scale(' + scale + ')';
+      }
+      window.addEventListener('resize', resize);
+      resize(); setTimeout(resize, 50); setTimeout(resize, 200);
+    })();
+  </script>
+</head>
+<body style="margin:0;overflow:hidden;background:#ffffff;width:100%;height:100vh;">
+  <div class="slide">
+    <!-- Header: titulo + mini-grid 2x2 -->
+    <div class="hedge-header">
+      <div>
+        <div class="eyebrow-row"><span class="eyebrow-line"></span><span class="eyebrow">Coberturas FX</span></div>
+        <h1>Coberturas <span class="accent">cambiarias</span></h1>
+        <p class="subtitle">Asegura hoy el tipo de cambio que necesitas para proteger tus margenes, presupuestos y pagos futuros.</p>
+      </div>
+      <div>
+        <span class="mini-label">Ideal para empresas que:</span>
+        <div class="mini-grid">
+          <div class="mini-item"><div class="mini-icon"><img src="${iconPlaceholder}#m1" alt="" /></div><div class="mini-text"><div class="mini-title">Importan o exportan</div><div class="mini-desc">Tienen pagos internacionales recurrentes.</div></div></div>
+          <div class="mini-item"><div class="mini-icon"><img src="${iconPlaceholder}#m2" alt="" /></div><div class="mini-text"><div class="mini-title">Tienen pagos futuros</div><div class="mini-desc">Necesitan planear costos en moneda extranjera.</div></div></div>
+          <div class="mini-item"><div class="mini-icon"><img src="${iconPlaceholder}#m3" alt="" /></div><div class="mini-text"><div class="mini-title">Compran insumos del exterior</div><div class="mini-desc">Buscan proteger margenes ante movimientos del mercado.</div></div></div>
+          <div class="mini-item"><div class="mini-icon"><img src="${iconPlaceholder}#m4" alt="" /></div><div class="mini-text"><div class="mini-title">Operan globalmente</div><div class="mini-desc">Requieren certidumbre cambiaria y visibilidad financiera.</div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Estrategias: 2 split-cards -->
+    <div class="split-row">
+      <div class="split-card">
+        <div class="split-icon"><img src="${iconPlaceholder}#s1" alt="" /></div>
+        <div class="split-body">
+          <h3>Forward</h3>
+          <div class="split-tagline tq">Asegura hoy tu tipo de cambio futuro</div>
+          <p class="split-text">Protege tus pagos internacionales fijando un tipo de cambio para una fecha determinada.</p>
+          <div class="split-list-label">Estrategias disponibles</div>
+          <div class="split-list">
+            <div class="split-li">Forward tradicional</div>
+            <div class="split-li">Window Forward</div>
+            <div class="split-li">Forward participativo</div>
+            <div class="split-li">Collar</div>
+            <div class="split-li">Forward Knock-In Americano</div>
+            <div class="split-li">Bonus Forward</div>
+          </div>
+        </div>
+      </div>
+      <div class="split-card">
+        <div class="split-icon"><img src="${iconPlaceholder}#s2" alt="" /></div>
+        <div class="split-body">
+          <h3>Estrategias con opciones</h3>
+          <div class="split-tagline cr">Flexibilidad para distintos escenarios de mercado</div>
+          <p class="split-text">Disenamos estrategias para protegerte ante movimientos adversos sin perder flexibilidad operativa.</p>
+          <div class="split-list-label">Estrategias disponibles</div>
+          <div class="split-list">
+            <div class="split-li">Call / Put Spread</div>
+            <div class="split-li">Seagull</div>
+            <div class="split-li">Seagull Knock-In Americano</div>
+            <div class="split-li">Forward Knock-Out Americano</div>
+            <div class="split-li">Forward Bonificado</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Beneficios -->
+    <div class="bstrip">
+      <div class="benefit"><div class="benefit-icon"><img src="${iconPlaceholder}#b1" alt="" /></div><div><div class="benefit-title">Protege tus margenes</div><div class="benefit-desc">Reduce el impacto de movimientos inesperados del mercado.</div></div></div>
+      <div class="benefit"><div class="benefit-icon"><img src="${iconPlaceholder}#b2" alt="" /></div><div><div class="benefit-title">Planea con confianza</div><div class="benefit-desc">Conoce hoy el costo real de tus pagos internacionales futuros.</div></div></div>
+      <div class="benefit"><div class="benefit-icon"><img src="${iconPlaceholder}#b3" alt="" /></div><div><div class="benefit-title">Flexibilidad total</div><div class="benefit-desc">Coberturas alineadas a tus flujos, fechas, monedas y objetivos.</div></div></div>
+      <div class="benefit"><div class="benefit-icon"><img src="${iconPlaceholder}#b4" alt="" /></div><div><div class="benefit-title">Respaldo experto</div><div class="benefit-desc">Te ayudamos a elegir la estrategia adecuada para tu operacion.</div></div></div>
+    </div>
+
+    <!-- Cierre -->
+    <div class="closing"><span class="closing-text">Menos incertidumbre. <span class="tq">Mas control.</span> <span class="cr">Mejores decisiones.</span></span></div>
+    <div class="footnote">Las coberturas estan sujetas a perfil del cliente, condiciones de mercado, documentacion y aprobacion operativa.</div>
+  </div>
+</body>
+</html>`;
+
+  return { cards, onboarding, stats, heroCards, hedging };
 }

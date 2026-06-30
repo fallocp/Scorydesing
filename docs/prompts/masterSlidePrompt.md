@@ -207,6 +207,62 @@ h1 .accent { display:block; font-style:italic; background:linear-gradient(135deg
 .label { font-weight:500; font-size:24px; line-height:1.4; color:var(--gray); margin-top:16px; }
 ```
 
+### 8. Grid de mini-ítems 2×2 (panel tipo "Ideal para empresas que:")
+Para 3–4 ítems cortos con icono pequeño + título + descripción. Es un GRID, nunca una fila que desborde. Icono pequeño inline (no icon-slot gigante).
+```html
+<span class="mini-label">Ideal para empresas que:</span>
+<div class="mini-grid">
+  <div class="mini-item"><div class="mini-icon"><img src="PG_ICON#m1" alt=""/></div><div class="mini-text"><div class="mini-title">Importan o exportan</div><div class="mini-desc">Tienen pagos internacionales recurrentes.</div></div></div>
+  <!-- … hasta 4 ítems … -->
+</div>
+```
+```css
+.mini-label { font-weight:600; font-size:14px; letter-spacing:3px; text-transform:uppercase; color:var(--gray); }
+.mini-grid { display:grid; grid-template-columns:1fr 1fr; gap:18px 28px; margin-top:18px; }
+.mini-item { display:flex; align-items:flex-start; gap:14px; }
+.mini-icon { flex:none; width:56px; height:56px; border-radius:14px; background:#fff; border:1px solid rgba(8,27,87,0.06); box-shadow:0 8px 22px rgba(15,20,25,0.05); display:flex; align-items:center; justify-content:center; }
+.mini-icon img { width:30px; height:30px; object-fit:contain; }
+.mini-title { font-weight:600; font-size:17px; line-height:1.25; color:var(--navy-title); }
+.mini-desc { font-weight:400; font-size:13px; line-height:1.4; color:var(--gray); margin-top:3px; }
+```
+
+### 9. Split-card (icono lateral + sublista)
+Card con icono GRANDE a la izquierda y contenido + lista a la derecha (tipo "Forward / Estrategias con opciones"). Si hay dos conceptos lado a lado son DOS split-cards (`.split-row`), nunca una sola fusionada.
+```html
+<div class="split-row">
+  <div class="split-card">
+    <div class="split-icon"><img src="PG_ICON#s1" alt=""/></div>
+    <div class="split-body">
+      <h3>Forward</h3>
+      <div class="split-tagline tq">Asegura hoy tu tipo de cambio futuro</div>
+      <p class="split-text">Protege tus pagos internacionales fijando un tipo de cambio para una fecha determinada.</p>
+      <div class="split-list-label">Estrategias disponibles</div>
+      <div class="split-list">
+        <div class="split-li">Forward tradicional</div>
+        <div class="split-li">Window Forward</div>
+      </div>
+    </div>
+  </div>
+  <!-- segunda split-card con .split-tagline.cr (acento coral) -->
+</div>
+```
+```css
+.split-row { display:flex; gap:28px; align-items:stretch; }
+.split-card { flex:1; background:#fff; border:1px solid rgba(8,27,87,0.06); border-radius:26px; box-shadow:0 20px 55px rgba(15,20,25,0.06); padding:38px 40px; display:flex; align-items:flex-start; gap:30px; }
+.split-icon { flex:none; width:150px; height:150px; display:flex; align-items:center; justify-content:center; }
+.split-icon img { width:100%; height:100%; object-fit:contain; }
+.split-body { flex:1; min-width:0; }
+.split-card h3 { font-family:'Fraunces',serif; font-weight:600; font-size:28px; line-height:1.1; color:var(--navy-title); }
+.split-tagline { font-weight:600; font-size:15px; margin-top:4px; }
+.split-tagline.tq { color:var(--mint); }
+.split-tagline.cr { color:var(--coral); }
+.split-text { font-weight:400; font-size:15px; line-height:1.55; color:var(--gray); margin-top:12px; }
+.split-list-label { font-weight:600; font-size:11px; letter-spacing:2px; text-transform:uppercase; color:var(--gray); margin-top:18px; }
+.split-list { display:grid; grid-template-columns:1fr 1fr; gap:8px 20px; margin-top:12px; }
+.split-li { font-weight:500; font-size:14px; line-height:1.35; color:var(--navy-title); display:flex; align-items:center; gap:8px; }
+.split-li::before { content:'›'; color:var(--coral); font-weight:700; font-size:16px; line-height:1; }
+```
+
 ---
 
 ## REGLAS DURAS
@@ -219,3 +275,14 @@ h1 .accent { display:block; font-style:italic; background:linear-gradient(135deg
 6. Títulos en Fraunces; cuerpo en Poppins. Respetar pesos y tamaños de los componentes.
 7. No inventar componentes nuevos: combinar los de la librería.
 8. Texto en español (labels UI en español; valores técnicos/ids en inglés).
+
+---
+
+## LAYOUT Y ALINEACIÓN (REGLAS DURAS — prohibido romperlas)
+
+- **L1 — Nada desborda.** TODO el contenido vive dentro del lienzo **1920×1080** con margen exterior uniforme de **64px** por lado. Nada puede desbordar ni recortarse horizontal o verticalmente. Si no cabe, reduce tamaños/cantidad de ítems; jamás dejes que algo salga del borde.
+- **L2 — Paneles de 3+ ítems = grid, nunca fila.** Paneles con 3 o más ítems usan SIEMPRE CSS grid con columnas fijas (`grid-template-columns:1fr 1fr` para 4 ítems en 2×2, o `repeat(4,1fr)` para una franja de 4). Prohibido un `display:flex` en una sola fila que pueda exceder el ancho.
+- **L3 — Tamaño de iconos por contexto.** `icon-slot` grande (≈190px, centrado) SOLO en cards verticales tipo "stat" donde el icono es el héroe visual. En ítems de lista, paneles ideal/checklist, franjas (strip) y cards con icono al lado del texto: icono **pequeño 40–64px**, inline a la izquierda (`display:flex;align-items:flex-start;gap:12–16px`). Nunca un icon-slot gigante centrado en estos casos.
+- **L4 — Cards de una fila parejas.** Mismo ancho (`flex:1` o columnas iguales), misma altura (`align-items:stretch` o height común) y mismo gap. Comparten línea superior e inferior.
+- **L5 — Alineación consistente.** Gutters/gaps iguales entre bloques hermanos; márgenes izquierdo/derecho idénticos en header, cuerpo y franja inferior (todos arrancan y terminan en la misma columna de 64px). Listas de 2 columnas usan grid con el mismo gap.
+- **L6 — Densidad.** Máximo 2–3 cards grandes por fila, máximo 4 ítems en una franja, máximo ~6–8 ítems por lista. Si el contenido excede esto, prioriza y resume en lugar de encoger todo hasta romper la jerarquía.

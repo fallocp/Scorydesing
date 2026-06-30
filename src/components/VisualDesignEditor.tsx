@@ -78,6 +78,60 @@ function rgbToHex(rgb: string): string {
   return `#${toHex(m[1])}${toHex(m[2])}${toHex(m[3])}`;
 }
 
+/** Construye el string `filter` CSS a partir de los ajustes de imagen. */
+function filterToCss(next: { brightness: number; contrast: number; saturate: number; blur: number }): string {
+  const parts: string[] = [];
+  if (next.brightness !== 100) parts.push(`brightness(${next.brightness}%)`);
+  if (next.contrast !== 100) parts.push(`contrast(${next.contrast}%)`);
+  if (next.saturate !== 100) parts.push(`saturate(${next.saturate}%)`);
+  if (next.blur > 0) parts.push(`blur(${next.blur}px)`);
+  return parts.length ? parts.join(' ') : 'none';
+}
+
+/**
+ * Lee TODOS los bloques `<style id="visual-editor-overrides">` de un HTML guardado
+ * y los consolida en un único mapa de overrides (último valor gana por
+ * selector+propiedad), recupera las fuentes del @import y devuelve el HTML sin esos
+ * bloques. Evita que se acumulen decenas de bloques en conflicto entre sesiones.
+ */
+function parseOverrideBlocks(html: string): {
+  overrides: Record<string, Record<string, string>>;
+  fonts: string[];
+  cleaned: string;
+} {
+  const overrides: Record<string, Record<string, string>> = {};
+  const fonts: string[] = [];
+  const blockRe = /<style id="visual-editor-overrides">([\s\S]*?)<\/style>/g;
+  const chunks: string[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = blockRe.exec(html)) !== null) chunks.push(m[1]);
+  const cleaned = html.replace(blockRe, '');
+
+  for (const css of chunks) {
+    const imp = css.match(/@import url\('https:\/\/fonts\.googleapis\.com\/css2\?([^']+)'\)/);
+    if (imp) {
+      imp[1].split('&').forEach((p) => { if (p.startsWith('family=')) fonts.push(p.slice('family='.length)); });
+    }
+    const body = css.replace(/@import[^;]+;/g, '');
+    const ruleRe = /([^{}]+)\{([^{}]*)\}/g;
+    let r: RegExpExecArray | null;
+    while ((r = ruleRe.exec(body)) !== null) {
+      const selector = r[1].trim();
+      if (!selector) continue;
+      const props: Record<string, string> = {};
+      r[2].split(';').forEach((d) => {
+        const idx = d.indexOf(':');
+        if (idx === -1) return;
+        const prop = d.slice(0, idx).trim();
+        const val = d.slice(idx + 1).replace(/\s*!important\s*$/, '').trim();
+        if (prop && val) props[prop] = val;
+      });
+      overrides[selector] = { ...(overrides[selector] || {}), ...props };
+    }
+  }
+  return { overrides, fonts: Array.from(new Set(fonts)), cleaned };
+}
+
 // --- Difuminado / forma de imagen (configurable) ---
 interface FeatherConfig {
   mode: 'lados' | 'radial' | 'diagonal';
@@ -98,16 +152,32 @@ function buildFeatherMask(f: FeatherConfig): string {
   if (f.shape !== 'none') return ''; // las formas usan border-radius, no máscara
   if (f.amount <= 0) return '';
   const a = f.amount;
+  // Rampa con curva suave (smoothstep) y varias paradas → fundido fotográfico
+  // natural en vez de una banda casi lineal. 'in' = entra desde transparente al
+  // inicio (0%..a%); 'out' = sale a transparente al final ((100-a)%..100%).
+  const SMOOTH_STEPS = [0, 0.12, 0.25, 0.4, 0.55, 0.7, 0.85, 1];
+  const smoothstep = (t: number) => t * t * (3 - 2 * t);
+  const easeRamp = (dir: 'in' | 'out') =>
+    SMOOTH_STEPS.map((t) => {
+      const alpha = dir === 'in' ? smoothstep(t) : smoothstep(1 - t);
+      const pos = dir === 'in' ? t * a : 100 - a + t * a;
+      return `rgba(0,0,0,${alpha.toFixed(3)}) ${pos.toFixed(1)}%`;
+    }).join(', ');
+
   const startRamp = f.smooth
-    ? `transparent 0%, rgba(0,0,0,0.35) ${Math.round(a * 0.5)}%, #000 ${a}%`
+    ? easeRamp('in')
     : `transparent 0%, #000 ${a}%`;
   const endRamp = f.smooth
-    ? `#000 ${100 - a}%, rgba(0,0,0,0.35) ${100 - Math.round(a * 0.5)}%, transparent 100%`
+    ? easeRamp('out')
     : `#000 ${100 - a}%, transparent 100%`;
 
   if (f.mode === 'radial') {
     const solid = Math.max(0, 100 - Math.round(a * 1.6));
-    const mid = f.smooth ? `rgba(0,0,0,0.3) ${Math.round((solid + 100) / 2)}%, ` : '';
+    const mid = f.smooth
+      ? SMOOTH_STEPS.slice(1, -1)
+          .map((t) => `rgba(0,0,0,${smoothstep(1 - t).toFixed(3)}) ${(solid + (100 - solid) * t).toFixed(1)}%`)
+          .join(', ') + ', '
+      : '';
     return `radial-gradient(ellipse 94% 92% at ${f.posX}% ${f.posY}%, #000 ${solid}%, ${mid}rgba(0,0,0,0) 100%)`;
   }
 
@@ -141,6 +211,12 @@ const SHAPE_KINDS = ['shape', 'circle', 'ring', 'pill', 'line', 'line-gradient',
 const NEW_IMG_PLACEHOLDER =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='220'%3E%3Crect width='100%25' height='100%25' fill='%23e5e7eb'/%3E%3Ctext x='50%25' y='50%25' font-family='sans-serif' font-size='16' fill='%239ca3af' text-anchor='middle' dominant-baseline='middle'%3EImagen%3C/text%3E%3C/svg%3E";
 
+// Imagen TRANSPARENTE (slot vacío): al quitar una imagen dejamos el <img> con esta
+// fuente para que NO se vea nada pero el slot siga existiendo y seleccionable, de
+// modo que puedas volver a poner otra imagen sin que el espacio se "muera".
+const TRANSPARENT_IMG =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1'%3E%3C/svg%3E";
+
 /** Genera el HTML de un elemento nuevo con su data-eid. */
 function buildInsertSnippet(eid: string, kind: InsertKind): string {
   const pos = `position:absolute;left:140px;top:140px;z-index:60;`;
@@ -150,7 +226,7 @@ function buildInsertSnippet(eid: string, kind: InsertKind): string {
     case 'text':
       return `\n<div data-eid="${eid}" style="${pos}font-family:'Inter',sans-serif;font-size:48px;font-weight:600;color:#0F1419;line-height:1.2;">Texto nuevo</div>`;
     case 'image':
-      return `\n<img data-eid="${eid}" style="${pos}width:320px;height:220px;object-fit:cover;border-radius:8px;" src="${NEW_IMG_PLACEHOLDER}#${eid}" alt="" />`;
+      return `\n<img data-eid="${eid}" style="${pos}width:200px;height:150px;object-fit:contain;border-radius:8px;" src="${NEW_IMG_PLACEHOLDER}#${eid}" alt="" />`;
     case 'shape':
       return `\n<div data-eid="${eid}" style="${pos}width:280px;height:180px;background:#2ED4C7;border-radius:12px;"></div>`;
     case 'circle':
@@ -684,6 +760,7 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
   const [scale, setScale] = useState(0.35);
   const [overlays, setOverlays] = useState<ElementOverlay[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [tool, setTool] = useState<'select' | 'move' | 'text'>('select');
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
   // Guías de alineación: estáticas (centro/tercios) + dinámicas al arrastrar (snap)
@@ -709,6 +786,8 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
 
   // Ajustes de imagen del elemento seleccionado (filtros CSS)
   const [imgFilter, setImgFilter] = useState({ brightness: 100, contrast: 100, saturate: 100, blur: 0 });
+  const imgFilterRef = useRef(imgFilter);
+  useEffect(() => { imgFilterRef.current = imgFilter; }, [imgFilter]);
   const [feather, setFeather] = useState<FeatherConfig>(DEFAULT_FEATHER);
   const featherConfigRef = useRef<Record<string, FeatherConfig>>({});
   const [bg, setBg] = useState<BgConfig>(DEFAULT_BG);
@@ -735,6 +814,36 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
 
   const scaledWidth = designWidth * scale;
   const scaledHeight = designHeight * scale;
+
+  // Rehidratación al montar: consolida los bloques de overrides guardados en UNO
+  // (último valor gana por selector+propiedad) y los quita del HTML de trabajo.
+  // Esto evita que se acumulen decenas de bloques en conflicto entre sesiones.
+  useEffect(() => {
+    const parsed = parseOverrideBlocks(html);
+    // Restaura las configs del editor (radial/difuminado/fondo) en los refs ANTES
+    // de que htmlWithOverrides reconstruya el HTML, para no perderlas al montar.
+    const cfgMatch = html.match(/<script id="__ed_cfg"[^>]*>([\s\S]*?)<\/script>/);
+    if (cfgMatch) {
+      try {
+        const cfg = JSON.parse(cfgMatch[1]) as {
+          radial?: Record<string, RadialCfg>;
+          feather?: Record<string, FeatherConfig>;
+          bg?: Record<string, BgConfig>;
+        };
+        if (cfg.radial) radialRef.current = { ...cfg.radial, ...radialRef.current };
+        if (cfg.feather) featherConfigRef.current = { ...cfg.feather, ...featherConfigRef.current };
+        if (cfg.bg) bgConfigRef.current = { ...cfg.bg, ...bgConfigRef.current };
+      } catch { /* config inválida */ }
+    }
+    const hasOverrides = Object.keys(parsed.overrides).length > 0;
+    if (hasOverrides || parsed.fonts.length > 0) {
+      setStyleOverrides(parsed.overrides);
+      if (parsed.fonts.length > 0) setUsedFonts((prev) => Array.from(new Set([...prev, ...parsed.fonts])));
+      setWorkingHtml(parsed.cleaned);
+    }
+    // Solo al montar (con el HTML inicial).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Build the HTML with style overrides injected
   const htmlWithOverrides = useMemo(() => {
@@ -772,7 +881,9 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
       : '';
 
     // Quita cualquier config previa para no acumular versiones viejas.
-    const cleanHtml = workingHtml.replace(/\s*<script id="__ed_cfg"[\s\S]*?<\/script>/g, '');
+    const cleanHtml = workingHtml
+      .replace(/\s*<script id="__ed_cfg"[\s\S]*?<\/script>/g, '')
+      .replace(/\s*<style id="visual-editor-overrides">[\s\S]*?<\/style>/g, '');
     const inject = `${overrideCss}${cfgScript}`;
 
     // Inject before </head>
@@ -862,18 +973,35 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
         editable = true;
       } else if (el.children.length === 0 && bgColorAlpha(cs.backgroundColor) > 0.05) {
         kind = 'shape';
+      } else if ((() => {
+        // Caja placeholder de logo/imagen ("ESPACIO PARA TU LOGO", "imagen", "icono"…):
+        // contenedor con texto corto de placeholder → seleccionable como slot de imagen.
+        const t = (el.textContent || '').replace(/\s+/g, ' ').trim();
+        return t.length > 0 && t.length <= 42 && /espacio|tu logo|\blogo\b|imagen|icono|placeholder|foto/i.test(t);
+      })()) {
+        kind = 'shape';
       } else {
         return; // contenedores/wrappers sin contenido editable → se omiten
       }
       seen.add(el);
 
-      // Asignar def: insertado > nombre conocido > auto
+      // Asignar def: insertado (por data-eid) > nombre conocido > auto
       let def: ElementDef;
       const eid = el.getAttribute('data-eid');
-      const insDef = eid ? insertedElements.find((e) => e.id === eid) : undefined;
       const match = namedMatches.find((m) => m.node === el);
-      if (insDef) {
-        def = insDef;
+      if (eid) {
+        // Elemento insertado: SIEMPRE se identifica por su data-eid (selector único
+        // y estable). Aunque se haya perdido el estado de insertedElements (p.ej. al
+        // reabrir el editor), NO debe reclasificarse como "auto" con un selector
+        // frágil (.slide > img), porque entonces dos selectores distintos controlarían
+        // el mismo nodo y sus overrides pelearían → el elemento "salta" al moverlo.
+        const known = insertedElements.find((e) => e.id === eid);
+        def = known
+          ? { ...known, selector: `[data-eid="${eid}"]`, inserted: true }
+          : {
+              id: eid, label: autoLabel(el, kind!), emoji: kindEmoji(kind!),
+              color: '#64748B', selector: `[data-eid="${eid}"]`, editable, draggable: true, kind, inserted: true,
+            };
       } else if (match) {
         const uniqueNamed = (() => { try { return doc.querySelectorAll(match.def.selector).length === 1; } catch { return false; } })();
         def = { ...match.def, selector: uniqueNamed ? match.def.selector : `${rootSel} > ${cssUniquePath(el, root)}` };
@@ -1106,6 +1234,20 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
       // Elemento insertado: se elimina del HTML
       setWorkingHtml((prev) => removeNodeByEid(prev, selectedId));
       setInsertedElements((prev) => prev.filter((e) => e.id !== selectedId));
+    } else if (overlay.def.kind === 'image') {
+      // Imagen de plantilla: la "vaciamos" dejando el <img> con una fuente
+      // TRANSPARENTE. No se ve nada (como si no hubiera imagen), pero el slot
+      // sigue existiendo y seleccionable para volver a poner otra cuando quieras.
+      const el = iframeRef.current?.contentDocument?.querySelector(overlay.def.selector) as HTMLImageElement | null;
+      const oldSrc = el?.getAttribute('src');
+      if (oldSrc) {
+        setWorkingHtml((prev) => prev.replace(oldSrc, `${TRANSPARENT_IMG}#${Date.now()}`));
+      } else {
+        setStyleOverrides((prev) => ({
+          ...prev,
+          [overlay.def.selector]: { ...(prev[overlay.def.selector] || {}), display: 'none' },
+        }));
+      }
     } else {
       // Elemento de plantilla: se oculta (no se borra para no romper el template)
       setStyleOverrides((prev) => ({
@@ -1240,23 +1382,53 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
     if (!overlay) return;
     pushUndo();
     const sel = overlay.def.selector;
-    setStyleOverrides((prev) => ({
-      ...prev,
-      [sel]: {
-        ...(prev[sel] || {}),
-        position: 'absolute',
-        left: '0',
-        top: '0',
-        width: '100%',
-        height: '100%',
-        'z-index': '0',
-        'background-size': 'cover',
-        'background-position': 'center',
-        'object-fit': 'cover',
-        'pointer-events': 'none',
-        transform: '',
-      },
-    }));
+
+    // Calcula el selector del SLOT/contenedor original del que sale la imagen, para
+    // ocultar su cajita (fondo/borde/sombra). Si no, queda una caja vacía visible
+    // detrás del fondo a pantalla completa.
+    let parentSel: string | null = null;
+    try {
+      const doc = iframeRef.current?.contentDocument || null;
+      const root = doc ? (doc.querySelector('.slide') || doc.querySelector('.card') || doc.body) : null;
+      const el = doc ? doc.querySelector(sel) : null;
+      const parent = el?.parentElement || null;
+      if (doc && root && el && parent && parent !== root && root.contains(parent)) {
+        const rootSel = root.classList.length ? `.${root.classList[0]}` : root.tagName.toLowerCase();
+        parentSel = `${rootSel} > ${cssUniquePath(parent, root)}`;
+      }
+    } catch { /* selector no resoluble */ }
+
+    setStyleOverrides((prev) => {
+      const next: Record<string, Record<string, string>> = {
+        ...prev,
+        [sel]: {
+          ...(prev[sel] || {}),
+          position: 'absolute',
+          left: '0',
+          top: '0',
+          width: '100%',
+          height: '100%',
+          'z-index': '0',
+          'background-size': 'cover',
+          'background-position': 'center',
+          'object-fit': 'cover',
+          'pointer-events': 'none',
+          transform: '',
+        },
+      };
+      // Oculta la cajita del slot original (sin borrarla, para no romper el layout).
+      if (parentSel) {
+        next[parentSel] = {
+          ...(prev[parentSel] || {}),
+          background: 'transparent',
+          'background-image': 'none',
+          border: '0',
+          'box-shadow': 'none',
+          overflow: 'visible',
+        };
+      }
+      return next;
+    });
     setChanges((c) => [...c, { id: sel, property: 'slide-background', oldValue: '', newValue: '' }]);
   }, [selectedId, overlays, pushUndo]);
 
@@ -1274,15 +1446,53 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
     });
   }, [selectedStyles.filter, selectedId]);
 
-  const applyImgFilter = useCallback((next: { brightness: number; contrast: number; saturate: number; blur: number }) => {
+  // Aplica un estilo EN VIVO sobre el elemento del iframe, sin reconstruir el
+  // HTML (evita recargar el iframe en cada tick del slider → sin flicker/lag).
+  const setLiveStyle = useCallback((cssProp: string, value: string) => {
+    if (!selectedId) return;
+    const overlay = overlays.find((o) => o.id === selectedId);
+    const doc = iframeRef.current?.contentDocument;
+    if (!overlay || !doc) return;
+    try {
+      doc.querySelectorAll(overlay.def.selector).forEach((n) => {
+        (n as HTMLElement).style.setProperty(cssProp, value, 'important');
+      });
+    } catch { /* selector inválido */ }
+  }, [overlays, selectedId]);
+
+  // Vista previa en vivo del filtro mientras se arrastra (sin commit ni undo).
+  const previewImgFilter = useCallback((next: { brightness: number; contrast: number; saturate: number; blur: number }) => {
+    imgFilterRef.current = next;
     setImgFilter(next);
-    const parts: string[] = [];
-    if (next.brightness !== 100) parts.push(`brightness(${next.brightness}%)`);
-    if (next.contrast !== 100) parts.push(`contrast(${next.contrast}%)`);
-    if (next.saturate !== 100) parts.push(`saturate(${next.saturate}%)`);
-    if (next.blur > 0) parts.push(`blur(${next.blur}px)`);
-    applyStyleChange('filter', parts.length ? parts.join(' ') : 'none');
+    setLiveStyle('filter', filterToCss(next));
+  }, [setLiveStyle]);
+
+  // Confirma el filtro actual al soltar: un solo paso de undo y una sola recarga.
+  const commitImgFilter = useCallback(() => {
+    applyStyleChange('filter', filterToCss(imgFilterRef.current));
   }, [applyStyleChange]);
+
+  const applyImgFilter = useCallback((next: { brightness: number; contrast: number; saturate: number; blur: number }) => {
+    imgFilterRef.current = next;
+    setImgFilter(next);
+    applyStyleChange('filter', filterToCss(next));
+  }, [applyStyleChange]);
+
+  // Aplica forma/redondeo a la imagen seleccionada (varias props en un solo paso).
+  const applyImageShape = useCallback((patch: Record<string, string>) => {
+    if (!selectedId) return;
+    const overlay = overlays.find((o) => o.id === selectedId);
+    if (!overlay) return;
+    pushUndo();
+    const sel = overlay.def.selector;
+    setStyleOverrides((prev) => ({ ...prev, [sel]: { ...(prev[sel] || {}), ...patch } }));
+    setSelectedStyles((prev) => {
+      const next = { ...prev };
+      if (patch['border-radius'] !== undefined) next.borderRadius = patch['border-radius'];
+      return next;
+    });
+    setChanges((c) => [...c, { id: sel, property: 'shape', oldValue: '', newValue: JSON.stringify(patch) }]);
+  }, [selectedId, overlays, pushUndo]);
 
   // Difumina los bordes de la imagen (configurable) — guarda config por elemento
   const applyFeather = useCallback((nextF: FeatherConfig) => {
@@ -2077,6 +2287,7 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
             {/* Overlay handles */}
             {overlays.map((overlay, idx) => {
               const isSelected = selectedId === overlay.id;
+              const isHovered = hoveredId === overlay.id;
               const isEditing = editingTextId === overlay.id;
               const isDraggingThis = isDragging && dragRef.current?.id === overlay.id;
               const isResizingThis = isResizing && resizeRef.current?.id === overlay.id;
@@ -2121,6 +2332,8 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
                 <div
                   key={overlay.id}
                   className="absolute transition-all"
+                  onMouseEnter={() => setHoveredId(overlay.id)}
+                  onMouseLeave={() => setHoveredId((h) => (h === overlay.id ? null : h))}
                   style={{
                     top: overlay.rect.top * scale - padY,
                     left: overlay.rect.left * scale - padX,
@@ -2135,13 +2348,15 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
                     pointerEvents: editingTextId !== null ? 'none' : undefined,
                   }}
                 >
-                  {/* Selection border */}
+                  {/* Selection border (solo visible al pasar el mouse o seleccionado) */}
                   <div
                     className={cn(
-                      'absolute inset-0 rounded transition-all pointer-events-none',
+                      'absolute inset-0 rounded transition-all pointer-events-none border border-dashed',
                       isSelected
-                        ? 'border-2 shadow-lg'
-                        : 'border border-dashed opacity-30 hover:opacity-80',
+                        ? 'border-2 border-solid shadow-lg opacity-100'
+                        : isHovered
+                          ? 'opacity-80'
+                          : 'opacity-0',
                     )}
                     style={{
                       borderColor: overlay.def.color,
@@ -2162,7 +2377,7 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
                   />
 
                   {/* Label */}
-                  {(isSelected || tool === 'move') && (
+                  {(isSelected || isHovered) && (
                     <div
                       className="absolute -top-5 left-0 text-[10px] font-medium px-1.5 py-0.5 rounded-t whitespace-nowrap"
                       style={{
@@ -2777,6 +2992,79 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
                     🖼️ Usar como fondo del slide
                   </button>
 
+                  {/* Forma y redondeo de la foto */}
+                  <div className="space-y-2">
+                    <span className="text-xs text-muted-foreground">Forma</span>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => applyImageShape({ 'border-radius': '0px', 'clip-path': '', 'aspect-ratio': '' })}
+                        className="text-[11px] py-1.5 rounded border hover:bg-muted"
+                        title="Cuadrado / rectángulo"
+                      >
+                        ▭ Recto
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => applyImageShape({ 'border-radius': '24px', 'clip-path': '', 'aspect-ratio': '' })}
+                        className="text-[11px] py-1.5 rounded border hover:bg-muted"
+                        title="Esquinas redondeadas"
+                      >
+                        ▢ Redondeado
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => applyImageShape({ 'border-radius': '50%', 'aspect-ratio': '1 / 1', 'object-fit': 'cover', 'clip-path': '' })}
+                        className="text-[11px] py-1.5 rounded border hover:bg-muted"
+                        title="Círculo (recorta a cuadrado)"
+                      >
+                        ● Círculo
+                      </button>
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs text-muted-foreground w-20">Redondeo</span>
+                      <input
+                        type="range"
+                        min={0}
+                        max={120}
+                        value={(() => { const r = selectedStyles.borderRadius; return r && r.endsWith('px') ? parseInt(r) : 0; })()}
+                        onChange={(e) => {
+                          const v = `${e.target.value}px`;
+                          setSelectedStyles((p) => ({ ...p, borderRadius: v }));
+                          setLiveStyle('border-radius', v);
+                        }}
+                        onPointerUp={() => applyStyleChange('border-radius', selectedStyles.borderRadius || '0px')}
+                        onKeyUp={() => applyStyleChange('border-radius', selectedStyles.borderRadius || '0px')}
+                        className="flex-1 accent-[#2ED4C7]"
+                      />
+                      <span className="text-[10px] font-mono w-10 text-right">{(() => { const r = selectedStyles.borderRadius; return r && r.endsWith('px') ? parseInt(r) : 0; })()}px</span>
+                    </div>
+                  </div>
+
+                  {/* Ajuste de encuadre (object-fit) — clave para que un logo NO se recorte */}
+                  <div className="space-y-1">
+                    <span className="text-xs text-muted-foreground">Ajuste</span>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {([['contain', 'Contener'], ['cover', 'Cubrir'], ['fill', 'Rellenar']] as const).map(([val, label]) => (
+                        <button
+                          key={val}
+                          type="button"
+                          onClick={() => {
+                            if (selectedOverlay.def.kind === 'image-bg') {
+                              applyStyleChange('background-size', val === 'fill' ? '100% 100%' : val);
+                            } else {
+                              applyImageShape({ 'object-fit': val });
+                            }
+                          }}
+                          className="text-[11px] py-1.5 rounded border hover:bg-muted"
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">"Contener" muestra el logo completo, sin recortar.</p>
+                  </div>
+
                   {([
                     { key: 'brightness', label: 'Brillo', min: 0, max: 200 },
                     { key: 'contrast', label: 'Contraste', min: 0, max: 200 },
@@ -2790,7 +3078,9 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
                         min={min}
                         max={max}
                         value={imgFilter[key]}
-                        onChange={(e) => applyImgFilter({ ...imgFilter, [key]: parseInt(e.target.value) })}
+                        onChange={(e) => previewImgFilter({ ...imgFilter, [key]: parseInt(e.target.value) })}
+                        onPointerUp={commitImgFilter}
+                        onKeyUp={commitImgFilter}
                         className="flex-1 accent-[#2ED4C7]"
                       />
                       <span className="text-[10px] font-mono w-10 text-right">{imgFilter[key]}{key === 'blur' ? 'px' : '%'}</span>
@@ -2805,7 +3095,13 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
                       min={0}
                       max={100}
                       value={Math.round((parseFloat(selectedStyles.opacity) || 1) * 100)}
-                      onChange={(e) => applyStyleChange('opacity', `${parseInt(e.target.value) / 100}`)}
+                      onChange={(e) => {
+                        const v = parseInt(e.target.value) / 100;
+                        setSelectedStyles((p) => ({ ...p, opacity: `${v}` }));
+                        setLiveStyle('opacity', `${v}`);
+                      }}
+                      onPointerUp={() => applyStyleChange('opacity', selectedStyles.opacity || '1')}
+                      onKeyUp={() => applyStyleChange('opacity', selectedStyles.opacity || '1')}
                       className="flex-1 accent-[#2ED4C7]"
                     />
                     <span className="text-[10px] font-mono w-10 text-right">{Math.round((parseFloat(selectedStyles.opacity) || 1) * 100)}%</span>
@@ -2823,7 +3119,7 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
                   <div className="space-y-2 pt-1 border-t">
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-xs text-muted-foreground w-20">Difuminar</span>
-                      <input type="range" min={0} max={45} value={feather.amount} onChange={(e) => applyFeather({ ...feather, mode: 'lados', shape: 'none', amount: parseInt(e.target.value) })} className="flex-1 accent-[#2ED4C7]" />
+                      <input type="range" min={0} max={70} value={feather.amount} onChange={(e) => applyFeather({ ...feather, mode: 'lados', shape: 'none', amount: parseInt(e.target.value) })} className="flex-1 accent-[#2ED4C7]" />
                       <span className="text-[10px] font-mono w-10 text-right">{feather.amount}%</span>
                     </div>
                     <div className="flex items-center justify-between">
@@ -2917,7 +3213,7 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
               )}
 
               {/* Image URL input — for photo or image placeholder elements */}
-              {(selectedOverlay.id === 'photo' || selectedOverlay.id === 'img-placeholder' || selectedOverlay.id === 'hero-photo' || selectedOverlay.def.kind === 'image' || selectedOverlay.def.kind === 'image-bg') && (
+              {(selectedOverlay.id === 'photo' || selectedOverlay.id === 'img-placeholder' || selectedOverlay.id === 'hero-photo' || selectedOverlay.def.kind === 'image' || selectedOverlay.def.kind === 'image-bg' || selectedOverlay.def.kind === 'shape' || /logo|imagen|icono|espacio|foto|photo/i.test(selectedOverlay.def.label || '')) && (
                 <ImagePickerPanel
                   onSelect={(url) => {
                     pushUndo();
@@ -2935,9 +3231,19 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
                       const oldSrc = existingImg.getAttribute('src') || '';
                       setWorkingHtml((prev) => prev.replace(oldSrc, url));
                     } else {
+                      // Slot/placeholder (sin <img>): metemos la imagen DENTRO del slot
+                      // (reemplaza el texto/placeholder tipo "ESPACIO PARA TU LOGO") y le
+                      // quitamos la cajita de atrás: fondo, borde, sombra y marcas (::before/::after).
                       const oldHtml = el.innerHTML;
-                      const imgHtml = `<img src="${url}" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;" />`;
+                      const imgHtml = `<img src="${url}" style="width:100%;height:100%;object-fit:contain;display:block;" />`;
                       setWorkingHtml((prev) => prev.replace(oldHtml, imgHtml));
+                      const sel = selectedOverlay.def.selector;
+                      setStyleOverrides((prev) => ({
+                        ...prev,
+                        [sel]: { ...(prev[sel] || {}), background: 'transparent', 'background-image': 'none', border: '0', 'box-shadow': 'none' },
+                        [`${sel}::before`]: { ...(prev[`${sel}::before`] || {}), display: 'none' },
+                        [`${sel}::after`]: { ...(prev[`${sel}::after`] || {}), display: 'none' },
+                      }));
                     }
                     setChanges((c) => [...c, { id: selectedOverlay.id, selector: selectedOverlay.def.selector, oldText: '', newText: url }]);
                   }}
@@ -3121,7 +3427,7 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
                     onClick={deleteSelected}
                     className="flex-1 h-7 rounded border border-red-300 text-red-600 text-xs hover:bg-red-50 flex items-center justify-center gap-1"
                   >
-                    <Trash2 className="h-3.5 w-3.5" /> {selectedOverlay.def.inserted ? 'Borrar' : 'Ocultar'}
+                    <Trash2 className="h-3.5 w-3.5" /> {selectedOverlay.def.inserted ? 'Borrar' : selectedOverlay.def.kind === 'image' ? 'Quitar imagen' : 'Ocultar'}
                   </button>
                 </div>
               </div>

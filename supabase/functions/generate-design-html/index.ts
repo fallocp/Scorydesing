@@ -580,6 +580,39 @@ HTML:
 <div class="cols"><div class="col"><div class="icon-slot"><img class="stat-icon" src="${SLIDE_ICON_PLACEHOLDER}#i1" alt=""/></div><div class="stat-line"></div><div class="number">30+</div><div class="label">label</div></div><div class="divider"></div></div>
 CSS: .cols{display:flex;align-items:stretch;justify-content:center;} .col{flex:1;display:flex;flex-direction:column;align-items:center;text-align:center;padding:0 40px;} .divider{width:1px;background:rgba(8,27,87,0.12);align-self:center;height:420px;} .stat-line{width:60px;height:4px;background:var(--coral);border-radius:999px;margin:30px 0 22px;} .number{font-family:'Fraunces',serif;font-weight:600;font-size:88px;line-height:1;color:var(--navy-title);} .number.same-day{font-style:italic;font-weight:500;font-size:72px;} .label{font-weight:500;font-size:24px;line-height:1.4;color:var(--gray);margin-top:16px;}
 
+### Grid de mini-ítems 2×2 (panel tipo "Ideal para empresas que:")
+Úsalo cuando hay 3–4 ítems cortos con icono pequeño + título + descripción (p.ej. "ideal para…", "casos de uso", "requisitos"). Es un GRID, nunca una fila que desborda. Icono pequeño inline (no icon-slot gigante).
+HTML:
+<span class="mini-label">Ideal para empresas que:</span>
+<div class="mini-grid">
+  <div class="mini-item"><div class="mini-icon"><img src="${SLIDE_ICON_PLACEHOLDER}#m1" alt=""/></div><div class="mini-text"><div class="mini-title">Importan o exportan</div><div class="mini-desc">Tienen pagos internacionales recurrentes.</div></div></div>
+  <div class="mini-item"><div class="mini-icon"><img src="${SLIDE_ICON_PLACEHOLDER}#m2" alt=""/></div><div class="mini-text"><div class="mini-title">Tienen pagos futuros</div><div class="mini-desc">Necesitan planear costos en moneda extranjera.</div></div></div>
+  <!-- …hasta 4 ítems… -->
+</div>
+CSS: .mini-label{font-weight:600;font-size:14px;letter-spacing:3px;text-transform:uppercase;color:var(--gray);} .mini-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px 28px;margin-top:18px;} .mini-item{display:flex;align-items:flex-start;gap:14px;} .mini-icon{flex:none;width:56px;height:56px;border-radius:14px;background:#fff;border:1px solid rgba(8,27,87,0.06);box-shadow:0 8px 22px rgba(15,20,25,0.05);display:flex;align-items:center;justify-content:center;} .mini-icon img{width:30px;height:30px;object-fit:contain;} .mini-title{font-weight:600;font-size:17px;line-height:1.25;color:var(--navy-title);} .mini-desc{font-weight:400;font-size:13px;line-height:1.4;color:var(--gray);margin-top:3px;}
+
+### Split-card (icono lateral + sublista) — card con icono GRANDE a la IZQUIERDA y contenido + lista a la derecha
+Úsala para cards tipo "Forward / Estrategias con opciones": título + tagline (turquesa o coral) + texto + label + lista de 2 columnas. NUNCA fusiones dos de estas en una sola; si hay dos conceptos, son DOS split-cards lado a lado (\`.split-row{display:flex;gap:28px;align-items:stretch;}\`).
+HTML:
+<div class="split-row">
+  <div class="split-card">
+    <div class="split-icon"><img src="${SLIDE_ICON_PLACEHOLDER}#s1" alt=""/></div>
+    <div class="split-body">
+      <h3>Forward</h3>
+      <div class="split-tagline tq">Asegura hoy tu tipo de cambio futuro</div>
+      <p class="split-text">Protege tus pagos internacionales fijando un tipo de cambio para una fecha determinada.</p>
+      <div class="split-list-label">Estrategias disponibles</div>
+      <div class="split-list">
+        <div class="split-li">Forward tradicional</div>
+        <div class="split-li">Window Forward</div>
+        <!-- …pares de ítems… -->
+      </div>
+    </div>
+  </div>
+  <!-- segunda split-card (usar .split-tagline.cr para acento coral) -->
+</div>
+CSS: .split-row{display:flex;gap:28px;align-items:stretch;} .split-card{flex:1;background:#fff;border:1px solid rgba(8,27,87,0.06);border-radius:26px;box-shadow:0 20px 55px rgba(15,20,25,0.06);padding:38px 40px;display:flex;align-items:flex-start;gap:30px;} .split-icon{flex:none;width:150px;height:150px;display:flex;align-items:center;justify-content:center;} .split-icon img{width:100%;height:100%;object-fit:contain;} .split-body{flex:1;min-width:0;} .split-card h3{font-family:'Fraunces',serif;font-weight:600;font-size:28px;line-height:1.1;color:var(--navy-title);} .split-tagline{font-weight:600;font-size:15px;margin-top:4px;} .split-tagline.tq{color:var(--mint);} .split-tagline.cr{color:var(--coral);} .split-text{font-weight:400;font-size:15px;line-height:1.55;color:var(--gray);margin-top:12px;} .split-list-label{font-weight:600;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--gray);margin-top:18px;} .split-list{display:grid;grid-template-columns:1fr 1fr;gap:8px 20px;margin-top:12px;} .split-li{font-weight:500;font-size:14px;line-height:1.35;color:var(--navy-title);display:flex;align-items:center;gap:8px;} .split-li::before{content:'›';color:var(--coral);font-weight:700;font-size:16px;line-height:1;}
+
 ## REGLAS DURAS
 1. Lienzo 1920×1080 SIEMPRE, con el <script> de resize del scaffold.
 2. Fondo claro (gradiente blanco). Prohibido fondo navy/coral lleno.
@@ -588,6 +621,16 @@ CSS: .cols{display:flex;align-items:stretch;justify-content:center;} .col{flex:1
 5. Iconos e imágenes = placeholders con id ÚNICO. Jamás iconos fijos.
 6. Títulos en Fraunces; cuerpo en Poppins. Respeta pesos/tamaños.
 7. Texto en español. No inventes datos ni claims.
+
+## LAYOUT Y ALINEACIÓN (REGLAS DURAS — prohibido romperlas)
+L1. TODO el contenido vive DENTRO del lienzo 1920×1080 con margen exterior uniforme de 64px por lado. NADA puede desbordar ni recortarse horizontal o verticalmente. Si no cabe, REDUCE tamaños/cantidad de ítems; jamás dejes que algo salga del borde.
+L2. Paneles con 3 o más ítems = SIEMPRE CSS grid con columnas fijas (\`grid-template-columns:1fr 1fr\` para 4 ítems en 2×2, o \`repeat(4,1fr)\` para una franja de 4). PROHIBIDO un \`display:flex\` en una sola fila que pueda exceder el ancho. Si dudas, usa grid y deja que envuelva.
+L3. Tamaño de iconos según contexto:
+   - icon-slot grande (≈190px, centrado) SOLO en cards verticales tipo "stat" donde el icono es el héroe visual de la caja.
+   - En ítems de lista, paneles "ideal/checklist", franjas (strip) y cards con icono al lado del texto: icono PEQUEÑO de 40–64px, inline a la IZQUIERDA del texto (\`display:flex;align-items:flex-start;gap:12–16px\`). NUNCA un icon-slot gigante centrado en estos casos.
+L4. Cards en una misma fila: mismo ancho (\`flex:1\` o columnas iguales), misma altura (\`align-items:stretch\` o height común) y mismo gap. Comparten línea superior e inferior; nada queda "flotando" más arriba o abajo que su vecino.
+L5. Alineación consistente: gutters/gaps iguales entre bloques hermanos, márgenes izquierdo/derecho idénticos en header, cuerpo y franja inferior (todos arrancan y terminan en la misma columna de 64px). Listas de 2 columnas usan grid con el mismo gap.
+L6. Densidad: máximo 2–3 cards grandes por fila, máximo 4 ítems en una franja, máximo ~6–8 ítems por lista. Si el contenido pedido excede esto, prioriza y resume en lugar de encoger todo hasta romper la jerarquía.
 
 ## EJEMPLOS DE REFERENCIA (GOLD STANDARD)
 Estos son slides REALES del deck. Replica EXACTAMENTE este nivel de detalle: estructura, clases, tamaños, espaciados, sombras, líneas coral, tipografía y colores. NO cambies los estilos del sistema; SOLO adapta el texto, el número de cajas/columnas y los ids de las imágenes según lo que se pida o lo que muestre la imagen de referencia.
@@ -612,6 +655,12 @@ ${examples.stats}
 ${examples.heroCards}
 \`\`\`
 
+### EJEMPLO E — Slide densa "coberturas" (header con título + mini-grid 2×2, dos split-cards con icono lateral + sublista, franja de 4 beneficios, banda de cierre)
+Replícalo cuando la referencia tenga: un panel de varios ítems cortos (úsalo como mini-grid 2×2, nunca fila que desborde ni cards verticales con icono gigante), dos bloques de contenido con icono al lado y una lista (dos split-cards lado a lado, JAMÁS fusionadas en una), una franja inferior de features y/o una frase de cierre.
+\`\`\`html
+${examples.hedging}
+\`\`\`
+
 ## OUTPUT
 Responde SOLO con el HTML completo del slide. Sin explicaciones, sin markdown fences.`;
 }
@@ -625,7 +674,9 @@ function buildSlideIterationPrompt(): string {
 2. Conserva el lienzo 1920×1080 y el <script> de resize.
 3. Respeta los tokens y componentes del sistema (cajas blancas borde neutro, Fraunces/Poppins, acentos coral/turquesa, placeholders de imagen con id único).
 4. No elimines ids de imágenes existentes salvo que se pida.
-5. Devuelve HTML completo y funcional.
+5. Mantén la alineación: nada puede desbordar el lienzo 1920×1080 (margen exterior 64px). Paneles con 3+ ítems en grid, nunca en una fila que se salga. Iconos inline 40–64px salvo el icon-slot héroe (≈190px) de cards stat. Cards de una fila con igual ancho, alto y gap.
+6. Si recibes DOS imágenes (OBJETIVO + RESULTADO ACTUAL), compáralas: detecta qué difiere (orden, layout, alineación, tamaños, componentes, contenido) y corrige el HTML para que el resultado se parezca al OBJETIVO. No te limites al texto del feedback si las imágenes muestran más diferencias.
+7. Devuelve HTML completo y funcional.
 
 ## OUTPUT
 Responde SOLO con el HTML completo refinado. Sin explicaciones, sin markdown fences.`;
@@ -651,6 +702,7 @@ serve(async (req) => {
         image_url,
         current_html,
         iteration_feedback,
+        render_base64,
         logo_url,
         style,
       } = body as {
@@ -659,6 +711,7 @@ serve(async (req) => {
         image_url?: string;
         current_html?: string;
         iteration_feedback?: string;
+        render_base64?: string;
         logo_url?: string;
         style?: SlideStyle;
       };
@@ -669,13 +722,38 @@ serve(async (req) => {
 
       if (current_html && iteration_feedback) {
         // --- Iteration refinement (chat estilo Canva) ---
-        messages = [
-          { role: 'system', content: buildSlideIterationPrompt() },
-          {
-            role: 'user',
-            content: `## SLIDE HTML ACTUAL:\n\`\`\`html\n${current_html}\n\`\`\`\n\n## FEEDBACK DEL USUARIO:\n${iteration_feedback}\n\nAplica los cambios y devuelve el HTML completo del slide.`,
-          },
-        ];
+        // Si llegan imágenes (referencia objetivo + render del resultado actual),
+        // el modelo COMPARA ambas y corrige las diferencias de layout/orden/contenido.
+        const referenceImg = image_base64
+          ? (image_base64.startsWith('data:') ? image_base64 : `data:image/png;base64,${image_base64}`)
+          : image_url;
+        const renderImg = render_base64
+          ? (render_base64.startsWith('data:') ? render_base64 : `data:image/png;base64,${render_base64}`)
+          : undefined;
+
+        if (referenceImg || renderImg) {
+          const parts: any[] = [];
+          if (referenceImg) parts.push({ type: 'image_url', image_url: { url: referenceImg } });
+          if (renderImg) parts.push({ type: 'image_url', image_url: { url: renderImg } });
+          const refLabel = referenceImg ? '\n- IMAGEN 1 = OBJETIVO (cómo DEBE verse el slide).' : '';
+          const renderLabel = renderImg ? `\n- IMAGEN ${referenceImg ? '2' : '1'} = RESULTADO ACTUAL (cómo se ve hoy el HTML renderizado).` : '';
+          parts.push({
+            type: 'text',
+            text: `Estás corrigiendo un slide.${refLabel}${renderLabel}\n\nCompara el OBJETIVO contra el RESULTADO ACTUAL, identifica las diferencias de layout, orden, alineación, tamaños y contenido, y reescribe el HTML para acercarlo al objetivo. Mantén el sistema de diseño (componentes, tokens, placeholders de imagen con id único).\n\n## HTML ACTUAL:\n\`\`\`html\n${current_html}\n\`\`\`\n\n## INDICACIÓN DEL USUARIO:\n${iteration_feedback}\n\nDevuelve SOLO el HTML completo corregido.`,
+          });
+          messages = [
+            { role: 'system', content: buildSlideIterationPrompt() },
+            { role: 'user', content: parts },
+          ];
+        } else {
+          messages = [
+            { role: 'system', content: buildSlideIterationPrompt() },
+            {
+              role: 'user',
+              content: `## SLIDE HTML ACTUAL:\n\`\`\`html\n${current_html}\n\`\`\`\n\n## FEEDBACK DEL USUARIO:\n${iteration_feedback}\n\nAplica los cambios y devuelve el HTML completo del slide.`,
+            },
+          ];
+        }
       } else {
         // --- Initial generation: text and/or reference image → slide HTML ---
         if (!instruction && !image_base64 && !image_url) {
@@ -692,7 +770,7 @@ serve(async (req) => {
 
         if (refImage) {
           // Vision: la imagen es REFERENCIA de diseño; recréala con la librería de componentes.
-          const textPart = `Analiza esta imagen como REFERENCIA DE DISEÑO y recréala como un slide HTML usando EXCLUSIVAMENTE los componentes y estilos de los EJEMPLOS DE REFERENCIA del sistema (mismas clases, tamaños, sombras, líneas coral, tipografía Fraunces/Poppins y colores). Mapea lo que ves al componente más cercano: cajas→cards, lista con checks→panel checklist, fila inferior de features→strip, columnas con número→stats. Todo icono/ilustración debe ser un placeholder de imagen con id único. Respeta el layout, la jerarquía y el número de cajas/columnas que se ven en la imagen. NO uses fondos de color ni bordes de color saturados.${instruction ? `\n\nINTENCIÓN / TEXTO DEL USUARIO:\n${instruction}` : ''}`;
+          const textPart = `Analiza esta imagen como REFERENCIA DE DISEÑO y recréala como un slide HTML usando EXCLUSIVAMENTE los componentes y estilos de los EJEMPLOS DE REFERENCIA del sistema (mismas clases, tamaños, sombras, líneas coral, tipografía Fraunces/Poppins y colores). Mapea lo que ves al componente más cercano: cajas→cards, lista con checks→panel checklist, fila inferior de features→strip, columnas con número→stats, grid de ítems cortos con icono pequeño→mini-grid 2×2, card con icono al lado del texto y una sublista→split-card (si ves dos conceptos lado a lado, son DOS split-cards, nunca una sola). Todo icono/ilustración debe ser un placeholder de imagen con id único. Respeta el layout, la jerarquía y el número de cajas/columnas que se ven en la imagen. NO uses fondos de color ni bordes de color saturados.${instruction ? `\n\nINTENCIÓN / TEXTO DEL USUARIO:\n${instruction}` : ''}`;
           messages = [
             { role: 'system', content: systemPrompt },
             {
@@ -712,8 +790,12 @@ serve(async (req) => {
         }
       }
 
+      const slideModel = (current_html && iteration_feedback)
+        ? (Deno.env.get('SLIDE_FIX_MODEL') || 'gpt-5.5')
+        : (Deno.env.get('SLIDE_MODEL') || 'gpt-5.4-mini');
+
       const result = await callOpenAI({
-        model: 'gpt-4o',
+        model: slideModel,
         messages: messages as any,
         max_completion_tokens: 8000,
         timeoutMs: 120_000,

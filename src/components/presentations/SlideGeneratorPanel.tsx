@@ -19,6 +19,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils';
 import { useGenerateSlide } from '@/hooks/useGenerateSlide';
 import { validateReferenceFile } from '@/utils/design-studio/fileValidator';
+import { renderHtmlToPng } from '@/utils/xendingDesign/canvasRenderer';
 
 interface SlideGeneratorPanelProps {
   /** HTML del slide actual, para el modo refinar. */
@@ -88,11 +89,42 @@ export function SlideGeneratorPanel({
       onInsert(res.html);
       toast({ title: '✨ Slide generado', description: 'Se insertó después del slide actual. Edítalo en el Editor Visual.' });
       setInstruction('');
-      setImageDataUrl(null);
+      // Conservamos la imagen de referencia para poder corregir contra ella en "Refinar".
     } catch (err) {
       toast({ title: 'Error al generar', description: err instanceof Error ? err.message : 'Error desconocido', variant: 'destructive' });
     }
   }, [instruction, imageDataUrl, generate, onInsert, toast]);
+
+  // Corrección visual: renderiza el slide actual a PNG y deja que el modelo
+  // compare ese render contra la imagen de referencia (objetivo) y corrija.
+  const handleFixAgainstReference = useCallback(async () => {
+    if (!currentHtml) {
+      toast({ title: 'No hay slide actual para corregir', variant: 'destructive' });
+      return;
+    }
+    if (!imageDataUrl) {
+      toast({ title: 'Sube la imagen objetivo', description: 'Necesito la imagen de referencia para comparar el render contra ella.', variant: 'destructive' });
+      return;
+    }
+    try {
+      const renderPng = await renderHtmlToPng(currentHtml, 'xending', 1920, 1080);
+      const res = await generate.mutateAsync({
+        current_html: currentHtml,
+        iteration_feedback: feedback.trim() || 'Corrige el slide para que coincida con la imagen objetivo (layout, orden, alineación y contenido).',
+        image_base64: imageDataUrl,
+        render_base64: renderPng,
+      });
+      onApplyToCurrent(res.html);
+      toast({ title: '✨ Slide corregido', description: 'Comparé el render contra la referencia y apliqué los ajustes.' });
+      setFeedback('');
+    } catch (err) {
+      toast({
+        title: 'Error al corregir',
+        description: err instanceof Error ? err.message : 'No se pudo renderizar o corregir el slide.',
+        variant: 'destructive',
+      });
+    }
+  }, [currentHtml, imageDataUrl, feedback, generate, onApplyToCurrent, toast]);
 
   const handleRefine = useCallback(async () => {
     if (!feedback.trim()) {
@@ -117,6 +149,47 @@ export function SlideGeneratorPanel({
   }, [feedback, currentHtml, generate, onApplyToCurrent, toast]);
 
   const loading = generate.isPending;
+
+  const imageDrop = (label: string) => (
+    <div>
+      <label className="mb-1.5 block text-sm font-medium">{label}</label>
+      <div
+        className={cn(
+          'relative flex min-h-[120px] cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-4 text-center transition-colors',
+          isDragOver ? 'border-[#FF7A4A] bg-[#FF7A4A]/5' : 'border-muted-foreground/30 hover:border-[#FF7A4A]/50',
+        )}
+        onClick={() => fileInputRef.current?.click()}
+        onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
+        onDragLeave={() => setIsDragOver(false)}
+        onDrop={(e) => { e.preventDefault(); setIsDragOver(false); handleFile(e.dataTransfer.files?.[0] ?? null); }}
+      >
+        {imageDataUrl ? (
+          <div className="relative">
+            <img src={imageDataUrl} alt="referencia" className="max-h-40 rounded-md object-contain" />
+            <button
+              className="absolute -right-2 -top-2 rounded-full bg-background p-1 shadow border"
+              onClick={(e) => { e.stopPropagation(); setImageDataUrl(null); }}
+              aria-label="Quitar imagen"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        ) : (
+          <>
+            <ImagePlus className="h-7 w-7 text-muted-foreground" />
+            <p className="text-xs text-muted-foreground">Arrastra una imagen (la que hiciste en ChatGPT) o haz clic. PNG/JPG/WEBP, máx 10MB.</p>
+          </>
+        )}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp"
+          className="hidden"
+          onChange={(e) => handleFile(e.target.files?.[0] ?? null)}
+        />
+      </div>
+    </div>
+  );
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -194,44 +267,7 @@ export function SlideGeneratorPanel({
               </div>
 
               {/* Image drop */}
-              <div>
-                <label className="mb-1.5 block text-sm font-medium">Imagen de referencia (opcional)</label>
-                <div
-                  className={cn(
-                    'relative flex min-h-[120px] cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-4 text-center transition-colors',
-                    isDragOver ? 'border-[#FF7A4A] bg-[#FF7A4A]/5' : 'border-muted-foreground/30 hover:border-[#FF7A4A]/50',
-                  )}
-                  onClick={() => fileInputRef.current?.click()}
-                  onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
-                  onDragLeave={() => setIsDragOver(false)}
-                  onDrop={(e) => { e.preventDefault(); setIsDragOver(false); handleFile(e.dataTransfer.files?.[0] ?? null); }}
-                >
-                  {imageDataUrl ? (
-                    <div className="relative">
-                      <img src={imageDataUrl} alt="referencia" className="max-h-40 rounded-md object-contain" />
-                      <button
-                        className="absolute -right-2 -top-2 rounded-full bg-background p-1 shadow border"
-                        onClick={(e) => { e.stopPropagation(); setImageDataUrl(null); }}
-                        aria-label="Quitar imagen"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                      <ImagePlus className="h-7 w-7 text-muted-foreground" />
-                      <p className="text-xs text-muted-foreground">Arrastra una imagen (la que hiciste en ChatGPT) o haz clic. PNG/JPG/WEBP, máx 10MB.</p>
-                    </>
-                  )}
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp"
-                    className="hidden"
-                    onChange={(e) => handleFile(e.target.files?.[0] ?? null)}
-                  />
-                </div>
-              </div>
+              {imageDrop('Imagen de referencia (opcional)')}
 
               <Button className="w-full bg-[#FF7A4A] hover:bg-[#E85A2C] text-white" onClick={handleGenerate} disabled={loading}>
                 {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generando…</> : <><Wand2 className="mr-2 h-4 w-4" /> Generar slide</>}
@@ -252,6 +288,22 @@ export function SlideGeneratorPanel({
               <Button className="w-full bg-[#FF7A4A] hover:bg-[#E85A2C] text-white" onClick={handleRefine} disabled={loading}>
                 {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Aplicando…</> : <><Sparkles className="mr-2 h-4 w-4" /> Aplicar cambios</>}
               </Button>
+
+              {/* Corrección visual contra la referencia */}
+              <div className="rounded-lg border border-dashed p-3 space-y-3">
+                <p className="text-xs text-muted-foreground">
+                  ¿No salió como la imagen? Sube el objetivo y corrijo comparando el render actual del slide contra esa referencia.
+                </p>
+                {imageDrop('Imagen objetivo (para comparar)')}
+                <Button
+                  variant="outline"
+                  className="w-full border-[#2ED4C7] text-[#1FB8AC] hover:bg-[#2ED4C7]/10"
+                  onClick={handleFixAgainstReference}
+                  disabled={loading || !imageDataUrl}
+                >
+                  {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Corrigiendo…</> : <><Wand2 className="mr-2 h-4 w-4" /> Corregir contra la referencia</>}
+                </Button>
+              </div>
             </>
           )}
         </div>
