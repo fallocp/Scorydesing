@@ -4,7 +4,7 @@
  */
 
 import { create } from 'zustand';
-import { devtools } from 'zustand/middleware';
+import { devtools, persist } from 'zustand/middleware';
 import type {
   Brand,
   BusinessTenant,
@@ -47,7 +47,8 @@ const initialState = {
 
 export const useDesignStore = create<DesignStore>()(
   devtools(
-    (set) => ({
+    persist(
+      (set) => ({
       ...initialState,
 
       // --- Brand ---
@@ -168,6 +169,18 @@ export const useDesignStore = create<DesignStore>()(
       // --- Reset ---
       reset: () => set(initialState, false, 'reset'),
     }),
+    {
+      // Persist only the tenant/brand selection so it survives reloads and
+      // direct navigation (e.g. opening /presentations directly). The rest of
+      // the store is transient campaign state that should not be persisted.
+      name: 'scory-design-selection',
+      partialize: (state) => ({
+        activeBusiness: state.activeBusiness,
+        selectedBrand: state.selectedBrand,
+        activeCategory: state.activeCategory,
+      }),
+    }
+    ),
     { name: 'Design Store' }
   )
 );

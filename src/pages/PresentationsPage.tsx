@@ -15,6 +15,7 @@ import {
   ArrowLeft,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Download,
   FileImage,
   Presentation,
@@ -24,6 +25,7 @@ import {
   Copy,
   Pencil,
   UploadCloud,
+  FolderInput,
   Plus,
   Trash2,
   RefreshCw,
@@ -70,73 +72,175 @@ const PRESENTATION_ELEMENTS: ElementDef[] = [
 
 // Clave de autoguardado local (por navegador) para no perder ediciones/duplicados
 const PRESENTATIONS_STORAGE_KEY = 'xending-presentations-v1';
+// Clave del deck "sin guardar (nuevo)": se persiste localmente para que NUNCA se
+// pierda al crear otro proyecto, cambiar de proyecto o recargar la página.
+const DRAFT_STORAGE_KEY = 'xending-presentation-draft';
+
+type Deck = Array<{ title: string; html: string }>;
+
+/** Deck por defecto (plantillas de portada). */
+function defaultDeck(): Deck {
+  return PRESENTATION_TEMPLATES.map((s) => ({ title: s.title, html: s.html }));
+}
+
+/** Valida que un valor tenga forma de deck: array no vacío de { html }. */
+function isValidDeck(v: unknown): v is Deck {
+  return Array.isArray(v) && v.length > 0 && v.every((s) => s && typeof (s as any).html === 'string');
+}
+
+/**
+ * Carga el deck borrador desde localStorage. Si no hay borrador nuevo pero sí
+ * existe el deck de la versión anterior (`xending-presentations-v1`), lo migra
+ * para recuperarlo. Devuelve las plantillas por defecto si no hay nada.
+ */
+function loadDraftDeck(): { deck: Deck; recoveredLegacy: boolean } {
+  try {
+    const raw = localStorage.getItem(DRAFT_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (isValidDeck(parsed)) return { deck: parsed, recoveredLegacy: false };
+    }
+    // Migración/recuperación desde la clave legacy de la versión anterior.
+    const legacy = localStorage.getItem(PRESENTATIONS_STORAGE_KEY);
+    if (legacy) {
+      const parsedLegacy = JSON.parse(legacy);
+      if (isValidDeck(parsedLegacy)) {
+        try { localStorage.setItem(DRAFT_STORAGE_KEY, legacy); } catch { /* ignore */ }
+        return { deck: parsedLegacy, recoveredLegacy: true };
+      }
+    }
+  } catch { /* ignore */ }
+  return { deck: defaultDeck(), recoveredLegacy: false };
+}
 
 function PresentationsPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [slides, setSlides] = useState<Array<{ title: string; html: string }>>(() => {
-    // Restaura del navegador si hay una versión guardada
-    try {
-      const saved = localStorage.getItem(PRESENTATIONS_STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0 && parsed.every((s) => typeof s?.html === 'string')) {
-          return parsed;
-        }
-      }
-    } catch { /* ignore */ }
-    return PRESENTATION_TEMPLATES.map((s) => ({ title: s.title, html: s.html }));
+  // Cantidad de slides del borrador (para mostrarlo en el menú de proyectos).
+  const [draftSlideCount, setDraftSlideCount] = useState(0);
+  const recoveredLegacyRef = useRef(false);
+  const [slides, setSlides] = useState<Deck>(() => {
+    const { deck, recoveredLegacy } = loadDraftDeck();
+    recoveredLegacyRef.current = recoveredLegacy;
+    return deck;
   });
   const [editingMode, setEditingMode] = useState<'none' | 'html' | 'visual'>('none');
   const containerRef = useRef<HTMLDivElement>(null);
+  // Proyecto "dueño" de los slides que están ahora en memoria. El autoguardado
+  // (local y nube) escribe SIEMPRE aquí, para no volcar los slides de un proyecto
+  // en otro al cambiar de proyecto.
+  const slidesOwnerIdRef = useRef<string | null>(null);
 
   const totalSlides = slides.length;
 
-  // Autoguardado en el navegador en cada cambio de slides
+  // Autoguardado local. Si hay proyecto dueño escribe en su clave; si es el deck
+  // "sin guardar (nuevo)" lo persiste como borrador para no perderlo jamás.
   useEffect(() => {
+    const ownerId = slidesOwnerIdRef.current;
     try {
-      localStorage.setItem(PRESENTATIONS_STORAGE_KEY, JSON.stringify(slides));
+      if (ownerId) {
+        localStorage.setItem(`xending-presentation-${ownerId}`, JSON.stringify(slides));
+      } else {
+        localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(slides));
+        setDraftSlideCount(slides.length);
+      }
     } catch (err) {
-      console.warn('No se pudo autoguardar la presentación (posible límite de almacenamiento):', err);
+      console.warn('No se pudo autoguardar la presentación en el navegador:', err);
     }
   }, [slides]);
 
-  // --- Persistencia en la nube (Supabase) ---
+  // Al montar: inicializa el contador del borrador y, si recuperamos un deck de
+  // la versión anterior, avisa al usuario dónde encontrarlo.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(DRAFT_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (isValidDeck(parsed)) setDraftSlideCount(parsed.length);
+      }
+    } catch { /* ignore */ }
+    if (recoveredLegacyRef.current) {
+      toast({
+        title: 'Recuperamos tu presentación sin guardar',
+        description: 'Está en el menú PROYECTO → "Sin guardar (nuevo)". Usa "Guardar en la nube" para conservarla.',
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // --- Persistencia en la nube (Supabase) · multi-proyecto ---
   const { activeBusinessId } = useActiveBusiness();
-  const [presentationId, setPresentationId] = useState<string | null>(null);
+  // Lista de presentaciones (proyectos) del negocio y la activa.
+  const [presentations, setPresentations] = useState<Array<{ id: string; name: string }>>([]);
+  const [activePresentationId, setActivePresentationId] = useState<string | null>(null);
+  const [projectMenuOpen, setProjectMenuOpen] = useState(false);
+  // Menú "copiar/mover slide a otro proyecto"
+  const [moveMenuOpen, setMoveMenuOpen] = useState(false);
   const [cloudLoading, setCloudLoading] = useState(false);
   const [cloudSaving, setCloudSaving] = useState(false);
 
-  // Carga la presentación del negocio activo al montar / cambiar de negocio
+  // Carga los slides de un proyecto y lo marca como activo/dueño.
+  const loadPresentationSlides = useCallback(async (id: string) => {
+    setCloudLoading(true);
+    try {
+      const { data, error } = await (supabase as any)
+        .from('presentations')
+        .select('slides')
+        .eq('id', id)
+        .maybeSingle();
+      if (error) throw error;
+      const arr = Array.isArray(data?.slides) && data.slides.length > 0
+        ? data.slides
+        : PRESENTATION_TEMPLATES.map((s) => ({ title: s.title, html: s.html }));
+      slidesOwnerIdRef.current = id;
+      setActivePresentationId(id);
+      setSlides(arr);
+      setCurrentSlide(0);
+      if (activeBusinessId) {
+        try { localStorage.setItem(`xending-active-presentation-${activeBusinessId}`, id); } catch { /* ignore */ }
+      }
+    } catch (err) {
+      console.error('Error cargando slides del proyecto:', err);
+    } finally {
+      setCloudLoading(false);
+    }
+  }, [activeBusinessId]);
+
+  // Carga la lista de proyectos del negocio y activa el último usado (o el más reciente).
+  const loadPresentations = useCallback(async () => {
+    if (!activeBusinessId) return;
+    setCloudLoading(true);
+    try {
+      const { data, error } = await (supabase as any)
+        .from('presentations')
+        .select('id, name, updated_at')
+        .eq('business_id', activeBusinessId)
+        .order('created_at', { ascending: true });
+      if (error) throw error;
+      const rows = data ?? [];
+      setPresentations(rows.map((p: any) => ({ id: p.id, name: p.name || 'Presentación' })));
+      if (rows.length > 0) {
+        let preferred: string | null = null;
+        try { preferred = localStorage.getItem(`xending-active-presentation-${activeBusinessId}`); } catch { /* ignore */ }
+        const mostRecent = [...rows].sort((a: any, b: any) => (b.updated_at || '').localeCompare(a.updated_at || ''))[0];
+        const activeId = preferred && rows.some((p: any) => p.id === preferred) ? preferred : mostRecent.id;
+        await loadPresentationSlides(activeId);
+      } else {
+        setActivePresentationId(null);
+        slidesOwnerIdRef.current = null;
+      }
+    } catch (err) {
+      console.error('Error cargando presentaciones de la nube:', err);
+    } finally {
+      setCloudLoading(false);
+    }
+  }, [activeBusinessId, loadPresentationSlides]);
+
   useEffect(() => {
     if (!activeBusinessId) return;
-    let cancelled = false;
-    (async () => {
-      setCloudLoading(true);
-      try {
-        const { data, error } = await (supabase as any)
-          .from('presentations')
-          .select('id, slides')
-          .eq('business_id', activeBusinessId)
-          .order('updated_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        if (error) throw error;
-        if (!cancelled && data) {
-          setPresentationId(data.id);
-          if (Array.isArray(data.slides) && data.slides.length > 0) {
-            setSlides(data.slides);
-            setCurrentSlide(0);
-          }
-        }
-      } catch (err) {
-        console.error('Error cargando presentación de la nube:', err);
-      } finally {
-        if (!cancelled) setCloudLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
+    loadPresentations();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeBusinessId]);
 
   const saveToCloud = useCallback(async () => {
@@ -146,20 +250,25 @@ function PresentationsPage() {
     }
     setCloudSaving(true);
     try {
-      if (presentationId) {
+      const ownerId = slidesOwnerIdRef.current;
+      if (ownerId) {
         const { error } = await (supabase as any)
           .from('presentations')
           .update({ slides })
-          .eq('id', presentationId);
+          .eq('id', ownerId);
         if (error) throw error;
       } else {
+        const name = (window.prompt('Nombre de la presentación:', `Presentación ${presentations.length + 1}`) || '').trim() || `Presentación ${presentations.length + 1}`;
         const { data, error } = await (supabase as any)
           .from('presentations')
-          .insert({ business_id: activeBusinessId, name: 'Presentación Xending', slides })
-          .select('id')
+          .insert({ business_id: activeBusinessId, name, slides })
+          .select('id, name')
           .single();
         if (error) throw error;
-        setPresentationId(data.id);
+        slidesOwnerIdRef.current = data.id;
+        setActivePresentationId(data.id);
+        setPresentations((prev) => [...prev, { id: data.id, name: data.name || name }]);
+        try { localStorage.setItem(`xending-active-presentation-${activeBusinessId}`, data.id); } catch { /* ignore */ }
       }
       toast({ title: '✅ Guardado en la nube' });
     } catch (err) {
@@ -167,20 +276,161 @@ function PresentationsPage() {
     } finally {
       setCloudSaving(false);
     }
-  }, [activeBusinessId, presentationId, slides, toast]);
+  }, [activeBusinessId, slides, presentations.length, toast]);
 
-  // Autoguardado en la nube (debounce) una vez que existe la presentación
+  // Autoguardado en la nube (debounce) hacia el proyecto dueño de los slides actuales.
   useEffect(() => {
-    if (!presentationId || !activeBusinessId) return;
+    const ownerId = slidesOwnerIdRef.current;
+    if (!ownerId || !activeBusinessId) return;
     const t = setTimeout(async () => {
       try {
-        await (supabase as any).from('presentations').update({ slides }).eq('id', presentationId);
+        await (supabase as any).from('presentations').update({ slides }).eq('id', ownerId);
       } catch (err) {
         console.error('Autoguardado en la nube falló:', err);
       }
     }, 2000);
     return () => clearTimeout(t);
-  }, [slides, presentationId, activeBusinessId]);
+  }, [slides, activeBusinessId]);
+
+  // --- Gestión de proyectos (presentaciones) ---
+  const switchPresentation = useCallback((id: string) => {
+    setProjectMenuOpen(false);
+    if (id === activePresentationId) return;
+    loadPresentationSlides(id);
+  }, [activePresentationId, loadPresentationSlides]);
+
+  // Vuelve al deck "sin guardar (nuevo)" (borrador local), sin tocar la nube.
+  const switchToDraft = useCallback(() => {
+    setProjectMenuOpen(false);
+    if (activePresentationId === null) return; // ya estamos en el borrador
+    slidesOwnerIdRef.current = null;
+    setActivePresentationId(null);
+    let deck = defaultDeck();
+    try {
+      const raw = localStorage.getItem(DRAFT_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (isValidDeck(parsed)) deck = parsed;
+      }
+    } catch { /* ignore */ }
+    setSlides(deck);
+    setCurrentSlide(0);
+  }, [activePresentationId]);
+
+  const createPresentation = useCallback(async () => {
+    if (!activeBusinessId) {
+      toast({ title: 'No hay negocio activo', variant: 'destructive' });
+      return;
+    }
+    const name = (window.prompt('Nombre del nuevo proyecto:', `Presentación ${presentations.length + 1}`) || '').trim();
+    if (!name) return;
+    // Slide inicial (portada) para que el proyecto no quede vacío.
+    const starter = [{ title: PRESENTATION_TEMPLATES[0].title, html: PRESENTATION_TEMPLATES[0].html }];
+    try {
+      const { data, error } = await (supabase as any)
+        .from('presentations')
+        .insert({ business_id: activeBusinessId, name, slides: starter })
+        .select('id, name')
+        .single();
+      if (error) throw error;
+      setPresentations((prev) => [...prev, { id: data.id, name: data.name || name }]);
+      slidesOwnerIdRef.current = data.id;
+      setActivePresentationId(data.id);
+      setSlides(starter);
+      setCurrentSlide(0);
+      try { localStorage.setItem(`xending-active-presentation-${activeBusinessId}`, data.id); } catch { /* ignore */ }
+      setProjectMenuOpen(false);
+      toast({ title: `Proyecto creado: ${name}` });
+    } catch (err) {
+      toast({ title: 'Error al crear proyecto', description: err instanceof Error ? err.message : 'Error desconocido', variant: 'destructive' });
+    }
+  }, [activeBusinessId, presentations.length, toast]);
+
+  const renamePresentation = useCallback(async (id: string, currentName: string) => {
+    const name = (window.prompt('Nuevo nombre del proyecto:', currentName) || '').trim();
+    if (!name || name === currentName) return;
+    try {
+      const { error } = await (supabase as any).from('presentations').update({ name }).eq('id', id);
+      if (error) throw error;
+      setPresentations((prev) => prev.map((p) => (p.id === id ? { ...p, name } : p)));
+      toast({ title: 'Proyecto renombrado' });
+    } catch (err) {
+      toast({ title: 'Error al renombrar', description: err instanceof Error ? err.message : 'Error desconocido', variant: 'destructive' });
+    }
+  }, [toast]);
+
+  const deletePresentation = useCallback(async (id: string, name: string) => {
+    if (!window.confirm(`¿Eliminar el proyecto "${name}" y todas sus slides? Esta acción no se puede deshacer.`)) return;
+    try {
+      const { error } = await (supabase as any).from('presentations').delete().eq('id', id);
+      if (error) throw error;
+      const remaining = presentations.filter((p) => p.id !== id);
+      setPresentations(remaining);
+      try { localStorage.removeItem(`xending-presentation-${id}`); } catch { /* ignore */ }
+      if (activePresentationId === id) {
+        if (remaining.length > 0) {
+          await loadPresentationSlides(remaining[0].id);
+        } else {
+          setActivePresentationId(null);
+          slidesOwnerIdRef.current = null;
+          setSlides(PRESENTATION_TEMPLATES.map((s) => ({ title: s.title, html: s.html })));
+          setCurrentSlide(0);
+        }
+      }
+      toast({ title: 'Proyecto eliminado' });
+    } catch (err) {
+      toast({ title: 'Error al eliminar', description: err instanceof Error ? err.message : 'Error desconocido', variant: 'destructive' });
+    }
+  }, [presentations, activePresentationId, loadPresentationSlides, toast]);
+
+  // Agrega un slide al final de OTRO proyecto (lee su array actual en la nube y
+  // le hace push). El proyecto destino no está activo, así que su fuente de verdad
+  // es la base de datos.
+  const appendSlideToProject = useCallback(async (targetId: string, slide: { title: string; html: string }) => {
+    const { data, error } = await (supabase as any)
+      .from('presentations')
+      .select('slides')
+      .eq('id', targetId)
+      .maybeSingle();
+    if (error) throw error;
+    const targetSlides = Array.isArray(data?.slides) ? data.slides : [];
+    const { error: upErr } = await (supabase as any)
+      .from('presentations')
+      .update({ slides: [...targetSlides, { title: slide.title, html: slide.html }] })
+      .eq('id', targetId);
+    if (upErr) throw upErr;
+  }, []);
+
+  const copySlideToProject = useCallback(async (targetId: string) => {
+    const slide = slides[currentSlide];
+    if (!slide) return;
+    setMoveMenuOpen(false);
+    try {
+      await appendSlideToProject(targetId, slide);
+      toast({ title: `Slide copiado a "${presentations.find((p) => p.id === targetId)?.name ?? 'proyecto'}"` });
+    } catch (err) {
+      toast({ title: 'Error al copiar el slide', description: err instanceof Error ? err.message : 'Error desconocido', variant: 'destructive' });
+    }
+  }, [slides, currentSlide, appendSlideToProject, presentations, toast]);
+
+  const moveSlideToProject = useCallback(async (targetId: string) => {
+    if (slides.length <= 1) {
+      toast({ title: 'No puedes mover el único slide del proyecto', variant: 'destructive' });
+      return;
+    }
+    const slide = slides[currentSlide];
+    if (!slide) return;
+    setMoveMenuOpen(false);
+    try {
+      await appendSlideToProject(targetId, slide);
+      // Quitar del proyecto actual (el autoguardado persiste el origen sin este slide).
+      setSlides((prev) => prev.filter((_, i) => i !== currentSlide));
+      setCurrentSlide((i) => Math.max(0, Math.min(i, slides.length - 2)));
+      toast({ title: `Slide movido a "${presentations.find((p) => p.id === targetId)?.name ?? 'proyecto'}"` });
+    } catch (err) {
+      toast({ title: 'Error al mover el slide', description: err instanceof Error ? err.message : 'Error desconocido', variant: 'destructive' });
+    }
+  }, [slides, currentSlide, appendSlideToProject, presentations, toast]);
 
   const handleResetDeck = useCallback(() => {
     const ok = window.confirm('¿Restablecer la presentación al diseño original? Se perderán los cambios y duplicados guardados en este navegador.');
@@ -573,6 +823,99 @@ function PresentationsPage() {
           onClose={() => setGeneratorOpen(false)}
         />
       )}
+      {/* Selector de proyecto — cada proyecto es una presentación independiente
+          (p.ej. "Presentación México", "Presentación USA"). Al cambiar, solo ves
+          las slides de ese proyecto. */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Proyecto</span>
+        <div className="relative">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setProjectMenuOpen((o) => !o)}
+            className="gap-2 min-w-[220px] justify-between"
+          >
+            <span className="truncate">
+              {presentations.find((p) => p.id === activePresentationId)?.name ?? 'Sin guardar (nuevo)'}
+            </span>
+            <ChevronDown className="h-4 w-4 opacity-60" />
+          </Button>
+          {projectMenuOpen && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setProjectMenuOpen(false)} />
+              <div className="absolute left-0 top-9 z-50 w-80 max-h-96 overflow-y-auto bg-background border rounded-lg shadow-xl p-1">
+                {/* Deck sin guardar (borrador local). Siempre accesible para no
+                    perder trabajo no guardado en la nube. */}
+                {draftSlideCount > 0 && (
+                  <>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide px-2 py-1">Borrador local</p>
+                    <button
+                      type="button"
+                      onClick={switchToDraft}
+                      className={cn(
+                        'w-full flex items-center gap-1 rounded px-2 py-1.5 text-xs text-left',
+                        activePresentationId === null ? 'bg-muted font-medium' : 'hover:bg-muted',
+                      )}
+                    >
+                      <span className="flex-1 truncate">
+                        {activePresentationId === null ? '● ' : ''}Sin guardar (nuevo)
+                      </span>
+                      <span className="text-[10px] text-muted-foreground shrink-0">{draftSlideCount} slides</span>
+                    </button>
+                    <div className="border-t my-1" />
+                  </>
+                )}
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wide px-2 py-1">Mis presentaciones</p>
+                {presentations.length === 0 && (
+                  <p className="text-xs text-muted-foreground px-2 py-2">
+                    Aún no hay proyectos guardados. Crea uno o usa "Guardar en la nube".
+                  </p>
+                )}
+                {presentations.map((p) => (
+                  <div
+                    key={p.id}
+                    className={cn(
+                      'group flex items-center gap-1 rounded px-2 py-1.5 text-xs',
+                      p.id === activePresentationId ? 'bg-muted font-medium' : 'hover:bg-muted',
+                    )}
+                  >
+                    <button type="button" onClick={() => switchPresentation(p.id)} className="flex-1 text-left truncate">
+                      {p.id === activePresentationId ? '● ' : ''}{p.name}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => renamePresentation(p.id, p.name)}
+                      title="Renombrar proyecto"
+                      className="opacity-0 group-hover:opacity-100 p-1 rounded hover:text-[#2ED4C7]"
+                    >
+                      <Pencil className="h-3 w-3" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => deletePresentation(p.id, p.name)}
+                      title="Eliminar proyecto"
+                      className="opacity-0 group-hover:opacity-100 p-1 rounded hover:text-red-600"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+                <div className="border-t mt-1 pt-1">
+                  <button
+                    type="button"
+                    onClick={createPresentation}
+                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs hover:bg-muted text-[#0F1419] font-medium"
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Nueva presentación
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+        {cloudLoading && <span className="text-xs text-muted-foreground">Cargando…</span>}
+      </div>
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -631,6 +974,52 @@ function PresentationsPage() {
             <Copy className="h-4 w-4" />
             Duplicar slide
           </Button>
+          <div className="relative">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setMoveMenuOpen((o) => !o)}
+              className="gap-2"
+              title="Copiar o mover este slide a otro proyecto"
+            >
+              <FolderInput className="h-4 w-4" />
+              A otro proyecto
+            </Button>
+            {moveMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setMoveMenuOpen(false)} />
+                <div className="absolute right-0 top-9 z-50 w-80 max-h-80 overflow-y-auto bg-background border rounded-lg shadow-xl p-1">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide px-2 py-1">Copiar / mover este slide a…</p>
+                  {presentations.filter((p) => p.id !== activePresentationId).length === 0 && (
+                    <p className="text-xs text-muted-foreground px-2 py-2">
+                      Crea otro proyecto para poder copiar o mover slides.
+                    </p>
+                  )}
+                  {presentations.filter((p) => p.id !== activePresentationId).map((p) => (
+                    <div key={p.id} className="flex items-center gap-1 rounded px-2 py-1.5 text-xs hover:bg-muted">
+                      <span className="flex-1 truncate">{p.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => copySlideToProject(p.id)}
+                        title="Copiar aquí (queda en ambos proyectos)"
+                        className="px-1.5 py-0.5 rounded border hover:bg-background"
+                      >
+                        Copiar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => moveSlideToProject(p.id)}
+                        title="Mover aquí (se quita de este proyecto)"
+                        className="px-1.5 py-0.5 rounded border hover:bg-background"
+                      >
+                        Mover
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
           <Button
             variant="outline"
             size="sm"
