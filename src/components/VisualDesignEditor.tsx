@@ -8,14 +8,15 @@
 
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
-  Move, Type, MousePointer2, Save, X, Undo2, ZoomIn, ZoomOut,
-  Eye, Code, Hand, Plus, Trash2, Copy, Image as ImageIcon, Square, Circle, Minus,
+  Move, Type, MousePointer2, Save, X, Undo2, Redo2, ZoomIn, ZoomOut,
+  Eye, EyeOff, Code, Hand, Plus, Trash2, Copy, Image as ImageIcon, Square, Circle, Minus,
   ArrowUp, ArrowDown,
-  CircleDot, Pill, Diamond, Dot, Check, Star, Asterisk, ArrowRight, Ruler,
+  CircleDot, Pill, Diamond, Dot, Check, Star, Asterisk, ArrowRight, Ruler, Lock, Unlock, Layers, Grid3x3,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { EDITOR_ICONS } from '@/constants/editorIcons';
 
 // --- Editable element definitions ---
 
@@ -27,7 +28,7 @@ export interface ElementDef {
   selector: string;       // CSS selector to find in iframe
   editable: boolean;      // Can edit text?
   draggable: boolean;     // Can drag to reposition?
-  kind?: 'text' | 'image' | 'image-bg' | 'shape' | 'circle' | 'line' | 'ring' | 'pill' | 'line-gradient' | 'diamond'; // tipo (solo para elementos insertados)
+  kind?: 'text' | 'image' | 'image-bg' | 'shape' | 'box' | 'circle' | 'line' | 'ring' | 'pill' | 'line-gradient' | 'diamond' | 'icon'; // tipo (solo para elementos insertados)
   inserted?: boolean;     // true si fue agregado desde el editor (se puede borrar/duplicar)
 }
 
@@ -217,6 +218,35 @@ const NEW_IMG_PLACEHOLDER =
 const TRANSPARENT_IMG =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1'%3E%3C/svg%3E";
 
+/** Descompone un `transform` en sus partes de posición (translate) y giro (rotate). */
+function parseTransform(t?: string): { tx: number; ty: number; rot: number } {
+  const out = { tx: 0, ty: 0, rot: 0 };
+  if (!t) return out;
+  const tr = t.match(/translate\((-?[\d.]+)px,\s*(-?[\d.]+)px\)/);
+  if (tr) { out.tx = parseFloat(tr[1]); out.ty = parseFloat(tr[2]); }
+  const ro = t.match(/rotate\((-?[\d.]+)deg\)/);
+  if (ro) out.rot = parseFloat(ro[1]);
+  return out;
+}
+
+/** Reconstruye `translate(...) rotate(...)` preservando ambas partes. */
+function composeTransform({ tx, ty, rot }: { tx: number; ty: number; rot: number }): string {
+  const parts: string[] = [];
+  if (Math.round(tx) !== 0 || Math.round(ty) !== 0) parts.push(`translate(${Math.round(tx)}px, ${Math.round(ty)}px)`);
+  if (Math.round(rot) !== 0) parts.push(`rotate(${Math.round(rot)}deg)`);
+  return parts.join(' ');
+}
+
+/** Extrae el ángulo de rotación (grados) de un `transform` computado `matrix(...)`. */
+function rotationFromMatrix(t?: string): number {
+  if (!t || t === 'none') return 0;
+  const m = t.match(/matrix\(([^)]+)\)/);
+  if (!m) return 0;
+  const parts = m[1].split(',').map((s) => parseFloat(s));
+  if (parts.length < 4) return 0;
+  return Math.round(Math.atan2(parts[1], parts[0]) * (180 / Math.PI));
+}
+
 /** Genera el HTML de un elemento nuevo con su data-eid. */
 function buildInsertSnippet(eid: string, kind: InsertKind): string {
   const pos = `position:absolute;left:140px;top:140px;z-index:60;`;
@@ -281,6 +311,38 @@ function removeNodeByEid(html: string, eid: string): string {
   return html.replace(node, '');
 }
 
+/**
+ * Reemplaza un fragmento HTML dentro de `source` de forma tolerante a las
+ * diferencias entre el HTML serializado por el navegador (`innerHTML`) y el
+ * HTML guardado en `source`.
+ *
+ * El navegador normaliza las etiquetas void auto-cerradas: `<br/>` → `<br>`.
+ * Por eso un `source.replace(oldHTML, newHTML)` literal falla cuando el
+ * fragmento original contiene `<br/>`, `<img .../>`, etc. y no persiste el
+ * cambio. Aquí intentamos primero el reemplazo literal (comportamiento normal)
+ * y, si no encuentra el fragmento, reintentamos con un patrón que tolera el
+ * cierre opcional (`<br>` ≈ `<br/>` ≈ `<br />`).
+ */
+function replaceHtmlFragment(source: string, oldHTML: string, newHTML: string): string {
+  if (oldHTML && source.includes(oldHTML)) {
+    return source.replace(oldHTML, newHTML);
+  }
+  const VOID = 'area|base|br|col|embed|hr|img|input|link|meta|source|track|wbr';
+  const escaped = oldHTML.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // Tras escapar, las etiquetas void siguen como `<br>`; permitimos `/?` antes de `>`.
+  const loosened = escaped.replace(
+    new RegExp(`<(${VOID})\\b([^>]*?)\\s*/?>`, 'gi'),
+    (_m, tag: string, attrs: string) => `<${tag}${attrs}\\s*/?>`,
+  );
+  try {
+    const re = new RegExp(loosened);
+    if (re.test(source)) return source.replace(re, () => newHTML);
+  } catch {
+    /* patrón inválido: devolvemos el source sin cambios */
+  }
+  return source;
+}
+
 // --- Auto-detección de elementos del HTML (selección libre tipo Canva) ---
 
 const INLINE_TAGS = new Set(['SPAN', 'A', 'B', 'I', 'EM', 'STRONG', 'SMALL', 'U', 'SUB', 'SUP', 'MARK', 'LABEL', 'CODE', 'BR', 'WBR', 'BDI', 'BDO']);
@@ -326,6 +388,7 @@ function autoLabel(el: Element, kind: string): string {
   if (kind === 'text') return ((el.textContent || '').trim().slice(0, 18)) || 'Texto';
   if (kind === 'image') return 'Imagen';
   if (kind === 'image-bg') return 'Fondo imagen';
+  if (kind === 'box') return 'Bloque';
   return 'Forma';
 }
 
@@ -334,8 +397,21 @@ function kindEmoji(kind: string): string {
     case 'text': return '🔤';
     case 'image': return '🖼️';
     case 'image-bg': return '🗺️';
+    case 'box': return '🧊';
     default: return '▭';
   }
+}
+
+/**
+ * Agrupa el `kind` fino de un elemento en una de 4 categorías amigables para
+ * el filtro de la barra superior: Texto · Imágenes · Formas · Bloques.
+ */
+type OverlayCategory = 'text' | 'image' | 'shape' | 'box';
+function kindCategory(kind?: string): OverlayCategory {
+  if (kind === 'text') return 'text';
+  if (kind === 'image' || kind === 'image-bg') return 'image';
+  if (kind === 'box') return 'box';
+  return 'shape'; // shape, circle, ring, pill, line, line-gradient, diamond…
 }
 
 // Paleta de marca para swatches rápidos
@@ -437,6 +513,7 @@ interface ElementOverlay {
   id: string;
   def: ElementDef;
   rect: { top: number; left: number; width: number; height: number };
+  rot?: number; // rotación (grados) del elemento, para girar la caja de selección con él
 }
 
 interface PositionDelta {
@@ -751,35 +828,262 @@ function ImagePickerPanel({ onSelect, onUpload }: ImagePickerPanelProps) {
   );
 }
 
+// --- Icon Picker (Marca + Genéricos) ---
+
+interface IconPickerModalProps {
+  onClose: () => void;
+  onPickGeneric: (svg: string, label: string) => void;
+  onPickBrand: (url: string) => void;
+}
+
+/**
+ * Modal con dos pestañas:
+ *  - "Marca": iconos con branding subidos al Storage (carpeta `brand-icons/`),
+ *    que el equipo va surtiendo. Se insertan como <img> (color fijo de marca).
+ *  - "Genéricos": set integrado (sociales + negocio) como SVG monocromo,
+ *    recoloreable con el color del elemento.
+ */
+function IconPickerModal({ onClose, onPickGeneric, onPickBrand }: IconPickerModalProps) {
+  const [tab, setTab] = useState<'generic' | 'brand'>('generic');
+  const [search, setSearch] = useState('');
+  const [brandFiles, setBrandFiles] = useState<Array<{ name: string; url: string }>>([]);
+  const [brandLoading, setBrandLoading] = useState(false);
+
+  const BUCKET = 'design-images';
+  const PREFIX = 'brand-icons';
+  const IMG_RE = /\.(png|jpe?g|webp|gif|svg|avif)$/i;
+
+  const loadBrand = useCallback(async () => {
+    setBrandLoading(true);
+    try {
+      const { supabase } = await import('@/integrations/supabase/client');
+      const { data, error } = await supabase.storage
+        .from(BUCKET)
+        .list(PREFIX, { limit: 500, sortBy: { column: 'created_at', order: 'desc' } });
+      if (error) throw error;
+      const files = (data || [])
+        .filter((it: { id: string | null; name: string }) => it.id !== null && IMG_RE.test(it.name))
+        .map((it: { name: string }) => {
+          const { data: u } = supabase.storage.from(BUCKET).getPublicUrl(`${PREFIX}/${it.name}`);
+          return { name: it.name, url: u.publicUrl };
+        });
+      setBrandFiles(files);
+    } catch (err) {
+      console.error('Error listando iconos de marca:', err);
+      setBrandFiles([]);
+    }
+    setBrandLoading(false);
+  }, []);
+
+  useEffect(() => { if (tab === 'brand') loadBrand(); }, [tab, loadBrand]);
+
+  const uploadBrand = useCallback(async (file: File) => {
+    try {
+      const { supabase } = await import('@/integrations/supabase/client');
+      const ext = file.name.split('.').pop() || 'png';
+      const path = `${PREFIX}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+      const { error } = await supabase.storage.from(BUCKET).upload(path, file, { upsert: false });
+      if (error) throw error;
+      await loadBrand();
+    } catch (err) {
+      console.error('Error subiendo icono de marca:', err);
+    }
+  }, [loadBrand]);
+
+  const q = search.trim().toLowerCase();
+  const filteredGeneric = q
+    ? EDITOR_ICONS.filter((i) => i.name.toLowerCase().includes(q) || i.keywords.includes(q))
+    : EDITOR_ICONS;
+  const social = filteredGeneric.filter((i) => i.group === 'social');
+  const business = filteredGeneric.filter((i) => i.group === 'business');
+
+  return (
+    <div className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center p-6" onClick={onClose}>
+      <div className="bg-background rounded-xl shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        {/* Header + tabs */}
+        <div className="flex items-center justify-between gap-3 p-4 border-b">
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setTab('generic')}
+              className={cn('text-xs px-3 py-1.5 rounded-md border', tab === 'generic' ? 'bg-primary text-primary-foreground border-primary' : 'hover:bg-muted')}
+            >
+              Genéricos
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab('brand')}
+              className={cn('text-xs px-3 py-1.5 rounded-md border', tab === 'brand' ? 'bg-primary text-primary-foreground border-primary' : 'hover:bg-muted')}
+            >
+              Marca (Xending)
+            </button>
+          </div>
+          <div className="flex items-center gap-2">
+            {tab === 'generic' && (
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar icono…"
+                className="text-xs border rounded px-2 py-1.5 bg-background w-44"
+              />
+            )}
+            <button type="button" onClick={onClose} className="text-xs px-3 py-1.5 rounded border hover:bg-muted">Cerrar</button>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto p-4">
+          {tab === 'generic' ? (
+            <div className="space-y-4">
+              {social.length > 0 && (
+                <div>
+                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">Sociales</p>
+                  <div className="grid grid-cols-6 gap-2">
+                    {social.map((ic) => (
+                      <button
+                        key={ic.id}
+                        type="button"
+                        onClick={() => onPickGeneric(ic.svg, ic.name)}
+                        title={ic.name}
+                        className="aspect-square rounded-lg border hover:ring-2 hover:ring-[#2ED4C7] flex items-center justify-center p-3 text-[#081B57]"
+                      >
+                        <span className="w-full h-full [&>svg]:w-full [&>svg]:h-full" dangerouslySetInnerHTML={{ __html: ic.svg }} />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {business.length > 0 && (
+                <div>
+                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">Negocio</p>
+                  <div className="grid grid-cols-6 gap-2">
+                    {business.map((ic) => (
+                      <button
+                        key={ic.id}
+                        type="button"
+                        onClick={() => onPickGeneric(ic.svg, ic.name)}
+                        title={ic.name}
+                        className="aspect-square rounded-lg border hover:ring-2 hover:ring-[#2ED4C7] flex items-center justify-center p-3 text-[#081B57]"
+                      >
+                        <span className="w-full h-full [&>svg]:w-full [&>svg]:h-full" dangerouslySetInnerHTML={{ __html: ic.svg }} />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {filteredGeneric.length === 0 && (
+                <p className="text-xs text-muted-foreground text-center py-8">Sin resultados para "{search}".</p>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <label className="flex items-center gap-2 p-2 border-2 border-dashed rounded-lg cursor-pointer hover:border-[#2ED4C7] hover:bg-[#2ED4C7]/5 transition-colors w-fit">
+                <span className="text-sm">⬆️</span>
+                <span className="text-xs text-muted-foreground">Subir icono de marca (PNG/SVG)</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={async (e) => { const f = e.target.files?.[0]; if (f) await uploadBrand(f); }}
+                />
+              </label>
+              {brandLoading ? (
+                <p className="text-xs text-muted-foreground py-8 text-center">Cargando…</p>
+              ) : brandFiles.length === 0 ? (
+                <p className="text-xs text-muted-foreground py-8 text-center">
+                  Aún no hay iconos de marca. Súbelos aquí y aparecerán para todo el equipo.
+                </p>
+              ) : (
+                <div className="grid grid-cols-6 gap-2">
+                  {brandFiles.map((f) => (
+                    <button
+                      key={f.url}
+                      type="button"
+                      onClick={() => onPickBrand(f.url)}
+                      title={f.name}
+                      className="aspect-square rounded-lg border hover:ring-2 hover:ring-[#2ED4C7] flex items-center justify-center p-2 bg-white"
+                    >
+                      <img src={f.url} alt="" className="max-w-full max-h-full object-contain" loading="lazy" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // --- Main Component ---
 
 export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensions, editableElements, onApply }: VisualDesignEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  const [scale, setScale] = useState(0.35);
+  const [scale, setScale] = useState(0.7);
   const [overlays, setOverlays] = useState<ElementOverlay[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Multi-selección: lista de ids seleccionados. `selectedId` es el "primario"
+  // (último clicado, controla el panel de propiedades). Para selección simple,
+  // selectedIds === [selectedId]. Con Shift+clic se agregan/quitan elementos.
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  // Grupos: mapa groupId → ids de los elementos miembros. Al seleccionar un
+  // miembro se selecciona todo el grupo. Se persiste en `__ed_cfg`.
+  const [groups, setGroups] = useState<Record<string, string[]>>({});
+  const groupsRef = useRef<Record<string, string[]>>({});
+  useEffect(() => { groupsRef.current = groups; }, [groups]);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [tool, setTool] = useState<'select' | 'move' | 'text'>('select');
+  // Filtro de tipo para la barra superior y el hit-testing del lienzo.
+  // 'all' = todo; el resto aísla la selección a esa categoría (p.ej. 'image' deja
+  // llegar directo a las imágenes aunque haya bloques encima).
+  const [overlayFilter, setOverlayFilter] = useState<'all' | OverlayCategory>('all');
+  // Elementos bloqueados (por overlay.id): no se pueden seleccionar en el lienzo,
+  // mover, redimensionar ni borrar. Se desbloquean desde su chip o el panel.
+  const [lockedIds, setLockedIds] = useState<Set<string>>(new Set());
+  // Elementos ocultos (ojito). Se aplican con visibility:hidden y se recuerdan en
+  // knownDefsRef para poder volver a mostrarlos desde la lista aunque el scan ya no
+  // los detecte.
+  const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
+  const knownDefsRef = useRef<Map<string, ElementDef>>(new Map());
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
   // Guías de alineación: estáticas (centro/tercios) + dinámicas al arrastrar (snap)
   const [showGuides, setShowGuides] = useState(false);
+  // Cuadrícula de alineación: 0 = apagada; N = N×N divisiones (3 = regla de tercios).
+  const [grid, setGrid] = useState(0);
   const [dragGuides, setDragGuides] = useState<Array<{ orient: 'v' | 'h'; pos: number }>>([]);
-  const inlineEditRef = useRef<{ selector: string; oldHTML: string } | null>(null);
+  const inlineEditRef = useRef<{ selector: string; id: string; oldHTML: string } | null>(null);
   const commitRef = useRef<() => void>(() => {});
-  const scaleRef = useRef(0.35);
+  const scaleRef = useRef(0.7);
   const startEditRef = useRef<(o: ElementOverlay, clickPoint?: { x: number; y: number }) => void>(() => {});
   const duplicateRef = useRef<() => void>(() => {});
+  const copyRef = useRef<() => void>(() => {});
+  const pasteRef = useRef<() => void>(() => {});
   const lastRangeRef = useRef<Range | null>(null);
   const selChangeRef = useRef<(() => void) | null>(null);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
+  const [iconPickerOpen, setIconPickerOpen] = useState(false);
+  const [layersOpen, setLayersOpen] = useState(false);
   const [workingHtml, setWorkingHtml] = useState(html);
   const [changes, setChanges] = useState<Array<PositionDelta | TextEdit>>([]);
   const [isDragging, setIsDragging] = useState(false);
-  const dragRef = useRef<{ id: string; startX: number; startY: number; origTop: number; origLeft: number } | null>(null);
+  const dragRef = useRef<{ id: string; startX: number; startY: number; origTop: number; origLeft: number; members: Array<{ id: string; selector: string; origTop: number; origLeft: number; baseTx: number; baseTy: number; baseRot: number }> } | null>(null);
   const [isResizing, setIsResizing] = useState(false);
-  const resizeRef = useRef<{ id: string; corner: string; startX: number; startY: number; w: number; h: number; top: number; left: number } | null>(null);
+  const resizeRef = useRef<{ id: string; selector: string; corner: string; startX: number; startY: number; w: number; h: number; top: number; left: number; baseTx: number; baseTy: number; baseRot: number } | null>(null);
+  const [isRotating, setIsRotating] = useState(false);
+  const [rotateDeg, setRotateDeg] = useState<number | null>(null); // grados en vivo (0-360) mientras se rota
+  const rotateRef = useRef<{ id: string; selector: string; cx: number; cy: number; startAngle: number; startRot: number; lastRot: number } | null>(null);
+  // Borrador de tamaño (Ancho/Alto) para los sliders del panel de propiedades.
+  const [sizeDraft, setSizeDraft] = useState<{ w: number; h: number } | null>(null);
+  // Hit-testing (opción C): mapa nodo-del-iframe → id de overlay. Se reconstruye en
+  // cada scanElements y permite resolver qué overlay hay bajo el cursor usando
+  // document.elementsFromPoint(), en vez de apilar un div por elemento.
+  const elementOverlayMapRef = useRef<Map<Element, string>>(new Map());
+  // Mapa id de overlay → nodo del iframe, para reconstruir la jerarquía (panel de capas).
+  const idToElRef = useRef<Map<string, Element>>(new Map());
 
   // Computed styles of selected element
   const [selectedStyles, setSelectedStyles] = useState<Record<string, string>>({});
@@ -807,6 +1111,8 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
 
   // Undo history: stack of previous override snapshots
   const [undoStack, setUndoStack] = useState<Array<{ overrides: Record<string, Record<string, string>>; workingHtml: string; insertedElements: ElementDef[]; usedFonts: string[] }>>([]);
+  // Redo history: estados revertidos que se pueden volver a aplicar.
+  const [redoStack, setRedoStack] = useState<Array<{ overrides: Record<string, Record<string, string>>; workingHtml: string; insertedElements: ElementDef[]; usedFonts: string[] }>>([]);
 
   // Design dimensions (configurable, defaults to Instagram Story)
   const designWidth = dimensions?.width ?? 1080;
@@ -829,10 +1135,12 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
           radial?: Record<string, RadialCfg>;
           feather?: Record<string, FeatherConfig>;
           bg?: Record<string, BgConfig>;
+          groups?: Record<string, string[]>;
         };
         if (cfg.radial) radialRef.current = { ...cfg.radial, ...radialRef.current };
         if (cfg.feather) featherConfigRef.current = { ...cfg.feather, ...featherConfigRef.current };
         if (cfg.bg) bgConfigRef.current = { ...cfg.bg, ...bgConfigRef.current };
+        if (cfg.groups && Object.keys(cfg.groups).length > 0) setGroups(cfg.groups);
       } catch { /* config inválida */ }
     }
     const hasOverrides = Object.keys(parsed.overrides).length > 0;
@@ -841,6 +1149,22 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
       if (parsed.fonts.length > 0) setUsedFonts((prev) => Array.from(new Set([...prev, ...parsed.fonts])));
       setWorkingHtml(parsed.cleaned);
     }
+    // Recupera elementos ocultos (visibility:hidden) de sesiones previas, para que
+    // reaparezcan como chips atenuados y se puedan volver a mostrar tras recargar.
+    const hidden = new Set<string>();
+    for (const [sel, props] of Object.entries(parsed.overrides)) {
+      if (props['visibility'] !== 'hidden') continue;
+      const eidM = sel.match(/\[data-eid="([^"]+)"\]/);
+      const id = eidM ? eidM[1] : `auto:${sel}`;
+      hidden.add(id);
+      if (!knownDefsRef.current.has(id)) {
+        knownDefsRef.current.set(id, {
+          id, label: 'Oculto', emoji: '🙈', color: '#64748B',
+          selector: sel, editable: false, draggable: true,
+        });
+      }
+    }
+    if (hidden.size > 0) setHiddenIds(hidden);
     // Solo al montar (con el HTML inicial).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -848,7 +1172,8 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
   // Build the HTML with style overrides injected
   const htmlWithOverrides = useMemo(() => {
     const overrideEntries = Object.entries(styleOverrides);
-    if (overrideEntries.length === 0 && usedFonts.length === 0) return workingHtml;
+    const hasGroups = Object.keys(groups).length > 0;
+    if (overrideEntries.length === 0 && usedFonts.length === 0 && !hasGroups) return workingHtml;
 
     let overrideCss = '\n<style id="visual-editor-overrides">\n';
     // @import debe ir primero dentro del bloque <style>
@@ -871,11 +1196,13 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
       radial: radialRef.current,
       feather: featherConfigRef.current,
       bg: bgConfigRef.current,
+      groups,
     };
     const hasCfg =
       Object.keys(cfg.radial).length > 0 ||
       Object.keys(cfg.feather).length > 0 ||
-      Object.keys(cfg.bg).length > 0;
+      Object.keys(cfg.bg).length > 0 ||
+      Object.keys(cfg.groups).length > 0;
     const cfgScript = hasCfg
       ? `<script id="__ed_cfg" type="application/json">${JSON.stringify(cfg).replace(/</g, '\\u003c')}</script>\n`
       : '';
@@ -892,7 +1219,7 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
     }
     // Fallback: inject before </body>
     return cleanHtml.replace('</body>', `${inject}</body>`);
-  }, [workingHtml, styleOverrides, usedFonts]);
+  }, [workingHtml, styleOverrides, usedFonts, groups]);
 
   // Build iframe src — reloads whenever htmlWithOverrides changes
   const iframeSrc = useMemo(() => {
@@ -935,6 +1262,40 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
     const root = doc.querySelector('.slide') || doc.querySelector('.card') || doc.body;
     if (!root) return;
     const rootSel = root.classList.length ? `.${root.classList[0]}` : root.tagName.toLowerCase();
+    const rootRect = root.getBoundingClientRect();
+
+    // --- Normalización de overrides heredados ---
+    // Si una clave de selector "frágil" (p.ej. `.slide > img`) apunta al MISMO nodo
+    // que ya tiene `data-eid`, sus props se fusionan dentro de `[data-eid="..."]`
+    // (gana el selector frágil, que suele ser el estado más reciente) y se elimina la
+    // clave vieja. Así un nodo nunca queda gobernado por dos selectores en conflicto
+    // (causa de imágenes que no se podían redimensionar/mover). Se descarta
+    // `pointer-events` heredado del modo fondo para que el elemento vuelva a ser
+    // interactivo. Es idempotente: tras la primera pasada ya no quedan claves frágiles.
+    try {
+      const eidNodes = new Map<Element, string>();
+      doc.querySelectorAll('[data-eid]').forEach((n) => {
+        const id = n.getAttribute('data-eid');
+        if (id) eidNodes.set(n, id);
+      });
+      setStyleOverrides((prev) => {
+        let changed = false;
+        const next = { ...prev };
+        for (const key of Object.keys(prev)) {
+          if (/^\[data-eid="/.test(key)) continue; // ya canónico
+          let node: Element | null = null;
+          try { node = doc.querySelector(key); } catch { node = null; }
+          if (!node || !eidNodes.has(node)) continue;
+          const canonical = `[data-eid="${eidNodes.get(node)}"]`;
+          const merged = { ...(prev[canonical] || {}), ...(prev[key] || {}) };
+          delete merged['pointer-events'];
+          next[canonical] = merged;
+          delete next[key];
+          changed = true;
+        }
+        return changed ? next : prev;
+      });
+    } catch { /* normalización no crítica */ }
 
     // Defs con nombre (para etiquetas/colores bonitos) que existen en el DOM
     const named = [...(editableElements ?? EDITABLE_ELEMENTS), ...insertedElements];
@@ -948,6 +1309,8 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
 
     const newOverlays: ElementOverlay[] = [];
     const seen = new Set<Element>();
+    const elMap = new Map<Element, string>();
+    const idToEl = new Map<string, Element>();
 
     root.querySelectorAll('*').forEach((el) => {
       if (SKIP_TAGS.has(el.tagName)) return;
@@ -981,7 +1344,23 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
       })()) {
         kind = 'shape';
       } else {
-        return; // contenedores/wrappers sin contenido editable → se omiten
+        // Contenedor: solo lo tratamos como BLOQUE seleccionable si tiene "presencia"
+        // real —fondo, borde o sombra— o está posicionado a propósito (absolute).
+        // Los envoltorios de maquetación INVISIBLES (flex/grid sin estilo) se OMITEN:
+        // sus hijos (texto, imágenes, formas) ya son seleccionables por separado, así
+        // que no inflan el conteo de "Bloques" con decenas de wrappers que nadie mueve.
+        const coversCanvas =
+          rect.width >= rootRect.width * 0.92 && rect.height >= rootRect.height * 0.92;
+        if (el === root || coversCanvas) return;
+        const hasBg = bgColorAlpha(cs.backgroundColor) > 0.05;
+        const hasBorder =
+          cs.borderStyle !== 'none' &&
+          (parseFloat(cs.borderTopWidth) > 0 || parseFloat(cs.borderRightWidth) > 0 ||
+           parseFloat(cs.borderBottomWidth) > 0 || parseFloat(cs.borderLeftWidth) > 0);
+        const hasShadow = !!cs.boxShadow && cs.boxShadow !== 'none';
+        const isPlaced = cs.position === 'absolute' || cs.position === 'fixed';
+        if (!hasBg && !hasBorder && !hasShadow && !isPlaced) return;
+        kind = 'box';
       }
       seen.add(el);
 
@@ -1015,12 +1394,29 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
 
       newOverlays.push({
         id: def.id, def,
-        rect: { top: rect.top, left: rect.left, width: rect.width, height: rect.height },
+        rect: (() => {
+          // Caja SIN rotar: usamos el tamaño de layout (offsetWidth/Height, que no
+          // se ve afectado por transform) y el centro del bounding box (la rotación
+          // es alrededor del centro, así que el centro no cambia). Luego la caja se
+          // gira en el render con `rot` para que abrace al elemento rotado.
+          const he = el as HTMLElement;
+          const lw = he.offsetWidth || rect.width;
+          const lh = he.offsetHeight || rect.height;
+          const ccx = rect.left + rect.width / 2;
+          const ccy = rect.top + rect.height / 2;
+          return { top: ccy - lh / 2, left: ccx - lw / 2, width: lw, height: lh };
+        })(),
+        rot: rotationFromMatrix(cs.transform),
       });
+      elMap.set(el, def.id);
+      idToEl.set(def.id, el);
+      knownDefsRef.current.set(def.id, def);
     });
 
     // Más grandes primero → los pequeños quedan "encima" y son clicables
     newOverlays.sort((a, b) => (b.rect.width * b.rect.height) - (a.rect.width * a.rect.height));
+    elementOverlayMapRef.current = elMap;
+    idToElRef.current = idToEl;
     setOverlays(newOverlays);
   }, [editableElements, insertedElements]);
 
@@ -1045,11 +1441,19 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
       insertedElements,
       usedFonts,
     }]);
+    setRedoStack([]); // una acción nueva invalida el rehacer
   }, [styleOverrides, workingHtml, insertedElements, usedFonts]);
 
   const handleUndo = useCallback(() => {
     if (undoStack.length > 0) {
       const prev = undoStack[undoStack.length - 1];
+      // Guarda el estado ACTUAL en la pila de rehacer antes de revertir.
+      setRedoStack((r) => [...r, {
+        overrides: JSON.parse(JSON.stringify(styleOverrides)),
+        workingHtml,
+        insertedElements,
+        usedFonts,
+      }]);
       setStyleOverrides(prev.overrides);
       setWorkingHtml(prev.workingHtml);
       setInsertedElements(prev.insertedElements);
@@ -1063,10 +1467,28 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
       setUsedFonts([]);
       setChanges([]);
       setSelectedId(null);
+      setSelectedIds([]);
       setEditingTextId(null);
       setSelectedStyles({});
     }
-  }, [undoStack, html]);
+  }, [undoStack, html, styleOverrides, workingHtml, insertedElements, usedFonts]);
+
+  const handleRedo = useCallback(() => {
+    if (redoStack.length === 0) return;
+    const next = redoStack[redoStack.length - 1];
+    // Guarda el estado ACTUAL en undo para poder volver a deshacer.
+    setUndoStack((s) => [...s, {
+      overrides: JSON.parse(JSON.stringify(styleOverrides)),
+      workingHtml,
+      insertedElements,
+      usedFonts,
+    }]);
+    setStyleOverrides(next.overrides);
+    setWorkingHtml(next.workingHtml);
+    setInsertedElements(next.insertedElements);
+    setUsedFonts(next.usedFonts);
+    setRedoStack((r) => r.slice(0, -1));
+  }, [redoStack, styleOverrides, workingHtml, insertedElements, usedFonts]);
 
   // --- Save ---
 
@@ -1080,10 +1502,143 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
 
   // --- Zoom ---
 
-  const zoomIn = () => setScale((s) => Math.min(s + 0.05, 0.8));
-  const zoomOut = () => setScale((s) => Math.max(s - 0.05, 0.15));
+  const zoomIn = () => setScale((s) => Math.min(s + 0.1, 2));
+  const zoomOut = () => setScale((s) => Math.max(s - 0.1, 0.1));
 
   const selectedOverlay = overlays.find((o) => o.id === selectedId);
+
+  // Conteo por categoría para las pastillas de filtro de la barra superior.
+  const kindCounts = useMemo(() => {
+    const c: Record<'text' | 'image' | 'shape' | 'box', number> = { text: 0, image: 0, shape: 0, box: 0 };
+    overlays.forEach((o) => { c[kindCategory(o.def.kind)] += 1; });
+    return c;
+  }, [overlays]);
+
+  // Lista de chips: overlays visibles (filtrados) + elementos ocultos que ya no
+  // aparecen en overlays (para poder volver a mostrarlos con el ojito).
+  const chipList = useMemo(() => {
+    const present = new Set(overlays.map((o) => o.id));
+    const items: Array<{ id: string; def: ElementDef; overlay: ElementOverlay | null }> = overlays
+      .filter((o) => overlayFilter === 'all' || kindCategory(o.def.kind) === overlayFilter)
+      .map((o) => ({ id: o.id, def: o.def, overlay: o }));
+    for (const id of hiddenIds) {
+      if (present.has(id)) continue;
+      const def = knownDefsRef.current.get(id);
+      if (!def) continue;
+      if (overlayFilter !== 'all' && kindCategory(def.kind) !== overlayFilter) continue;
+      items.push({ id, def, overlay: null });
+    }
+    return items;
+  }, [overlays, overlayFilter, hiddenIds]);
+
+  // Árbol de capas: jerarquía real (por ancestría en el DOM del iframe), en orden
+  // de recorrido, con profundidad para indentar. Reusa selección/lock/ocultar.
+  const layerTree = useMemo(() => {
+    const idToEl = idToElRef.current;
+    const elToId = elementOverlayMapRef.current;
+    const idSet = new Set(overlays.map((o) => o.id));
+    const defById = new Map(overlays.map((o) => [o.id, o.def]));
+    const childrenOf = new Map<string, string[]>();
+    const parentOf = new Map<string, string | null>();
+    for (const o of overlays) {
+      let el: Element | null = idToEl.get(o.id)?.parentElement ?? null;
+      let parentId: string | null = null;
+      while (el) {
+        const pid = elToId.get(el);
+        if (pid && idSet.has(pid)) { parentId = pid; break; }
+        el = el.parentElement;
+      }
+      parentOf.set(o.id, parentId);
+      if (parentId) childrenOf.set(parentId, [...(childrenOf.get(parentId) || []), o.id]);
+    }
+    const out: Array<{ id: string; depth: number; def: ElementDef; hasChildren: boolean }> = [];
+    const visit = (id: string, depth: number) => {
+      const def = defById.get(id);
+      if (!def) return;
+      out.push({ id, depth, def, hasChildren: (childrenOf.get(id)?.length || 0) > 0 });
+      for (const c of childrenOf.get(id) || []) visit(c, depth + 1);
+    };
+    overlays.filter((o) => !parentOf.get(o.id)).forEach((o) => visit(o.id, 0));
+    return out;
+  }, [overlays]);
+
+  const toggleLock = useCallback((id: string) => {
+    setLockedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }, []);
+
+  // Oculta/muestra un elemento (visibility:hidden). Al ocultar, si estaba
+  // seleccionado se deselecciona; se recuerda su def para poder mostrarlo luego.
+  const toggleHidden = useCallback((id: string) => {
+    const def = overlays.find((o) => o.id === id)?.def || knownDefsRef.current.get(id);
+    const sel = def?.selector;
+    if (!sel) return;
+    const willHide = !hiddenIds.has(id);
+    setHiddenIds((prev) => {
+      const next = new Set(prev);
+      if (willHide) next.add(id); else next.delete(id);
+      return next;
+    });
+    setStyleOverrides((ov) => {
+      const cur = { ...(ov[sel] || {}) };
+      if (willHide) cur['visibility'] = 'hidden'; else delete cur['visibility'];
+      return { ...ov, [sel]: cur };
+    });
+    if (willHide && selectedId === id) { setSelectedId(null); setSelectedIds([]); }
+  }, [overlays, hiddenIds, selectedId]);
+
+  // Selección simple: reemplaza toda la selección por un único elemento.
+  const selectOnly = useCallback((id: string | null) => {
+    setSelectedId(id);
+    setSelectedIds(id ? [id] : []);
+  }, []);
+
+  // Shift+clic: agrega/quita el elemento de la selección múltiple.
+  const toggleSelect = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
+      setSelectedId(next.length ? (prev.includes(id) ? next[next.length - 1] : id) : null);
+      return next;
+    });
+  }, []);
+
+  // Devuelve los miembros del grupo al que pertenece `id`, o null si no está agrupado.
+  const groupOf = useCallback((id: string): string[] | null => {
+    for (const members of Object.values(groups)) if (members.includes(id)) return members;
+    return null;
+  }, [groups]);
+
+  // Agrupa la multi-selección actual (2+). Si algún elemento ya estaba en otro grupo,
+  // se saca de él. No usa undo (se revierte con desagrupar).
+  const group = useCallback(() => {
+    if (selectedIds.length < 2) return;
+    setGroups((prev) => {
+      const next: Record<string, string[]> = {};
+      for (const [k, v] of Object.entries(prev)) {
+        const filtered = v.filter((id) => !selectedIds.includes(id));
+        if (filtered.length >= 2) next[k] = filtered;
+      }
+      next[`grp-${Math.random().toString(36).slice(2, 8)}`] = [...selectedIds];
+      return next;
+    });
+  }, [selectedIds]);
+
+  // Desagrupa: disuelve cualquier grupo que contenga un elemento de la selección.
+  const ungroup = useCallback(() => {
+    if (selectedIds.length === 0) return;
+    setGroups((prev) => {
+      const next: Record<string, string[]> = {};
+      let changed = false;
+      for (const [k, v] of Object.entries(prev)) {
+        if (v.some((id) => selectedIds.includes(id))) { changed = true; continue; }
+        next[k] = v;
+      }
+      return changed ? next : prev;
+    });
+  }, [selectedIds]);
 
   // Read computed styles when selection changes or iframe reloads
   useEffect(() => {
@@ -1114,6 +1669,8 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
         textAlign: computed.textAlign, textDecorationLine: fontComputed.textDecorationLine,
         color: fontComputed.color, backgroundColor: computed.backgroundColor,
         borderColor: computed.borderTopColor, borderWidth: computed.borderTopWidth,
+        textTransform: fontComputed.textTransform,
+        letterSpacing: fontComputed.letterSpacing,
         filter: computed.filter,
       });
     };
@@ -1225,8 +1782,41 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
     setChanges((prev) => [...prev, { id: selector, property: 'insert', oldValue: '', newValue: kind }]);
   }, [pushUndo]);
 
+  // Inserta un icono GENÉRICO (SVG monocromo, recoloreable con el color del elemento).
+  const addIconSvg = useCallback((svg: string, label: string) => {
+    pushUndo();
+    const eid = `eid-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+    const selector = `[data-eid="${eid}"]`;
+    const snippet = `\n<div data-eid="${eid}" style="position:absolute;left:140px;top:140px;z-index:60;width:120px;height:120px;color:#081B57;display:flex;align-items:center;justify-content:center;">${svg}</div>`;
+    setWorkingHtml((prev) => insertIntoRoot(prev, snippet));
+    const def: ElementDef = {
+      id: eid, label: label || 'Icono', emoji: '⭐', color: '#8B5CF6',
+      selector, editable: false, draggable: true, kind: 'icon', inserted: true,
+    };
+    setInsertedElements((prev) => [...prev, def]);
+    setSelectedId(eid);
+    setChanges((prev) => [...prev, { id: selector, property: 'insert', oldValue: '', newValue: 'icon' }]);
+  }, [pushUndo]);
+
+  // Inserta un icono/imagen de MARCA desde una URL (color fijo, no recoloreable).
+  const addImageFromUrl = useCallback((url: string, label = 'Icono marca') => {
+    pushUndo();
+    const eid = `eid-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+    const selector = `[data-eid="${eid}"]`;
+    const snippet = `\n<img data-eid="${eid}" style="position:absolute;left:140px;top:140px;z-index:60;width:120px;height:120px;object-fit:contain;" src="${url}" alt="" />`;
+    setWorkingHtml((prev) => insertIntoRoot(prev, snippet));
+    const def: ElementDef = {
+      id: eid, label, emoji: '🖼️', color: '#22C55E',
+      selector, editable: false, draggable: true, kind: 'image', inserted: true,
+    };
+    setInsertedElements((prev) => [...prev, def]);
+    setSelectedId(eid);
+    setChanges((prev) => [...prev, { id: selector, property: 'insert', oldValue: '', newValue: 'brand-icon' }]);
+  }, [pushUndo]);
+
   const deleteSelected = useCallback(() => {
     if (!selectedId) return;
+    if (lockedIds.has(selectedId)) return; // bloqueado: no se borra
     const overlay = overlays.find((o) => o.id === selectedId);
     if (!overlay) return;
     pushUndo();
@@ -1257,7 +1847,8 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
     }
     setChanges((prev) => [...prev, { id: overlay.def.selector, property: 'delete', oldValue: '', newValue: '' }]);
     setSelectedId(null);
-  }, [selectedId, overlays, pushUndo]);
+    setSelectedIds([]);
+  }, [selectedId, overlays, pushUndo, lockedIds]);
 
   // Atajo de teclado: Supr/Delete borra; Ctrl/Cmd+D duplica el elemento seleccionado
   useEffect(() => {
@@ -1265,6 +1856,24 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
       if (editingTextId) return; // editando texto: no interferir
       const tag = (e.target as HTMLElement | null)?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      // Agrupar / desagrupar (no requiere selectedId, sino multi-selección)
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'g' || e.key === 'G')) {
+        e.preventDefault();
+        if (e.shiftKey) ungroup();
+        else group();
+        return;
+      }
+      // Copiar / Pegar (incluso entre slides). Pegar no requiere selección.
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'c' || e.key === 'C') && selectedId) {
+        e.preventDefault();
+        copyRef.current();
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'v' || e.key === 'V')) {
+        e.preventDefault();
+        pasteRef.current();
+        return;
+      }
       if (!selectedId) return;
       if (e.key === 'Delete') {
         e.preventDefault();
@@ -1276,7 +1885,7 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [editingTextId, selectedId, deleteSelected]);
+  }, [editingTextId, selectedId, deleteSelected, group, ungroup]);
 
   const duplicateSelected = useCallback(() => {
     if (!selectedId) return;
@@ -1298,6 +1907,14 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
       setWorkingHtml((prev) => insertIntoRoot(prev, `\n${clone}`));
       const def: ElementDef = { ...overlay.def, id: newEid, selector: newSelector };
       setInsertedElements((prev) => [...prev, def]);
+      // Copia los overrides del original (tamaño, giro, color, etc.) al selector nuevo,
+      // porque están indexados por selector y el clon tiene otro data-eid. Sin esto,
+      // la copia salía "en default". El offset visual (+24) ya lo da el left/top inline.
+      const oldSel = overlay.def.selector;
+      setStyleOverrides((prev) => (prev[oldSel] ? { ...prev, [newSelector]: { ...prev[oldSel] } } : prev));
+      if (radialRef.current[oldSel]) radialRef.current[newSelector] = JSON.parse(JSON.stringify(radialRef.current[oldSel]));
+      if (featherConfigRef.current[oldSel]) featherConfigRef.current[newSelector] = JSON.parse(JSON.stringify(featherConfigRef.current[oldSel]));
+      if (bgConfigRef.current[oldSel]) bgConfigRef.current[newSelector] = JSON.parse(JSON.stringify(bgConfigRef.current[oldSel]));
       setSelectedId(newEid);
       setChanges((prev) => [...prev, { id: def.selector, property: 'duplicate', oldValue: '', newValue: overlay.def.kind || '' }]);
       return;
@@ -1369,6 +1986,79 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
 
   useEffect(() => { duplicateRef.current = duplicateSelected; }, [duplicateSelected]);
 
+  // --- Copiar / Pegar (incluso ENTRE slides) ---
+  // Portapapeles en localStorage: al cambiar de slide el editor se re-monta, así que
+  // un clipboard en memoria no sobreviviría. Copiamos el elemento como HTML autónomo
+  // (estilos computados horneados inline) porque los overrides por-selector no viajan.
+  const CLIPBOARD_KEY = 'xending-editor-clipboard';
+  const STANDALONE_PROPS = [
+    'font-family', 'font-size', 'font-weight', 'font-style', 'line-height',
+    'letter-spacing', 'text-align', 'text-transform', 'text-decoration', 'color',
+    'background-color', 'background-image', 'background-size', 'background-position', 'background-repeat',
+    'border-top-width', 'border-right-width', 'border-bottom-width', 'border-left-width',
+    'border-style', 'border-color', 'border-radius', 'box-shadow',
+    'padding-top', 'padding-right', 'padding-bottom', 'padding-left',
+    'opacity', 'clip-path', '-webkit-background-clip', 'background-clip',
+    '-webkit-text-fill-color', 'display', 'align-items', 'justify-content', 'gap', 'flex-direction',
+    'transform', 'transform-origin',
+  ];
+
+  const copySelected = useCallback(() => {
+    if (!selectedId) return;
+    const overlay = overlays.find((o) => o.id === selectedId);
+    if (!overlay) return;
+    const iframe = iframeRef.current;
+    const el = iframe?.contentDocument?.querySelector(overlay.def.selector) as HTMLElement | null;
+    if (!el || !iframe?.contentWindow) return;
+    const clone = el.cloneNode(true) as HTMLElement;
+    clone.removeAttribute('contenteditable');
+    clone.querySelectorAll('[contenteditable]').forEach((n) => (n as HTMLElement).removeAttribute('contenteditable'));
+    clone.removeAttribute('data-eid');
+    const cs = iframe.contentWindow.getComputedStyle(el);
+    for (const p of STANDALONE_PROPS) {
+      const v = cs.getPropertyValue(p);
+      if (v) clone.style.setProperty(p, v);
+    }
+    // Posición absoluta con las coords actuales; la rotación viaja en `transform`.
+    clone.style.position = 'absolute';
+    clone.style.left = `${Math.round(overlay.rect.left)}px`;
+    clone.style.top = `${Math.round(overlay.rect.top)}px`;
+    clone.style.margin = '0';
+    clone.style.zIndex = '60';
+    const isTextLike = overlay.def.editable || overlay.def.kind === 'text';
+    clone.style.width = `${Math.round(overlay.rect.width)}px`;
+    if (!isTextLike) clone.style.height = `${Math.round(overlay.rect.height)}px`;
+    const payload = { html: clone.outerHTML, kind: overlay.def.kind || 'text', label: overlay.def.label, editable: overlay.def.editable };
+    try { localStorage.setItem(CLIPBOARD_KEY, JSON.stringify(payload)); } catch { /* límite de storage */ }
+  }, [selectedId, overlays]);
+
+  const pasteClipboard = useCallback(() => {
+    let payload: { html: string; kind?: ElementDef['kind']; label?: string; editable?: boolean } | null = null;
+    try {
+      const raw = localStorage.getItem(CLIPBOARD_KEY);
+      if (raw) payload = JSON.parse(raw);
+    } catch { payload = null; }
+    if (!payload?.html) return;
+    pushUndo();
+    const newEid = `eid-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+    const newSelector = `[data-eid="${newEid}"]`;
+    let html = payload.html
+      .replace(/^\s*(<[a-zA-Z][\w-]*)/, `$1 data-eid="${newEid}"`)
+      .replace(/left:\s*(-?\d+)px/, (_m, n) => `left:${parseInt(n, 10) + 24}px`)
+      .replace(/top:\s*(-?\d+)px/, (_m, n) => `top:${parseInt(n, 10) + 24}px`);
+    setWorkingHtml((prev) => insertIntoRoot(prev, `\n${html}`));
+    const def: ElementDef = {
+      id: newEid, label: `${payload.label || 'Elemento'} (pegado)`, emoji: '📋', color: '#8B5CF6',
+      selector: newSelector, editable: !!payload.editable, draggable: true, kind: payload.kind, inserted: true,
+    };
+    setInsertedElements((prev) => [...prev, def]);
+    setSelectedId(newEid);
+    setChanges((prev) => [...prev, { id: newSelector, property: 'paste', oldValue: '', newValue: '' }]);
+  }, [pushUndo]);
+
+  useEffect(() => { copyRef.current = copySelected; }, [copySelected]);
+  useEffect(() => { pasteRef.current = pasteClipboard; }, [pasteClipboard]);
+
   const bringToFront = useCallback(() => applyStyleChange('zIndex', '100'), [applyStyleChange]);
   const sendToBack = useCallback(() => applyStyleChange('zIndex', '1'), [applyStyleChange]);
   // Manda la imagen al fondo del slide (detrás de cards y texto)
@@ -1430,6 +2120,32 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
       return next;
     });
     setChanges((c) => [...c, { id: sel, property: 'slide-background', oldValue: '', newValue: '' }]);
+  }, [selectedId, overlays, pushUndo]);
+
+  // Revierte el "modo fondo": elimina las props que dejaron la imagen pegada al
+  // lienzo (pointer-events, position/left/top, z-index, object-fit, background-*,
+  // transform y máscaras heredadas) para que vuelva a ser un elemento normal,
+  // seleccionable, movible y redimensionable. Es el inverso de useAsSlideBackground.
+  const clearSlideBackground = useCallback(() => {
+    if (!selectedId) return;
+    const overlay = overlays.find((o) => o.id === selectedId);
+    if (!overlay) return;
+    pushUndo();
+    const sel = overlay.def.selector;
+    const STRIP = [
+      'pointer-events', 'position', 'left', 'top', 'right', 'bottom',
+      'z-index', 'object-fit', 'background-size', 'background-position',
+      'transform', 'mask-image', '-webkit-mask-image', 'mask-repeat',
+      '-webkit-mask-repeat', 'mask-size', '-webkit-mask-size',
+    ];
+    setStyleOverrides((prev) => {
+      const cur = { ...(prev[sel] || {}) };
+      for (const p of STRIP) delete cur[p];
+      return { ...prev, [sel]: cur };
+    });
+    // Limpia también la config de fundido radial guardada para este selector.
+    delete radialRef.current[sel];
+    setChanges((c) => [...c, { id: sel, property: 'clear-background', oldValue: '', newValue: '' }]);
   }, [selectedId, overlays, pushUndo]);
 
   // Sincroniza los sliders de filtro con el elemento seleccionado
@@ -1621,22 +2337,252 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
 
   // --- Resize handling (arrastrar esquinas) ---
 
+  // Aplica estilos EN VIVO al nodo real del iframe para un preview fluido, sin
+  // regenerar el blob ni recargar el iframe en cada mousemove. Usa prioridad
+  // 'important' porque los overrides se inyectan como !important y, por CSS, un
+  // inline !important le gana a un !important de hoja de estilos.
+  const setLiveTransform = useCallback((id: string, tx: number, ty: number, rot: number) => {
+    const el = idToElRef.current.get(id) as HTMLElement | undefined;
+    if (!el) return;
+    el.style.setProperty('transform', composeTransform({ tx, ty, rot }) || 'none', 'important');
+    el.style.setProperty('transform-origin', 'center', 'important');
+  }, []);
+  const setLiveSize = useCallback((id: string, w: number, h: number) => {
+    const el = idToElRef.current.get(id) as HTMLElement | undefined;
+    if (!el) return;
+    el.style.setProperty('width', `${Math.round(w)}px`, 'important');
+    el.style.setProperty('height', `${Math.round(h)}px`, 'important');
+  }, []);
+
+  // Un elemento `inline` (p.ej. <span>) IGNORA width/height. Si le vamos a fijar un
+  // tamaño, lo pasamos a inline-block para que lo respete. Devuelve el parche a
+  // fusionar con el override (vacío si no hace falta).
+  const displaySizingPatch = useCallback((id: string): Record<string, string> => {
+    const el = idToElRef.current.get(id) as HTMLElement | undefined;
+    const win = iframeRef.current?.contentWindow;
+    if (!el || !win) return {};
+    return win.getComputedStyle(el).display === 'inline' ? { display: 'inline-block' } : {};
+  }, []);
+
+  // Preview EN VIVO del tamaño desde los sliders (sin recargar). Crece desde el
+  // CENTRO: compensa con translate para no irse solo hacia un lado.
+  const previewSize = useCallback((w: number, h: number) => {
+    if (!selectedId) return;
+    const overlay = overlays.find((o) => o.id === selectedId);
+    if (!overlay) return;
+    const base = parseTransform(styleOverrides[overlay.def.selector]?.['transform']);
+    const dw = w - overlay.rect.width;
+    const dh = h - overlay.rect.height;
+    setLiveSize(selectedId, w, h);
+    setLiveTransform(selectedId, base.tx - dw / 2, base.ty - dh / 2, base.rot);
+    setSizeDraft({ w: Math.round(w), h: Math.round(h) });
+  }, [selectedId, overlays, styleOverrides, setLiveSize, setLiveTransform]);
+
+  // Commit del tamaño a los overrides (un solo paso de undo / una recarga).
+  const applySize = useCallback((w: number, h: number) => {
+    if (!selectedId) return;
+    const overlay = overlays.find((o) => o.id === selectedId);
+    if (!overlay) return;
+    pushUndo();
+    const sel = overlay.def.selector;
+    const dw = w - overlay.rect.width;
+    const dh = h - overlay.rect.height;
+    setStyleOverrides((prev) => {
+      const existing = prev[sel] || {};
+      const parts = parseTransform(existing['transform']);
+      parts.tx -= dw / 2; // mantener centro
+      parts.ty -= dh / 2;
+      return {
+        ...prev,
+        [sel]: {
+          ...existing,
+          width: `${Math.round(w)}px`, height: `${Math.round(h)}px`,
+          'flex-grow': '0', 'flex-shrink': '0',
+          ...displaySizingPatch(selectedId),
+          transform: composeTransform(parts),
+        },
+      };
+    });
+    setChanges((prev) => [...prev, { id: sel, property: 'resize', oldValue: '', newValue: `${Math.round(w)}x${Math.round(h)}` }]);
+  }, [selectedId, overlays, pushUndo, displaySizingPatch]);
+
+  // Gira el elemento a un ángulo exacto (grados), preservando la posición (translate).
+  const applyRotationDeg = useCallback((deg: number) => {
+    if (!selectedId) return;
+    const overlay = overlays.find((o) => o.id === selectedId);
+    if (!overlay) return;
+    pushUndo();
+    const sel = overlay.def.selector;
+    const norm = ((Math.round(deg) % 360) + 360) % 360;
+    setStyleOverrides((prev) => {
+      const existing = prev[sel] || {};
+      const parts = parseTransform(existing['transform']);
+      parts.rot = norm;
+      return { ...prev, [sel]: { ...existing, transform: composeTransform(parts), 'transform-origin': 'center' } };
+    });
+    setChanges((prev) => [...prev, { id: sel, property: 'rotate', oldValue: '', newValue: `${norm}` }]);
+  }, [selectedId, overlays, pushUndo]);
+
+  // Fuerza (o revierte) que un texto quepa en UNA sola línea. `white-space: nowrap`
+  // garantiza el renglón único aunque el ancho lo mande la plantilla; dejamos crecer
+  // la caja a su contenido y `overflow: visible` para que no se recorte.
+  const applyOneLine = useCallback((on: boolean) => {
+    if (!selectedId) return;
+    const overlay = overlays.find((o) => o.id === selectedId);
+    if (!overlay) return;
+    pushUndo();
+    const sel = overlay.def.selector;
+    setStyleOverrides((prev) => {
+      const existing = { ...(prev[sel] || {}) };
+      if (on) {
+        existing['white-space'] = 'nowrap';
+        existing['width'] = 'max-content';
+        existing['max-width'] = 'none';
+        existing['overflow'] = 'visible';
+      } else {
+        delete existing['white-space'];
+        delete existing['width'];
+        delete existing['max-width'];
+        delete existing['overflow'];
+      }
+      return { ...prev, [sel]: existing };
+    });
+    setChanges((prev) => [...prev, { id: sel, property: 'white-space', oldValue: '', newValue: on ? 'nowrap' : 'normal' }]);
+  }, [selectedId, overlays, pushUndo]);
+
+  // Mueve el elemento a una coordenada X/Y (px del lienzo) desde el panel. Reutiliza
+  // el mismo `translate` que el arrastre: delta = destino - posición actual.
+  const setPosition = useCallback((x: number | null, y: number | null) => {
+    if (!selectedId) return;
+    const overlay = overlays.find((o) => o.id === selectedId);
+    if (!overlay) return;
+    pushUndo();
+    const sel = overlay.def.selector;
+    setStyleOverrides((prev) => {
+      const existing = prev[sel] || {};
+      const parts = parseTransform(existing['transform']);
+      if (x !== null && !Number.isNaN(x)) parts.tx += x - overlay.rect.left;
+      if (y !== null && !Number.isNaN(y)) parts.ty += y - overlay.rect.top;
+      return { ...prev, [sel]: { ...existing, transform: composeTransform(parts) } };
+    });
+    setChanges((prev) => [...prev, { id: sel, property: 'position', oldValue: '', newValue: `${x ?? ''},${y ?? ''}` }]);
+  }, [selectedId, overlays, pushUndo]);
+
+  // Iguala el tamaño de todos los seleccionados al de la PRIMERA que elegiste
+  // (la referencia). Corrige elementos inline (que ignoran width/height) pasándolos
+  // a inline-block. Resuelve "se ven de distinto tamaño aunque deberían ser iguales".
+  const matchSize = useCallback((dim: 'both' | 'w' | 'h') => {
+    if (selectedIds.length < 2) return;
+    const refId = selectedIds[0];
+    const primary = overlays.find((o) => o.id === refId);
+    if (!primary) return;
+    pushUndo();
+    const W = Math.round(primary.rect.width);
+    const H = Math.round(primary.rect.height);
+    setStyleOverrides((prev) => {
+      const next = { ...prev };
+      for (const id of selectedIds) {
+        if (id === refId) continue;
+        const o = overlays.find((x) => x.id === id);
+        if (!o) continue;
+        const sel = o.def.selector;
+        const patch: Record<string, string> = {
+          ...(next[sel] || {}), 'flex-grow': '0', 'flex-shrink': '0', ...displaySizingPatch(id),
+        };
+        if (dim === 'both' || dim === 'w') patch['width'] = `${W}px`;
+        if (dim === 'both' || dim === 'h') patch['height'] = `${H}px`;
+        next[sel] = patch;
+      }
+      return next;
+    });
+    setChanges((prev) => [...prev, { id: refId, property: 'match-size', oldValue: '', newValue: `${W}x${H}` }]);
+  }, [selectedIds, overlays, pushUndo, displaySizingPatch]);
+
+  // Ajusta la caja a su CONTENIDO (texto): ancho al contenido y alto automático.
+  // Quita el tamaño fijo para que abrace lo que tiene dentro.
+  const applyFitContent = useCallback(() => {
+    if (!selectedId) return;
+    const overlay = overlays.find((o) => o.id === selectedId);
+    if (!overlay) return;
+    pushUndo();
+    const sel = overlay.def.selector;
+    setStyleOverrides((prev) => {
+      const existing = { ...(prev[sel] || {}), ...displaySizingPatch(selectedId) };
+      existing['width'] = 'max-content';
+      existing['height'] = 'auto';
+      existing['flex-grow'] = '0';
+      existing['flex-shrink'] = '0';
+      return { ...prev, [sel]: existing };
+    });
+    setChanges((prev) => [...prev, { id: sel, property: 'fit-content', oldValue: '', newValue: '' }]);
+  }, [selectedId, overlays, pushUndo, displaySizingPatch]);
+
+  // Sincroniza los sliders con el elemento seleccionado (y tras cada re-escaneo).
+  useEffect(() => {
+    const o = overlays.find((x) => x.id === selectedId);
+    setSizeDraft(o ? { w: Math.round(o.rect.width), h: Math.round(o.rect.height) } : null);
+  }, [selectedId, overlays]);
+
   const handleResizeStart = useCallback((e: React.MouseEvent, overlay: ElementOverlay, corner: string) => {
     e.preventDefault();
     e.stopPropagation();
-    setSelectedId(overlay.id);
+    selectOnly(overlay.id);
     setIsResizing(true);
+    const base = parseTransform(styleOverrides[overlay.def.selector]?.['transform']);
     resizeRef.current = {
-      id: overlay.id, corner,
+      id: overlay.id, selector: overlay.def.selector, corner,
       startX: e.clientX, startY: e.clientY,
       w: overlay.rect.width, h: overlay.rect.height,
       top: overlay.rect.top, left: overlay.rect.left,
+      baseTx: base.tx, baseTy: base.ty, baseRot: base.rot,
     };
-  }, []);
+  }, [selectOnly, styleOverrides]);
+
+  // --- Rotación (arrastrar el tirador superior) ---
+
+  const handleRotateStart = useCallback((e: React.MouseEvent, overlay: ElementOverlay) => {
+    e.preventDefault();
+    e.stopPropagation();
+    selectOnly(overlay.id);
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+    const rect = iframe.getBoundingClientRect();
+    const s = scaleRef.current;
+    // Centro del elemento en coordenadas de pantalla.
+    const cx = rect.left + (overlay.rect.left + overlay.rect.width / 2) * s;
+    const cy = rect.top + (overlay.rect.top + overlay.rect.height / 2) * s;
+    const startAngle = Math.atan2(e.clientY - cy, e.clientX - cx) * (180 / Math.PI);
+    const startRot = parseTransform(styleOverrides[overlay.def.selector]?.['transform']).rot;
+    pushUndo();
+    setIsRotating(true);
+    setRotateDeg(((Math.round(startRot) % 360) + 360) % 360);
+    rotateRef.current = { id: overlay.id, selector: overlay.def.selector, cx, cy, startAngle, startRot, lastRot: startRot };
+  }, [selectOnly, styleOverrides, pushUndo]);
 
   // --- Drag handling ---
 
   const handleMouseDown = useCallback((e: React.MouseEvent, overlay: ElementOverlay) => {
+    // Shift+clic → multi-selección (agrega/quita). No arrastra ni entra a edición.
+    // Si el elemento está agrupado, se agrega/quita TODO el grupo.
+    if (e.shiftKey && tool !== 'text') {
+      e.preventDefault();
+      e.stopPropagation();
+      const g = groupOf(overlay.id);
+      if (g) {
+        setSelectedIds((prev) => {
+          const allIn = g.every((id) => prev.includes(id));
+          const next = allIn
+            ? prev.filter((id) => !g.includes(id))
+            : Array.from(new Set([...prev, ...g]));
+          setSelectedId(next.length ? overlay.id : null);
+          return next;
+        });
+      } else {
+        toggleSelect(overlay.id);
+      }
+      return;
+    }
+
     // Entrar a edición de texto con UN clic cuando:
     //  - la herramienta Texto está activa, o
     //  - el elemento editable ya estaba seleccionado (segundo clic).
@@ -1644,7 +2590,7 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
     if (
       overlay.def.editable &&
       editingTextId !== overlay.id &&
-      (tool === 'text' || (tool === 'select' && selectedId === overlay.id))
+      (tool === 'text' || (tool === 'select' && selectedId === overlay.id && selectedIds.length <= 1))
     ) {
       e.preventDefault();
       e.stopPropagation();
@@ -1653,27 +2599,138 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
     }
 
     if (!overlay.def.draggable || tool === 'text') {
-      setSelectedId(overlay.id);
+      selectOnly(overlay.id);
       return;
     }
     e.preventDefault();
     e.stopPropagation();
 
-    setSelectedId(overlay.id);
+    // Selección al iniciar arrastre, teniendo en cuenta grupos:
+    //  - Si el elemento pertenece a un grupo → se selecciona/arrastra TODO el grupo.
+    //  - Si ya formabas parte de una multi-selección más amplia, se conserva.
+    const groupIds = groupOf(overlay.id);
+    const effective = groupIds ?? [overlay.id];
+    const keepCurrent = selectedIds.includes(overlay.id) && selectedIds.length > effective.length;
+    if (keepCurrent) setSelectedId(overlay.id);
+    else if (effective.length > 1) { setSelectedId(overlay.id); setSelectedIds(effective); }
+    else selectOnly(overlay.id);
 
     // El fondo del slide también se puede mover/redimensionar una vez seleccionado.
     setIsDragging(true);
 
+    const memberIds = keepCurrent ? selectedIds : effective;
     dragRef.current = {
       id: overlay.id,
       startX: e.clientX,
       startY: e.clientY,
       origTop: overlay.rect.top,
       origLeft: overlay.rect.left,
+      members: memberIds
+        .map((mid) => {
+          const o = overlays.find((x) => x.id === mid);
+          if (!o) return null;
+          const base = parseTransform(styleOverrides[o.def.selector]?.['transform']);
+          return {
+            id: mid,
+            selector: o.def.selector,
+            origTop: o.rect.top,
+            origLeft: o.rect.left,
+            baseTx: base.tx, baseTy: base.ty, baseRot: base.rot,
+          };
+        })
+        .filter((m): m is { id: string; selector: string; origTop: number; origLeft: number; baseTx: number; baseTy: number; baseRot: number } => m !== null),
     };
-  }, [tool, styleOverrides, editingTextId, selectedId]);
+  }, [tool, editingTextId, selectedId, selectedIds, overlays, selectOnly, toggleSelect, groupOf, styleOverrides]);
+
+  // --- Hit-testing con una sola capa (opción C: elementsFromPoint) ---
+
+  // Devuelve los ids de overlay bajo el punto, ordenados de arriba hacia abajo
+  // (front→back). Traduce las coordenadas de pantalla al sistema del iframe
+  // (dividiendo por la escala) y sube por los ancestros hasta encontrar un nodo
+  // que tenga overlay registrado.
+  const resolveCandidatesAt = useCallback((clientX: number, clientY: number): string[] => {
+    const iframe = iframeRef.current;
+    const doc = iframe?.contentDocument;
+    if (!iframe || !doc) return [];
+    const rect = iframe.getBoundingClientRect();
+    const x = (clientX - rect.left) / scaleRef.current;
+    const y = (clientY - rect.top) / scaleRef.current;
+    const map = elementOverlayMapRef.current;
+    const stack = ((doc as Document).elementsFromPoint(x, y) as Element[]) || [];
+    const ids: string[] = [];
+    for (const node of stack) {
+      let el: Element | null = node;
+      while (el) {
+        const id = map.get(el);
+        if (id) { if (!ids.includes(id)) ids.push(id); break; }
+        el = el.parentElement;
+      }
+    }
+    // Bloqueados nunca son candidatos. Con filtro por tipo activo, solo esa categoría.
+    const filtered = ids.filter((id) => {
+      if (lockedIds.has(id)) return false;
+      if (overlayFilter === 'all') return true;
+      const o = overlays.find((ov) => ov.id === id);
+      return o ? kindCategory(o.def.kind) === overlayFilter : false;
+    });
+    if (overlayFilter !== 'all') return filtered;
+    // Modo normal: prioriza texto/imagen/forma; los bloques (contenedores) quedan
+    // como RESPALDO, para poder seleccionarlos al hacer clic en su zona vacía sin
+    // que estorben cuando hay algo real encima.
+    const catOf = (id: string) => { const o = overlays.find((ov) => ov.id === id); return kindCategory(o?.def.kind); };
+    const nonBox = filtered.filter((id) => catOf(id) !== 'box');
+    const box = filtered.filter((id) => catOf(id) === 'box');
+    return [...nonBox, ...box];
+  }, [overlays, overlayFilter, lockedIds]);
+
+  const handleCaptureMove = useCallback((e: React.MouseEvent) => {
+    if (isDragging || isResizing || isRotating || editingTextId !== null) return;
+    const ids = resolveCandidatesAt(e.clientX, e.clientY);
+    setHoveredId(ids[0] ?? null);
+  }, [isDragging, isResizing, isRotating, editingTextId, resolveCandidatesAt]);
+
+  const handleCaptureDown = useCallback((e: React.MouseEvent) => {
+    if (editingTextId !== null) return;
+    const ids = resolveCandidatesAt(e.clientX, e.clientY);
+    if (ids.length === 0) {
+      if (!e.shiftKey) selectOnly(null);
+      return;
+    }
+    // Clic normal → el de arriba (preserva "2º clic = editar texto" y multiselección).
+    // Alt+clic → baja un nivel en la pila respecto al seleccionado (click-through).
+    let pick: string;
+    if (e.altKey) {
+      const i = selectedId ? ids.indexOf(selectedId) : -1;
+      pick = i !== -1 ? ids[(i + 1) % ids.length] : (ids[1] ?? ids[0]);
+    } else {
+      pick = ids[0];
+    }
+    const ov = overlays.find((o) => o.id === pick);
+    if (ov) handleMouseDown(e, ov);
+  }, [editingTextId, selectedId, resolveCandidatesAt, overlays, handleMouseDown, selectOnly]);
+
+  const handleCaptureDoubleClick = useCallback((e: React.MouseEvent) => {
+    if (editingTextId !== null) return;
+    const ids = resolveCandidatesAt(e.clientX, e.clientY);
+    const ov = overlays.find((o) => o.id === ids[0]);
+    if (ov && ov.def.editable) startEditRef.current(ov, { x: e.clientX, y: e.clientY });
+  }, [editingTextId, resolveCandidatesAt, overlays]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    // Rotación en curso — preview EN VIVO sobre el nodo real (sin recargar el
+    // iframe en cada mousemove, que era lo que la hacía ir a tirones).
+    if (rotateRef.current) {
+      const r = rotateRef.current;
+      const angle = Math.atan2(e.clientY - r.cy, e.clientX - r.cx) * (180 / Math.PI);
+      let rot = r.startRot + (angle - r.startAngle);
+      if (e.shiftKey) rot = Math.round(rot / 15) * 15; // Shift = snap a 15°
+      rot = Math.round(rot);
+      r.lastRot = rot;
+      const parts = parseTransform(styleOverrides[r.selector]?.['transform']);
+      setLiveTransform(r.id, parts.tx, parts.ty, rot);
+      setRotateDeg(((rot % 360) + 360) % 360);
+      return;
+    }
     // Arrastre del fundido radial
     if (radialDragRef.current) {
       const r = radialDragRef.current;
@@ -1721,6 +2778,8 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
     const dxRaw = (e.clientX - dragRef.current.startX) / scale;
     const dyRaw = (e.clientY - dragRef.current.startY) / scale;
     const dragId = dragRef.current.id;
+    const members = dragRef.current.members;
+    const memberIds = new Set(members.map((m) => m.id));
     const moving = overlays.find((o) => o.id === dragId);
     if (!moving) return;
 
@@ -1730,11 +2789,12 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
     let top = dragRef.current.origTop + dyRaw;
 
     // Snap a centro/orillas del lienzo y a bordes/centros de otros elementos
+    // (se excluyen TODOS los miembros del grupo que se está arrastrando).
     const TOL = 7;
     const vTargets = [0, designWidth / 2, designWidth];
     const hTargets = [0, designHeight / 2, designHeight];
     for (const o of overlays) {
-      if (o.id === dragId) continue;
+      if (memberIds.has(o.id)) continue;
       vTargets.push(o.rect.left, o.rect.left + o.rect.width / 2, o.rect.left + o.rect.width);
       hTargets.push(o.rect.top, o.rect.top + o.rect.height / 2, o.rect.top + o.rect.height);
     }
@@ -1757,17 +2817,29 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
     if (bestY) { top += bestY.adjust; guides.push({ orient: 'h', pos: bestY.guide }); }
     setDragGuides(guides);
 
+    // Delta final (ya con snap) aplicado al primario; se replica al resto del grupo.
+    const deltaX = left - dragRef.current.origLeft;
+    const deltaY = top - dragRef.current.origTop;
     setOverlays((prev) =>
-      prev.map((o) =>
-        o.id === dragId
-          ? { ...o, rect: { ...o.rect, top, left } }
-          : o
-      )
+      prev.map((o) => {
+        const m = members.find((mm) => mm.id === o.id);
+        return m
+          ? { ...o, rect: { ...o.rect, top: m.origTop + deltaY, left: m.origLeft + deltaX } }
+          : o;
+      })
     );
   }, [isDragging, isResizing, scale, radial, applyRadial, overlays, designWidth, designHeight]);
 
   const handleMouseUp = useCallback(() => {
     setDragGuides([]);
+    // Fin de rotación (los cambios ya se aplicaron en vivo; el undo se guardó al iniciar).
+    if (rotateRef.current) {
+      const sel = rotateRef.current.selector;
+      rotateRef.current = null;
+      setIsRotating(false);
+      setChanges((c) => [...c, { id: sel, property: 'rotate', oldValue: '', newValue: '' }]);
+      return;
+    }
     // Fin de arrastre radial
     if (radialDragRef.current) {
       radialDragRef.current = null;
@@ -1788,16 +2860,23 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
       const dyPos = overlay.rect.top - r.top;
       setStyleOverrides((prev) => {
         const existing = prev[selector] || {};
-        let transform = existing['transform'] || '';
+        const parts = parseTransform(existing['transform']);
         if (Math.abs(dxPos) > 0.5 || Math.abs(dyPos) > 0.5) {
-          const m = transform.match(/translate\((-?[\d.]+)px,\s*(-?[\d.]+)px\)/);
-          const px = m ? parseFloat(m[1]) : 0;
-          const py = m ? parseFloat(m[2]) : 0;
-          transform = `translate(${Math.round(px + dxPos)}px, ${Math.round(py + dyPos)}px)`;
+          parts.tx += dxPos;
+          parts.ty += dyPos;
         }
+        const transform = composeTransform(parts);
         return {
           ...prev,
-          [selector]: { ...existing, width: `${newW}px`, height: `${newH}px`, ...(transform ? { transform } : {}) },
+          [selector]: {
+            ...existing,
+            width: `${newW}px`, height: `${newH}px`,
+            // Evita que un contenedor flex "rebote" al tamaño de su contenido:
+            // fijamos el ítem para que respete el ancho/alto manual.
+            'flex-grow': '0', 'flex-shrink': '0',
+            ...displaySizingPatch(overlay.id),
+            ...(transform ? { transform } : {}),
+          },
         };
       });
       setChanges((prev) => [...prev, { id: selector, property: 'resize', oldValue: '', newValue: `${newW}x${newH}` }]);
@@ -1822,31 +2901,191 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
     // Save undo snapshot
     pushUndo();
 
-    // Use CSS translate — works for any position type, accumulates correctly
-    const selector = overlay.def.selector;
+    // Use CSS translate — works for any position type, accumulates correctly.
+    // Se aplica el MISMO delta a todos los miembros del grupo (cada uno acumula
+    // sobre su propio translate previo, por su selector).
     setStyleOverrides((prev) => {
-      const existing = prev[selector] || {};
-      const existingTransform = existing['transform'] || '';
-      const translateMatch = existingTransform.match(/translate\((-?[\d.]+)px,\s*(-?[\d.]+)px\)/);
-      const prevDx = translateMatch ? parseFloat(translateMatch[1]) : 0;
-      const prevDy = translateMatch ? parseFloat(translateMatch[2]) : 0;
-
-      return {
-        ...prev,
-        [selector]: {
+      const next = { ...prev };
+      for (const m of dragData.members) {
+        const o = overlays.find((x) => x.id === m.id);
+        if (!o) continue;
+        const selector = o.def.selector;
+        const existing = next[selector] || {};
+        const parts = parseTransform(existing['transform']);
+        parts.tx += dx;
+        parts.ty += dy;
+        next[selector] = {
           ...existing,
-          transform: `translate(${Math.round(prevDx + dx)}px, ${Math.round(prevDy + dy)}px)`,
-        },
-      };
+          transform: composeTransform(parts),
+        };
+      }
+      return next;
     });
 
     setChanges((prev) => [
       ...prev,
-      { id: selector, property: 'translate', oldValue: '', newValue: `${Math.round(dx)}px, ${Math.round(dy)}px` },
+      { id: overlay.def.selector, property: 'translate', oldValue: '', newValue: `${Math.round(dx)}px, ${Math.round(dy)}px` },
     ]);
   }, [isDragging, isResizing, overlays, styleOverrides]);
 
+  // --- Alineación y distribución de la multi-selección ---
+
+  // Aplica un offset (dx,dy en px del lienzo) a un conjunto de elementos: acumula
+  // sobre su translate previo (por selector) y actualiza los overlays en vivo.
+  const applyOffsetsCore = useCallback((offsets: Map<string, { dx: number; dy: number }>) => {
+    if (offsets.size === 0) return;
+    setStyleOverrides((prev) => {
+      const next = { ...prev };
+      for (const o of overlays) {
+        const off = offsets.get(o.id);
+        if (!off || (Math.abs(off.dx) < 0.5 && Math.abs(off.dy) < 0.5)) continue;
+        const selector = o.def.selector;
+        const existing = next[selector] || {};
+        const parts = parseTransform(existing['transform']);
+        parts.tx += off.dx;
+        parts.ty += off.dy;
+        next[selector] = {
+          ...existing,
+          transform: composeTransform(parts),
+        };
+      }
+      return next;
+    });
+    setOverlays((prev) =>
+      prev.map((o) => {
+        const off = offsets.get(o.id);
+        return off ? { ...o, rect: { ...o.rect, left: o.rect.left + off.dx, top: o.rect.top + off.dy } } : o;
+      }),
+    );
+  }, [overlays]);
+
+  const applyOffsets = useCallback((offsets: Map<string, { dx: number; dy: number }>) => {
+    if (offsets.size === 0) return;
+    pushUndo();
+    applyOffsetsCore(offsets);
+    setChanges((prev) => [...prev, { id: 'group', property: 'align', oldValue: '', newValue: '' }]);
+  }, [applyOffsetsCore, pushUndo]);
+
+  // Nudge (flechas) con coalescing: pulsaciones seguidas (< 700ms) forman UN solo
+  // paso de deshacer, en vez de uno por pulsación.
+  const lastNudgeRef = useRef<number>(0);
+  const nudgeBy = useCallback((offsets: Map<string, { dx: number; dy: number }>) => {
+    if (offsets.size === 0) return;
+    const now = Date.now();
+    if (now - lastNudgeRef.current > 700) pushUndo();
+    lastNudgeRef.current = now;
+    applyOffsetsCore(offsets);
+  }, [applyOffsetsCore, pushUndo]);
+
+  // Atajos de teclado: mover con flechas (1px, Shift=10px), deshacer/rehacer.
+  useEffect(() => {
+    const NUDGE: Record<string, [number, number]> = {
+      ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0],
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (editingTextId) return;
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      // Deshacer / Rehacer
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z') && !e.shiftKey) {
+        e.preventDefault(); handleUndo(); return;
+      }
+      if ((e.ctrlKey || e.metaKey) && ((e.shiftKey && (e.key === 'z' || e.key === 'Z')) || e.key === 'y' || e.key === 'Y')) {
+        e.preventDefault(); handleRedo(); return;
+      }
+      // Mover con flechas el/los elemento(s) seleccionado(s)
+      if (selectedId && NUDGE[e.key]) {
+        e.preventDefault();
+        const [ux, uy] = NUDGE[e.key];
+        const step = e.shiftKey ? 10 : 1;
+        const ids = (selectedIds.length ? selectedIds : [selectedId]).filter((id) => !lockedIds.has(id));
+        if (ids.length === 0) return;
+        const offsets = new Map<string, { dx: number; dy: number }>();
+        ids.forEach((id) => offsets.set(id, { dx: ux * step, dy: uy * step }));
+        nudgeBy(offsets);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [editingTextId, selectedId, selectedIds, nudgeBy, handleUndo, handleRedo, lockedIds]);
+
+  type AlignMode = 'left' | 'hcenter' | 'right' | 'top' | 'vcenter' | 'bottom';
+  const alignSelection = useCallback((mode: AlignMode) => {
+    const sel = overlays.filter((o) => selectedIds.includes(o.id));
+    if (sel.length < 2) return;
+    const minL = Math.min(...sel.map((o) => o.rect.left));
+    const maxR = Math.max(...sel.map((o) => o.rect.left + o.rect.width));
+    const minT = Math.min(...sel.map((o) => o.rect.top));
+    const maxB = Math.max(...sel.map((o) => o.rect.top + o.rect.height));
+    const cx = (minL + maxR) / 2;
+    const cy = (minT + maxB) / 2;
+    const offsets = new Map<string, { dx: number; dy: number }>();
+    for (const o of sel) {
+      let dx = 0, dy = 0;
+      switch (mode) {
+        case 'left': dx = minL - o.rect.left; break;
+        case 'right': dx = maxR - (o.rect.left + o.rect.width); break;
+        case 'hcenter': dx = cx - (o.rect.left + o.rect.width / 2); break;
+        case 'top': dy = minT - o.rect.top; break;
+        case 'bottom': dy = maxB - (o.rect.top + o.rect.height); break;
+        case 'vcenter': dy = cy - (o.rect.top + o.rect.height / 2); break;
+      }
+      offsets.set(o.id, { dx, dy });
+    }
+    applyOffsets(offsets);
+  }, [overlays, selectedIds, applyOffsets]);
+
+  // Alinea UN elemento respecto al lienzo completo (centro/orillas del slide).
+  const alignToCanvas = useCallback((mode: AlignMode) => {
+    if (!selectedId) return;
+    const o = overlays.find((ov) => ov.id === selectedId);
+    if (!o || lockedIds.has(o.id)) return;
+    let dx = 0, dy = 0;
+    switch (mode) {
+      case 'left': dx = -o.rect.left; break;
+      case 'right': dx = designWidth - (o.rect.left + o.rect.width); break;
+      case 'hcenter': dx = designWidth / 2 - (o.rect.left + o.rect.width / 2); break;
+      case 'top': dy = -o.rect.top; break;
+      case 'bottom': dy = designHeight - (o.rect.top + o.rect.height); break;
+      case 'vcenter': dy = designHeight / 2 - (o.rect.top + o.rect.height / 2); break;
+    }
+    applyOffsets(new Map([[o.id, { dx, dy }]]));
+  }, [selectedId, overlays, lockedIds, designWidth, designHeight, applyOffsets]);
+
+  // Distribuye los centros uniformemente entre el primero y el último (necesita 3+).
+  const distributeSelection = useCallback((axis: 'h' | 'v') => {
+    const sel = overlays.filter((o) => selectedIds.includes(o.id));
+    if (sel.length < 3) return;
+    const center = (o: ElementOverlay) =>
+      axis === 'h' ? o.rect.left + o.rect.width / 2 : o.rect.top + o.rect.height / 2;
+    const sorted = [...sel].sort((a, b) => center(a) - center(b));
+    const first = center(sorted[0]);
+    const last = center(sorted[sorted.length - 1]);
+    const step = (last - first) / (sorted.length - 1);
+    const offsets = new Map<string, { dx: number; dy: number }>();
+    sorted.forEach((o, i) => {
+      const d = (first + step * i) - center(o);
+      offsets.set(o.id, axis === 'h' ? { dx: d, dy: 0 } : { dx: 0, dy: d });
+    });
+    applyOffsets(offsets);
+  }, [overlays, selectedIds, applyOffsets]);
+
   // --- Text editing (inline, en el lienzo) ---
+
+  // Resuelve el nodo del iframe de un overlay de forma robusta: primero por su
+  // selector CSS y, si ese falla (selectores frágiles con nth-of-type), cae al
+  // mapa nodo→id que arma scanElements. Evita que la edición se salga en silencio.
+  const findElForOverlay = useCallback((selector: string, id: string): HTMLElement | null => {
+    const doc = iframeRef.current?.contentDocument;
+    if (!doc) return null;
+    let el: HTMLElement | null = null;
+    try { el = doc.querySelector(selector) as HTMLElement | null; } catch { el = null; }
+    if (el) return el;
+    for (const [node, oid] of elementOverlayMapRef.current) {
+      if (oid === id) return node as HTMLElement;
+    }
+    return null;
+  }, []);
 
   const startInlineEdit = useCallback((overlay: ElementOverlay, clickPoint?: { x: number; y: number }) => {
     if (!overlay.def.editable) return;
@@ -1854,10 +3093,10 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
     if (inlineEditRef.current?.selector === overlay.def.selector) return;
     const iframe = iframeRef.current;
     if (!iframe?.contentDocument || !iframe.contentWindow) return;
-    const el = iframe.contentDocument.querySelector(overlay.def.selector) as HTMLElement | null;
+    const el = findElForOverlay(overlay.def.selector, overlay.id);
     if (!el) return;
 
-    inlineEditRef.current = { selector: overlay.def.selector, oldHTML: el.innerHTML };
+    inlineEditRef.current = { selector: overlay.def.selector, id: overlay.id, oldHTML: el.innerHTML };
     el.setAttribute('contenteditable', 'true');
     el.style.outline = '2px solid #2ED4C7';
     el.style.outlineOffset = '2px';
@@ -1915,7 +3154,7 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
     selChangeRef.current = onSel;
 
     el.addEventListener('blur', () => commitRef.current(), { once: true });
-  }, []);
+  }, [findElForOverlay]);
 
   const finishInlineEdit = useCallback((save: boolean) => {
     const iframe = iframeRef.current;
@@ -1928,7 +3167,7 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
     selChangeRef.current = null;
     lastRangeRef.current = null;
     if (!iframe?.contentDocument || !ref) return;
-    const el = iframe.contentDocument.querySelector(ref.selector) as HTMLElement | null;
+    const el = findElForOverlay(ref.selector, ref.id);
     if (!el) return;
     el.removeAttribute('contenteditable');
     el.style.outline = '';
@@ -1937,12 +3176,12 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
     const newHTML = el.innerHTML;
     if (save && newHTML !== ref.oldHTML) {
       pushUndo();
-      setWorkingHtml((prev) => prev.replace(ref.oldHTML, newHTML));
+      setWorkingHtml((prev) => replaceHtmlFragment(prev, ref.oldHTML, newHTML));
       setChanges((prev) => [...prev, { id: ref.selector, selector: ref.selector, oldText: ref.oldHTML, newText: newHTML }]);
     } else if (!save) {
       el.innerHTML = ref.oldHTML;
     }
-  }, [pushUndo]);
+  }, [pushUndo, findElForOverlay]);
 
   // Mantener una referencia estable al commit para el listener de blur
   useEffect(() => { commitRef.current = () => finishInlineEdit(true); }, [finishInlineEdit]);
@@ -2035,6 +3274,13 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
 
   return (
     <div className="space-y-3">
+      {iconPickerOpen && (
+        <IconPickerModal
+          onClose={() => setIconPickerOpen(false)}
+          onPickGeneric={(svg, label) => { addIconSvg(svg, label); setIconPickerOpen(false); }}
+          onPickBrand={(url) => { addImageFromUrl(url); setIconPickerOpen(false); }}
+        />
+      )}
       {/* Toolbar */}
       <div className="flex items-center justify-between flex-wrap gap-2 bg-muted/30 rounded-lg p-3">
         <div className="flex items-center gap-2">
@@ -2093,6 +3339,31 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
             >
               <Ruler className="h-4 w-4" />
             </button>
+            <button
+              type="button"
+              onClick={() => setGrid((g) => (g === 0 ? 3 : g === 3 ? 4 : g === 4 ? 8 : 0))}
+              className={cn(
+                'p-1.5 rounded text-xs transition-colors relative',
+                grid > 0 ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'
+              )}
+              title={grid > 0 ? `Cuadrícula ${grid}×${grid} (clic para cambiar / apagar)` : 'Cuadrícula (tercios · clic para activar)'}
+            >
+              <Grid3x3 className="h-4 w-4" />
+              {grid > 0 && (
+                <span className="absolute -bottom-1 -right-1 text-[8px] font-bold leading-none bg-background text-foreground rounded px-0.5 border">{grid}</span>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => setLayersOpen((v) => !v)}
+              className={cn(
+                'p-1.5 rounded text-xs transition-colors',
+                layersOpen ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'
+              )}
+              title="Panel de capas"
+            >
+              <Layers className="h-4 w-4" />
+            </button>
           </div>
 
           {/* Biblioteca de elementos (Canva-like) */}
@@ -2123,6 +3394,21 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
                       {it.icon} {it.label}
                     </button>
                   ))}
+                  <button
+                    type="button"
+                    onClick={() => { setIconPickerOpen(true); setAddMenuOpen(false); }}
+                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs hover:bg-muted text-left"
+                  >
+                    <Star className="h-4 w-4" /> Icono…
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { pasteClipboard(); setAddMenuOpen(false); }}
+                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs hover:bg-muted text-left"
+                    title="Pegar (Ctrl+V) — incluso desde otra slide"
+                  >
+                    <Copy className="h-4 w-4" /> Pegar
+                  </button>
                   <p className="text-[10px] text-muted-foreground uppercase tracking-wide px-2 py-1 mt-1">Formas</p>
                   {([
                     { kind: 'shape', icon: <Square className="h-4 w-4" />, label: 'Rectángulo' },
@@ -2181,6 +3467,11 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
               <Undo2 className="h-3.5 w-3.5 mr-1" /> Deshacer{undoStack.length > 0 ? ` (${undoStack.length})` : ''}
             </Button>
           )}
+          {redoStack.length > 0 && (
+            <Button size="sm" variant="ghost" onClick={handleRedo} className="h-7 text-xs" title="Rehacer (Ctrl+Y)">
+              <Redo2 className="h-3.5 w-3.5 mr-1" /> Rehacer ({redoStack.length})
+            </Button>
+          )}
           <Button size="sm" variant="outline" onClick={onCancel} className="h-7 text-xs">
             <X className="h-3.5 w-3.5 mr-1" /> Cancelar
           </Button>
@@ -2198,34 +3489,194 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
       {/* Element legend — lista TODOS los elementos detectados (incluye auto-detectados
           y el fondo del slide), para que siempre se puedan seleccionar desde aquí
           aunque estén tapados o al fondo en el lienzo. */}
-      <div className="flex flex-wrap gap-1.5 px-1">
-        {overlays.map((o) => o.def).map((def) => (
-          <button
-            key={def.id}
-            type="button"
-            onClick={() => setSelectedId(selectedId === def.id ? null : def.id)}
-            className={cn(
-              'text-[11px] px-2 py-1 rounded-full border transition-all flex items-center gap-1',
-              selectedId === def.id
-                ? 'ring-2 ring-offset-1 font-medium'
-                : 'opacity-70 hover:opacity-100'
-            )}
-            style={{
-              borderColor: def.color,
-              color: selectedId === def.id ? def.color : undefined,
-              ['--tw-ring-color' as string]: def.color,
-            }}
-          >
-            <span>{def.emoji}</span>
-            <span>{def.label}</span>
-            {def.draggable && <Move className="h-2.5 w-2.5 opacity-50" />}
-            {def.editable && <Type className="h-2.5 w-2.5 opacity-50" />}
-          </button>
-        ))}
+      {/* Barra de filtro por tipo + leyenda de elementos.
+          El filtro aísla la selección (chips y lienzo) a una categoría, para
+          llegar directo (p.ej. solo imágenes) sin pelear con los bloques. */}
+      <div className="space-y-1.5">
+        <div className="flex flex-wrap items-center gap-1 px-1">
+          {([
+            { key: 'all',   label: 'Todo',     icon: null,                              count: overlays.length },
+            { key: 'text',  label: 'Texto',    icon: <Type className="h-3 w-3" />,      count: kindCounts.text },
+            { key: 'image', label: 'Imágenes', icon: <ImageIcon className="h-3 w-3" />, count: kindCounts.image },
+            { key: 'shape', label: 'Formas',   icon: <Circle className="h-3 w-3" />,    count: kindCounts.shape },
+            { key: 'box',   label: 'Bloques',  icon: <Square className="h-3 w-3" />,    count: kindCounts.box },
+          ] as const).map((f) => {
+            if (f.key !== 'all' && f.count === 0) return null;
+            const active = overlayFilter === f.key;
+            return (
+              <button
+                key={f.key}
+                type="button"
+                onClick={() => setOverlayFilter(f.key)}
+                className={cn(
+                  'text-[11px] px-2 py-1 rounded-md border flex items-center gap-1 transition-colors',
+                  active ? 'bg-[#0F1419] text-white border-[#0F1419]' : 'hover:bg-muted',
+                )}
+                title={f.key === 'all' ? 'Ver todo' : `Aislar: solo ${f.label.toLowerCase()}`}
+              >
+                {f.icon}
+                <span>{f.label}</span>
+                <span className={cn('tabular-nums', active ? 'opacity-80' : 'opacity-50')}>{f.count}</span>
+              </button>
+            );
+          })}
+          {overlayFilter !== 'all' && (
+            <span className="inline-flex items-center gap-1 text-[11px] text-[#E85A2C] font-medium ml-1">
+              <Lock className="h-3 w-3" />
+              Modo aislado: solo {overlayFilter === 'text' ? 'texto' : overlayFilter === 'image' ? 'imágenes' : overlayFilter === 'shape' ? 'formas' : 'bloques'}
+              <button type="button" onClick={() => setOverlayFilter('all')} className="underline hover:no-underline">salir</button>
+            </span>
+          )}
+        </div>
+
+        <div className="flex flex-wrap gap-1.5 px-1">
+          {overlays
+            .filter((o) => overlayFilter === 'all' || kindCategory(o.def.kind) === overlayFilter)
+            .map((overlay) => {
+              const def = overlay.def;
+              const isSel = selectedIds.includes(def.id) || selectedId === def.id;
+              const isLocked = lockedIds.has(def.id);
+              return (
+                <div
+                  key={def.id}
+                  className={cn(
+                    'group text-[11px] pl-2 pr-1 py-1 rounded-full border transition-all flex items-center gap-1',
+                    isSel
+                      ? 'ring-2 ring-offset-1 font-medium'
+                      : 'opacity-70 hover:opacity-100'
+                  )}
+                  style={{
+                    borderColor: def.color,
+                    color: isSel ? def.color : undefined,
+                    ['--tw-ring-color' as string]: def.color,
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      if (e.shiftKey) { toggleSelect(def.id); return; }
+                      // Bloqueado: solo seleccionar (para poder desbloquear); no editar.
+                      if (isLocked) { selectOnly(def.id); return; }
+                      // Clic en un chip de TEXTO → seleccionar y entrar directo a edición.
+                      if (def.editable) { selectOnly(def.id); startInlineEdit(overlay); return; }
+                      selectOnly(selectedId === def.id && selectedIds.length <= 1 ? null : def.id);
+                    }}
+                    className="flex items-center gap-1"
+                  >
+                    <span>{def.emoji}</span>
+                    <span>{def.label}</span>
+                    {def.draggable && <Move className="h-2.5 w-2.5 opacity-50" />}
+                    {def.editable && <Type className="h-2.5 w-2.5 opacity-50" />}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => toggleHidden(def.id)}
+                    title="Ocultar"
+                    className="p-0.5 rounded shrink-0 opacity-0 group-hover:opacity-100"
+                  >
+                    <Eye className="h-3 w-3" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => toggleLock(def.id)}
+                    title={isLocked ? 'Desbloquear' : 'Bloquear'}
+                    className={cn('p-0.5 rounded shrink-0', isLocked ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')}
+                  >
+                    {isLocked ? <Lock className="h-3 w-3" /> : <Unlock className="h-3 w-3" />}
+                  </button>
+                </div>
+              );
+            })}
+          {/* Ocultos: chips atenuados para volver a mostrarlos con el ojito */}
+          {chipList.filter((it) => it.overlay === null).map((it) => (
+            <div
+              key={it.id}
+              className="text-[11px] pl-2 pr-1 py-1 rounded-full border border-dashed border-muted-foreground/40 text-muted-foreground flex items-center gap-1 opacity-60"
+              title="Oculto"
+            >
+              <span>{it.def.emoji}</span>
+              <span className="line-through">{it.def.label}</span>
+              <button
+                type="button"
+                onClick={() => toggleHidden(it.id)}
+                title="Mostrar"
+                className="p-0.5 rounded shrink-0 hover:text-[#0F1419]"
+              >
+                <EyeOff className="h-3 w-3" />
+              </button>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Canvas area */}
       <div className="flex gap-4">
+        {/* Panel de capas (jerárquico) */}
+        {layersOpen && (
+          <div className="w-56 shrink-0 border rounded-lg overflow-hidden flex flex-col" style={{ maxHeight: '75vh' }}>
+            <div className="flex items-center justify-between px-3 py-2 border-b bg-muted/30">
+              <span className="text-[11px] font-semibold uppercase tracking-wide flex items-center gap-1">
+                <Layers className="h-3.5 w-3.5" /> Capas
+              </span>
+              <span className="text-[10px] text-muted-foreground">{layerTree.length}</span>
+            </div>
+            <div className="flex-1 overflow-y-auto py-1">
+              {layerTree.map((node) => {
+                const isSel = selectedId === node.id || selectedIds.includes(node.id);
+                const isLocked = lockedIds.has(node.id);
+                return (
+                  <div
+                    key={node.id}
+                    onMouseEnter={() => setHoveredId(node.id)}
+                    onMouseLeave={() => setHoveredId((h) => (h === node.id ? null : h))}
+                    className={cn(
+                      'group flex items-center gap-1 pr-1 py-1 text-[11px] cursor-pointer',
+                      isSel ? 'bg-[#2ED4C7]/15' : 'hover:bg-muted',
+                    )}
+                    style={{ paddingLeft: 6 + node.depth * 12 }}
+                    onClick={() => {
+                      if (isLocked) { selectOnly(node.id); return; }
+                      if (node.def.editable) { selectOnly(node.id); startInlineEdit({ id: node.id, def: node.def, rect: overlays.find((o) => o.id === node.id)!.rect }); return; }
+                      selectOnly(node.id);
+                    }}
+                  >
+                    <span className="shrink-0">{node.def.emoji}</span>
+                    <span className="flex-1 truncate" style={{ color: isSel ? node.def.color : undefined }}>{node.def.label}</span>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); toggleHidden(node.id); }}
+                      title="Ocultar"
+                      className="p-0.5 rounded shrink-0 opacity-0 group-hover:opacity-100 hover:text-[#0F1419]"
+                    >
+                      <Eye className="h-3 w-3" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); toggleLock(node.id); }}
+                      title={isLocked ? 'Desbloquear' : 'Bloquear'}
+                      className={cn('p-0.5 rounded shrink-0', isLocked ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')}
+                    >
+                      {isLocked ? <Lock className="h-3 w-3" /> : <Unlock className="h-3 w-3" />}
+                    </button>
+                  </div>
+                );
+              })}
+              {/* Ocultos */}
+              {chipList.filter((it) => it.overlay === null).map((it) => (
+                <div key={it.id} className="flex items-center gap-1 pr-1 py-1 text-[11px] text-muted-foreground" style={{ paddingLeft: 6 }}>
+                  <span className="shrink-0">{it.def.emoji}</span>
+                  <span className="flex-1 truncate line-through">{it.def.label}</span>
+                  <button type="button" onClick={() => toggleHidden(it.id)} title="Mostrar" className="p-0.5 rounded shrink-0 hover:text-[#0F1419]">
+                    <EyeOff className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+              {layerTree.length === 0 && (
+                <p className="text-[11px] text-muted-foreground px-3 py-4 text-center">Sin elementos.</p>
+              )}
+            </div>
+          </div>
+        )}
         {/* Design canvas */}
         <div
           ref={containerRef}
@@ -2237,7 +3688,7 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
         >
           <div
             className="relative mx-auto my-4"
-            style={{ width: scaledWidth, height: scaledHeight }}
+            style={{ width: scaledWidth, height: scaledHeight, isolation: 'isolate' }}
           >
             {/* Iframe with the design */}
             <iframe
@@ -2251,9 +3702,43 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
               style={{
                 transform: `scale(${scale})`,
                 transformOrigin: 'top left',
-                pointerEvents: (isDragging || isResizing) ? 'none' : 'auto',
+                pointerEvents: (isDragging || isResizing || isRotating) ? 'none' : 'auto',
               }}
             />
+
+            {/* Capa única de captura de mouse (opción C · hit-testing con
+                elementsFromPoint). Sustituye a los rectángulos por-elemento: el
+                navegador resuelve qué hay bajo el cursor y de ahí subimos al overlay.
+                Alt+clic baja en profundidad (click-through). Al editar texto se
+                desactiva para dejar pasar los eventos al contenteditable del iframe.
+                z:500 → por debajo de los tiradores del elemento seleccionado
+                (que viven en overlays con z mayor) y por encima del iframe. */}
+            <div
+              className="absolute inset-0"
+              style={{
+                width: scaledWidth,
+                height: scaledHeight,
+                zIndex: 500,
+                pointerEvents: editingTextId !== null ? 'none' : 'auto',
+                cursor: isDragging ? 'grabbing' : tool === 'text' ? 'text' : 'default',
+              }}
+              onMouseMove={handleCaptureMove}
+              onMouseDown={handleCaptureDown}
+              onDoubleClick={handleCaptureDoubleClick}
+              onMouseLeave={() => setHoveredId(null)}
+            />
+
+            {/* Cuadrícula de alineación (toggle con el botón de la barra) */}
+            {grid > 0 && (
+              <div className="absolute inset-0 pointer-events-none z-40" style={{ width: scaledWidth, height: scaledHeight }}>
+                {Array.from({ length: grid - 1 }, (_, i) => i + 1).map((i) => (
+                  <div key={`gv-${i}`} className="absolute" style={{ left: (designWidth * i / grid) * scale, top: 0, width: 1, height: scaledHeight, background: 'rgba(46,212,199,0.30)' }} />
+                ))}
+                {Array.from({ length: grid - 1 }, (_, i) => i + 1).map((i) => (
+                  <div key={`gh-${i}`} className="absolute" style={{ top: (designHeight * i / grid) * scale, left: 0, height: 1, width: scaledWidth, background: 'rgba(46,212,199,0.30)' }} />
+                ))}
+              </div>
+            )}
 
             {/* Guías de alineación */}
             {(showGuides || dragGuides.length > 0) && (
@@ -2286,9 +3771,10 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
 
             {/* Overlay handles */}
             {overlays.map((overlay, idx) => {
-              const isSelected = selectedId === overlay.id;
+              const isSelected = selectedIds.includes(overlay.id) || selectedId === overlay.id;
+              const isMulti = selectedIds.length > 1;
               const isHovered = hoveredId === overlay.id;
-              const isEditing = editingTextId === overlay.id;
+              const isLocked = lockedIds.has(overlay.id);
               const isDraggingThis = isDragging && dragRef.current?.id === overlay.id;
               const isResizingThis = isResizing && resizeRef.current?.id === overlay.id;
               // z-index basado en el área (overlays vienen ordenados de mayor a menor):
@@ -2307,11 +3793,13 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
               const isText = kind === 'text';
               const band = isSlideBg
                 ? 0
-                : (kind === 'image' || kind === 'image-bg')
+                : kind === 'box'
                   ? 1
-                  : isText
-                    ? 3
-                    : 2;
+                  : (kind === 'image' || kind === 'image-bg')
+                    ? 1
+                    : isText
+                      ? 3
+                      : 2;
               const baseZ = band * 1000 + idx;
               // Al seleccionar un elemento que NO es texto (imagen, forma, fondo) lo
               // traemos al frente para manipular sus tiradores y el fundido radial.
@@ -2327,25 +3815,29 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
               const MIN_HIT = 16;
               const padX = wPx < MIN_HIT ? (MIN_HIT - wPx) / 2 : 0;
               const padY = hPx < MIN_HIT ? (MIN_HIT - hPx) / 2 : 0;
+              // Rotación de la caja de selección: sigue al elemento. En vivo usa el
+              // ángulo actual del giro; si no, el rotación commit del scan.
+              const boxRot = (isRotating && rotateRef.current?.id === overlay.id && rotateDeg !== null)
+                ? rotateDeg
+                : (overlay.rot ?? 0);
 
               return (
                 <div
                   key={overlay.id}
                   className="absolute transition-all"
-                  onMouseEnter={() => setHoveredId(overlay.id)}
-                  onMouseLeave={() => setHoveredId((h) => (h === overlay.id ? null : h))}
                   style={{
                     top: overlay.rect.top * scale - padY,
                     left: overlay.rect.left * scale - padX,
                     width: Math.max(wPx, MIN_HIT),
                     height: Math.max(hPx, MIN_HIT),
                     zIndex: overlayZ,
-                    // Mientras se edita CUALQUIER texto, todos los overlays dejan
-                    // pasar el mouse al iframe. Si solo el overlay editado fuera
-                    // "pasa-través", otro overlay que lo solape (p.ej. el del título
-                    // que cubre ambas líneas) interceptaría el clic y sacaría del
-                    // modo edición, impidiendo posicionar el cursor o seleccionar texto.
-                    pointerEvents: editingTextId !== null ? 'none' : undefined,
+                    transform: boxRot ? `rotate(${boxRot}deg)` : undefined,
+                    transformOrigin: 'center',
+                    // El contenedor del overlay es SOLO visual (borde/etiqueta/tiradores).
+                    // La captura de clic/hover/drag la maneja la capa única de arriba,
+                    // así que aquí no interceptamos eventos (evita el choque entre
+                    // rectángulos apilados). Los tiradores se reactivan explícitamente.
+                    pointerEvents: 'none',
                   }}
                 >
                   {/* Selection border (solo visible al pasar el mouse o seleccionado) */}
@@ -2364,17 +3856,10 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
                     }}
                   />
 
-                  {/* Drag handle / click area */}
-                  <div
-                    className={cn(
-                      'absolute inset-0 cursor-grab active:cursor-grabbing',
-                      tool === 'text' ? 'cursor-text' : '',
-                      !overlay.def.draggable && tool !== 'text' ? 'cursor-default' : '',
-                    )}
-                    style={isEditing ? { pointerEvents: 'none' } : undefined}
-                    onMouseDown={(e) => handleMouseDown(e, overlay)}
-                    onDoubleClick={() => startInlineEdit(overlay)}
-                  />
+                  {/* Drag handle / click area — eliminado en la opción C.
+                      La captura de clic/arrastre/doble-clic la maneja ahora la capa
+                      única (`handleCaptureDown`/`handleCaptureDoubleClick`), que
+                      resuelve el elemento con elementsFromPoint. */}
 
                   {/* Label */}
                   {(isSelected || isHovered) && (
@@ -2390,47 +3875,57 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
                   )}
 
                   {/* Resize handles (corners) for selected element */}
-                  {isSelected && overlay.def.draggable && (
+                  {isSelected && !isMulti && overlay.def.draggable && editingTextId !== overlay.id && !isLocked && (
                     <>
                       <div
                         className="absolute -top-1.5 -left-1.5 w-3 h-3 rounded-full border-2 bg-white z-50"
-                        style={{ borderColor: overlay.def.color, cursor: 'nwse-resize' }}
+                        style={{ borderColor: overlay.def.color, cursor: 'nwse-resize', pointerEvents: 'auto' }}
                         onMouseDown={(e) => handleResizeStart(e, overlay, 'nw')}
                       />
                       <div
                         className="absolute -top-1.5 -right-1.5 w-3 h-3 rounded-full border-2 bg-white z-50"
-                        style={{ borderColor: overlay.def.color, cursor: 'nesw-resize' }}
+                        style={{ borderColor: overlay.def.color, cursor: 'nesw-resize', pointerEvents: 'auto' }}
                         onMouseDown={(e) => handleResizeStart(e, overlay, 'ne')}
                       />
                       <div
                         className="absolute -bottom-1.5 -left-1.5 w-3 h-3 rounded-full border-2 bg-white z-50"
-                        style={{ borderColor: overlay.def.color, cursor: 'nesw-resize' }}
+                        style={{ borderColor: overlay.def.color, cursor: 'nesw-resize', pointerEvents: 'auto' }}
                         onMouseDown={(e) => handleResizeStart(e, overlay, 'sw')}
                       />
                       <div
                         className="absolute -bottom-1.5 -right-1.5 w-3 h-3 rounded-full border-2 bg-white z-50"
-                        style={{ borderColor: overlay.def.color, cursor: 'nwse-resize' }}
+                        style={{ borderColor: overlay.def.color, cursor: 'nwse-resize', pointerEvents: 'auto' }}
                         onMouseDown={(e) => handleResizeStart(e, overlay, 'se')}
                       />
                     </>
                   )}
 
+                  {/* Tirador de rotación (arriba, centrado) */}
+                  {isSelected && !isMulti && overlay.def.draggable && editingTextId !== overlay.id && !isLocked && (
+                    <div
+                      onMouseDown={(e) => handleRotateStart(e, overlay)}
+                      title="Rotar (Shift = pasos de 15°)"
+                      className="absolute left-1/2 -top-7 w-3.5 h-3.5 rounded-full border-2 bg-white z-50 -translate-x-1/2"
+                      style={{ borderColor: overlay.def.color, cursor: 'grab', pointerEvents: 'auto' }}
+                    />
+                  )}
+
                   {/* Manijas del fundido radial */}
-                  {isSelected && radial.on && radial.mode === 'ellipse' && (
+                  {isSelected && !isMulti && radial.on && radial.mode === 'ellipse' && (
                     <>
                       <div className="absolute rounded-full border-2 border-dashed pointer-events-none" style={{ left: `${radial.cx - radial.rx}%`, top: `${radial.cy - radial.ry}%`, width: `${2 * radial.rx}%`, height: `${2 * radial.ry}%`, borderColor: '#2ED4C7' }} />
-                      <div onMouseDown={(e) => handleRadialDown(e, 'center')} className="absolute w-4 h-4 rounded-full bg-white border-2 cursor-move z-50 shadow" style={{ left: `${radial.cx}%`, top: `${radial.cy}%`, transform: 'translate(-50%,-50%)', borderColor: '#2ED4C7' }} title="Mover" />
-                      <div onMouseDown={(e) => handleRadialDown(e, 'rx')} className="absolute w-4 h-4 rounded-full bg-[#2ED4C7] border-2 border-white cursor-ew-resize z-50 shadow" style={{ left: `${radial.cx + radial.rx}%`, top: `${radial.cy}%`, transform: 'translate(-50%,-50%)' }} title="Ancho" />
-                      <div onMouseDown={(e) => handleRadialDown(e, 'ry')} className="absolute w-4 h-4 rounded-full bg-[#FF7A4A] border-2 border-white cursor-ns-resize z-50 shadow" style={{ left: `${radial.cx}%`, top: `${radial.cy + radial.ry}%`, transform: 'translate(-50%,-50%)' }} title="Alto" />
+                      <div onMouseDown={(e) => handleRadialDown(e, 'center')} className="absolute w-4 h-4 rounded-full bg-white border-2 cursor-move z-50 shadow" style={{ left: `${radial.cx}%`, top: `${radial.cy}%`, transform: 'translate(-50%,-50%)', borderColor: '#2ED4C7', pointerEvents: 'auto' }} title="Mover" />
+                      <div onMouseDown={(e) => handleRadialDown(e, 'rx')} className="absolute w-4 h-4 rounded-full bg-[#2ED4C7] border-2 border-white cursor-ew-resize z-50 shadow" style={{ left: `${radial.cx + radial.rx}%`, top: `${radial.cy}%`, transform: 'translate(-50%,-50%)', pointerEvents: 'auto' }} title="Ancho" />
+                      <div onMouseDown={(e) => handleRadialDown(e, 'ry')} className="absolute w-4 h-4 rounded-full bg-[#FF7A4A] border-2 border-white cursor-ns-resize z-50 shadow" style={{ left: `${radial.cx}%`, top: `${radial.cy + radial.ry}%`, transform: 'translate(-50%,-50%)', pointerEvents: 'auto' }} title="Alto" />
                     </>
                   )}
-                  {isSelected && radial.on && radial.mode === 'free' && (
+                  {isSelected && !isMulti && radial.on && radial.mode === 'free' && (
                     <>
                       <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none">
                         <polygon points={radial.points.map((p) => `${p.x},${p.y}`).join(' ')} fill="rgba(46,212,199,0.10)" stroke="#2ED4C7" strokeWidth="0.5" vectorEffect="non-scaling-stroke" />
                       </svg>
                       {radial.points.map((p, i) => (
-                        <div key={i} onMouseDown={(e) => handleRadialDown(e, 'point', i)} className="absolute w-3.5 h-3.5 rounded-full bg-white border-2 cursor-move z-50 shadow" style={{ left: `${p.x}%`, top: `${p.y}%`, transform: 'translate(-50%,-50%)', borderColor: '#2ED4C7' }} />
+                        <div key={i} onMouseDown={(e) => handleRadialDown(e, 'point', i)} className="absolute w-3.5 h-3.5 rounded-full bg-white border-2 cursor-move z-50 shadow" style={{ left: `${p.x}%`, top: `${p.y}%`, transform: 'translate(-50%,-50%)', borderColor: '#2ED4C7', pointerEvents: 'auto' }} />
                       ))}
                     </>
                   )}
@@ -2442,6 +3937,63 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
 
         {/* Properties panel (right side) */}
         <div className="w-64 shrink-0 space-y-3">
+          {/* Barra de alineación/distribución (multi-selección) */}
+          {selectedIds.length >= 2 && (
+            <div className="rounded-lg border p-3 space-y-2">
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                {selectedIds.length} elementos
+              </p>
+
+              {/* Agrupar / Desagrupar */}
+              {(() => {
+                const isGroup = Object.values(groups).some(
+                  (v) => v.length === selectedIds.length && v.every((id) => selectedIds.includes(id)),
+                );
+                return (
+                  <button
+                    type="button"
+                    onClick={() => (isGroup ? ungroup() : group())}
+                    className={cn(
+                      'w-full text-[11px] py-1.5 rounded',
+                      isGroup ? 'border hover:bg-muted' : 'bg-[#2ED4C7] text-[#0F1419] hover:bg-[#27bdb1]',
+                    )}
+                    title={isGroup ? 'Desagrupar (Ctrl+Shift+G)' : 'Agrupar (Ctrl+G)'}
+                  >
+                    {isGroup ? '🔓 Desagrupar' : '🔗 Agrupar'}
+                  </button>
+                );
+              })()}
+
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide pt-1">Alinear</p>
+              <div className="grid grid-cols-3 gap-1">
+                <button type="button" onClick={() => alignSelection('left')} title="Alinear a la izquierda" className="h-8 rounded border text-xs hover:bg-muted">⇤</button>
+                <button type="button" onClick={() => alignSelection('hcenter')} title="Centrar horizontal" className="h-8 rounded border text-xs hover:bg-muted">⇆</button>
+                <button type="button" onClick={() => alignSelection('right')} title="Alinear a la derecha" className="h-8 rounded border text-xs hover:bg-muted">⇥</button>
+                <button type="button" onClick={() => alignSelection('top')} title="Alinear arriba" className="h-8 rounded border text-xs hover:bg-muted">⤒</button>
+                <button type="button" onClick={() => alignSelection('vcenter')} title="Centrar vertical" className="h-8 rounded border text-xs hover:bg-muted">⇕</button>
+                <button type="button" onClick={() => alignSelection('bottom')} title="Alinear abajo" className="h-8 rounded border text-xs hover:bg-muted">⤓</button>
+              </div>
+              {selectedIds.length >= 3 && (
+                <>
+                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide pt-1">Distribuir</p>
+                  <div className="grid grid-cols-2 gap-1">
+                    <button type="button" onClick={() => distributeSelection('h')} title="Distribuir horizontalmente" className="h-8 rounded border text-xs hover:bg-muted">↔ Horizontal</button>
+                    <button type="button" onClick={() => distributeSelection('v')} title="Distribuir verticalmente" className="h-8 rounded border text-xs hover:bg-muted">↕ Vertical</button>
+                  </div>
+                </>
+              )}
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide pt-1">Igualar tamaño</p>
+              <div className="grid grid-cols-3 gap-1">
+                <button type="button" onClick={() => matchSize('w')} title="Mismo ancho que el último seleccionado" className="h-8 rounded border text-xs hover:bg-muted">Ancho</button>
+                <button type="button" onClick={() => matchSize('h')} title="Mismo alto que el último seleccionado" className="h-8 rounded border text-xs hover:bg-muted">Alto</button>
+                <button type="button" onClick={() => matchSize('both')} title="Mismo tamaño que el último seleccionado" className="h-8 rounded border text-xs hover:bg-muted">Ambos</button>
+              </div>
+              <p className="text-[10px] text-muted-foreground leading-tight pt-1">
+                Shift+clic para agregar/quitar. Arrastra cualquiera para mover el grupo. Ctrl+G agrupa, Ctrl+Shift+G desagrupa.
+              </p>
+            </div>
+          )}
+
           {/* Selected element info */}
           {selectedOverlay && (
             <div className="rounded-lg border p-3 space-y-3">
@@ -2455,17 +4007,114 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
                 </div>
               </div>
 
-              {/* Position info */}
+              {/* Posición — editable X/Y (mover por número, sin pelear con el mouse) */}
               <div className="grid grid-cols-2 gap-2 text-xs">
-                <div>
-                  <span className="text-muted-foreground">Top:</span>
-                  <span className="ml-1 font-mono">{Math.round(selectedOverlay.rect.top)}px</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Left:</span>
-                  <span className="ml-1 font-mono">{Math.round(selectedOverlay.rect.left)}px</span>
-                </div>
+                <label className="flex items-center gap-1">
+                  <span className="text-muted-foreground w-4">X</span>
+                  <input
+                    type="number"
+                    key={`x-${selectedOverlay.id}-${Math.round(selectedOverlay.rect.left)}`}
+                    defaultValue={Math.round(selectedOverlay.rect.left)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                    onBlur={(e) => setPosition(parseInt(e.target.value, 10), null)}
+                    className="w-full h-6 px-1 font-mono text-center border rounded bg-background"
+                  />
+                </label>
+                <label className="flex items-center gap-1">
+                  <span className="text-muted-foreground w-4">Y</span>
+                  <input
+                    type="number"
+                    key={`y-${selectedOverlay.id}-${Math.round(selectedOverlay.rect.top)}`}
+                    defaultValue={Math.round(selectedOverlay.rect.top)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                    onBlur={(e) => setPosition(null, parseInt(e.target.value, 10))}
+                    className="w-full h-6 px-1 font-mono text-center border rounded bg-background"
+                  />
+                </label>
               </div>
+
+              {/* Tamaño / Grosor (sliders) — para formas, líneas, imágenes y bloques.
+                  El texto se dimensiona con font-size, así que aquí se omite. */}
+              {selectedOverlay.def.draggable && !selectedOverlay.def.editable && sizeDraft && (
+                <div className="space-y-2 border-t pt-2">
+                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Tamaño</p>
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground">Ancho (grosor →)</span>
+                      <input
+                        type="number" min={1} max={designWidth}
+                        value={sizeDraft.w}
+                        onChange={(e) => { const v = parseInt(e.target.value, 10); if (!Number.isNaN(v)) previewSize(Math.max(1, v), sizeDraft.h); }}
+                        onBlur={() => applySize(sizeDraft.w, sizeDraft.h)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                        className="w-16 h-6 text-xs font-mono text-center border rounded bg-background"
+                      />
+                    </div>
+                    <input
+                      type="range" min={1} max={designWidth} step={1} value={sizeDraft.w}
+                      onChange={(e) => previewSize(parseInt(e.target.value, 10), sizeDraft.h)}
+                      onMouseUp={(e) => applySize(parseInt((e.target as HTMLInputElement).value, 10), sizeDraft.h)}
+                      onKeyUp={(e) => applySize(parseInt((e.target as HTMLInputElement).value, 10), sizeDraft.h)}
+                      className="w-full accent-[#2ED4C7]"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground">Alto (grosor ↕)</span>
+                      <input
+                        type="number" min={1} max={designHeight}
+                        value={sizeDraft.h}
+                        onChange={(e) => { const v = parseInt(e.target.value, 10); if (!Number.isNaN(v)) previewSize(sizeDraft.w, Math.max(1, v)); }}
+                        onBlur={() => applySize(sizeDraft.w, sizeDraft.h)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                        className="w-16 h-6 text-xs font-mono text-center border rounded bg-background"
+                      />
+                    </div>
+                    <input
+                      type="range" min={1} max={designHeight} step={1} value={sizeDraft.h}
+                      onChange={(e) => previewSize(sizeDraft.w, parseInt(e.target.value, 10))}
+                      onMouseUp={(e) => applySize(sizeDraft.w, parseInt((e.target as HTMLInputElement).value, 10))}
+                      onKeyUp={(e) => applySize(sizeDraft.w, parseInt((e.target as HTMLInputElement).value, 10))}
+                      className="w-full accent-[#2ED4C7]"
+                    />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground leading-tight">Escribe el número exacto o usa el slider. En una línea, el lado corto es el grosor.</p>
+                  <button
+                    type="button"
+                    onClick={applyFitContent}
+                    title="La caja toma el tamaño de su contenido (texto)"
+                    className="w-full h-7 rounded border text-[11px] hover:bg-muted"
+                  >
+                    ⤢ Ajustar al contenido
+                  </button>
+                </div>
+              )}
+
+              {/* Rotación (grados exactos + rápidos) — para cualquier elemento movible */}
+              {selectedOverlay.def.draggable && (
+                <div className="space-y-2 border-t pt-2">
+                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Rotación</p>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Grados</span>
+                    <div className="flex items-center gap-1">
+                      <button type="button" onClick={() => applyRotationDeg(Math.round(selectedOverlay.rot ?? 0) - 15)} className="w-6 h-6 rounded border text-xs hover:bg-muted flex items-center justify-center">−</button>
+                      <input
+                        type="number" min={0} max={359}
+                        value={Math.round(((selectedOverlay.rot ?? 0) % 360 + 360) % 360)}
+                        onChange={(e) => { const v = parseInt(e.target.value, 10); if (!Number.isNaN(v)) applyRotationDeg(v); }}
+                        className="w-14 h-6 text-xs font-mono text-center border rounded bg-background"
+                      />
+                      <span className="text-[10px] text-muted-foreground">°</span>
+                      <button type="button" onClick={() => applyRotationDeg(Math.round(selectedOverlay.rot ?? 0) + 15)} className="w-6 h-6 rounded border text-xs hover:bg-muted flex items-center justify-center">+</button>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-4 gap-1">
+                    {[0, 90, 180, 270].map((d) => (
+                      <button key={d} type="button" onClick={() => applyRotationDeg(d)} className="h-6 rounded border text-[11px] hover:bg-muted">{d}°</button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Style controls */}
               {selectedOverlay.def.editable && selectedStyles.fontSize && (
@@ -2489,6 +4138,58 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
                         <option key={f.label} value={f.value} style={{ fontFamily: f.value }}>{f.label}</option>
                       ))}
                     </select>
+                  </div>
+
+                  {/* Mayúsculas (text-transform) */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Mayúsculas</span>
+                    <div className="flex items-center gap-1">
+                      {([
+                        { v: 'none', label: 'Aa', title: 'Normal' },
+                        { v: 'uppercase', label: 'AA', title: 'MAYÚSCULAS' },
+                        { v: 'lowercase', label: 'aa', title: 'minúsculas' },
+                        { v: 'capitalize', label: 'Ab', title: 'Capitalizar' },
+                      ] as const).map((opt) => {
+                        const current = selectedStyles.textTransform || 'none';
+                        const active = current === opt.v;
+                        return (
+                          <button
+                            key={opt.v}
+                            type="button"
+                            title={opt.title}
+                            onClick={() => applyStyleChange('textTransform', opt.v)}
+                            className={cn(
+                              'h-6 min-w-7 px-1.5 rounded border text-xs',
+                              active ? 'bg-[#0F1419] text-white border-[#0F1419]' : 'hover:bg-muted',
+                            )}
+                          >
+                            {opt.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Espaciado entre letras (letter-spacing) */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Espaciado</span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => { const cur = parseFloat(selectedStyles.letterSpacing) || 0; applyStyleChange('letterSpacing', `${(cur - 0.5).toFixed(1)}px`); }}
+                        className="w-6 h-6 rounded border text-xs hover:bg-muted flex items-center justify-center"
+                      >
+                        −
+                      </button>
+                      <span className="text-xs font-mono w-12 text-center">{(parseFloat(selectedStyles.letterSpacing) || 0).toFixed(1)}px</span>
+                      <button
+                        type="button"
+                        onClick={() => { const cur = parseFloat(selectedStyles.letterSpacing) || 0; applyStyleChange('letterSpacing', `${(cur + 0.5).toFixed(1)}px`); }}
+                        className="w-6 h-6 rounded border text-xs hover:bg-muted flex items-center justify-center"
+                      >
+                        +
+                      </button>
+                    </div>
                   </div>
 
                   {/* Font size */}
@@ -2674,6 +4375,29 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
                           {a.icon}
                         </button>
                       ))}
+                    </div>
+                  </div>
+
+                  {/* Ajuste de línea: una sola línea vs. varias */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Renglones</span>
+                    <div className="flex gap-0.5">
+                      <button
+                        type="button"
+                        title="Todo en un solo renglón (la caja crece al contenido)"
+                        onClick={() => applyOneLine(true)}
+                        className="h-7 px-2 rounded border text-[11px] hover:bg-muted"
+                      >
+                        Una línea
+                      </button>
+                      <button
+                        type="button"
+                        title="Permitir varias líneas (ajuste normal)"
+                        onClick={() => applyOneLine(false)}
+                        className="h-7 px-2 rounded border text-[11px] hover:bg-muted"
+                      >
+                        Ajustar
+                      </button>
                     </div>
                   </div>
 
@@ -2992,6 +4716,15 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
                     🖼️ Usar como fondo del slide
                   </button>
 
+                  <button
+                    type="button"
+                    onClick={clearSlideBackground}
+                    className="w-full text-[11px] py-1.5 rounded border hover:bg-muted"
+                    title="Devuelve la imagen a un elemento normal: vuelve a ser seleccionable, movible y redimensionable"
+                  >
+                    ↩️ Quitar de fondo
+                  </button>
+
                   {/* Forma y redondeo de la foto */}
                   <div className="space-y-2">
                     <span className="text-xs text-muted-foreground">Forma</span>
@@ -3236,7 +4969,7 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
                       // quitamos la cajita de atrás: fondo, borde, sombra y marcas (::before/::after).
                       const oldHtml = el.innerHTML;
                       const imgHtml = `<img src="${url}" style="width:100%;height:100%;object-fit:contain;display:block;" />`;
-                      setWorkingHtml((prev) => prev.replace(oldHtml, imgHtml));
+                      setWorkingHtml((prev) => replaceHtmlFragment(prev, oldHtml, imgHtml));
                       const sel = selectedOverlay.def.selector;
                       setStyleOverrides((prev) => ({
                         ...prev,
@@ -3312,6 +5045,34 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+
+              {/* Color de icono (SVG monocromo insertado) — recolorea vía currentColor */}
+              {selectedOverlay.def.kind === 'icon' && (
+                <div className="space-y-2 border-t pt-2">
+                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Color del icono</p>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Color</span>
+                    <input
+                      type="color"
+                      value={selectedStyles.color ? rgbToHex(selectedStyles.color) : '#081B57'}
+                      onChange={(e) => applyTextColor(e.target.value)}
+                      className="w-7 h-7 rounded border cursor-pointer bg-transparent p-0"
+                    />
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {BRAND_COLORS.map((c) => (
+                      <button
+                        key={`icon-${c.hex}`}
+                        type="button"
+                        title={`${c.name} (${c.hex})`}
+                        onClick={() => applyTextColor(c.hex)}
+                        className="w-6 h-6 rounded-full border border-black/15 hover:scale-110 transition-transform"
+                        style={{ backgroundColor: c.hex }}
+                      />
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -3418,9 +5179,47 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
                     </button>
                   </div>
                 </div>
+
+                {/* Alinear al lienzo (un solo elemento) */}
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Alinear al lienzo</span>
+                  <div className="grid grid-cols-6 gap-0.5">
+                    <button type="button" onClick={() => alignToCanvas('left')} title="Izquierda" className="h-7 w-7 rounded border text-xs hover:bg-muted">⇤</button>
+                    <button type="button" onClick={() => alignToCanvas('hcenter')} title="Centrar horizontal" className="h-7 w-7 rounded border text-xs hover:bg-muted">⇆</button>
+                    <button type="button" onClick={() => alignToCanvas('right')} title="Derecha" className="h-7 w-7 rounded border text-xs hover:bg-muted">⇥</button>
+                    <button type="button" onClick={() => alignToCanvas('top')} title="Arriba" className="h-7 w-7 rounded border text-xs hover:bg-muted">⤒</button>
+                    <button type="button" onClick={() => alignToCanvas('vcenter')} title="Centrar vertical" className="h-7 w-7 rounded border text-xs hover:bg-muted">⇕</button>
+                    <button type="button" onClick={() => alignToCanvas('bottom')} title="Abajo" className="h-7 w-7 rounded border text-xs hover:bg-muted">⤓</button>
+                  </div>
+                </div>
+
+                {/* Bloquear / desbloquear */}
+                <button
+                  type="button"
+                  onClick={() => toggleLock(selectedOverlay.id)}
+                  className={cn(
+                    'w-full h-7 rounded border text-xs flex items-center justify-center gap-1',
+                    lockedIds.has(selectedOverlay.id) ? 'bg-[#0F1419] text-white border-[#0F1419]' : 'hover:bg-muted',
+                  )}
+                >
+                  {lockedIds.has(selectedOverlay.id) ? <><Lock className="h-3.5 w-3.5" /> Bloqueado (clic para desbloquear)</> : <><Unlock className="h-3.5 w-3.5" /> Bloquear</>}
+                </button>
+
+                {/* Ocultar */}
+                <button
+                  type="button"
+                  onClick={() => toggleHidden(selectedOverlay.id)}
+                  className="w-full h-7 rounded border text-xs flex items-center justify-center gap-1 hover:bg-muted"
+                >
+                  <Eye className="h-3.5 w-3.5" /> Ocultar
+                </button>
+
                 <div className="flex gap-1">
                   <button type="button" onClick={duplicateSelected} className="flex-1 h-7 rounded border text-xs hover:bg-muted flex items-center justify-center gap-1">
                     <Copy className="h-3.5 w-3.5" /> Duplicar
+                  </button>
+                  <button type="button" onClick={copySelected} title="Copiar (Ctrl+C) — se puede pegar en otra slide" className="flex-1 h-7 rounded border text-xs hover:bg-muted flex items-center justify-center gap-1">
+                    <Copy className="h-3.5 w-3.5" /> Copiar
                   </button>
                   <button
                     type="button"
