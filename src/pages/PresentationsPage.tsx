@@ -117,6 +117,8 @@ function PresentationsPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [currentSlide, setCurrentSlide] = useState(0);
+  // Panel de generación/refinado de slides con IA (modal).
+  const [generatorOpen, setGeneratorOpen] = useState(false);
   // Cantidad de slides del borrador (para mostrarlo en el menú de proyectos).
   const [draftSlideCount, setDraftSlideCount] = useState(0);
   const recoveredLegacyRef = useRef(false);
@@ -453,7 +455,13 @@ function PresentationsPage() {
   // Keyboard navigation (only when not editing)
   useEffect(() => {
     if (editingMode !== 'none') return;
+    // No navegar con teclado si el panel generador está abierto o si el foco
+    // está en un campo de texto (textarea/input/contenteditable): de lo contrario
+    // escribir un espacio saltaba de slide y bloqueaba la escritura.
+    if (generatorOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === 'TEXTAREA' || t.tagName === 'INPUT' || t.isContentEditable)) return;
       if (e.key === 'ArrowRight' || e.key === ' ') {
         e.preventDefault();
         goNext();
@@ -468,7 +476,7 @@ function PresentationsPage() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [goNext, goPrev, editingMode]);
+  }, [goNext, goPrev, editingMode, generatorOpen]);
 
   const handleExportHtml = useCallback(() => {
     const fullHtml = getPresentationHtml();
@@ -692,7 +700,6 @@ function PresentationsPage() {
 
   // Inserta una plantilla (del catálogo) justo después del slide actual
   const [addSlideMenuOpen, setAddSlideMenuOpen] = useState(false);
-  const [generatorOpen, setGeneratorOpen] = useState(false);
 
   // Inserta un slide generado con IA después del slide actual
   const handleInsertGeneratedSlide = useCallback((html: string) => {
@@ -821,6 +828,9 @@ function PresentationsPage() {
           onInsert={handleInsertGeneratedSlide}
           onApplyToCurrent={handleApplyGeneratedToCurrent}
           onClose={() => setGeneratorOpen(false)}
+          slides={slides}
+          currentSlide={currentSlide}
+          onSelectSlide={setCurrentSlide}
         />
       )}
       {/* Selector de proyecto — cada proyecto es una presentación independiente
@@ -917,7 +927,7 @@ function PresentationsPage() {
       </div>
 
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="space-y-3">
         <div className="flex items-center gap-3">
           <Button
             variant="ghost"
@@ -938,7 +948,10 @@ function PresentationsPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        {/* Barra de herramientas — dos renglones, alineados a la izquierda:
+            1) edición y acciones de slide (hasta "Guardar en la nube")
+            2) plantilla y exportación */}
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             variant="outline"
             size="sm"
@@ -1101,6 +1114,10 @@ function PresentationsPage() {
             <UploadCloud className="h-4 w-4" />
             {cloudSaving ? 'Guardando…' : cloudLoading ? 'Cargando…' : 'Guardar en la nube'}
           </Button>
+        </div>
+
+        {/* Segundo renglón: plantilla y exportación */}
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             variant="ghost"
             size="sm"

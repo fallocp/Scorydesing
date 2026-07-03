@@ -56,6 +56,7 @@ const EDITABLE_ELEMENTS: ElementDef[] = [
 interface FontOption { label: string; value: string; google: string | null; }
 
 const FONT_OPTIONS: FontOption[] = [
+  { label: 'Raleway',         value: "'Raleway', sans-serif",         google: 'Raleway:wght@300;400;500;600;700;800' },
   { label: 'Montserrat',      value: "'Montserrat', sans-serif",      google: 'Montserrat:wght@400;500;600;700;800' },
   { label: 'Poppins',         value: "'Poppins', sans-serif",         google: 'Poppins:wght@400;500;600;700' },
   { label: 'Inter',           value: "'Inter', sans-serif",           google: 'Inter:wght@400;500;600;700;800' },
@@ -343,6 +344,57 @@ function replaceHtmlFragment(source: string, oldHTML: string, newHTML: string): 
   return source;
 }
 
+/**
+ * Igual que `replaceHtmlFragment` pero reemplaza la ocurrencia número `n`
+ * (0-indexada) en vez de la primera. Necesario cuando varios elementos tienen
+ * el MISMO innerHTML (p.ej. dos cajas con "de beneficiarios registrados"): sin
+ * esto, editar la caja de abajo terminaba reescribiendo la de arriba porque
+ * `String.replace` siempre golpea la primera coincidencia.
+ *
+ * Si no logra ubicar la ocurrencia `n` (por diferencias de serialización), cae
+ * de vuelta a `replaceHtmlFragment` para no perder el cambio.
+ */
+function replaceNthHtmlFragment(source: string, oldHTML: string, newHTML: string, n: number): string {
+  if (!oldHTML) return source;
+  if (n <= 0) return replaceHtmlFragment(source, oldHTML, newHTML);
+
+  // Camino literal: buscar la n-ésima aparición exacta del fragmento.
+  let idx = -1;
+  let from = 0;
+  let count = 0;
+  while ((idx = source.indexOf(oldHTML, from)) !== -1) {
+    if (count === n) {
+      return source.slice(0, idx) + newHTML + source.slice(idx + oldHTML.length);
+    }
+    count += 1;
+    from = idx + oldHTML.length;
+  }
+
+  // Camino tolerante (etiquetas void `<br>`≈`<br/>`): reemplazar la n-ésima coincidencia.
+  const VOID = 'area|base|br|col|embed|hr|img|input|link|meta|source|track|wbr';
+  const escaped = oldHTML.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const loosened = escaped.replace(
+    new RegExp(`<(${VOID})\\b([^>]*?)\\s*/?>`, 'gi'),
+    (_m, tag: string, attrs: string) => `<${tag}${attrs}\\s*/?>`,
+  );
+  try {
+    const re = new RegExp(loosened, 'g');
+    let i = 0;
+    let done = false;
+    const out = source.replace(re, (match) => {
+      const replacement = i === n && !done ? (done = true, newHTML) : match;
+      i += 1;
+      return replacement;
+    });
+    if (done) return out;
+  } catch {
+    /* patrón inválido */
+  }
+
+  // No se ubicó la ocurrencia n → fallback a la primera para no perder el cambio.
+  return replaceHtmlFragment(source, oldHTML, newHTML);
+}
+
 // --- Auto-detección de elementos del HTML (selección libre tipo Canva) ---
 
 const INLINE_TAGS = new Set(['SPAN', 'A', 'B', 'I', 'EM', 'STRONG', 'SMALL', 'U', 'SUB', 'SUP', 'MARK', 'LABEL', 'CODE', 'BR', 'WBR', 'BDI', 'BDO']);
@@ -416,10 +468,14 @@ function kindCategory(kind?: string): OverlayCategory {
 
 // Paleta de marca para swatches rápidos
 const BRAND_COLORS: Array<{ name: string; hex: string }> = [
+  { name: 'Azul institucional (Pantone 286 C)', hex: '#0033A0' },
+  { name: 'Azul sub (Pantone 2925 C)', hex: '#009CDE' },
   { name: 'Navy', hex: '#0F1419' },
   { name: 'Navy título', hex: '#081B57' },
   { name: 'Coral', hex: '#FF7A4A' },
   { name: 'Turquesa', hex: '#2ED4C7' },
+  { name: 'Gris texto', hex: '#6B7280' },
+  { name: 'Gris claro', hex: '#9CA3AF' },
   { name: 'Blanco', hex: '#FFFFFF' },
   { name: 'Negro', hex: '#000000' },
 ];
@@ -1055,7 +1111,7 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
   // Cuadrícula de alineación: 0 = apagada; N = N×N divisiones (3 = regla de tercios).
   const [grid, setGrid] = useState(0);
   const [dragGuides, setDragGuides] = useState<Array<{ orient: 'v' | 'h'; pos: number }>>([]);
-  const inlineEditRef = useRef<{ selector: string; id: string; oldHTML: string } | null>(null);
+  const inlineEditRef = useRef<{ selector: string; id: string; oldHTML: string; occurrence: number } | null>(null);
   const commitRef = useRef<() => void>(() => {});
   const scaleRef = useRef(0.7);
   const startEditRef = useRef<(o: ElementOverlay, clickPoint?: { x: number; y: number }) => void>(() => {});
@@ -1070,7 +1126,7 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
   const [workingHtml, setWorkingHtml] = useState(html);
   const [changes, setChanges] = useState<Array<PositionDelta | TextEdit>>([]);
   const [isDragging, setIsDragging] = useState(false);
-  const dragRef = useRef<{ id: string; startX: number; startY: number; origTop: number; origLeft: number; members: Array<{ id: string; selector: string; origTop: number; origLeft: number; baseTx: number; baseTy: number; baseRot: number }> } | null>(null);
+  const dragRef = useRef<{ id: string; startX: number; startY: number; origTop: number; origLeft: number; maybeEdit?: boolean; members: Array<{ id: string; selector: string; origTop: number; origLeft: number; baseTx: number; baseTy: number; baseRot: number }> } | null>(null);
   const [isResizing, setIsResizing] = useState(false);
   const resizeRef = useRef<{ id: string; selector: string; corner: string; startX: number; startY: number; w: number; h: number; top: number; left: number; baseTx: number; baseTy: number; baseRot: number } | null>(null);
   const [isRotating, setIsRotating] = useState(false);
@@ -1285,13 +1341,32 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
           if (/^\[data-eid="/.test(key)) continue; // ya canónico
           let node: Element | null = null;
           try { node = doc.querySelector(key); } catch { node = null; }
-          if (!node || !eidNodes.has(node)) continue;
-          const canonical = `[data-eid="${eidNodes.get(node)}"]`;
-          const merged = { ...(prev[canonical] || {}), ...(prev[key] || {}) };
-          delete merged['pointer-events'];
-          next[canonical] = merged;
-          delete next[key];
-          changed = true;
+          if (!node) continue;
+
+          if (eidNodes.has(node)) {
+            // El selector frágil apunta a un nodo insertado → fusiona en canónico.
+            const canonical = `[data-eid="${eidNodes.get(node)}"]`;
+            const merged = { ...(prev[canonical] || {}), ...(prev[key] || {}) };
+            delete merged['pointer-events'];
+            next[canonical] = merged;
+            delete next[key];
+            changed = true;
+            continue;
+          }
+
+          // El nodo está DENTRO de un elemento insertado (p.ej. el <span> interno
+          // de un texto insertado) pero no tiene data-eid propio. Como ahora los
+          // insertados son atómicos, este hijo ya no es movible por separado:
+          // quitamos su `transform` sobrante para que se re-alinee con el
+          // contenedor, conservando el resto de estilos (color, ancho, fondo…).
+          const insertedAncestor = node.closest('[data-eid]');
+          if (insertedAncestor && insertedAncestor !== node && prev[key] && 'transform' in prev[key]) {
+            const copy = { ...prev[key] };
+            delete copy['transform'];
+            if (Object.keys(copy).length > 0) next[key] = copy;
+            else delete next[key];
+            changed = true;
+          }
         }
         return changed ? next : prev;
       });
@@ -1315,6 +1390,11 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
     root.querySelectorAll('*').forEach((el) => {
       if (SKIP_TAGS.has(el.tagName)) return;
       if (seen.has(el)) return;
+      // Los elementos insertados (data-eid) son ATÓMICOS: no descendemos dentro de
+      // ellos. Evita que el <span> interno de un texto insertado tenga su propio
+      // overlay movible, lo que permitía "descuadrarlo" del contenedor.
+      const eidAncestor = el.closest('[data-eid]');
+      if (eidAncestor && eidAncestor !== el) return;
 
       const cs = win.getComputedStyle(el);
       if (cs.display === 'none' || cs.visibility === 'hidden' || parseFloat(cs.opacity) === 0) return;
@@ -1504,6 +1584,30 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
 
   const zoomIn = () => setScale((s) => Math.min(s + 0.1, 2));
   const zoomOut = () => setScale((s) => Math.max(s - 0.1, 0.1));
+
+  // Ajusta la escala para que TODA la slide quepa dentro del contenedor visible
+  // (evita que se recorte la parte inferior/derecha en formatos horizontales
+  // como 1920×1080). Deja un pequeño margen para el `my-4` del lienzo.
+  const fitToContainer = useCallback(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const padding = 32; // margen visual (my-4 arriba/abajo + respiro lateral)
+    const availW = el.clientWidth - padding;
+    const availH = el.clientHeight - padding;
+    if (availW <= 0 || availH <= 0) return;
+    const next = Math.min(availW / designWidth, availH / designHeight);
+    setScale(Math.max(0.1, Math.min(2, next)));
+  }, [designWidth, designHeight]);
+
+  // Auto-ajuste al montar y cuando cambie el tamaño del contenedor.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    fitToContainer();
+    const ro = new ResizeObserver(() => fitToContainer());
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [fitToContainer]);
 
   const selectedOverlay = overlays.find((o) => o.id === selectedId);
 
@@ -2003,57 +2107,98 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
     'transform', 'transform-origin',
   ];
 
+  // Copia TODA la selección actual (uno o varios elementos / grupo). Cada elemento
+  // se guarda como HTML autónomo con sus coords absolutas actuales, de modo que al
+  // pegar se conserva la disposición relativa entre ellos.
   const copySelected = useCallback(() => {
-    if (!selectedId) return;
-    const overlay = overlays.find((o) => o.id === selectedId);
-    if (!overlay) return;
+    const ids = selectedIds.length ? selectedIds : (selectedId ? [selectedId] : []);
+    if (ids.length === 0) return;
     const iframe = iframeRef.current;
-    const el = iframe?.contentDocument?.querySelector(overlay.def.selector) as HTMLElement | null;
-    if (!el || !iframe?.contentWindow) return;
-    const clone = el.cloneNode(true) as HTMLElement;
-    clone.removeAttribute('contenteditable');
-    clone.querySelectorAll('[contenteditable]').forEach((n) => (n as HTMLElement).removeAttribute('contenteditable'));
-    clone.removeAttribute('data-eid');
-    const cs = iframe.contentWindow.getComputedStyle(el);
-    for (const p of STANDALONE_PROPS) {
-      const v = cs.getPropertyValue(p);
-      if (v) clone.style.setProperty(p, v);
+    if (!iframe?.contentDocument || !iframe.contentWindow) return;
+    const win = iframe.contentWindow;
+    const doc = iframe.contentDocument;
+
+    const elements: Array<{ html: string; kind?: ElementDef['kind']; label?: string; editable?: boolean }> = [];
+    for (const id of ids) {
+      const overlay = overlays.find((o) => o.id === id);
+      if (!overlay) continue;
+      const el = doc.querySelector(overlay.def.selector) as HTMLElement | null;
+      if (!el) continue;
+      const clone = el.cloneNode(true) as HTMLElement;
+      clone.removeAttribute('contenteditable');
+      clone.querySelectorAll('[contenteditable]').forEach((n) => (n as HTMLElement).removeAttribute('contenteditable'));
+      clone.removeAttribute('data-eid');
+      const cs = win.getComputedStyle(el);
+      for (const p of STANDALONE_PROPS) {
+        const v = cs.getPropertyValue(p);
+        if (v) clone.style.setProperty(p, v);
+      }
+      // Posición absoluta con las coords actuales; la rotación viaja en `transform`.
+      clone.style.position = 'absolute';
+      clone.style.left = `${Math.round(overlay.rect.left)}px`;
+      clone.style.top = `${Math.round(overlay.rect.top)}px`;
+      clone.style.margin = '0';
+      clone.style.zIndex = '60';
+      const isTextLike = overlay.def.editable || overlay.def.kind === 'text';
+      clone.style.width = `${Math.round(overlay.rect.width)}px`;
+      if (!isTextLike) clone.style.height = `${Math.round(overlay.rect.height)}px`;
+      elements.push({ html: clone.outerHTML, kind: overlay.def.kind || 'text', label: overlay.def.label, editable: overlay.def.editable });
     }
-    // Posición absoluta con las coords actuales; la rotación viaja en `transform`.
-    clone.style.position = 'absolute';
-    clone.style.left = `${Math.round(overlay.rect.left)}px`;
-    clone.style.top = `${Math.round(overlay.rect.top)}px`;
-    clone.style.margin = '0';
-    clone.style.zIndex = '60';
-    const isTextLike = overlay.def.editable || overlay.def.kind === 'text';
-    clone.style.width = `${Math.round(overlay.rect.width)}px`;
-    if (!isTextLike) clone.style.height = `${Math.round(overlay.rect.height)}px`;
-    const payload = { html: clone.outerHTML, kind: overlay.def.kind || 'text', label: overlay.def.label, editable: overlay.def.editable };
-    try { localStorage.setItem(CLIPBOARD_KEY, JSON.stringify(payload)); } catch { /* límite de storage */ }
-  }, [selectedId, overlays]);
+    if (elements.length === 0) return;
+    try { localStorage.setItem(CLIPBOARD_KEY, JSON.stringify({ elements })); } catch { /* límite de storage */ }
+  }, [selectedId, selectedIds, overlays]);
 
   const pasteClipboard = useCallback(() => {
-    let payload: { html: string; kind?: ElementDef['kind']; label?: string; editable?: boolean } | null = null;
+    let payload: {
+      elements?: Array<{ html: string; kind?: ElementDef['kind']; label?: string; editable?: boolean }>;
+      html?: string; kind?: ElementDef['kind']; label?: string; editable?: boolean;
+    } | null = null;
     try {
       const raw = localStorage.getItem(CLIPBOARD_KEY);
       if (raw) payload = JSON.parse(raw);
     } catch { payload = null; }
-    if (!payload?.html) return;
+
+    // Soporta el formato nuevo (varios elementos) y el viejo (uno solo, { html }).
+    const elements = payload?.elements?.length
+      ? payload.elements
+      : payload?.html
+        ? [{ html: payload.html, kind: payload.kind, label: payload.label, editable: payload.editable }]
+        : [];
+    if (elements.length === 0) return;
+
     pushUndo();
-    const newEid = `eid-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
-    const newSelector = `[data-eid="${newEid}"]`;
-    let html = payload.html
-      .replace(/^\s*(<[a-zA-Z][\w-]*)/, `$1 data-eid="${newEid}"`)
-      .replace(/left:\s*(-?\d+)px/, (_m, n) => `left:${parseInt(n, 10) + 24}px`)
-      .replace(/top:\s*(-?\d+)px/, (_m, n) => `top:${parseInt(n, 10) + 24}px`);
-    setWorkingHtml((prev) => insertIntoRoot(prev, `\n${html}`));
-    const def: ElementDef = {
-      id: newEid, label: `${payload.label || 'Elemento'} (pegado)`, emoji: '📋', color: '#8B5CF6',
-      selector: newSelector, editable: !!payload.editable, draggable: true, kind: payload.kind, inserted: true,
-    };
-    setInsertedElements((prev) => [...prev, def]);
-    setSelectedId(newEid);
-    setChanges((prev) => [...prev, { id: newSelector, property: 'paste', oldValue: '', newValue: '' }]);
+    const stamp = Date.now().toString(36);
+    const newEids: string[] = [];
+    const newDefs: ElementDef[] = [];
+    let combinedHtml = '';
+    // Un offset común para todos preserva la disposición relativa del grupo.
+    elements.forEach((elp, i) => {
+      const newEid = `eid-${stamp}-${i}-${Math.random().toString(36).slice(2, 6)}`;
+      const html = elp.html
+        .replace(/^\s*(<[a-zA-Z][\w-]*)/, `$1 data-eid="${newEid}"`)
+        .replace(/left:\s*(-?\d+)px/, (_m, n) => `left:${parseInt(n, 10) + 24}px`)
+        .replace(/top:\s*(-?\d+)px/, (_m, n) => `top:${parseInt(n, 10) + 24}px`);
+      combinedHtml += `\n${html}`;
+      newEids.push(newEid);
+      newDefs.push({
+        id: newEid, label: `${elp.label || 'Elemento'} (pegado)`, emoji: '📋', color: '#8B5CF6',
+        selector: `[data-eid="${newEid}"]`, editable: !!elp.editable, draggable: true, kind: elp.kind, inserted: true,
+      });
+    });
+
+    setWorkingHtml((prev) => insertIntoRoot(prev, combinedHtml));
+    setInsertedElements((prev) => [...prev, ...newDefs]);
+
+    // Si se pegaron varios, se reagrupan para poder moverlos juntos (como venían).
+    if (newEids.length > 1) {
+      setGroups((prev) => ({ ...prev, [`grp-${Math.random().toString(36).slice(2, 8)}`]: [...newEids] }));
+      setSelectedId(newEids[newEids.length - 1]);
+      setSelectedIds([...newEids]);
+    } else {
+      setSelectedId(newEids[0]);
+      setSelectedIds([newEids[0]]);
+    }
+    setChanges((prev) => [...prev, ...newEids.map((eid) => ({ id: `[data-eid="${eid}"]`, property: 'paste', oldValue: '', newValue: '' }))]);
   }, [pushUndo]);
 
   useEffect(() => { copyRef.current = copySelected; }, [copySelected]);
@@ -2583,22 +2728,35 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
       return;
     }
 
-    // Entrar a edición de texto con UN clic cuando:
-    //  - la herramienta Texto está activa, o
-    //  - el elemento editable ya estaba seleccionado (segundo clic).
-    // El cursor se coloca justo donde se hizo clic; luego se selecciona texto nativamente.
-    if (
-      overlay.def.editable &&
-      editingTextId !== overlay.id &&
-      (tool === 'text' || (tool === 'select' && selectedId === overlay.id && selectedIds.length <= 1))
-    ) {
+    // Herramienta Texto: un clic entra directo a edición.
+    if (overlay.def.editable && editingTextId !== overlay.id && tool === 'text') {
       e.preventDefault();
       e.stopPropagation();
       startEditRef.current(overlay, { x: e.clientX, y: e.clientY });
       return;
     }
 
+    // ¿Clic sobre un texto editable que YA estaba seleccionado? Puede ser:
+    //  (a) arrastrarlo para moverlo, o (b) entrar a edición si se suelta sin mover.
+    // Antes esto entraba a edición de inmediato y NO dejaba arrastrar el texto.
+    // Ahora lo marcamos como `maybeEdit` y lo resolvemos en mouseUp según el
+    // movimiento: con arrastre → mueve; clic sin mover → edita.
+    const wasSelectedEditable =
+      overlay.def.editable &&
+      editingTextId !== overlay.id &&
+      tool === 'select' &&
+      selectedId === overlay.id &&
+      selectedIds.length <= 1;
+
+    // No arrastrable (o herramienta texto): seleccionar; si ya estaba
+    // seleccionado y es editable, entrar a edición.
     if (!overlay.def.draggable || tool === 'text') {
+      if (wasSelectedEditable) {
+        e.preventDefault();
+        e.stopPropagation();
+        startEditRef.current(overlay, { x: e.clientX, y: e.clientY });
+        return;
+      }
       selectOnly(overlay.id);
       return;
     }
@@ -2625,6 +2783,7 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
       startY: e.clientY,
       origTop: overlay.rect.top,
       origLeft: overlay.rect.left,
+      maybeEdit: wasSelectedEditable,
       members: memberIds
         .map((mid) => {
           const o = overlays.find((x) => x.id === mid);
@@ -2692,6 +2851,38 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
   const handleCaptureDown = useCallback((e: React.MouseEvent) => {
     if (editingTextId !== null) return;
     const ids = resolveCandidatesAt(e.clientX, e.clientY);
+
+    // Si YA hay un único elemento seleccionado y el clic cae dentro de su caja
+    // (sin Alt/Shift), arrastramos ESE elemento aunque el cursor esté sobre un
+    // hueco o sobre su contenedor. Evita que al presionar el área "vacía" de un
+    // texto ancho se agarre el contenedor y el texto no se pueda mover.
+    if (!e.altKey && !e.shiftKey && selectedId && selectedIds.length <= 1) {
+      const selOv = overlays.find((o) => o.id === selectedId);
+      const iframe = iframeRef.current;
+      if (selOv && selOv.def.draggable && iframe) {
+        const r = iframe.getBoundingClientRect();
+        const s = scaleRef.current;
+        const x = (e.clientX - r.left) / s;
+        const y = (e.clientY - r.top) / s;
+        const inBox =
+          x >= selOv.rect.left && x <= selOv.rect.left + selOv.rect.width &&
+          y >= selOv.rect.top && y <= selOv.rect.top + selOv.rect.height;
+        const top = ids[0] ? overlays.find((o) => o.id === ids[0]) : undefined;
+        // El candidato de arriba es el propio seleccionado o un ancestro (caja que
+        // lo contiene). Si fuera un hijo MÁS PEQUEÑO no secuestramos el clic, para
+        // poder seguir seleccionando elementos internos.
+        const topEnclosesSel = !top || top.id === selOv.id || (
+          top.rect.left <= selOv.rect.left + 1 && top.rect.top <= selOv.rect.top + 1 &&
+          top.rect.left + top.rect.width >= selOv.rect.left + selOv.rect.width - 1 &&
+          top.rect.top + top.rect.height >= selOv.rect.top + selOv.rect.height - 1
+        );
+        if (inBox && topEnclosesSel) {
+          handleMouseDown(e, selOv);
+          return;
+        }
+      }
+    }
+
     if (ids.length === 0) {
       if (!e.shiftKey) selectOnly(null);
       return;
@@ -2707,7 +2898,7 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
     }
     const ov = overlays.find((o) => o.id === pick);
     if (ov) handleMouseDown(e, ov);
-  }, [editingTextId, selectedId, resolveCandidatesAt, overlays, handleMouseDown, selectOnly]);
+  }, [editingTextId, selectedId, selectedIds, resolveCandidatesAt, overlays, handleMouseDown, selectOnly]);
 
   const handleCaptureDoubleClick = useCallback((e: React.MouseEvent) => {
     if (editingTextId !== null) return;
@@ -2896,7 +3087,13 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
     const dx = overlay.rect.left - dragData.origLeft;
     const dy = overlay.rect.top - dragData.origTop;
 
-    if (Math.abs(dx) < 2 && Math.abs(dy) < 2) return;
+    if (Math.abs(dx) < 2 && Math.abs(dy) < 2) {
+      // Clic sin movimiento sobre un texto editable ya seleccionado → editar.
+      if (dragData.maybeEdit) {
+        startEditRef.current(overlay, { x: dragData.startX, y: dragData.startY });
+      }
+      return;
+    }
 
     // Save undo snapshot
     pushUndo();
@@ -3096,7 +3293,20 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
     const el = findElForOverlay(overlay.def.selector, overlay.id);
     if (!el) return;
 
-    inlineEditRef.current = { selector: overlay.def.selector, id: overlay.id, oldHTML: el.innerHTML };
+    // Índice de ocurrencia: cuántos elementos ANTES de éste (en orden de
+    // documento) tienen exactamente el mismo innerHTML. Distingue cajas con
+    // texto idéntico para reemplazar la correcta al guardar.
+    let occurrence = 0;
+    try {
+      const targetHtml = el.innerHTML;
+      const all = iframe.contentDocument.querySelectorAll('*');
+      for (const n of Array.from(all)) {
+        if (n === el) break;
+        if (n.innerHTML === targetHtml) occurrence += 1;
+      }
+    } catch { occurrence = 0; }
+
+    inlineEditRef.current = { selector: overlay.def.selector, id: overlay.id, oldHTML: el.innerHTML, occurrence };
     el.setAttribute('contenteditable', 'true');
     el.style.outline = '2px solid #2ED4C7';
     el.style.outlineOffset = '2px';
@@ -3176,7 +3386,7 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
     const newHTML = el.innerHTML;
     if (save && newHTML !== ref.oldHTML) {
       pushUndo();
-      setWorkingHtml((prev) => replaceHtmlFragment(prev, ref.oldHTML, newHTML));
+      setWorkingHtml((prev) => replaceNthHtmlFragment(prev, ref.oldHTML, newHTML, ref.occurrence));
       setChanges((prev) => [...prev, { id: ref.selector, selector: ref.selector, oldText: ref.oldHTML, newText: newHTML }]);
     } else if (!save) {
       el.innerHTML = ref.oldHTML;
@@ -3457,6 +3667,9 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
           <span className="text-xs text-muted-foreground w-10 text-center">{Math.round(scale * 100)}%</span>
           <Button size="sm" variant="ghost" onClick={zoomIn} className="h-7 w-7 p-0">
             <ZoomIn className="h-3.5 w-3.5" />
+          </Button>
+          <Button size="sm" variant="ghost" onClick={fitToContainer} className="h-7 px-2 text-xs" title="Ajustar a la pantalla">
+            Ajustar
           </Button>
 
           <div className="w-px h-5 bg-border mx-1" />
@@ -4957,12 +5170,81 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
                     }
                     const iframe = iframeRef.current;
                     if (!iframe?.contentDocument) return;
-                    const el = iframe.contentDocument.querySelector(selectedOverlay.def.selector);
+                    const doc = iframe.contentDocument;
+                    const win = iframe.contentWindow;
+                    const el = doc.querySelector(selectedOverlay.def.selector);
                     if (!el) return;
+                    const sel = selectedOverlay.def.selector;
+                    // ¿Es un slot de icono/logo (no la foto/hero principal)? Solo en ese
+                    // caso limpiamos el "chrome" del placeholder (círculo/borde/fondo).
+                    const isIconSlot =
+                      selectedOverlay.id !== 'photo' &&
+                      selectedOverlay.id !== 'hero-photo' &&
+                      /logo|imagen|icono|espacio|placeholder|icon|stat-icon|feat-icon/i.test(
+                        `${selectedOverlay.def.label || ''} ${sel}`,
+                      );
+
+                    // Limpia el "chrome" del placeholder de icono: el círculo/borde/fondo
+                    // que a veces vive en el propio elemento o en un contenedor pequeño
+                    // que lo envuelve (p.ej. .icon-slot). Recorre hacia arriba desde el
+                    // elemento y neutraliza SOLO contenedores pequeños (≤ 260px) que
+                    // tengan borde, fondo o forma de círculo — así jamás toca la tarjeta.
+                    const cleanChrome = () => {
+                      const root = doc.querySelector('.slide') || doc.querySelector('.card') || doc.body;
+                      if (!root || !win) return;
+                      const rootSel = (root as HTMLElement).classList.length
+                        ? `.${(root as HTMLElement).classList[0]}`
+                        : root.tagName.toLowerCase();
+
+                      const hasChrome = (node: Element): boolean => {
+                        const cs = win.getComputedStyle(node);
+                        const borderVisible =
+                          parseFloat(cs.borderTopWidth) > 0 ||
+                          parseFloat(cs.borderBottomWidth) > 0 ||
+                          parseFloat(cs.borderLeftWidth) > 0 ||
+                          parseFloat(cs.borderRightWidth) > 0;
+                        const bg = cs.backgroundColor;
+                        const bgVisible = !!bg && bg !== 'transparent' && !/rgba?\([^)]*,\s*0\s*\)/.test(bg);
+                        const bgImg = cs.backgroundImage && cs.backgroundImage !== 'none';
+                        return borderVisible || bgVisible || !!bgImg;
+                      };
+
+                      const targets: Element[] = [];
+                      // Desde el elemento hacia arriba (máx 3 niveles), recolecta los
+                      // contenedores pequeños con chrome, sin salir hacia la tarjeta.
+                      let node: Element | null = el;
+                      let hops = 0;
+                      while (node && node !== root && hops < 4) {
+                        const w = (node as HTMLElement).getBoundingClientRect().width;
+                        const cls = (node as HTMLElement).className || '';
+                        const looksCard = /card|panel|split|strip/i.test(String(cls));
+                        if (!looksCard && w > 0 && w <= 260 && (node === el || hasChrome(node))) {
+                          targets.push(node);
+                        }
+                        if (looksCard) break; // no subir más allá de la tarjeta
+                        node = node.parentElement;
+                        hops += 1;
+                      }
+                      if (targets.length === 0) targets.push(el);
+
+                      setStyleOverrides((prev) => {
+                        const next = { ...prev };
+                        const strip = { background: 'transparent', 'background-image': 'none', border: '0', 'box-shadow': 'none' };
+                        for (const t of targets) {
+                          const tsel = t === el ? sel : `${rootSel} > ${cssUniquePath(t, root)}`;
+                          next[tsel] = { ...(prev[tsel] || {}), ...strip };
+                          next[`${tsel}::before`] = { ...(prev[`${tsel}::before`] || {}), display: 'none' };
+                          next[`${tsel}::after`] = { ...(prev[`${tsel}::after`] || {}), display: 'none' };
+                        }
+                        return next;
+                      });
+                    };
+
                     const existingImg = el.tagName === 'IMG' ? el : el.querySelector('img');
                     if (existingImg) {
                       const oldSrc = existingImg.getAttribute('src') || '';
                       setWorkingHtml((prev) => prev.replace(oldSrc, url));
+                      if (isIconSlot) cleanChrome();
                     } else {
                       // Slot/placeholder (sin <img>): metemos la imagen DENTRO del slot
                       // (reemplaza el texto/placeholder tipo "ESPACIO PARA TU LOGO") y le
@@ -4970,13 +5252,7 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
                       const oldHtml = el.innerHTML;
                       const imgHtml = `<img src="${url}" style="width:100%;height:100%;object-fit:contain;display:block;" />`;
                       setWorkingHtml((prev) => replaceHtmlFragment(prev, oldHtml, imgHtml));
-                      const sel = selectedOverlay.def.selector;
-                      setStyleOverrides((prev) => ({
-                        ...prev,
-                        [sel]: { ...(prev[sel] || {}), background: 'transparent', 'background-image': 'none', border: '0', 'box-shadow': 'none' },
-                        [`${sel}::before`]: { ...(prev[`${sel}::before`] || {}), display: 'none' },
-                        [`${sel}::after`]: { ...(prev[`${sel}::after`] || {}), display: 'none' },
-                      }));
+                      cleanChrome();
                     }
                     setChanges((c) => [...c, { id: selectedOverlay.id, selector: selectedOverlay.def.selector, oldText: '', newText: url }]);
                   }}

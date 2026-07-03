@@ -12,7 +12,7 @@
  * Reutiliza la edge function `generate-design-html` vía `useGenerateSlide`.
  */
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { X, ImagePlus, Sparkles, Wand2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
@@ -29,6 +29,12 @@ interface SlideGeneratorPanelProps {
   /** Reemplaza el HTML del slide actual (modo refinar). */
   onApplyToCurrent: (html: string) => void;
   onClose: () => void;
+  /** Lista de slides del deck (para elegir cuál refinar sin cerrar el panel). */
+  slides?: Array<{ title: string; html: string }>;
+  /** Índice del slide activo. */
+  currentSlide?: number;
+  /** Cambia el slide activo (a refinar) desde dentro del panel. */
+  onSelectSlide?: (idx: number) => void;
 }
 
 function fileToDataUrl(file: File): Promise<string> {
@@ -45,6 +51,9 @@ export function SlideGeneratorPanel({
   onInsert,
   onApplyToCurrent,
   onClose,
+  slides,
+  currentSlide,
+  onSelectSlide,
 }: SlideGeneratorPanelProps) {
   const { toast } = useToast();
   const generate = useGenerateSlide();
@@ -74,6 +83,28 @@ export function SlideGeneratorPanel({
     },
     [toast],
   );
+
+  // Pegar imagen con Ctrl+V (como en un chat): toma la imagen del portapapeles
+  // del sistema y la usa como referencia/objetivo. Ignora el pegado si el foco
+  // está en un campo de texto para no interferir al escribir el feedback.
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const isTextField = target && (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT');
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (const it of Array.from(items)) {
+        if (it.type.startsWith('image/')) {
+          const file = it.getAsFile();
+          if (file) { e.preventDefault(); void handleFile(file); return; }
+        }
+      }
+      // Si no había imagen y el foco no es un textarea/input, no hacemos nada.
+      void isTextField;
+    };
+    window.addEventListener('paste', onPaste);
+    return () => window.removeEventListener('paste', onPaste);
+  }, [handleFile]);
 
   const handleGenerate = useCallback(async () => {
     if (!instruction.trim() && !imageDataUrl) {
@@ -228,6 +259,31 @@ export function SlideGeneratorPanel({
             <Sparkles className="h-4 w-4" /> Refinar actual
           </button>
         </div>
+
+        {/* Selector de slide: permite elegir cuál refinar sin cerrar el panel. */}
+        {slides && slides.length > 0 && onSelectSlide && (
+          <div className="px-6 pt-4">
+            <label className="mb-1.5 block text-sm font-medium">Slide a trabajar</label>
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {slides.map((s, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => onSelectSlide(idx)}
+                  className={cn(
+                    'flex-shrink-0 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors max-w-[160px] truncate',
+                    idx === currentSlide
+                      ? 'border-[#FF7A4A] bg-[#FF7A4A]/10 text-[#E85A2C]'
+                      : 'text-muted-foreground hover:bg-muted',
+                  )}
+                  title={`${idx + 1}. ${s.title}`}
+                >
+                  {idx + 1}. {s.title}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="space-y-4 p-6">
           {mode === 'create' ? (

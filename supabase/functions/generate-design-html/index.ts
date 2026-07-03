@@ -791,7 +791,7 @@ serve(async (req) => {
       }
 
       const slideModel = (current_html && iteration_feedback)
-        ? (Deno.env.get('SLIDE_FIX_MODEL') || 'gpt-5.5')
+        ? (Deno.env.get('SLIDE_FIX_MODEL') || 'gpt-5.4-mini')
         : (Deno.env.get('SLIDE_MODEL') || 'gpt-5.4-mini');
 
       const result = await callOpenAI({

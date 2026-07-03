@@ -155,10 +155,19 @@ async function fetchWithRetry(
           status: 400,
         };
       }
+      // Exponer el motivo real del 400 (p.ej. modelo inexistente o parámetro no
+      // soportado) en vez de un mensaje genérico, para poder diagnosticarlo.
+      console.error('OpenAI API error 400:', errorBody.slice(0, 500));
+      let detail = '';
+      try {
+        detail = JSON.parse(errorBody)?.error?.message ?? '';
+      } catch {
+        detail = errorBody.slice(0, 200);
+      }
       return {
         success: false,
         error: 'api_error',
-        message: `API error: ${response.status}`,
+        message: detail ? `API error 400: ${detail}` : 'API error: 400',
         status: 400,
       };
     }
@@ -232,19 +241,18 @@ export async function callOpenAIStream(
     temperature = 0.7,
   } = options;
 
+  // Igual que en callOpenAI: los modelos gpt-5 / o-series solo admiten
+  // temperature=1, así que lo omitimos para ellos (evita HTTP 400).
+  const reqBody: Record<string, unknown> = { model, messages, max_completion_tokens, stream: true };
+  if (supportsCustomTemperature(model)) reqBody.temperature = temperature;
+
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      model,
-      messages,
-      max_completion_tokens,
-      temperature,
-      stream: true,
-    }),
+    body: JSON.stringify(reqBody),
   });
 
   if (!response.ok) {

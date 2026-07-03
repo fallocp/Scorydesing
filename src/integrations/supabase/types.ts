@@ -1416,6 +1416,7 @@ export type Database = {
           brand: string
           business_id: string | null
           campaign_id: string | null
+          collection: string
           created_at: string | null
           description: string
           id: string
@@ -1430,6 +1431,7 @@ export type Database = {
           brand: string
           business_id?: string | null
           campaign_id?: string | null
+          collection?: string
           created_at?: string | null
           description: string
           id?: string
@@ -1444,6 +1446,7 @@ export type Database = {
           brand?: string
           business_id?: string | null
           campaign_id?: string | null
+          collection?: string
           created_at?: string | null
           description?: string
           id?: string

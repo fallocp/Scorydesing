@@ -122,6 +122,15 @@ interface GenerateImageRequest {
   // Used when mode = "generate": the pre-built prompt to use
   promptFinal?: string;
   negativeInstructions?: string;
+  // Image Stock Studio: process-specific style prompt. When provided, the
+  // single-image (legacy) path uses this text as the step-1 system prompt
+  // instead of the generic PROMPT_ENGINEER_SYSTEM. Lets each generator
+  // (professional, icon_3d, slide, ...) drive its own look, including
+  // live-edited prompts that are not yet persisted.
+  styleSystemPrompt?: string;
+  // Image Stock Studio: gpt-image-2 render quality. Defaults to 'medium' to
+  // preserve cost/behavior for existing flows; the new style generators pass 'high'.
+  imageQuality?: 'low' | 'medium' | 'high' | 'auto';
 }
 
 interface PromptBuilderResponse {
@@ -371,6 +380,13 @@ serve(async (req) => {
     // Determine prompt path: master image prompt (business_id) or legacy
     // ------------------------------------------------------------------
 
+    // Image Stock Studio: a process-specific style prompt forces the
+    // single-image path (professional / icon_3d / slide / ...), bypassing the
+    // 3-prompt master flow even when a business_id is present.
+    if (requestBody.styleSystemPrompt) {
+      return await handleLegacyPath(requestBody, openAIApiKey, aspectRatio);
+    }
+
     if (requestBody.business_id) {
       // --- Master Image Prompt path (Req 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7) ---
       return await handleMasterImagePath(requestBody, openAIApiKey, aspectRatio);
@@ -430,7 +446,7 @@ async function handleMasterImagePath(
           prompt: requestBody.promptFinal,
           n: 1,
           size: aspectRatioToSize(aspectRatio),
-          quality: 'medium',
+          quality: requestBody.imageQuality ?? 'medium',
         }),
       },
       openAIApiKey
@@ -719,6 +735,29 @@ User's original request: "${userRequest}"`;
 
   let promptData: PromptBuilderResponse;
 
+  // When a process-specific style prompt is used, it is fully user-editable and
+  // may not include the JSON output contract the parser needs. Append a hard
+  // output-format directive so any edited/refined style prompt still returns
+  // the expected JSON (a raw-text fallback below covers the rest).
+  const JSON_OUTPUT_ENFORCER = `\n\n---\nIMPORTANT OUTPUT FORMAT (overrides any conflicting instruction above): Return ONLY a valid JSON object, no markdown, no prose, with exactly these keys: {"prompt_final": string, "negative_instructions": string, "aspect_ratio": string, "recommended_use": string, "creative_rationale": string}. Put the complete, production-ready English image prompt in "prompt_final".`;
+  const systemContent = requestBody.styleSystemPrompt
+    ? `${requestBody.styleSystemPrompt}${JSON_OUTPUT_ENFORCER}`
+    : PROMPT_ENGINEER_SYSTEM;
+
+  // For the process-style path, the user message must be MINIMAL so the style
+  // prompt fully governs the look (colors, materials, background, lighting,
+  // composition). The generic dynamicPrompt template (with its "neutral colors"
+  // and fixed mood/composition) would otherwise fight the style prompt.
+  const userMessage = requestBody.styleSystemPrompt
+    ? `Subject / request to depict: "${userRequest}".
+Brand: ${brand}.
+Aspect ratio: ${aspectRatio}.
+${includeText
+      ? 'The image may include ONLY the exact text provided by the caller; otherwise no text.'
+      : 'The image must contain no text, letters, numbers or logos.'}
+Follow the STYLE INSTRUCTIONS above exactly — they define the colors, materials, background, lighting, composition and overall look. Do not substitute a generic or neutral palette.`
+    : dynamicPrompt;
+
   const step1Response = await fetchWithRetry(
     'https://api.openai.com/v1/chat/completions',
     {
@@ -730,8 +769,8 @@ User's original request: "${userRequest}"`;
       body: JSON.stringify({
         model: 'gpt-5.4-mini',
         messages: [
-          { role: 'system', content: PROMPT_ENGINEER_SYSTEM },
-          { role: 'user', content: dynamicPrompt },
+          { role: 'system', content: systemContent },
+          { role: 'user', content: userMessage },
         ],
         max_completion_tokens: 1000,
         temperature: 0.7,
@@ -768,14 +807,28 @@ User's original request: "${userRequest}"`;
     // Try to extract JSON from markdown fences
     const cleaned = promptContent.replace(/```json|```/g, '').trim();
     const match = cleaned.match(/\{[\s\S]*\}/);
-    if (!match) {
-      console.error('Could not parse prompt builder response:', promptContent);
-      return new Response(
-        JSON.stringify({ error: 'parse_error', message: 'Failed to parse prompt builder response' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    let parsed: PromptBuilderResponse | null = null;
+    if (match) {
+      try {
+        parsed = JSON.parse(match[0]) as PromptBuilderResponse;
+      } catch {
+        parsed = null;
+      }
     }
-    promptData = JSON.parse(match[0]);
+    if (!parsed || !parsed.prompt_final) {
+      // Resilient fallback: treat the raw model output as the final image
+      // prompt. This keeps freely edited/refined style prompts working even
+      // when the model returns prose instead of the JSON contract.
+      console.warn('Prompt builder returned non-JSON; using raw text as prompt_final.');
+      parsed = {
+        prompt_final: cleaned || promptContent.trim(),
+        negative_instructions: requestBody.avoid?.join(', ') ?? '',
+        aspect_ratio: aspectRatio,
+        recommended_use: '',
+        creative_rationale: '',
+      };
+    }
+    promptData = parsed;
   }
 
   console.log('Step 1 complete. Prompt generated successfully.');
@@ -796,7 +849,7 @@ User's original request: "${userRequest}"`;
         prompt: promptData.prompt_final,
         n: 1,
         size: aspectRatioToSize(aspectRatio),
-        quality: 'medium',
+        quality: requestBody.imageQuality ?? 'medium',
       }),
     },
     openAIApiKey
@@ -870,7 +923,7 @@ async function fetchWithRetry(
 ): Promise<{ response?: Response; error?: string; message?: string; retryAfter?: number; status?: number }> {
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 120000); // 120s timeout for image generation
+    const timeoutId = setTimeout(() => controller.abort(), 110000); // 110s — stay under the platform gateway (~150s) so we can return a clean error
 
     const response = await fetch(url, { ...options, signal: controller.signal });
     clearTimeout(timeoutId);
@@ -928,12 +981,27 @@ async function fetchWithRetry(
       status: response.status,
     };
   } catch (err) {
-    // Network timeout — retry once
-    if (retryCount < 1) {
+    const isAbort = (err as Error)?.name === 'AbortError';
+
+    // Retry once on genuine network errors, but NOT on timeouts (aborts):
+    // retrying a slow image generation only stacks another long wait and trips
+    // the platform gateway timeout (504), which then makes the client retry too.
+    if (!isAbort && retryCount < 1) {
       console.warn('Network error, retrying...', err);
       const backoffMs = (retryCount + 1) * 2000;
       await new Promise((resolve) => setTimeout(resolve, backoffMs));
       return fetchWithRetry(url, options, _apiKey, retryCount + 1);
+    }
+
+    if (isAbort) {
+      console.error('Request timed out (aborted at 110s).');
+      // Return 500 (NOT 5xx-retryable) so the client does not re-trigger another
+      // long call; surface an actionable message instead of a raw gateway 504.
+      return {
+        error: 'timeout',
+        message: 'La generación tardó demasiado. Prueba con calidad Media o reintenta.',
+        status: 500,
+      };
     }
 
     console.error('Network error after retry:', err);

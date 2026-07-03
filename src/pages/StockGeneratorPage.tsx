@@ -13,6 +13,8 @@ import { useGenerateImage } from '@/hooks/useGenerateImage';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import type { Brand } from '@/types/xendingDesign';
+import { IMAGE_STYLES, getImageStyle } from '@/constants/imageStockStudio';
+import { StyleImageGenerator } from '@/components/imageStock/StyleImageGenerator';
 
 const PREDEFINED_THEMES = [
   'Contenedores y Envíos',
@@ -46,6 +48,7 @@ function StockGeneratorPage() {
   const [newVariation, setNewVariation] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [textInImage, setTextInImage] = useState(false);
+  const [activeGenerator, setActiveGenerator] = useState<string>('thematic');
 
   const generateImage = useGenerateImage();
 
@@ -286,6 +289,33 @@ function StockGeneratorPage() {
         <BrandSelector value={selectedBrand} onChange={setBrand} />
       </section>
 
+      {/* Generator tabs */}
+      <section className="space-y-3">
+        <div className="flex flex-wrap gap-2 border-b pb-3">
+          <Button
+            variant={activeGenerator === 'thematic' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setActiveGenerator('thematic')}
+          >
+            Temático
+          </Button>
+          {IMAGE_STYLES.map((s) => (
+            <Button
+              key={s.key}
+              variant={activeGenerator === s.key ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setActiveGenerator(s.key)}
+            >
+              {s.label}
+            </Button>
+          ))}
+        </div>
+      </section>
+
+      {activeGenerator !== 'thematic' ? (
+        <StyleImageGenerator style={getImageStyle(activeGenerator)!} />
+      ) : (
+      <>
       {/* Text in image toggle */}
       <section className="space-y-3">
         <h2 className="text-lg font-semibold text-foreground">Texto en la imagen</h2>
@@ -457,6 +487,8 @@ function StockGeneratorPage() {
             })}
           </div>
         </section>
+      )}
+      </>
       )}
     </div>
   );

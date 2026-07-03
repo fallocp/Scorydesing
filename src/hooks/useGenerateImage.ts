@@ -23,6 +23,14 @@ export interface GenerateImageRequest {
   avoid?: string[];
   headline?: string;
   body?: string;
+  /**
+   * Image Stock Studio: process-specific style prompt. When set, the backend
+   * uses it as the step-1 system prompt (single-image path) so each generator
+   * drives its own look. Pass the current (possibly edited) prompt text.
+   */
+  styleSystemPrompt?: string;
+  /** gpt-image-2 render quality. Defaults to 'medium' server-side. */
+  imageQuality?: 'low' | 'medium' | 'high' | 'auto';
 }
 
 export interface GenerateImageResponse {
