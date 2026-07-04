@@ -25,6 +25,12 @@ export interface ImageStyleDef {
   description: string;
   /** Lucide icon name. */
   icon: string;
+  /**
+   * When true, this style exposes the professional "verticals" + human-presence
+   * modules (see constants/professionalVerticals.ts) as selectable context that
+   * is injected into the scene before building the final prompt.
+   */
+  supportsVerticals?: boolean;
 }
 
 export const IMAGE_STYLES: ImageStyleDef[] = [
@@ -35,6 +41,7 @@ export const IMAGE_STYLES: ImageStyleDef[] = [
     label: 'Imágenes profesionales',
     description: 'Fotografía editorial hiperrealista para escenas de negocio.',
     icon: 'Camera',
+    supportsVerticals: true,
   },
   {
     key: 'icon_3d',
