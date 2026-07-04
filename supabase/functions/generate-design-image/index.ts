@@ -131,6 +131,13 @@ interface GenerateImageRequest {
   // Image Stock Studio: gpt-image-2 render quality. Defaults to 'medium' to
   // preserve cost/behavior for existing flows; the new style generators pass 'high'.
   imageQuality?: 'low' | 'medium' | 'high' | 'auto';
+  // Image Stock Studio — image-to-image (restyle / remix). When set, the image
+  // is generated via the OpenAI images/edits endpoint using this reference as
+  // pixels (preserving subject/composition) instead of pure text-to-image.
+  // Accepts a raw base64 string or a data URL (data:image/...;base64,....).
+  referenceImageBase64?: string;
+  // Image Stock Studio — how many variations to return (1–3). Defaults to 1.
+  imageCount?: number;
 }
 
 interface PromptBuilderResponse {
@@ -694,6 +701,24 @@ async function handleLegacyPath(
 ): Promise<Response> {
   const { userRequest, brand } = requestBody;
 
+  // ─── Approved-prompt path (editable "gate" in the UI) ───
+  // When the caller already has a final, human-approved image prompt, skip
+  // Step 1 (prompt engineering) entirely and generate the image directly from
+  // it. This keeps the user's edits verbatim — the exact text they approved is
+  // what gets rendered. Used by the shared image engine's "expand → edit →
+  // generate" flow.
+  if (requestBody.promptFinal && requestBody.promptFinal.trim()) {
+    console.log('Approved promptFinal provided — skipping Step 1.');
+    const approved: PromptBuilderResponse = {
+      prompt_final: requestBody.promptFinal.trim(),
+      negative_instructions: requestBody.negativeInstructions ?? requestBody.avoid?.join(', ') ?? '',
+      aspect_ratio: aspectRatio,
+      recommended_use: '',
+      creative_rationale: '',
+    };
+    return await generateImageFromPromptData(approved, requestBody, openAIApiKey, aspectRatio);
+  }
+
   // Build the dynamic prompt template for the user message
   const useCustomColors = requestBody.customColors && requestBody.customColors.length > 0;
   const brandColors = useCustomColors ? requestBody.customColors!.join(', ') : '';
@@ -833,27 +858,93 @@ Follow the STYLE INSTRUCTIONS above exactly — they define the colors, material
 
   console.log('Step 1 complete. Prompt generated successfully.');
 
-  // ─── Step 2: Image Generation via OpenAI Images API ───
-  console.log('Step 2: Generating image via gpt-image-2...');
-
-  const step2Response = await fetchWithRetry(
-    'https://api.openai.com/v1/images/generations',
-    {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-image-2',
-        prompt: promptData.prompt_final,
-        n: 1,
-        size: aspectRatioToSize(aspectRatio),
-        quality: requestBody.imageQuality ?? 'medium',
+  // Prompt-only mode: return the built prompt WITHOUT generating the image, so
+  // the UI can show it in an editable "gate" for the user to approve/edit
+  // before spending an image generation. The approved text is then sent back
+  // via `promptFinal` (short-circuit at the top of this function).
+  if (requestBody.mode === 'prompts') {
+    return new Response(
+      JSON.stringify({
+        promptUsed: {
+          promptFinal: promptData.prompt_final,
+          negativeInstructions: promptData.negative_instructions,
+          aspectRatio: promptData.aspect_ratio,
+          recommendedUse: promptData.recommended_use,
+          creativeRationale: promptData.creative_rationale,
+        },
       }),
-    },
-    openAIApiKey
-  );
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+    );
+  }
+
+  return await generateImageFromPromptData(promptData, requestBody, openAIApiKey, aspectRatio);
+}
+
+/**
+ * Step 2 (shared): generate the image from a ready PromptBuilderResponse via
+ * the OpenAI Images API (gpt-image-2). Used by both the normal 2-step legacy
+ * flow and the approved-prompt short-circuit, so the rendering behaviour stays
+ * identical regardless of how the prompt was produced.
+ */
+async function generateImageFromPromptData(
+  promptData: PromptBuilderResponse,
+  requestBody: GenerateImageRequest,
+  openAIApiKey: string,
+  aspectRatio: string,
+): Promise<Response> {
+  // How many variations to return (1–3).
+  const count = Math.min(3, Math.max(1, Math.round(requestBody.imageCount ?? 1)));
+  const quality = requestBody.imageQuality ?? 'medium';
+  const size = aspectRatioToSize(aspectRatio);
+  const hasReference = !!(requestBody.referenceImageBase64 && requestBody.referenceImageBase64.trim());
+
+  let step2Response;
+  if (hasReference) {
+    // ─── Image-to-image (restyle / remix) via images/edits ───
+    // The reference is passed as pixels so the subject/composition is preserved
+    // and only the styling/finish changes (what ChatGPT does with an uploaded
+    // image + "same concept, restyle").
+    console.log(`Step 2: Restyling reference image via gpt-image-2 edits (n=${count})...`);
+    const bytes = base64ToUint8Array(requestBody.referenceImageBase64!);
+    const form = new FormData();
+    form.append('model', 'gpt-image-2');
+    form.append('prompt', promptData.prompt_final);
+    form.append('n', String(count));
+    form.append('size', size);
+    form.append('quality', quality);
+    form.append('image', new Blob([bytes], { type: 'image/png' }), 'reference.png');
+
+    step2Response = await fetchWithRetry(
+      'https://api.openai.com/v1/images/edits',
+      {
+        method: 'POST',
+        // No Content-Type header: fetch sets the multipart boundary for FormData.
+        headers: { 'Authorization': `Bearer ${openAIApiKey}` },
+        body: form,
+      },
+      openAIApiKey
+    );
+  } else {
+    console.log(`Step 2: Generating image via gpt-image-2 (n=${count})...`);
+    step2Response = await fetchWithRetry(
+      'https://api.openai.com/v1/images/generations',
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openAIApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-image-2',
+          prompt: promptData.prompt_final,
+          n: count,
+          size,
+          quality,
+        }),
+      },
+      openAIApiKey
+    );
+  }
 
   if (step2Response.error) {
     return new Response(
@@ -866,24 +957,26 @@ Follow the STYLE INSTRUCTIONS above exactly — they define the colors, material
   }
 
   const step2Data = await step2Response.response!.json();
-  const imageBase64 = step2Data.data?.[0]?.b64_json ?? step2Data.data?.[0]?.b64;
+  const images: string[] = Array.isArray(step2Data.data)
+    ? step2Data.data
+        .map((d: { b64_json?: string; b64?: string }) => d.b64_json ?? d.b64)
+        .filter((b: string | undefined): b is string => !!b)
+    : [];
 
-  if (!imageBase64) {
+  if (images.length === 0) {
     console.error('No image data in Step 2 response. Response keys:', JSON.stringify(Object.keys(step2Data)));
-    if (step2Data.data?.[0]) {
-      console.error('First data item keys:', JSON.stringify(Object.keys(step2Data.data[0])));
-    }
     return new Response(
       JSON.stringify({ error: 'parse_error', message: 'No image generated from AI' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 
-  console.log('Step 2 complete. Image generated successfully.');
+  console.log(`Step 2 complete. ${images.length} image(s) generated successfully.`);
 
   return new Response(
     JSON.stringify({
-      imageBase64,
+      imageBase64: images[0],
+      images,
       promptUsed: {
         promptFinal: promptData.prompt_final,
         negativeInstructions: promptData.negative_instructions,
@@ -897,6 +990,15 @@ Follow the STYLE INSTRUCTIONS above exactly — they define the colors, material
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     }
   );
+}
+
+/** Decode a base64 string or data URL into raw bytes for multipart upload. */
+function base64ToUint8Array(input: string): Uint8Array {
+  const base64 = input.includes(',') ? input.slice(input.indexOf(',') + 1) : input;
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
 }
 
 /**

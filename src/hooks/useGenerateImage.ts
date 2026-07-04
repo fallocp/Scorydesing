@@ -31,17 +31,44 @@ export interface GenerateImageRequest {
   styleSystemPrompt?: string;
   /** gpt-image-2 render quality. Defaults to 'medium' server-side. */
   imageQuality?: 'low' | 'medium' | 'high' | 'auto';
+  /**
+   * Shared image-engine "gate" support:
+   * - mode 'prompts' → run step-1 only and return the built prompt (no image).
+   * - When `promptFinal` is set, the backend SKIPS step-1 and renders that
+   *   exact (user-approved/edited) prompt.
+   */
+  mode?: 'prompts' | 'generate';
+  promptFinal?: string;
+  negativeInstructions?: string;
+  /**
+   * Image-to-image (restyle / remix): a reference image (raw base64 or data
+   * URL). When set, the backend uses the OpenAI images/edits endpoint so the
+   * reference's subject and composition are preserved and only the styling
+   * changes. When omitted, generation is pure text-to-image.
+   */
+  referenceImageBase64?: string;
+  /** How many variations to return (1–3). Defaults to 1. */
+  imageCount?: number;
+}
+
+export interface ImagePromptDetails {
+  promptFinal: string;
+  negativeInstructions: string;
+  aspectRatio: string;
+  recommendedUse: string;
+  creativeRationale: string;
 }
 
 export interface GenerateImageResponse {
   imageBase64: string;
-  promptUsed: {
-    promptFinal: string;
-    negativeInstructions: string;
-    aspectRatio: string;
-    recommendedUse: string;
-    creativeRationale: string;
-  };
+  /** All returned variations (length = requested imageCount). First = imageBase64. */
+  images?: string[];
+  promptUsed: ImagePromptDetails;
+}
+
+/** Prompt-only response (mode: 'prompts') — no image is generated. */
+export interface BuildImagePromptResponse {
+  promptUsed: ImagePromptDetails;
 }
 
 async function generateDesignImage(
@@ -52,9 +79,29 @@ async function generateDesignImage(
   });
 }
 
+async function buildImagePrompt(
+  request: GenerateImageRequest
+): Promise<BuildImagePromptResponse> {
+  return invokeWithRetry<BuildImagePromptResponse>('generate-design-image', {
+    body: { ...request, mode: 'prompts' } as unknown as Record<string, unknown>,
+  });
+}
+
 export function useGenerateImage() {
   return useMutation({
     mutationFn: generateDesignImage,
     mutationKey: ['generate-design-image'],
+  });
+}
+
+/**
+ * Expand a scene/idea into an editable image prompt WITHOUT generating the
+ * image (the "gate"). Consumers show the returned prompt for review/edit, then
+ * call useGenerateImage with `promptFinal` set to render it.
+ */
+export function useBuildImagePrompt() {
+  return useMutation({
+    mutationFn: buildImagePrompt,
+    mutationKey: ['generate-design-image', 'prompts'],
   });
 }
