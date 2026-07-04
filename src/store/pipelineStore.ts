@@ -83,7 +83,7 @@ export interface PipelineOptions {
 
 export type ResumeAction =
   | { type: 'approve_ideas'; selectedIds: string[] }
-  | { type: 'select_image_type'; ideaId: string; imageType: ImageType }
+  | { type: 'select_image_type'; ideaId: string; imageType: ImageType; editedPrompt?: string; editedNegative?: string }
   | { type: 'approve_image'; ideaId: string }
   | { type: 'iterate_image'; ideaId: string; feedback: string }
   | { type: 'approve_final'; pieceIds: string[] };
@@ -117,6 +117,9 @@ export interface PipelineStep {
   duration_ms: number | null;
   error: Record<string, unknown> | null;
   retry_count: number;
+  /** Persisted step payloads (the status endpoint returns full rows). */
+  input?: Record<string, unknown> | null;
+  output?: Record<string, unknown> | null;
 }
 
 // ---------------------------------------------------------------------------

@@ -97,8 +97,12 @@ export async function resumePipeline(
             mode: "generate",
             business_id: run.business_id,
             imageType: action.imageType,
-            promptFinal: selectedPrompt?.prompt_final ?? "",
-            negativeInstructions: selectedPrompt?.negative_instructions ?? "",
+            // Editable prompt gate: when the user reviewed/edited the prompt in
+            // the UI, render THAT verbatim; otherwise use the selected variant's
+            // prompt as-is. Same "approve/edit before generate" behaviour as the
+            // shared image engine in the stock generator.
+            promptFinal: action.editedPrompt?.trim() || (selectedPrompt?.prompt_final ?? ""),
+            negativeInstructions: action.editedNegative?.trim() || (selectedPrompt?.negative_instructions ?? ""),
             aspectRatio: selectedPrompt?.aspect_ratio ?? "1:1",
           },
         },

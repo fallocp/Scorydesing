@@ -129,8 +129,17 @@ function IdeaApprovalGate() {
   );
 }
 
+interface ImagePromptVariantLite {
+  prompt_final?: string;
+  negative_instructions?: string;
+}
+
 function ImageSelectionGate() {
-  const { run, resumePipeline, isLoading } = usePipelineStore();
+  const { run, steps, resumePipeline, isLoading } = usePipelineStore();
+  const [selectedType, setSelectedType] = useState<ImageType | null>(null);
+  const [editedPrompt, setEditedPrompt] = useState('');
+  const [editedNegative, setEditedNegative] = useState('');
+  const [showNegative, setShowNegative] = useState(false);
 
   const imageTypes: { value: ImageType; label: string; description: string }[] = [
     { value: 'fotografia', label: 'Fotografía', description: 'Imagen fotográfica realista' },
@@ -138,11 +147,30 @@ function ImageSelectionGate() {
     { value: 'mapa_rutas', label: 'Mapa de rutas', description: 'Diagrama de flujo o proceso' },
   ];
 
-  const handleSelect = (imageType: ImageType) => {
-    if (!run) return;
-    // Use the first approved idea
+  // Step-4 output already carries the built prompt for each type.
+  const prompts = (
+    steps.find((s) => s.agent_name === 'generate-design-image-prompts')?.output as
+      { prompts?: Record<ImageType, ImagePromptVariantLite> } | undefined
+  )?.prompts;
+
+  const handleSelectType = (imageType: ImageType) => {
+    setSelectedType(imageType);
+    const variant = prompts?.[imageType];
+    setEditedPrompt(variant?.prompt_final ?? '');
+    setEditedNegative(variant?.negative_instructions ?? '');
+    setShowNegative(false);
+  };
+
+  const handleGenerate = () => {
+    if (!run || !selectedType) return;
     const ideaId = run.approved_idea_ids?.[0] ?? '';
-    resumePipeline(run.id, { type: 'select_image_type', ideaId, imageType });
+    resumePipeline(run.id, {
+      type: 'select_image_type',
+      ideaId,
+      imageType: selectedType,
+      editedPrompt: editedPrompt.trim() || undefined,
+      editedNegative: editedNegative.trim() || undefined,
+    });
   };
 
   return (
@@ -152,15 +180,51 @@ function ImageSelectionGate() {
         {imageTypes.map((opt) => (
           <button
             key={opt.value}
-            onClick={() => handleSelect(opt.value)}
+            onClick={() => handleSelectType(opt.value)}
             disabled={isLoading}
-            className="rounded-lg border p-3 text-left hover:border-primary hover:bg-muted/50 transition-colors disabled:opacity-50"
+            className={`rounded-lg border p-3 text-left transition-colors disabled:opacity-50 ${
+              selectedType === opt.value ? 'border-primary bg-primary/5' : 'hover:border-primary hover:bg-muted/50'
+            }`}
           >
             <p className="text-sm font-medium">{opt.label}</p>
             <p className="text-xs text-muted-foreground">{opt.description}</p>
           </button>
         ))}
       </div>
+
+      {/* Editable prompt gate — review/edit before generating */}
+      {selectedType && (
+        <div className="space-y-2 rounded-lg border p-3">
+          <p className="text-xs font-medium text-muted-foreground">
+            Prompt final (edítalo antes de generar si quieres)
+          </p>
+          <textarea
+            value={editedPrompt}
+            onChange={(e) => setEditedPrompt(e.target.value)}
+            className="w-full rounded-md border px-3 py-2 text-xs font-mono resize-y h-32 focus:outline-none focus:ring-2 focus:ring-ring"
+            placeholder="Prompt de imagen..."
+          />
+          <button
+            type="button"
+            className="text-[11px] text-muted-foreground hover:text-foreground"
+            onClick={() => setShowNegative((v) => !v)}
+          >
+            {showNegative ? 'Ocultar' : 'Editar'} instrucciones negativas
+          </button>
+          {showNegative && (
+            <textarea
+              value={editedNegative}
+              onChange={(e) => setEditedNegative(e.target.value)}
+              className="w-full rounded-md border px-3 py-2 text-xs font-mono resize-y h-20 focus:outline-none focus:ring-2 focus:ring-ring"
+              placeholder="Instrucciones negativas..."
+            />
+          )}
+          <Button onClick={handleGenerate} disabled={isLoading || !editedPrompt.trim()} size="sm">
+            {isLoading && <Loader2 className="mr-2 h-3 w-3 animate-spin" />}
+            Generar imagen
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

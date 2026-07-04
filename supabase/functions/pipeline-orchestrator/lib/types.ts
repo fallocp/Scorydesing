@@ -90,7 +90,7 @@ export interface PipelineOptions {
 
 export type ResumeAction =
   | { type: "approve_ideas"; selectedIds: string[] }
-  | { type: "select_image_type"; ideaId: string; imageType: ImageType }
+  | { type: "select_image_type"; ideaId: string; imageType: ImageType; editedPrompt?: string; editedNegative?: string }
   | { type: "approve_image"; ideaId: string }
   | { type: "iterate_image"; ideaId: string; feedback: string }
   | { type: "approve_final"; pieceIds: string[] };
