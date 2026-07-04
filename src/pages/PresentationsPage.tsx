@@ -30,6 +30,7 @@ import {
   Trash2,
   RefreshCw,
   Sparkles,
+  Languages,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -179,6 +180,8 @@ function PresentationsPage() {
   const [projectMenuOpen, setProjectMenuOpen] = useState(false);
   // Menú "copiar/mover slide a otro proyecto"
   const [moveMenuOpen, setMoveMenuOpen] = useState(false);
+  // Traducción del deck activo a inglés (batch con IA)
+  const [translating, setTranslating] = useState(false);
   const [cloudLoading, setCloudLoading] = useState(false);
   const [cloudSaving, setCloudSaving] = useState(false);
 
@@ -347,6 +350,115 @@ function PresentationsPage() {
       toast({ title: 'Error al crear proyecto', description: err instanceof Error ? err.message : 'Error desconocido', variant: 'destructive' });
     }
   }, [activeBusinessId, presentations.length, toast]);
+
+  // Duplica un proyecto completo (copia exacta de sus slides, sin traducir) y lo activa.
+  // Pensado para crear la versión en inglés: duplicar → luego "Traducir a inglés".
+  const duplicatePresentation = useCallback(async (id: string, name: string) => {
+    if (!activeBusinessId) {
+      toast({ title: 'No hay negocio activo', variant: 'destructive' });
+      return;
+    }
+    const newName = (window.prompt('Nombre de la copia:', `${name} English`) || '').trim();
+    if (!newName) return;
+    try {
+      const { data: src, error: readErr } = await (supabase as any)
+        .from('presentations')
+        .select('slides')
+        .eq('id', id)
+        .maybeSingle();
+      if (readErr) throw readErr;
+      const srcSlides = Array.isArray(src?.slides) ? src.slides : [];
+      const { data, error } = await (supabase as any)
+        .from('presentations')
+        .insert({ business_id: activeBusinessId, name: newName, slides: srcSlides })
+        .select('id, name')
+        .single();
+      if (error) throw error;
+      setPresentations((prev) => [...prev, { id: data.id, name: data.name || newName }]);
+      setProjectMenuOpen(false);
+      await loadPresentationSlides(data.id);
+      toast({
+        title: `Proyecto duplicado: ${newName}`,
+        description: 'Ahora pulsa "Traducir a inglés" para traducir esta copia.',
+      });
+    } catch (err) {
+      toast({ title: 'Error al duplicar', description: err instanceof Error ? err.message : 'Error desconocido', variant: 'destructive' });
+    }
+  }, [activeBusinessId, loadPresentationSlides, toast]);
+
+  // Traduce a inglés (US) TODOS los slides del deck activo, in-place, reusando la
+  // edge function `generate-design-html` en modo refine. Conserva HTML/clases/estilos,
+  // marcas propias (Xending, Monex) y cifras/monedas. El progreso se refleja en vivo.
+  const translateActiveToEnglish = useCallback(async () => {
+    if (translating) return;
+    const total = slides.length;
+    if (total === 0) {
+      toast({ title: 'No hay slides que traducir', variant: 'destructive' });
+      return;
+    }
+    if (!window.confirm(
+      `¿Traducir a inglés los ${total} slides de este proyecto?\n\n` +
+      'Se reemplaza el texto in-place. Los nombres de marca (Xending, Monex) y las cifras/monedas se conservan. ' +
+      'Después revísalo manualmente.',
+    )) return;
+
+    const TRANSLATE_INSTRUCTION = [
+      'Translate ALL visible human-readable text in this slide from Spanish to natural, native US English.',
+      'STRICT RULES:',
+      '- Preserve the HTML EXACTLY: same tags, attributes, class names, ids, inline styles, structure and order.',
+      '- Only change human-readable text (text nodes and readable attributes like alt/title/aria-label).',
+      '- Do NOT translate or alter brand/proper names: "Xending", "Monex". Leave them exactly as-is.',
+      '- Do NOT change numbers, figures, currency symbols/codes or dates ($, USD, MXN, %, etc.).',
+      '- Keep a professional pitch-deck tone.',
+      '- Return ONLY the full translated HTML of the slide, nothing else.',
+    ].join('\n');
+
+    setTranslating(true);
+    const ownerId = slidesOwnerIdRef.current;
+    toast({ title: `Traduciendo… 0/${total}` });
+    try {
+      const working = [...slides];
+      for (let i = 0; i < total; i++) {
+        const { data, error } = await (supabase as any).functions.invoke('generate-design-html', {
+          body: {
+            design_system: 'xending-slide',
+            current_html: working[i].html,
+            iteration_feedback: TRANSLATE_INSTRUCTION,
+          },
+        });
+        if (error) throw new Error(error.message || `Error traduciendo el slide ${i + 1}`);
+        if (data?.error) throw new Error(data.message || data.error);
+        const html = data?.html;
+        if (!html) throw new Error(`La IA no devolvió HTML para el slide ${i + 1}`);
+        working[i] = { ...working[i], html };
+        // Refleja el progreso en vivo solo si seguimos en el mismo deck.
+        if (slidesOwnerIdRef.current === ownerId) {
+          setSlides((prev) => {
+            const next = [...prev];
+            if (next[i]) next[i] = { ...next[i], html };
+            return next;
+          });
+        }
+        toast({ title: `Traduciendo… ${i + 1}/${total}` });
+      }
+      // Persistencia explícita en la nube (además del autoguardado).
+      if (ownerId) {
+        const { error: upErr } = await (supabase as any)
+          .from('presentations')
+          .update({ slides: working })
+          .eq('id', ownerId);
+        if (upErr) throw upErr;
+      }
+      toast({
+        title: `✅ Traducción completa (${total} slides)`,
+        description: 'Revisa manualmente nombres, cifras y CTAs.',
+      });
+    } catch (err) {
+      toast({ title: 'Error al traducir', description: err instanceof Error ? err.message : 'Error desconocido', variant: 'destructive' });
+    } finally {
+      setTranslating(false);
+    }
+  }, [translating, slides, toast]);
 
   const renamePresentation = useCallback(async (id: string, currentName: string) => {
     const name = (window.prompt('Nuevo nombre del proyecto:', currentName) || '').trim();
@@ -894,6 +1006,14 @@ function PresentationsPage() {
                     </button>
                     <button
                       type="button"
+                      onClick={() => duplicatePresentation(p.id, p.name)}
+                      title="Duplicar proyecto (para crear la versión en inglés)"
+                      className="opacity-0 group-hover:opacity-100 p-1 rounded hover:text-[#2ED4C7]"
+                    >
+                      <Copy className="h-3 w-3" />
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => renamePresentation(p.id, p.name)}
                       title="Renombrar proyecto"
                       className="opacity-0 group-hover:opacity-100 p-1 rounded hover:text-[#2ED4C7]"
@@ -1102,6 +1222,17 @@ function PresentationsPage() {
           >
             <Sparkles className="h-4 w-4" />
             Generar IA
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={translateActiveToEnglish}
+            disabled={translating || slides.length === 0}
+            className="gap-2 border-[#2ED4C7] text-[#0F1419]"
+            title="Traducir a inglés (US) todos los slides del proyecto activo con IA"
+          >
+            <Languages className="h-4 w-4" />
+            {translating ? 'Traduciendo…' : 'Traducir a inglés'}
           </Button>
           <Button
             variant="outline"
