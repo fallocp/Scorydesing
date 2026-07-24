@@ -6,17 +6,19 @@
  * Users can drag to reposition and double-click to edit text inline.
  */
 
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo, type ReactNode } from 'react';
 import {
   Move, Type, MousePointer2, Save, X, Undo2, Redo2, ZoomIn, ZoomOut,
   Eye, EyeOff, Code, Hand, Plus, Trash2, Copy, Image as ImageIcon, Square, Circle, Minus,
   ArrowUp, ArrowDown,
   CircleDot, Pill, Diamond, Dot, Check, Star, Asterisk, ArrowRight, Ruler, Lock, Unlock, Layers, Grid3x3,
+  Sparkles, Loader2, ChevronDown,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { EDITOR_ICONS } from '@/constants/editorIcons';
+import { useSuggestCopy } from '@/hooks/useSuggestCopy';
 
 // --- Editable element definitions ---
 
@@ -597,6 +599,8 @@ interface VisualDesignEditorProps {
   editableElements?: ElementDef[];
   /** Aplica cambios al slide sin cerrar el editor */
   onApply?: (html: string) => void;
+  /** Negocio activo — aterriza las ideas de copy (IA) en la marca real. */
+  businessId?: string | null;
 }
 
 // --- Image Picker Panel (inline in properties) ---
@@ -1073,9 +1077,32 @@ function IconPickerModal({ onClose, onPickGeneric, onPickBrand }: IconPickerModa
   );
 }
 
+// --- Sección colapsable del panel de propiedades ---
+interface CollapsibleSectionProps {
+  title: string;
+  open: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+}
+function CollapsibleSection({ title, open, onToggle, children }: CollapsibleSectionProps) {
+  return (
+    <div className="space-y-2 border-t pt-2">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full flex items-center justify-between text-[11px] font-semibold text-muted-foreground uppercase tracking-wide"
+      >
+        <span>{title}</span>
+        <ChevronDown className={cn('h-3.5 w-3.5 transition-transform shrink-0', open && 'rotate-180')} />
+      </button>
+      {open && <div className="space-y-2">{children}</div>}
+    </div>
+  );
+}
+
 // --- Main Component ---
 
-export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensions, editableElements, onApply }: VisualDesignEditorProps) {
+export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensions, editableElements, onApply, businessId }: VisualDesignEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
@@ -1106,6 +1133,18 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
   const knownDefsRef = useRef<Map<string, ElementDef>>(new Map());
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
+  // Ideas de copy (IA) para el texto seleccionado, aterrizadas en el negocio.
+  const suggestCopy = useSuggestCopy();
+  const [copyInstruction, setCopyInstruction] = useState('');
+  const [copyOptions, setCopyOptions] = useState<string[]>([]);
+  const [copyError, setCopyError] = useState<string | null>(null);
+  const [copySectionOpen, setCopySectionOpen] = useState(false);
+  // Al cambiar de elemento seleccionado, limpia las opciones/errores de copy previos.
+  useEffect(() => { setCopyOptions([]); setCopyError(null); }, [selectedId]);
+  // Estado colapsar/expandir de las secciones del panel de propiedades (por título).
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
+  const isSecOpen = (k: string, def = true) => openSections[k] ?? def;
+  const toggleSec = (k: string) => setOpenSections((p) => ({ ...p, [k]: !(p[k] ?? true) }));
   // Guías de alineación: estáticas (centro/tercios) + dinámicas al arrastrar (snap)
   const [showGuides, setShowGuides] = useState(false);
   // Cuadrícula de alineación: 0 = apagada; N = N×N divisiones (3 = regla de tercios).
@@ -1120,6 +1159,8 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
   const pasteRef = useRef<() => void>(() => {});
   const lastRangeRef = useRef<Range | null>(null);
   const selChangeRef = useRef<(() => void) | null>(null);
+  // Handler de pegado durante la edición inline (fuerza texto plano).
+  const pasteElRef = useRef<{ el: HTMLElement; handler: (e: ClipboardEvent) => void } | null>(null);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const [layersOpen, setLayersOpen] = useState(false);
@@ -1412,6 +1453,16 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
       } else if (cs.backgroundImage && cs.backgroundImage.includes('url(')) {
         kind = 'image-bg';
       } else if (isTextLeaf(el)) {
+        kind = 'text';
+        editable = true;
+      } else if (
+        el.hasAttribute('data-eid') &&
+        (el.textContent || '').trim().length > 0 &&
+        !el.querySelector('img, svg, video, canvas, iframe')
+      ) {
+        // Texto insertado que quedó con markup anidado (p.ej. HTML pegado con
+        // <h1>/<p>/<strong> basura de un editor externo): sigue siendo un bloque
+        // de TEXTO editable, no un "Bloque" inerte.
         kind = 'text';
         editable = true;
       } else if (el.children.length === 0 && bgColorAlpha(cs.backgroundColor) > 0.05) {
@@ -1847,6 +1898,45 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
     }));
     setSelectedStyles((prev) => ({ ...prev, fontFamily: value }));
     setChanges((prev) => [...prev, { id: sel, property: 'font-family', oldValue: selectedStyles.fontFamily || '', newValue: value }]);
+  }, [selectedId, overlays, selectedStyles, pushUndo]);
+
+  // Aplica color de texto al elemento Y a sus hijos (igual que la fuente).
+  // `color` no se hereda hacia hijos que definen su propio color, por eso hay
+  // que emitir también la regla `selector *` para recolorear spans internos.
+  const applyElementColor = useCallback((hex: string) => {
+    if (!selectedId) return;
+    const overlay = overlays.find((o) => o.id === selectedId);
+    if (!overlay) return;
+    pushUndo();
+    const sel = overlay.def.selector;
+    // Además de `color`, fijamos `-webkit-text-fill-color`: muchos diseños pintan
+    // el texto con text-fill-color (o relleno por gradiente), y en ese caso `color`
+    // por sí solo no tiene ningún efecto visible.
+    const colorProps = { 'color': hex, '-webkit-text-fill-color': hex };
+    setStyleOverrides((prev) => ({
+      ...prev,
+      [sel]: { ...(prev[sel] || {}), ...colorProps },
+      [`${sel} *`]: { ...(prev[`${sel} *`] || {}), ...colorProps },
+    }));
+    setSelectedStyles((prev) => ({ ...prev, color: hex }));
+    setChanges((prev) => [...prev, { id: sel, property: 'color', oldValue: selectedStyles.color || '', newValue: hex }]);
+    // Aplicación EN VIVO (inline !important) sobre el elemento y sus hijos, por si
+    // alguna regla de la plantilla tuviera mayor especificidad que el <style> inyectado.
+    const doc = iframeRef.current?.contentDocument;
+    if (doc) {
+      try {
+        doc.querySelectorAll(sel).forEach((node) => {
+          const el = node as HTMLElement;
+          el.style.setProperty('color', hex, 'important');
+          el.style.setProperty('-webkit-text-fill-color', hex, 'important');
+          el.querySelectorAll('*').forEach((c) => {
+            const ce = c as HTMLElement;
+            ce.style.setProperty('color', hex, 'important');
+            ce.style.setProperty('-webkit-text-fill-color', hex, 'important');
+          });
+        });
+      } catch { /* selector inválido */ }
+    }
   }, [selectedId, overlays, selectedStyles, pushUndo]);
 
   // --- Insertar / borrar / duplicar elementos (Canva-like) ---
@@ -3363,6 +3453,29 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
     doc.addEventListener('selectionchange', onSel);
     selChangeRef.current = onSel;
 
+    // Pegar SIEMPRE como texto plano: evita traer HTML basura (p.ej. <h1>/<p>/<strong>
+    // duplicados de Canva/ChatGPT) que convierte el texto en un "Bloque" no editable.
+    const onPaste = (e: ClipboardEvent) => {
+      e.preventDefault();
+      const text = e.clipboardData?.getData('text/plain') ?? '';
+      if (!text) return;
+      const win2 = iframe.contentWindow!;
+      const d = iframe.contentDocument!;
+      const s = win2.getSelection();
+      if (s && s.rangeCount > 0) {
+        const range = s.getRangeAt(0);
+        range.deleteContents();
+        const tn = d.createTextNode(text);
+        range.insertNode(tn);
+        range.setStartAfter(tn);
+        range.collapse(true);
+        s.removeAllRanges();
+        s.addRange(range);
+      }
+    };
+    el.addEventListener('paste', onPaste);
+    pasteElRef.current = { el: el as HTMLElement, handler: onPaste };
+
     el.addEventListener('blur', () => commitRef.current(), { once: true });
   }, [findElForOverlay]);
 
@@ -3376,6 +3489,10 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
     }
     selChangeRef.current = null;
     lastRangeRef.current = null;
+    if (pasteElRef.current) {
+      pasteElRef.current.el.removeEventListener('paste', pasteElRef.current.handler);
+      pasteElRef.current = null;
+    }
     if (!iframe?.contentDocument || !ref) return;
     const el = findElForOverlay(ref.selector, ref.id);
     if (!el) return;
@@ -3395,6 +3512,65 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
 
   // Mantener una referencia estable al commit para el listener de blur
   useEffect(() => { commitRef.current = () => finishInlineEdit(true); }, [finishInlineEdit]);
+
+  // --- Ideas de copy (IA) para el texto seleccionado -----------------------
+  // Lee el texto visible del elemento seleccionado.
+  const getSelectedText = useCallback((): string => {
+    if (!selectedOverlay) return '';
+    const el = findElForOverlay(selectedOverlay.def.selector, selectedOverlay.id);
+    return (el?.textContent || '').trim();
+  }, [selectedOverlay, findElForOverlay]);
+
+  // Pide alternativas de copy aterrizadas en el negocio para el texto actual.
+  const handleSuggestCopy = useCallback(async () => {
+    const text = getSelectedText();
+    setCopyError(null);
+    if (!text) {
+      setCopyError('Selecciona un texto para generar ideas.');
+      return;
+    }
+    try {
+      const res = await suggestCopy.mutateAsync({
+        text,
+        instruction: copyInstruction.trim() || undefined,
+        target_lang: 'English (US)',
+        business_id: businessId ?? undefined,
+        role: selectedOverlay?.def.id,
+      });
+      setCopyOptions(res.options);
+    } catch (err) {
+      setCopyError(err instanceof Error ? err.message : 'Error generando opciones');
+    }
+  }, [getSelectedText, copyInstruction, businessId, selectedOverlay, suggestCopy]);
+
+  // Aplica una opción elegida al elemento seleccionado (opción 1: texto plano;
+  // si el texto tenía palabras con color, se recoloran a mano). Reusa el mismo
+  // commit que la edición inline (replaceNthHtmlFragment por ocurrencia).
+  const applyCopyToSelected = useCallback((newText: string) => {
+    const iframe = iframeRef.current;
+    if (!iframe?.contentDocument || !selectedOverlay) return;
+    const el = findElForOverlay(selectedOverlay.def.selector, selectedOverlay.id);
+    if (!el) return;
+
+    // Ocurrencia: cuántos elementos ANTES tienen el mismo innerHTML (igual que inline edit).
+    let occurrence = 0;
+    try {
+      const targetHtml = el.innerHTML;
+      const all = iframe.contentDocument.querySelectorAll('*');
+      for (const n of Array.from(all)) {
+        if (n === el) break;
+        if (n.innerHTML === targetHtml) occurrence += 1;
+      }
+    } catch { occurrence = 0; }
+
+    const oldHTML = el.innerHTML;
+    el.textContent = newText; // texto plano (pierde spans de color internos)
+    const newHTML = el.innerHTML;
+    if (newHTML === oldHTML) return;
+    pushUndo();
+    setWorkingHtml((prev) => replaceNthHtmlFragment(prev, oldHTML, newHTML, occurrence));
+    setChanges((prev) => [...prev, { id: selectedOverlay.def.selector, selector: selectedOverlay.def.selector, oldText: oldHTML, newText: newHTML }]);
+  }, [selectedOverlay, findElForOverlay, pushUndo]);
 
   // Refs estables para usar en handleMouseDown sin problemas de orden de declaración
   useEffect(() => { scaleRef.current = scale; }, [scale]);
@@ -3459,8 +3635,9 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
         }
       }
     }
-    applyStyleChange('color', hex);
-  }, [editingTextId, applyStyleChange]);
+    // Sin selección: colorea el elemento completo, incluidos sus hijos.
+    applyElementColor(hex);
+  }, [editingTextId, applyElementColor]);
 
   // Aplica negrita/cursiva/subrayado a la selección si estás editando; si no, al elemento.
   const applyInlineFormat = useCallback((cmd: 'bold' | 'italic' | 'underline'): boolean => {
@@ -4329,10 +4506,71 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
                 </div>
               )}
 
+              {/* Ideas de copy (IA) — colapsable para no alargar el panel */}
+              {selectedOverlay.def.editable && (
+                <div className="space-y-2 border-t pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setCopySectionOpen((o) => !o)}
+                    className="w-full flex items-center justify-between text-[11px] font-semibold text-muted-foreground uppercase tracking-wide"
+                  >
+                    <span className="flex items-center gap-1">
+                      <Sparkles className="h-3 w-3 text-[#FF7A4A]" /> Ideas de copy (IA)
+                      {copyOptions.length > 0 && !copySectionOpen && (
+                        <span className="ml-1 rounded-full bg-[#FF7A4A]/15 text-[#E85A2C] px-1.5 py-0.5 text-[9px] font-semibold normal-case">{copyOptions.length}</span>
+                      )}
+                    </span>
+                    <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', copySectionOpen && 'rotate-180')} />
+                  </button>
+                  {copySectionOpen && (
+                    <div className="space-y-2">
+                      <p className="text-[10px] text-muted-foreground">Traduce el texto seleccionado a inglés US con opciones. La 1ª opción es la traducción fiel.</p>
+                      <textarea
+                        className="w-full resize-none rounded border bg-background px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-[#FF7A4A]/40"
+                        rows={2}
+                        placeholder="Opcional: tono, largo o matices (ej. 'más corto y formal')."
+                        value={copyInstruction}
+                        onChange={(e) => setCopyInstruction(e.target.value)}
+                      />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="w-full gap-2 border-[#FF7A4A] text-[#E85A2C]"
+                        onClick={handleSuggestCopy}
+                        disabled={suggestCopy.isPending}
+                      >
+                        {suggestCopy.isPending
+                          ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Generando…</>
+                          : <><Sparkles className="h-3.5 w-3.5" /> Generar opciones (inglés US)</>}
+                      </Button>
+                      {!businessId && (
+                        <p className="text-[10px] text-muted-foreground">Sin negocio activo: las ideas serán genéricas.</p>
+                      )}
+                      {copyError && <p className="text-[10px] text-red-600">{copyError}</p>}
+                      {copyOptions.length > 0 && (
+                        <div className="space-y-1">
+                          <p className="text-[10px] text-muted-foreground">Clic para aplicar al texto seleccionado:</p>
+                          {copyOptions.map((opt, i) => (
+                            <button
+                              key={i}
+                              type="button"
+                              onClick={() => applyCopyToSelected(opt)}
+                              title="Aplicar esta opción"
+                              className="w-full text-left text-xs border rounded px-2 py-1.5 hover:bg-[#FF7A4A]/5 hover:border-[#FF7A4A]/50 transition-colors"
+                            >
+                              {opt}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Style controls */}
               {selectedOverlay.def.editable && selectedStyles.fontSize && (
-                <div className="space-y-2 border-t pt-2">
-                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Tipografía</p>
+                <CollapsibleSection title="Tipografía" open={isSecOpen('typo')} onToggle={() => toggleSec('typo')}>
 
                   {/* Font family */}
                   <div className="space-y-1">
@@ -4624,7 +4862,7 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
                       <input
                         type="color"
                         value={selectedStyles.color ? rgbToHex(selectedStyles.color) : '#000000'}
-                        onChange={(e) => applyStyleChange('color', e.target.value)}
+                        onChange={(e) => applyTextColor(e.target.value)}
                         className="w-7 h-7 rounded border cursor-pointer bg-transparent p-0"
                       />
                     </div>
@@ -4643,7 +4881,7 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
                       />
                     ))}
                   </div>
-                </div>
+                </CollapsibleSection>
               )}
 
               {/* Dimension controls for non-text elements */}
@@ -4917,8 +5155,7 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
 
               {/* Ajustes de imagen (filtros) — para imágenes y fondos */}
               {(selectedOverlay.def.kind === 'image' || selectedOverlay.def.kind === 'image-bg' || selectedOverlay.id === 'photo' || selectedOverlay.id === 'hero-photo' || selectedOverlay.id === 'img-placeholder') && (
-                <div className="space-y-2 border-t pt-2">
-                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Ajustes de imagen</p>
+                <CollapsibleSection title="Ajustes de imagen" open={isSecOpen('imgAdjust')} onToggle={() => toggleSec('imgAdjust')}>
 
                   <button
                     type="button"
@@ -5133,7 +5370,7 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
                       )}
                     </div>
                   </div>
-                </div>
+                </CollapsibleSection>
               )}
 
               {/* Tamaño y posición del fondo (image-bg) */}
@@ -5326,8 +5563,7 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
 
               {/* Color de icono (SVG monocromo insertado) — recolorea vía currentColor */}
               {selectedOverlay.def.kind === 'icon' && (
-                <div className="space-y-2 border-t pt-2">
-                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Color del icono</p>
+                <CollapsibleSection title="Color del icono" open={isSecOpen('iconColor')} onToggle={() => toggleSec('iconColor')}>
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">Color</span>
                     <input
@@ -5349,15 +5585,14 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
                       />
                     ))}
                   </div>
-                </div>
+                </CollapsibleSection>
               )}
 
               {/* Relleno y borde (formas insertadas o cualquier elemento con relleno/borde) */}
               {(SHAPE_KINDS.includes(selectedOverlay.def.kind ?? '')
                 || (parseInt(selectedStyles.borderWidth || '0', 10) || 0) > 0
                 || (!!selectedStyles.backgroundColor && selectedStyles.backgroundColor !== 'transparent' && selectedStyles.backgroundColor !== 'rgba(0, 0, 0, 0)')) && (
-                <div className="space-y-2 border-t pt-2">
-                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Relleno</p>
+                <CollapsibleSection title="Relleno y borde" open={isSecOpen('fill')} onToggle={() => toggleSec('fill')}>
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">Color</span>
                     <div className="flex items-center gap-1.5">
@@ -5435,7 +5670,7 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
                       {selectedStyles.borderWidth ? `${parseInt(selectedStyles.borderWidth, 10) || 0}px` : '0px'}
                     </span>
                   </div>
-                </div>
+                </CollapsibleSection>
               )}
 
               {/* Acciones del elemento: capas, duplicar, borrar */}

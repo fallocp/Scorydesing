@@ -45,6 +45,171 @@ import { HtmlSectionEditor } from '@/components/HtmlSectionEditor';
 import { VisualDesignEditor, type ElementDef } from '@/components/VisualDesignEditor';
 import { SlideGeneratorPanel } from '@/components/presentations/SlideGeneratorPanel';
 
+// --- Traducción estable a inglés -------------------------------------------
+// Se traduce POR ELEMENTO de texto (headline, subcopy, CTA…), no fragmento a
+// fragmento: cuando un elemento tiene palabras dentro de spans (p.ej. una
+// palabra con color), el elemento se envía como UNA sola frase con marcadores
+// (⟦0⟧palabra⟦/0⟧). Así la IA traduce la frase completa con coherencia y puede
+// REORDENAR las palabras como exige el inglés, y luego reconstruimos cada span
+// (con su color/atributos) en su nueva posición. El markup/diseño no se toca.
+
+/** Marcas / nombres propios que NO se traducen. */
+const TRANSLATE_KEEP_TERMS = ['Xending', 'Monex'];
+
+const SKIP_TRANSLATE_TAGS = new Set(['STYLE', 'SCRIPT', 'NOSCRIPT']);
+const INLINE_TRANSLATE_TAGS = new Set([
+  'SPAN', 'A', 'B', 'I', 'EM', 'STRONG', 'SMALL', 'U', 'SUB', 'SUP', 'MARK', 'LABEL', 'CODE', 'BR', 'WBR', 'BDI', 'BDO',
+]);
+
+/** ¿El elemento es una "hoja de texto"? (tiene texto y solo hijos inline). */
+function isTranslatableTextLeaf(el: Element): boolean {
+  if (SKIP_TRANSLATE_TAGS.has(el.tagName)) return false;
+  if (!(el.textContent || '').trim()) return false;
+  for (const c of Array.from(el.children)) {
+    if (!INLINE_TRANSLATE_TAGS.has(c.tagName)) return false;
+  }
+  return true;
+}
+
+/**
+ * Serializa el contenido de un elemento hoja a una cadena con marcadores:
+ * texto plano tal cual + cada hijo inline como ⟦i⟧inner⟦/i⟧ (o ⟦i/⟧ si no
+ * tiene texto, p.ej. <br>). Devuelve la cadena y las plantillas de los inline.
+ */
+function buildMarked(el: Element): { marked: string; templates: Element[] } {
+  const templates: Element[] = [];
+  let marked = '';
+  for (const child of Array.from(el.childNodes)) {
+    if (child.nodeType === Node.TEXT_NODE) {
+      marked += child.textContent || '';
+    } else if (child.nodeType === Node.ELEMENT_NODE) {
+      const idx = templates.length;
+      templates.push(child as Element);
+      const inner = child.textContent || '';
+      marked += inner.trim().length === 0 ? `⟦${idx}/⟧` : `⟦${idx}⟧${inner}⟦/${idx}⟧`;
+    }
+  }
+  return { marked, templates };
+}
+
+/**
+ * Reconstruye el contenido de `el` a partir de la cadena traducida con
+ * marcadores, reusando las plantillas inline (tag + atributos = color, clase).
+ * Parser con pila y tolerante: cualquier cosa que no sea marcador es texto
+ * (se inserta como TextNode, sin riesgo de inyección de HTML).
+ */
+function applyMarkedToElement(el: Element, marked: string, templates: Element[]): void {
+  const doc = el.ownerDocument;
+  while (el.firstChild) el.removeChild(el.firstChild);
+  const stack: Element[] = [el];
+  const pushText = (t: string) => { if (t) stack[stack.length - 1].appendChild(doc.createTextNode(t)); };
+  const tokenRe = /⟦(\d+)⟧|⟦\/(\d+)⟧|⟦(\d+)\/⟧/g;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = tokenRe.exec(marked)) !== null) {
+    pushText(marked.slice(last, m.index));
+    last = tokenRe.lastIndex;
+    if (m[1] !== undefined) {
+      const t = templates[Number(m[1])];
+      const clone = (t ? t.cloneNode(false) : doc.createElement('span')) as Element;
+      stack[stack.length - 1].appendChild(clone);
+      stack.push(clone);
+    } else if (m[2] !== undefined) {
+      if (stack.length > 1) stack.pop();
+    } else if (m[3] !== undefined) {
+      const t = templates[Number(m[3])];
+      if (t) stack[stack.length - 1].appendChild(t.cloneNode(true));
+    }
+  }
+  pushText(marked.slice(last));
+}
+
+type TranslateApplier =
+  | { type: 'element'; el: Element; templates: Element[] }
+  | { type: 'text'; node: Text }
+  | { type: 'attr'; el: Element; name: string };
+
+/**
+ * Traduce un slide a inglés (US) por elemento de texto vía `translate-text` y
+ * reinserta las traducciones conservando markup, clases, estilos y los spans de
+ * color (reordenados si el inglés lo pide). Devuelve el HTML con diseño intacto.
+ */
+async function translateSlideHtml(html: string): Promise<string> {
+  if (!html || !html.trim()) return html;
+
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+
+  // 1) Unidades = hojas de texto MÁS EXTERNAS (headline, subcopy, CTA…).
+  const unitEls: Element[] = [];
+  doc.body.querySelectorAll('*').forEach((el) => {
+    if (!isTranslatableTextLeaf(el)) return;
+    const parent = el.parentElement;
+    if (parent && parent !== doc.body && isTranslatableTextLeaf(parent)) return; // interno
+    unitEls.push(el);
+  });
+  const unitSet = new Set(unitEls);
+
+  const appliers: TranslateApplier[] = [];
+  const strings: string[] = [];
+
+  for (const el of unitEls) {
+    const { marked, templates } = buildMarked(el);
+    strings.push(marked);
+    appliers.push({ type: 'element', el, templates });
+  }
+
+  // 2) Texto suelto NO cubierto por ninguna unidad (raro) → fragmento plano.
+  const isCovered = (n: Node): boolean => {
+    let p = n.parentElement;
+    while (p && p !== doc.body) { if (unitSet.has(p)) return true; p = p.parentElement; }
+    return false;
+  };
+  const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT);
+  let node = walker.nextNode();
+  while (node) {
+    const parentTag = (node.parentElement?.tagName || '').toUpperCase();
+    if (!SKIP_TRANSLATE_TAGS.has(parentTag) && (node.textContent || '').trim().length > 0 && !isCovered(node)) {
+      strings.push(node.textContent as string);
+      appliers.push({ type: 'text', node: node as Text });
+    }
+    node = walker.nextNode();
+  }
+
+  // 3) Atributos legibles (alt / title / aria-label).
+  for (const name of ['alt', 'title', 'aria-label']) {
+    doc.querySelectorAll(`[${name}]`).forEach((el) => {
+      const v = el.getAttribute(name);
+      if (v && v.trim().length > 0) { strings.push(v); appliers.push({ type: 'attr', el, name }); }
+    });
+  }
+
+  if (strings.length === 0) return html;
+
+  const { data, error } = await (supabase as any).functions.invoke('translate-text', {
+    body: { strings, target_lang: 'English (US)', keep_terms: TRANSLATE_KEEP_TERMS, preserve_markers: true },
+  });
+  if (error) throw new Error(error.message || 'Error de traducción');
+  if (data?.error) throw new Error(data.message || data.error);
+
+  const translations = data?.translations;
+  if (!Array.isArray(translations) || translations.length !== strings.length) {
+    throw new Error('La traducción devolvió un número de textos inesperado');
+  }
+
+  // 4) Reinsertar en su applier correspondiente.
+  appliers.forEach((ap, i) => {
+    const t = translations[i];
+    if (typeof t !== 'string') return;
+    if (ap.type === 'element') applyMarkedToElement(ap.el, t, ap.templates);
+    else if (ap.type === 'text') ap.node.textContent = t;
+    else ap.el.setAttribute(ap.name, t);
+  });
+
+  // 5) Reserializar conservando el doctype si el original lo traía.
+  const serialized = doc.documentElement.outerHTML;
+  return /^\s*<!DOCTYPE/i.test(html) ? `<!DOCTYPE html>\n${serialized}` : serialized;
+}
+
 /** Elements that can be edited/dragged in presentation slides */
 const PRESENTATION_ELEMENTS: ElementDef[] = [
   { id: 'slide-card', label: 'Card principal', emoji: '📐', color: '#8B5CF6', selector: '.slide-card', editable: false, draggable: false },
@@ -182,6 +347,8 @@ function PresentationsPage() {
   const [moveMenuOpen, setMoveMenuOpen] = useState(false);
   // Traducción del deck activo a inglés (batch con IA)
   const [translating, setTranslating] = useState(false);
+  // Input oculto para importar un respaldo .json
+  const importInputRef = useRef<HTMLInputElement>(null);
   const [cloudLoading, setCloudLoading] = useState(false);
   const [cloudSaving, setCloudSaving] = useState(false);
 
@@ -386,6 +553,76 @@ function PresentationsPage() {
     }
   }, [activeBusinessId, loadPresentationSlides, toast]);
 
+  // Exporta un proyecto a un archivo .json (respaldo portable de sus slides).
+  // Para el proyecto activo usa el estado en memoria (última versión); para los
+  // demás lee la nube. El archivo se puede volver a importar para restaurar.
+  const exportPresentation = useCallback(async (id: string, name: string) => {
+    try {
+      let deck: Array<{ title: string; html: string }> = [];
+      if (id === activePresentationId) {
+        deck = slides;
+      } else {
+        const { data, error } = await (supabase as any)
+          .from('presentations').select('slides').eq('id', id).maybeSingle();
+        if (error) throw error;
+        deck = Array.isArray(data?.slides) ? data.slides : [];
+      }
+      const payload = {
+        type: 'xending-presentation',
+        version: 1,
+        name,
+        exportedAt: new Date().toISOString(),
+        slides: deck,
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const safe = (name.replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '_').slice(0, 60)) || 'presentacion';
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${safe}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast({ title: `Respaldo exportado: ${name}`, description: `${deck.length} slides` });
+    } catch (err) {
+      toast({ title: 'Error al exportar', description: err instanceof Error ? err.message : 'Error desconocido', variant: 'destructive' });
+    }
+  }, [activePresentationId, slides, toast]);
+
+  // Importa un respaldo .json como un NUEVO proyecto (no sobreescribe ninguno).
+  const handleImportFile = useCallback(async (file: File | null) => {
+    if (!file) return;
+    if (!activeBusinessId) {
+      toast({ title: 'No hay negocio activo', variant: 'destructive' });
+      return;
+    }
+    try {
+      const parsed = JSON.parse(await file.text());
+      const rawSlides = Array.isArray(parsed) ? parsed : parsed?.slides;
+      const clean = Array.isArray(rawSlides)
+        ? rawSlides
+            .filter((s: any) => s && typeof s.html === 'string')
+            .map((s: any) => ({ title: typeof s.title === 'string' ? s.title : 'Slide', html: s.html }))
+        : [];
+      if (clean.length === 0) throw new Error('El archivo no contiene slides válidos.');
+      const fallback = parsed?.name ? `${parsed.name} (importado)` : file.name.replace(/\.json$/i, '');
+      const name = (window.prompt('Nombre del proyecto importado:', fallback || 'Presentación importada') || '').trim();
+      if (!name) return;
+      const { data, error } = await (supabase as any)
+        .from('presentations')
+        .insert({ business_id: activeBusinessId, name, slides: clean })
+        .select('id, name').single();
+      if (error) throw error;
+      setPresentations((prev) => [...prev, { id: data.id, name: data.name || name }]);
+      setProjectMenuOpen(false);
+      await loadPresentationSlides(data.id);
+      toast({ title: `Proyecto importado: ${name}`, description: `${clean.length} slides` });
+    } catch (err) {
+      toast({ title: 'Error al importar', description: err instanceof Error ? err.message : 'Archivo inválido', variant: 'destructive' });
+    }
+  }, [activeBusinessId, loadPresentationSlides, toast]);
+
   // Traduce a inglés (US) TODOS los slides del deck activo, in-place, reusando la
   // edge function `generate-design-html` en modo refine. Conserva HTML/clases/estilos,
   // marcas propias (Xending, Monex) y cifras/monedas. El progreso se refleja en vivo.
@@ -402,34 +639,14 @@ function PresentationsPage() {
       'Después revísalo manualmente.',
     )) return;
 
-    const TRANSLATE_INSTRUCTION = [
-      'Translate ALL visible human-readable text in this slide from Spanish to natural, native US English.',
-      'STRICT RULES:',
-      '- Preserve the HTML EXACTLY: same tags, attributes, class names, ids, inline styles, structure and order.',
-      '- Only change human-readable text (text nodes and readable attributes like alt/title/aria-label).',
-      '- Do NOT translate or alter brand/proper names: "Xending", "Monex". Leave them exactly as-is.',
-      '- Do NOT change numbers, figures, currency symbols/codes or dates ($, USD, MXN, %, etc.).',
-      '- Keep a professional pitch-deck tone.',
-      '- Return ONLY the full translated HTML of the slide, nothing else.',
-    ].join('\n');
-
     setTranslating(true);
     const ownerId = slidesOwnerIdRef.current;
     toast({ title: `Traduciendo… 0/${total}` });
     try {
       const working = [...slides];
       for (let i = 0; i < total; i++) {
-        const { data, error } = await (supabase as any).functions.invoke('generate-design-html', {
-          body: {
-            design_system: 'xending-slide',
-            current_html: working[i].html,
-            iteration_feedback: TRANSLATE_INSTRUCTION,
-          },
-        });
-        if (error) throw new Error(error.message || `Error traduciendo el slide ${i + 1}`);
-        if (data?.error) throw new Error(data.message || data.error);
-        const html = data?.html;
-        if (!html) throw new Error(`La IA no devolvió HTML para el slide ${i + 1}`);
+        // Solo traduce el texto; el markup/diseño del slide no se toca.
+        const html = await translateSlideHtml(working[i].html);
         working[i] = { ...working[i], html };
         // Refleja el progreso en vivo solo si seguimos en el mismo deck.
         if (slidesOwnerIdRef.current === ownerId) {
@@ -451,7 +668,7 @@ function PresentationsPage() {
       }
       toast({
         title: `✅ Traducción completa (${total} slides)`,
-        description: 'Revisa manualmente nombres, cifras y CTAs.',
+        description: 'Solo se tradujo el texto; el diseño quedó intacto. Revisa nombres y cifras.',
       });
     } catch (err) {
       toast({ title: 'Error al traducir', description: err instanceof Error ? err.message : 'Error desconocido', variant: 'destructive' });
@@ -459,6 +676,39 @@ function PresentationsPage() {
       setTranslating(false);
     }
   }, [translating, slides, toast]);
+
+  // Traduce a inglés SOLO el slide actual (página por página). Mismo motor por
+  // unidades de texto; el diseño no se toca.
+  const translateCurrentSlideToEnglish = useCallback(async () => {
+    if (translating) return;
+    const idx = currentSlide;
+    const slide = slides[idx];
+    if (!slide) {
+      toast({ title: 'No hay slide que traducir', variant: 'destructive' });
+      return;
+    }
+    if (!window.confirm(`¿Traducir a inglés SOLO el slide actual (${idx + 1})? El diseño no se toca.`)) return;
+    setTranslating(true);
+    const ownerId = slidesOwnerIdRef.current;
+    toast({ title: `Traduciendo slide ${idx + 1}…` });
+    try {
+      const html = await translateSlideHtml(slide.html);
+      const updated = slides.map((s, i) => (i === idx ? { ...s, html } : s));
+      if (slidesOwnerIdRef.current === ownerId) setSlides(updated);
+      if (ownerId) {
+        const { error: upErr } = await (supabase as any)
+          .from('presentations')
+          .update({ slides: updated })
+          .eq('id', ownerId);
+        if (upErr) throw upErr;
+      }
+      toast({ title: `✅ Slide ${idx + 1} traducido`, description: 'Solo el texto; revisa nombres y cifras.' });
+    } catch (err) {
+      toast({ title: 'Error al traducir el slide', description: err instanceof Error ? err.message : 'Error desconocido', variant: 'destructive' });
+    } finally {
+      setTranslating(false);
+    }
+  }, [translating, slides, currentSlide, toast]);
 
   const renamePresentation = useCallback(async (id: string, currentName: string) => {
     const name = (window.prompt('Nuevo nombre del proyecto:', currentName) || '').trim();
@@ -913,6 +1163,7 @@ function PresentationsPage() {
         pieceIndex={currentSlide}
         dimensions={{ width: 1920, height: 1080 }}
         editableElements={PRESENTATION_ELEMENTS}
+        businessId={activeBusinessId}
         onSave={handleSaveHtml}
         onApply={handleApplyHtml}
         onCancel={handleCancelEdit}
@@ -1014,6 +1265,14 @@ function PresentationsPage() {
                     </button>
                     <button
                       type="button"
+                      onClick={() => exportPresentation(p.id, p.name)}
+                      title="Exportar respaldo (.json)"
+                      className="opacity-0 group-hover:opacity-100 p-1 rounded hover:text-[#2ED4C7]"
+                    >
+                      <Download className="h-3 w-3" />
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => renamePresentation(p.id, p.name)}
                       title="Renombrar proyecto"
                       className="opacity-0 group-hover:opacity-100 p-1 rounded hover:text-[#2ED4C7]"
@@ -1038,6 +1297,21 @@ function PresentationsPage() {
                   >
                     <Plus className="h-3.5 w-3.5" /> Nueva presentación
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => importInputRef.current?.click()}
+                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs hover:bg-muted text-[#0F1419]"
+                    title="Restaurar un proyecto desde un respaldo .json"
+                  >
+                    <FolderInput className="h-3.5 w-3.5" /> Importar respaldo (.json)
+                  </button>
+                  <input
+                    ref={importInputRef}
+                    type="file"
+                    accept="application/json,.json"
+                    className="hidden"
+                    onChange={(e) => { handleImportFile(e.target.files?.[0] ?? null); e.currentTarget.value = ''; }}
+                  />
                 </div>
               </div>
             </>
@@ -1226,13 +1500,24 @@ function PresentationsPage() {
           <Button
             variant="outline"
             size="sm"
+            onClick={translateCurrentSlideToEnglish}
+            disabled={translating || slides.length === 0}
+            className="gap-2 border-[#2ED4C7] text-[#0F1419]"
+            title="Traducir a inglés (US) SOLO el slide actual"
+          >
+            <Languages className="h-4 w-4" />
+            {translating ? 'Traduciendo…' : 'Traducir slide'}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
             onClick={translateActiveToEnglish}
             disabled={translating || slides.length === 0}
             className="gap-2 border-[#2ED4C7] text-[#0F1419]"
-            title="Traducir a inglés (US) todos los slides del proyecto activo con IA"
+            title="Traducir a inglés (US) TODOS los slides del proyecto activo con IA"
           >
             <Languages className="h-4 w-4" />
-            {translating ? 'Traduciendo…' : 'Traducir a inglés'}
+            {translating ? 'Traduciendo…' : 'Traducir todo'}
           </Button>
           <Button
             variant="outline"
