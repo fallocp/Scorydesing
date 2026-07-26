@@ -1495,6 +1495,16 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
       }
       seen.add(el);
 
+      // Un bloque de TEXTO es ATÓMICO: sus hijos inline (p. ej. el <span> de una
+      // palabra de acento dentro de un headline) NO deben generar recuadro propio.
+      // Si no, se ven "dobles recuadros" sobre el mismo texto y el clic/doble-clic
+      // a veces cae en el <span> y a veces en el bloque (inestable). Como el
+      // recorrido es en orden de documento (padres antes que hijos), marcamos aquí
+      // toda la descendencia como "vista" para saltarla.
+      if (kind === 'text') {
+        el.querySelectorAll('*').forEach((d) => seen.add(d));
+      }
+
       // Asignar def: insertado (por data-eid) > nombre conocido > auto
       let def: ElementDef;
       const eid = el.getAttribute('data-eid');
@@ -1526,16 +1536,38 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
       newOverlays.push({
         id: def.id, def,
         rect: (() => {
-          // Caja SIN rotar: usamos el tamaño de layout (offsetWidth/Height, que no
-          // se ve afectado por transform) y el centro del bounding box (la rotación
-          // es alrededor del centro, así que el centro no cambia). Luego la caja se
-          // gira en el render con `rot` para que abrace al elemento rotado.
           const he = el as HTMLElement;
-          const lw = he.offsetWidth || rect.width;
-          const lh = he.offsetHeight || rect.height;
-          const ccx = rect.left + rect.width / 2;
-          const ccy = rect.top + rect.height / 2;
-          return { top: ccy - lh / 2, left: ccx - lw / 2, width: lw, height: lh };
+          const isRotated = Math.abs(rotationFromMatrix(cs.transform)) > 0.5;
+          if (isRotated) {
+            // Rotado: tamaño de layout (offsetWidth/Height, no afectado por transform)
+            // centrado en el bounding box; la caja se re-gira en el render con `rot`.
+            const lw = he.offsetWidth || rect.width;
+            const lh = he.offsetHeight || rect.height;
+            const ccx = rect.left + rect.width / 2;
+            const ccy = rect.top + rect.height / 2;
+            return { top: ccy - lh / 2, left: ccx - lw / 2, width: lw, height: lh };
+          }
+          // Sin rotación: usar la caja VISUAL real. getBoundingClientRect SÍ incluye
+          // la escala del diseño (transform en un ancestro); offsetWidth NO, y por eso
+          // la caja salía más chica que el texto. Para TEXTO, además unimos con la
+          // extensión real del texto por si se desborda de su caja.
+          let top = rect.top, left = rect.left, width = rect.width, height = rect.height;
+          if (kind === 'text') {
+            try {
+              const rng = doc.createRange();
+              rng.selectNodeContents(el);
+              const rr = rng.getBoundingClientRect();
+              if (rr.width > 0 && rr.height > 0) {
+                const right = Math.max(left + width, rr.right);
+                const bottom = Math.max(top + height, rr.bottom);
+                top = Math.min(top, rr.top);
+                left = Math.min(left, rr.left);
+                width = right - left;
+                height = bottom - top;
+              }
+            } catch { /* rango no disponible */ }
+          }
+          return { top, left, width, height };
         })(),
         rot: rotationFromMatrix(cs.transform),
       });
@@ -3622,17 +3654,38 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
   const applyTextColor = useCallback((hex: string) => {
     const iframe = iframeRef.current;
     if (editingTextId && iframe?.contentDocument && iframe.contentWindow) {
-      const sel = iframe.contentWindow.getSelection();
-      if (sel) {
-        if (sel.isCollapsed && lastRangeRef.current) {
-          sel.removeAllRanges();
-          sel.addRange(lastRangeRef.current);
+      const win = iframe.contentWindow;
+      const doc = iframe.contentDocument;
+      const sel = win.getSelection();
+      // Rango a colorear: la selección viva, o la última guardada (al hacer clic en
+      // el control de color se pierde la selección dentro del iframe).
+      let range: Range | null = null;
+      if (sel && sel.rangeCount > 0 && !sel.isCollapsed) range = sel.getRangeAt(0);
+      else if (lastRangeRef.current && !lastRangeRef.current.collapsed) range = lastRangeRef.current;
+
+      if (range && !range.collapsed) {
+        // Envolvemos la selección en un <span> con color Y -webkit-text-fill-color.
+        // No usamos execCommand (necesita foco y solo fija `color`, que no tiene
+        // efecto en texto con gradiente). Manipular el rango funciona sin foco y
+        // sirve para palabra normal y de acento.
+        const span = doc.createElement('span');
+        // !important inline: gana incluso si hay un override previo del tipo
+        // `.selector * { color: X !important }` (de haber coloreado antes todo el bloque).
+        span.style.setProperty('color', hex, 'important');
+        span.style.setProperty('-webkit-text-fill-color', hex, 'important');
+        try {
+          range.surroundContents(span);
+        } catch {
+          // El rango cruza límites de nodos: extraer e insertar dentro del span.
+          span.appendChild(range.extractContents());
+          range.insertNode(span);
         }
-        if (sel.rangeCount > 0 && !sel.isCollapsed) {
-          iframe.contentDocument.execCommand('styleWithCSS', false, 'true');
-          iframe.contentDocument.execCommand('foreColor', false, hex);
-          return;
-        }
+        // Re-selecciona lo coloreado para poder seguir ajustando.
+        const newRange = doc.createRange();
+        newRange.selectNodeContents(span);
+        if (sel) { sel.removeAllRanges(); sel.addRange(newRange); }
+        lastRangeRef.current = newRange.cloneRange();
+        return;
       }
     }
     // Sin selección: colorea el elemento completo, incluidos sus hijos.
