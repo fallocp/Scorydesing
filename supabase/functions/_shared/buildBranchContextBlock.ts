@@ -22,6 +22,66 @@ interface StrategicConfigMinimal {
   claims_prohibidos?: string[];
   ctas?: string[];
   guia_visual?: string;
+  // Rich per-angle content material already seeded per branch (default,
+  // comparativa, dato_duro, educativo). Reused so the COPY path also has variety.
+  // deno-lint-ignore no-explicit-any
+  content_ingredients?: Record<string, any>;
+}
+
+/** Dedup + flatten string arrays across all content_ingredients buckets. */
+function collectAcrossBuckets(
+  // deno-lint-ignore no-explicit-any
+  ingredients: Record<string, any>,
+  key: string,
+): string[] {
+  const out = new Set<string>();
+  for (const bucket of Object.values(ingredients)) {
+    const arr = (bucket as Record<string, unknown>)?.[key];
+    if (Array.isArray(arr)) {
+      for (const v of arr) {
+        if (typeof v === 'string' && v.trim()) out.add(v.trim());
+      }
+    }
+  }
+  return Array.from(out);
+}
+
+/**
+ * Build a rich content block from the branch's content_ingredients (the material
+ * ya sembrado por rama). Da variedad al COPY: enfoques a rotar + beneficios +
+ * cifras + headlines SOLO como referencia de tono (prohibido copiarlos).
+ */
+// deno-lint-ignore no-explicit-any
+function buildContentIngredientsBlock(ingredients: Record<string, any>): string {
+  const buckets = Object.keys(ingredients);
+  if (buckets.length === 0) return '';
+
+  const benefits = collectAcrossBuckets(ingredients, 'benefit_phrases');
+  const bigStats = collectAcrossBuckets(ingredients, 'big_stats');
+  const headlines = collectAcrossBuckets(ingredients, 'headlines');
+
+  // data_sets: flatten each object into "k: v" lines.
+  const dataLines: string[] = [];
+  for (const bucket of Object.values(ingredients)) {
+    const ds = (bucket as Record<string, unknown>)?.data_sets;
+    if (Array.isArray(ds)) {
+      for (const row of ds) {
+        if (row && typeof row === 'object') {
+          dataLines.push(Object.entries(row as Record<string, unknown>).map(([k, v]) => `${k}: ${v}`).join(', '));
+        }
+      }
+    }
+  }
+
+  const lines: string[] = ['\n### Material de contenido de la rama (úsalo para VARIAR, no para copiar)'];
+  lines.push(`Enfoques disponibles (rota entre ellos, uno distinto por idea): ${buckets.join(', ')}.`);
+  if (benefits.length > 0) lines.push(`\nBeneficios/claims disponibles:\n${formatArray(benefits)}`);
+  if (bigStats.length > 0) lines.push(`\nCifras/datos de impacto:\n${formatArray(bigStats)}`);
+  if (dataLines.length > 0) lines.push(`\nComparativas/datasets:\n${formatArray(dataLines)}`);
+  if (headlines.length > 0) {
+    lines.push(`\nHeadlines de referencia (SOLO tono — PROHIBIDO copiarlos o reusar sus frases; genera headlines NUEVOS):\n${formatArray(headlines)}`);
+  }
+  return lines.join('\n');
 }
 
 /**
@@ -150,6 +210,12 @@ No hay contexto narrativo profundo para esta rama. Usa el contexto estratégico 
   }
   if (strategicConfig.ctas && strategicConfig.ctas.length > 0) {
     lines.push(`### CTAs sugeridos\n${formatArray(strategicConfig.ctas)}\n`);
+  }
+
+  // Reusa el material rico ya sembrado por rama (content_ingredients) para dar
+  // variedad al copy: enfoques, beneficios, cifras y headlines de referencia.
+  if (strategicConfig.content_ingredients && Object.keys(strategicConfig.content_ingredients).length > 0) {
+    lines.push(buildContentIngredientsBlock(strategicConfig.content_ingredients));
   }
 
   lines.push(`\nNota: Las ideas deben ser relevantes a esta rama. Evita generar contenido genérico que podría aplicar a cualquier producto financiero.\n`);

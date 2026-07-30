@@ -36,6 +36,9 @@ const initialSelections: VisualSelections = {
   narrativeAngleName: null,
   funnelStage: null,
   narrativePromptInstruction: null,
+  industryVerticalId: null,
+  industryVerticalName: null,
+  industryAuto: false,
   pieceCopy: null,
   pieceImagePrompt: null,
   textInImage: false,
@@ -214,6 +217,20 @@ export const useDesignStudioStore = create<DesignStudioStore>()(
           }),
           false,
           'setNarrativeAngle'
+        ),
+
+      setIndustryVertical: (industry) =>
+        set(
+          (state) => ({
+            selections: {
+              ...state.selections,
+              industryAuto: industry === 'auto',
+              industryVerticalId: industry && industry !== 'auto' ? industry.id : null,
+              industryVerticalName: industry && industry !== 'auto' ? industry.name : null,
+            },
+          }),
+          false,
+          'setIndustryVertical'
         ),
 
       // --- Piece Copy & Image Prompt ---

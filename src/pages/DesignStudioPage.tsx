@@ -28,6 +28,7 @@ import { VisualSelector } from '@/components/design-studio/VisualSelector';
 import { ContentModeSelector } from '@/components/design-studio/ContentModeSelector';
 import { PieceCopyEditor } from '@/components/design-studio/PieceCopyEditor';
 import { AngleSelector, type SelectedAngle } from '@/components/AngleSelector';
+import { IndustrySelector } from '@/components/design-studio/IndustrySelector';
 import { ReferenceImageUploader } from '@/components/design-studio/ReferenceImageUploader';
 import { MockupGallery } from '@/components/design-studio/MockupGallery';
 import { SavedMockupsGrid } from '@/components/design-studio/SavedMockupsGrid';
@@ -46,6 +47,7 @@ import { useBusinessConfig } from '@/hooks/useBusinessConfig';
 import { useAuth } from '@/hooks/useAuth';
 import { useDesignStudioBranches, extractIngredients } from '@/hooks/useDesignStudioBranches';
 import { useGenerateIdeas } from '@/hooks/useGenerateIdeas';
+import { useAllIndustryVerticals } from '@/hooks/useIndustryVerticals';
 
 import { validateBrandPalette } from '@/utils/design-studio/brandPaletteValidator';
 import { convertToTemplate } from '@/utils/design-studio/templateConverter';
@@ -106,6 +108,10 @@ export default function DesignStudioPage() {
   const { data: savedMockups = [], isLoading: isLoadingSaved } = useSavedMockups();
   const { data: branches = [], isLoading: isLoadingBranches } = useDesignStudioBranches();
   const generateIdeas = useGenerateIdeas();
+  // All industry verticals (for the "Auto (variar)" round-robin).
+  const { data: allVerticals = [] } = useAllIndustryVerticals();
+  // Cursor for cycling industries when industryAuto is on.
+  const industryCycleRef = useRef(0);
 
   // --- Local UI state ---
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
@@ -190,11 +196,23 @@ export default function DesignStudioPage() {
       //    generate-ideas anti-repetition cascade works and the result is
       //    persisted to content_library (same contract as Generador Combinable).
       const { selections } = store;
+
+      // Resolve the industry vertical: fixed selection, auto (round-robin across
+      // all verticals for max variety), or none. Adds per-industry relevance +
+      // multiplies the idea space (branch × industry × angle × dolor).
+      let resolvedVerticalId: string | undefined = selections.industryVerticalId ?? undefined;
+      if (selections.industryAuto && allVerticals.length > 0) {
+        const v = allVerticals[industryCycleRef.current % allVerticals.length];
+        industryCycleRef.current += 1;
+        resolvedVerticalId = v.id;
+      }
+
       const copyResponse = await generateIdeas.mutateAsync({
         type: 'copy',
         brand: (activeBusiness?.slug === 'xending-capital' ? 'xending_capital' : 'xending') as any,
         business_id: activeBusinessId,
         branch_id: selectedBranch.id,
+        vertical_id: resolvedVerticalId,
         // Narrative angle dimension — drives variety and enables persistence.
         angle: selections.narrativeAngleSlug ?? undefined,
         narrativeAngle: selections.narrativeAngleName ?? undefined,
@@ -205,35 +223,68 @@ export default function DesignStudioPage() {
         previousIdeas: previousHeadlinesRef.current.length > 0
           ? previousHeadlinesRef.current
           : undefined,
-        // Design Studio only uses the first piece (ideas[0]); request a single
-        // piece to avoid generating unused pieces and truncating the JSON.
-        quantity: 1,
+        // Ask for several pieces so the model's "diversity BETWEEN pieces" rules
+        // kick in, then use one — this breaks the "always the same headline" loop
+        // that quantity:1 caused.
+        quantity: 4,
       });
 
-      // Parse the first idea
-      const firstIdea = copyResponse.ideas?.[0];
-      let headline = '';
-      let body = '';
-      let cta = '';
+      // Pick the copy VARIANT by platform. v2 output has 3 overlays:
+      // professional (LinkedIn, executive/dry), square (IG/FB post, punchier),
+      // vertical (IG story, punchiest). Using 'professional' everywhere is why
+      // the copy read flat. Design Studio makes social pieces → prefer square/vertical.
+      const platform = store.selections.platform;
+      const variant: 'professional' | 'square' | 'vertical' =
+        platform === 'linkedin-post' ? 'professional'
+        : platform === 'instagram-story' ? 'vertical'
+        : 'square';
 
-      if (firstIdea && typeof firstIdea === 'object') {
-        headline = firstIdea.headline || '';
-        body = firstIdea.subcopy || '';
-        cta = firstIdea.cta || '';
-        store.updatePieceCopyField('headline', headline);
-        store.updatePieceCopyField('body', body);
-        store.updatePieceCopyField('cta', cta);
-      } else if (typeof firstIdea === 'string') {
-        headline = firstIdea;
-        store.updatePieceCopyField('headline', headline);
-      }
+      // Prefer the rich `mapped` array (has per-variant overlays); fall back to
+      // the legacy `ideas` array (professional-only) or raw strings.
+      // deno-lint-ignore no-explicit-any
+      const mappedIdeas = (copyResponse as any).mapped as any[] | undefined;
+      const source: unknown[] = Array.isArray(mappedIdeas) && mappedIdeas.length > 0
+        ? mappedIdeas
+        : (copyResponse.ideas ?? []);
 
-      // Remember this headline for the rest of the session.
-      if (headline.trim()) {
+      const parsedIdeas = source.map((idea) => {
+        // deno-lint-ignore no-explicit-any
+        const o = idea as any;
+        const ov = o?.overlays?.[variant];
+        if (ov?.headline) {
+          return { headline: ov.headline || '', body: ov.subcopy || '', cta: ov.cta || '' };
+        }
+        if (o && typeof o === 'object' && ('headline' in o)) {
+          return { headline: o.headline || '', body: o.subcopy || o.body || '', cta: o.cta || '' };
+        }
+        return { headline: String(idea), body: '', cta: '' };
+      }).filter((i) => i.headline.trim());
+
+      // Pick one that we haven't used yet this session; otherwise pick at random
+      // so repeated clicks surface different pieces.
+      const used = new Set(previousHeadlinesRef.current);
+      const fresh = parsedIdeas.filter((i) => !used.has(i.headline.trim()));
+      const pool = fresh.length > 0 ? fresh : parsedIdeas;
+      const chosen = pool.length > 0
+        ? pool[Math.floor(Math.random() * pool.length)]
+        : { headline: '', body: '', cta: '' };
+
+      const headline = chosen.headline;
+      const body = chosen.body;
+      const cta = chosen.cta;
+
+      if (headline) store.updatePieceCopyField('headline', headline);
+      if (body) store.updatePieceCopyField('body', body);
+      if (cta) store.updatePieceCopyField('cta', cta);
+
+      // Remember ALL generated headlines this session so the next call avoids the
+      // whole batch, not just the one shown.
+      const allHeadlines = parsedIdeas.map((i) => i.headline.trim()).filter(Boolean);
+      if (allHeadlines.length > 0) {
         previousHeadlinesRef.current = [
           ...previousHeadlinesRef.current,
-          headline.trim(),
-        ].slice(-30); // keep the prompt bounded
+          ...allHeadlines,
+        ].slice(-40); // keep the prompt bounded
       }
 
       // 2. Generate image prompts using generate-design-image (mode: prompts)
@@ -245,6 +296,7 @@ export default function DesignStudioPage() {
             brand: activeBusiness?.slug === 'xending-capital' ? 'xending_capital' : 'xending',
             business_id: activeBusinessId,
             branch_id: selectedBranch.id,
+            vertical_id: resolvedVerticalId,
             mode: 'prompts',
             headline,
             body,
@@ -326,7 +378,7 @@ export default function DesignStudioPage() {
     } finally {
       setIsGeneratingCopy(false);
     }
-  }, [activeBusinessId, store.selections.commercialBranchSlug, store.selections.narrativeAngleId, store.selections.narrativeAngleSlug, store.selections.narrativeAngleName, store.selections.funnelStage, store.selections.narrativePromptInstruction, store.selections.pieceImagePrompt?.type, store.selections.platform, branches, activeBusiness]);
+  }, [activeBusinessId, store.selections.commercialBranchSlug, store.selections.narrativeAngleId, store.selections.narrativeAngleSlug, store.selections.narrativeAngleName, store.selections.funnelStage, store.selections.narrativePromptInstruction, store.selections.industryVerticalId, store.selections.industryAuto, allVerticals, store.selections.pieceImagePrompt?.type, store.selections.platform, branches, activeBusiness]);
 
   const handleGenerateMockups = useCallback(async () => {
     if (!store.brandPalette || !activeBusinessId) return;
@@ -372,7 +424,9 @@ export default function DesignStudioPage() {
           if (store.selections.pieceCopy?.headline) {
             request.piece_copy = store.selections.pieceCopy;
           }
-          if (store.selections.pieceImagePrompt?.prompt) {
+          // Pass the image type ALWAYS (even with empty prompt) so the mockup
+          // knows the authoritative medium (foto vs 3D vs infografía).
+          if (store.selections.pieceImagePrompt?.type) {
             request.piece_image_prompt = store.selections.pieceImagePrompt;
           }
         } else if (store.selections.contentMode === 'custom' && store.selections.customIdea) {
@@ -734,6 +788,14 @@ export default function DesignStudioPage() {
                   <AngleSelector
                     value={store.selections.narrativeAngleSlug}
                     onChange={(angle: SelectedAngle | null) => store.setNarrativeAngle(angle)}
+                  />
+                </div>
+
+                {/* Industry/vertical — per-industry relevance + variety multiplier */}
+                <div className="rounded-lg border border-border/50 bg-muted/30 p-4">
+                  <IndustrySelector
+                    value={store.selections.industryAuto ? 'auto' : store.selections.industryVerticalId}
+                    onChange={(industry) => store.setIndustryVertical(industry)}
                   />
                 </div>
 

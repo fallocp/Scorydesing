@@ -103,25 +103,32 @@ interface LearnedPreferences {
 async function fetchLearnedPreferences(
   supabase: SupabaseClient,
   businessId: string,
+  backgroundSelection?: string | null,
 ): Promise<LearnedPreferences> {
   const preferences: LearnedPreferences = { prefer: [], avoid: [] };
 
   try {
-    // Query recent likes — extract selections and prompt patterns
-    const { data: likes } = await supabase
+    // Query recent likes — extract selections and prompt patterns.
+    // Scoped by the current background: white generations learn from white
+    // pieces, navy from navy — so color feedback never crosses over.
+    let likesQuery = supabase
       .from('design_feedback')
       .select('selections, prompt_used, interpreted_changes')
       .eq('business_id', businessId)
-      .eq('feedback_type', 'like')
+      .eq('feedback_type', 'like');
+    if (backgroundSelection) likesQuery = likesQuery.eq('selections->>background', backgroundSelection);
+    const { data: likes } = await likesQuery
       .order('created_at', { ascending: false })
       .limit(FEEDBACK_QUERY_LIMITS.likes);
 
-    // Query recent dislikes — extract what to avoid
-    const { data: dislikes } = await supabase
+    // Query recent dislikes — extract what to avoid (also color-scoped)
+    let dislikesQuery = supabase
       .from('design_feedback')
       .select('selections, prompt_used, interpreted_changes')
       .eq('business_id', businessId)
-      .eq('feedback_type', 'dislike')
+      .eq('feedback_type', 'dislike');
+    if (backgroundSelection) dislikesQuery = dislikesQuery.eq('selections->>background', backgroundSelection);
+    const { data: dislikes } = await dislikesQuery
       .order('created_at', { ascending: false })
       .limit(FEEDBACK_QUERY_LIMITS.dislikes);
 
@@ -139,14 +146,11 @@ async function fetchLearnedPreferences(
       // Extract visual style patterns from liked mockups' selections
       const likedStyles = new Set<string>();
       for (const like of likes) {
-        const sel = like.selections as Record<string, unknown> | null;
-        if (sel) {
-          if (sel.background) likedStyles.add(`fondo: ${sel.background}`);
-          if (sel.visualStyle) likedStyles.add(`estilo: ${sel.visualStyle}`);
-          if (sel.contentType) likedStyles.add(`tipo: ${sel.contentType}`);
-          if (sel.heroElement) likedStyles.add(`hero: ${sel.heroElement}`);
-        }
-        // Extract increase from interpreted_changes if present
+        // NOTE: we intentionally do NOT learn the explicit selectors
+        // (background/visualStyle/contentType/heroElement). Those are chosen
+        // per-piece by the user; treating them as sticky "preferences" made the
+        // current selection get overridden (e.g. user picks white but history
+        // says "prefiere fondo: dark-navy"). We only learn qualitative chat feedback.
         const changes = like.interpreted_changes as { increase?: string[]; decrease?: string[] } | null;
         if (changes?.increase) {
           for (const item of changes.increase) likedStyles.add(item);
@@ -159,14 +163,7 @@ async function fetchLearnedPreferences(
     if (dislikes && dislikes.length > 0) {
       const dislikedPatterns = new Set<string>();
       for (const dislike of dislikes) {
-        const sel = dislike.selections as Record<string, unknown> | null;
-        if (sel) {
-          if (sel.background) dislikedPatterns.add(`fondo: ${sel.background}`);
-          if (sel.visualStyle) dislikedPatterns.add(`estilo: ${sel.visualStyle}`);
-          if (sel.contentType) dislikedPatterns.add(`tipo: ${sel.contentType}`);
-          if (sel.heroElement) dislikedPatterns.add(`hero: ${sel.heroElement}`);
-        }
-        // Extract decrease from interpreted_changes if present
+        // Same as likes: do NOT learn explicit selectors, only qualitative chat feedback.
         const changes = dislike.interpreted_changes as { increase?: string[]; decrease?: string[] } | null;
         if (changes?.decrease) {
           for (const item of changes.decrease) dislikedPatterns.add(item);
@@ -286,8 +283,21 @@ Generate a COMPLETE, FINISHED advertising piece — not just a background. The o
 - A bold headline text (short, impactful, in Spanish)
 - A supporting body text or subcopy (1-2 lines, in Spanish)
 - A clear CTA button with text (in Spanish)
-- A small disclaimer/legal text at the bottom
-- Professional layout with clear visual hierarchy`);
+- A small disclaimer/legal text at the bottom as light gray text on white (NOT inside a navy/dark band)
+- Professional layout with clear visual hierarchy
+
+XENDING VISUAL SYSTEM (apply to every mockup):
+- Surface balance: ~85% white/very light gray, navy for text and thin lines, and only ~3% TOTAL accent color (mint + coral COMBINED). White dominates; navy is the workhorse; accent color is RARE.
+- TEXT AND ICONS DEFAULT TO NAVY #0F1419 (not black, not colored). Headlines, body, labels, step numbers (1/2/3), checkmarks and MOST icons are NAVY or neutral gray — do NOT tint them turquoise/coral.
+- ACCENTS ARE SCARCE (KEY RULE): mint turquoise #2ED4C7 and coral #FF7A4A appear on AT MOST 2-3 small elements in the WHOLE piece (e.g., one accent word in the headline + one status highlight). NEVER color every icon, number or check — that looks saturated and off-brand. Aim for ~20% of the color you would normally add.
+- Navy is text/thin structure only: NO navy footer band, NO navy-filled buttons on white.
+- CTA button: ONE subtle treatment only — a navy outline with navy text, OR a single coral fill. NOT a fully turquoise button. Only ONE prominent colored element in the whole piece.
+- CONTENT ACCURACY: the recipient RECEIVES the full amount sent. Do NOT depict "sends 10,000, receives 9,500" as a deduction from the received amount — that is factually wrong. If showing a cost comparison, the hidden cost lives in the EXCHANGE RATE (spread) the client doesn't notice and in recurring FLAT FEES (~$35-40 per transfer) that add up over many transfers. Do not invent guarantees or specific savings percentages.
+- Premium, clean, editorial B2B fintech. Airy layout, generous negative space, ONE clear idea, clear visual hierarchy, readable in under 3 seconds.
+- Soft neutral studio lighting, delicate shadows. No drama, no dark scenes.
+- 3D icons/objects: PREFER premium 3D icons (satin white ceramic or matte acrylic, rounded edges, clean geometry, soft studio shadow) over flat 2D line icons — this is the target look. Navy #0F1419 for structural symbols/letters/checks/arrows, thin mint accent, coral micro-detail only. Refined premium financial object — never toy-like, plastic, inflatable, metallic-heavy or crypto.
+- PEOPLE: avoid AI-looking faces. Do NOT put a visible protagonic face (AI faces look fake and kill trust). Prefer hands, over-the-shoulder, back or side view, cropped faces, or focus entirely on the product/objects/scene. If a person appears, the face is not the subject.
+- Avoid: crypto/neon/gamer look, cartoon, cluttered composition, too many icons, heavy visible gradients, oversaturated color, dirty industrial look, dark dominant backgrounds, colored tints/gradients/glows in the background corners or edges (keep the background flat and clean).`);
 
   // Section 2: Design Specifications
   const selectionLines: string[] = [];
@@ -296,7 +306,7 @@ Generate a COMPLETE, FINISHED advertising piece — not just a background. The o
     const bgMap: Record<string, string> = {
       'dark-navy': 'Dark navy/black background with light text',
       'light-cream': 'Light cream/beige background with dark text',
-      'white-minimal': 'Clean white background with very subtle warm/cool tonal accents (light gray gradients, faint brand color touches at edges). Minimal, airy, lots of whitespace.',
+      'white-minimal': 'Xending editorial WHITE look: FLAT, UNIFORM, solid pure white background (#FFFFFF) edge to edge — NOT cream, NOT beige, NOT yellow, NOT gray. Absolutely NO colored tints, NO gradients, NO mint/coral glows or washes in the corners or edges; the background stays clean solid white everywhere. White is the dominant surface (80-90%). Color lives ONLY inside the objects/icons and small accents: navy #0F1419 structure/text, controlled mint turquoise #2ED4C7, minimal coral #FF7A4A. Airy negative space, clean magazine-grade editorial layout, soft studio lighting, delicate shadows under the objects only. Premium institutional fintech, calm and trustworthy.',
       'color-turquoise': 'Turquoise/teal gradient background',
     };
     selectionLines.push(`Background: ${bgMap[selections.background] || selections.background}`);
@@ -326,11 +336,11 @@ Generate a COMPLETE, FINISHED advertising piece — not just a background. The o
   }
   if (selections.heroElement) {
     const heroMap: Record<string, string> = {
-      'big-number': 'A large prominent number/statistic as focal point',
-      'main-photo': 'A professional photograph as the main visual',
-      'icon-illustration': 'Custom icon or illustration as the main visual',
-      'floating-badge': 'A floating badge or card element',
-      'no-image': 'Typography-only, no image element',
+      'big-number': 'A large prominent number/statistic as focal point, in an elegant navy #0F1419 serif-style display, with one word/unit accented in mint or coral. Lots of white around it.',
+      'main-photo': 'A bright, clean, realistic corporate/operational photograph as the main visual (office, treasury desk, warehouse, port, dashboard). Faces are NOT the protagonist — prefer hands, side/back view, cropped faces or distant figures.',
+      'icon-illustration': 'ONE premium Xending-style 3D icon as the hero: single centered object in satin white ceramic / matte acrylic, rounded edges, clean geometry, soft studio shadow. Navy #0F1419 structural symbols/letters/checks, thin mint turquoise #2ED4C7 ring/node, minimal coral #FF7A4A micro-accent. Examples: coin (USD/MXN with navy letters + thin ring), wallet, invoice, shield with check, globe with routes, clock/same-day, 0% badge. No toy/plastic/crypto look, no gray background, one concept only.',
+      'floating-badge': 'A clean white floating card/badge with soft shadow, thin mint turquoise ring or edge, navy text and a small coral or mint accent. Premium and minimal, not a sticker.',
+      'no-image': 'Typography-only editorial layout, no image element — navy headline, generous white space, one small mint/coral accent line.',
     };
     selectionLines.push(`Hero element: ${heroMap[selections.heroElement] || selections.heroElement}`);
   }
@@ -340,7 +350,8 @@ Generate a COMPLETE, FINISHED advertising piece — not just a background. The o
 
   // Section 3: Brand Identity
   const brandLines: string[] = [];
-  brandLines.push(`Primary color: ${brandPalette.primary_color} (use for backgrounds or key accents)`);
+  brandLines.push(`THE "Background" IN DESIGN SPECIFICATIONS IS AUTHORITATIVE: use exactly that background surface. Do NOT replace it with a brand color. If the background is white/light, the page background stays white/light — brand colors go ONLY on text, icons, accents and CTAs, never as the page background.`);
+  brandLines.push(`Primary color: ${brandPalette.primary_color} (use ONLY for text, thin dividers and small icons — NOT as the page background and NOT as large filled buttons/bands on light backgrounds)`);
   brandLines.push(`Secondary color: ${brandPalette.secondary_color} (use for CTAs, highlights)`);
   brandLines.push(`Accent color: ${brandPalette.accent_color} (use for text or secondary elements)`);
   if (brandPalette.fonts.display) {
@@ -420,19 +431,22 @@ Generate a COMPLETE, FINISHED advertising piece — not just a background. The o
     sections.push(copyLines.join('\n'));
   }
 
-  if (pieceImagePrompt?.prompt) {
-    const imageTypeLabels: Record<string, string> = {
-      'foto': 'Professional photograph (realistic, editorial quality)',
-      'infografia': 'Infographic / data visualization (flat design, icons, geometric shapes)',
-      '3d_clay': '3D Clay / isometric illustration (soft 3D render, clay-like materials, playful)',
-      'financiero': 'Financial data visualization (charts, tickers, dashboards, dark premium)',
+  if (pieceImagePrompt?.type) {
+    const mediumByType: Record<string, string> = {
+      'foto': 'hyper-realistic editorial PHOTOGRAPHY — a real photographed business/operational scene (office, treasury desk, warehouse, port, logistics, laptop with dashboard), natural light and real materials. It is a PHOTO: NOT a 3D render, NOT an illustration, NOT icons. People: no protagonic AI faces (hands, back/side view, cropped, or focus on objects).',
+      'infografia': 'a clean INFOGRAPHIC built with premium 3D Xending icons (satin white ceramic objects, soft shadows) plus minimal flat elements/arrows on white. Few elements, clear hierarchy. NOT a photograph.',
+      '3d_clay': 'premium 3D ICONOGRAPHY in the Xending master style — satin white ceramic / matte acrylic 3D objects on a white studio background, rounded edges, soft shadows, navy symbols, tiny mint/coral accents. NOT a photograph, NOT flat 2D.',
+      'financiero': 'a clean FINANCIAL visualization — a laptop/monitor dashboard or simple charts/tickers, premium and legible, on white, navy UI with tiny mint/coral accents. NOT a dark trading screen, NOT a photo of a person.',
     };
-    const typeLabel = imageTypeLabels[pieceImagePrompt.type] || pieceImagePrompt.type;
+    const medium = mediumByType[pieceImagePrompt.type] || pieceImagePrompt.type;
 
     const imageLines: string[] = [];
-    imageLines.push(`MAIN VISUAL (type: ${typeLabel}):`);
-    imageLines.push(pieceImagePrompt.prompt);
-    imageLines.push('Use this description for the main visual element in the ad. Integrate it naturally into the layout.');
+    imageLines.push(`MAIN VISUAL — THE MEDIUM IS AUTHORITATIVE (it overrides any conflicting "Hero element" above): render ${medium}`);
+    imageLines.push('Do NOT mix mediums: a photo is never a 3D render, a 3D icon is never a photo, an infographic is never a photo.');
+    if (pieceImagePrompt.prompt) {
+      imageLines.push(`Scene/subject description: ${pieceImagePrompt.prompt}`);
+    }
+    imageLines.push('Integrate the main visual naturally into the layout.');
     sections.push(imageLines.join('\n'));
   }
 
@@ -689,7 +703,11 @@ serve(async (req) => {
             global: { headers: { Authorization: authHeader } },
           });
 
-          const preferences = await fetchLearnedPreferences(supabase, body.business_id);
+          const preferences = await fetchLearnedPreferences(
+            supabase,
+            body.business_id,
+            body.selections?.background ?? null,
+          );
           learnedPreferencesSection = buildLearnedPreferencesSection(preferences);
         }
       } catch (prefError) {

@@ -550,15 +550,19 @@ No uses estas frases genéricas salvo que estén conectadas a una situación con
 
 ## REGLA DE DIVERSIDAD OBLIGATORIA
 
-Las 4 ideas DEBEN ser fundamentalmente diferentes entre sí. No basta con cambiar palabras — deben variar en:
+CADA idea que generes DEBE ser fundamentalmente diferente de las demás Y del historial en "IDEAS YA GENERADAS". No basta con cambiar palabras.
 
-1. **Protagonista diferente**: Alterna entre CFO, tesorero, director de operaciones, importador, controller, dueño de empresa, equipo de finanzas. NO repitas el mismo protagonista.
-2. **Escenario diferente**: Cada idea debe ocurrir en un contexto distinto (cierre de mes, pago urgente, auditoría, reunión de board, negociación con proveedor, apertura de filial, etc.)
-3. **Dolor diferente**: Si la rama tiene 4+ dolores específicos, usa uno diferente por idea. Si tiene menos, inventa variaciones realistas del mismo dolor.
-4. **Consecuencia diferente**: Varía entre consecuencia financiera, operativa, relacional (con proveedor), de tiempo, de reputación.
-5. **Estructura narrativa diferente**: Alterna entre pregunta retórica, afirmación provocadora, escenario hipotético, dato revelador, contraste antes/después.
+Trata cada idea como una COMBINACIÓN ÚNICA de dimensiones del contexto de rama y NO repitas la misma combinación. Antes de reutilizar un valor, agota los disponibles:
 
-VALIDACIÓN: Si dos ideas podrían intercambiar sus headlines sin que se note la diferencia, están demasiado cerca. Reescribe una.
+1. **Dolor / tensión diferente**: usa un dolor específico o una tensión clave distinta por idea. Rota entre TODOS los disponibles antes de repetir uno.
+2. **Tema diferente**: apóyate en un tema prioritario distinto cuando existan varios.
+3. **Protagonista / audiencia diferente**: alterna entre los perfiles de audiencia (CFO, tesorero, controller, dueño, operaciones, importador, equipo de finanzas). No repitas protagonista.
+4. **Fórmula narrativa diferente**: alterna entre las fórmulas narrativas (pregunta retórica, afirmación provocadora, escenario hipotético, dato revelador, contraste antes/después).
+5. **Consecuencia diferente**: varía entre financiera, operativa, relacional (proveedor), de tiempo, de reputación.
+
+Los headlines de referencia son SOLO guía de TONO. PROHIBIDO reusar sus frases, estructuras o palabras clave: genera headlines NUEVOS. Si un headline se parece a uno de los ejemplos o al historial, reescríbelo con otra combinación de dimensiones.
+
+VALIDACIÓN: Si dos ideas (o una idea y algo del historial) podrían intercambiar su headline sin que se note, están demasiado cerca. Reescribe una con otra combinación.
 
 ## REGLAS DE NEGOCIO — INFORMACIÓN CORRECTA
 
@@ -572,6 +576,9 @@ Estas son verdades del negocio. NO las contradigas ni inventes información dife
 6. Los tiempos de liquidación dependen del país destino y horarios de corte.
 7. NO inventes porcentajes de ahorro, tiempos exactos ni garantías que no estén en los claims permitidos.
 8. NUNCA digas que el tipo de cambio cambia después de pactar. NUNCA digas que el precio se mueve. NUNCA digas que la cotización vence después de cerrar la operación.
+9. COSTOS (verdad): al enviar una transferencia internacional, el beneficiario normalmente RECIBE el monto completo enviado. El costo NO es una resta visible del monto que llega. El costo escondido vive en el TIPO DE CAMBIO (spread cambiario) que el cliente no percibe, y en COMISIONES FIJAS por transferencia (ej. ~$35-40 USD) que, al hacer muchas operaciones, SUMAN mucho.
+10. PROHIBIDO representar "envías 10,000 y recibes 9,500" como si descontaran del monto recibido — es incorrecto. El ahorro real está en un mejor tipo de cambio y en evitar comisiones fijas recurrentes, NO en que llegue menos dinero del que enviaste.
+11. CUENTA MULTIDIVISA: el dolor no es solo "conciliación". Tener MÚLTIPLES cuentas/bancos suma COSTOS (comisiones y mínimos por cuenta), PROCESOS (aperturas, KYC, accesos) y TIEMPO. El beneficio es UNIFICAR cuentas en un solo lugar. Frasea como "cada cuenta suma costos y procesos", no solo "conciliación". CTA de este ángulo: "Unifica tus cuentas".
 
 ## REGLAS ESPECÍFICAS PARA HEADLINES
 
@@ -591,7 +598,55 @@ Un buen headline debe:
 - no depender de la descripción para entenderse
 - máximo 9 palabras
 
+## CLARIDAD ANTES QUE INGENIO (regla dura, tiene prioridad sobre la variedad)
+
+El headline, el subcopy y el CTA deben ENTENDERSE al instante, sin adivinar. La variedad va en el ÁNGULO y el escenario, NUNCA a costa de la claridad.
+- Prohibido lo abstracto o vago. Cada idea debe nombrar algo CONCRETO: proveedor, pago, comisión, tipo de cambio, mercancía, embarque, banco, día, contenedor, orden.
+- Prohibidas las palabras "concepto" sin objeto: "el acumulado", "la diferencia", "lo que no ves" SIN decir de qué. Si usas una, di de qué (ej: "las comisiones acumuladas", no "el acumulado").
+- MAL (no se entiende, NO los generes): "El acumulado importa más", "Revisa tu acumulado", "La diferencia es tiempo", "Lo que no ves te cuesta".
+- BIEN (concreto, claro): "Tu banco tarda 5 días. Tu proveedor no.", "Diez pagos, diez comisiones que no ves.", "El embarque no sale hasta que el proveedor cobra.", "El costo final no siempre es el de tu cotización.", "Revisa tu costo total, no solo el envío.".
+- Para el ángulo de costos, mantén un tono PROFESIONAL (CFO/tesorería), no vendedor. NO uses "costo oculto" como muletilla repetida ni titulares alarmistas. Prefiere fraseos ejecutivos: "costo total real", "visibilidad de tus costos", "lo que realmente pagas al cierre", "control de costos", "cotización vs costo final". Nombra lo concreto: "cotización", "costo total", "comisiones", "cargos", "margen cambiario". Evita "la primera lectura", "el acumulado" o "lo que no ves" sin objeto. CTA de este ángulo: "Compara tus costos", "Revisa tu costo total".
+- El subcopy debe EXPLICAR el headline en una frase directa y natural, no en un acertijo ni con estructura rebuscada.
+
+AUTOCHEQUEO OBLIGATORIO: si un lector tuviera que preguntar "¿de qué?" o "¿cuál?", el headline está mal — reescríbelo más concreto antes de entregar.
+
 No empieces con "Tu" en más del 25% de los headlines.
+
+## REGLAS PARA EL CTA (texto del botón)
+
+El CTA DEBE adaptarse al headline de ESA misma idea. Nunca uses un CTA fijo o genérico repetido:
+- Coherente con la acción/tensión del headline: si el headline habla de validar el cobro, el CTA invita a validar; si habla de asegurar la operación, invita a asegurar; si habla de acelerar el embarque, invita a acelerar; si compara, invita a comparar.
+- Corto: 2 a 5 palabras, empezando con un VERBO en imperativo.
+- Varía el verbo entre piezas. Banco de verbos: valida, asegura, confirma, controla, protege, acelera, destraba, sincroniza, cotiza, compara, revisa, envía. NO repitas el mismo CTA ni el mismo verbo en más de una pieza de la misma tanda.
+- Ejecutivo, no publicitario: sin signos de exclamación, sin promesas exageradas, sin "ya".
+- Los CTAs recomendados de la rama son SOLO referencia de tono; puedes crear uno nuevo si encaja mejor con el headline.
+
+## ESTRUCTURA Y EJEMPLOS GOLD (replica esta dinámica)
+
+Cada idea sigue esta estructura de 3 partes, con ritmo natural:
+1. HEADLINE: gancho corto (máx 7-8 palabras), una verdad o tensión CONCRETA del negocio.
+2. SUBCOPY: UNA sola línea que aterriza la consecuencia o el porqué, en lenguaje directo (no acertijo, no rebuscado).
+3. CTA: verbo en imperativo + objeto, coherente con el headline.
+
+Estos son el NIVEL y la DINÁMICA a replicar. Adapta el tema a la rama seleccionada; NO los copies literal:
+
+- Headline: "El proveedor prioriza pagos."
+  Subcopy: "Si el pago tarda, otra orden puede avanzar primero."
+  CTA: "Agiliza tu pago"
+
+- Headline: "El costo final no es el de tu cotización."
+  Subcopy: "El tipo de cambio y las comisiones se suman aparte."
+  CTA: "Compara tu costo total"
+
+- Headline: "Cada cuenta suma costos y procesos."
+  Subcopy: "Más bancos, más comisiones, más cierres que cuadrar."
+  CTA: "Unifica tus cuentas"
+
+- Headline: "El tipo de cambio no avisa."
+  Subcopy: "Fija hoy el de tus pagos futuros."
+  CTA: "Asegura tu tipo de cambio"
+
+Regla: tensión clara en el headline, un porqué directo en el subcopy, y un CTA con verbo. Sin acertijos, sin abstracciones, sin relleno.
 
 ## EJEMPLOS GENÉRICOS / FALLBACK
 
@@ -1360,7 +1415,11 @@ serve(async (req) => {
 
         // --- Save generated ideas to content_library (with retry, historyRecorded flag) ---
         let historyRecorded = false;
-        if (body.narrativeAngle && body.narrativeAngleId) {
+        // Persist whenever there is a branch (memory for the no-repetition
+        // cascade). Antes estaba condicionado al ángulo, así que sin ángulo NO se
+        // guardaba historial y el copy se repetía. narrative_angle_id es nullable
+        // y funnel_stage default 'atraccion', así que guardar sin ángulo es seguro.
+        if (branch_id) {
           // For v2 pieces, the headline used for future de-duplication is the
           // professional overlay headline. Promote it to top-level so the
           // cascade query that reads `piece_data.headline` keeps working.
@@ -1374,7 +1433,7 @@ serve(async (req) => {
               business_id,
               piece_data: { ...piece, headline: headlineForHistory },
               commercial_branch_id: branch_id ?? null,
-              narrative_angle_id: body.narrativeAngleId,
+              narrative_angle_id: body.narrativeAngleId ?? null,
               funnel_stage: body.funnelStage ?? 'atraccion',
               status: 'generated',
               pipeline_run_id: body.pipelineRunId ?? null,

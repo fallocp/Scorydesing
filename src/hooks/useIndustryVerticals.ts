@@ -39,3 +39,31 @@ export function useIndustryVerticals(categoryId: string | null) {
     staleTime: 5 * 60 * 1000,
   });
 }
+
+/** Fetch ALL active verticals for the business (across categories). */
+async function fetchAllVerticals(businessId: string): Promise<IndustryVertical[]> {
+  const { data, error } = await supabase
+    .from('industry_verticals')
+    .select('*')
+    .eq('business_id', businessId)
+    .eq('is_active', true)
+    .order('display_order', { ascending: true });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? []) as IndustryVertical[];
+}
+
+/** All active industry verticals for the active business (any category). */
+export function useAllIndustryVerticals() {
+  const { activeBusinessId } = useActiveBusiness();
+
+  return useQuery({
+    queryKey: ['industry-verticals-all', activeBusinessId],
+    queryFn: () => fetchAllVerticals(activeBusinessId!),
+    enabled: !!activeBusinessId,
+    staleTime: 5 * 60 * 1000,
+  });
+}

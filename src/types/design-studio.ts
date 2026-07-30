@@ -93,6 +93,11 @@ export interface VisualSelections {
   narrativeAngleName: string | null;
   funnelStage: string | null;
   narrativePromptInstruction: string | null;
+  // Industry/vertical dimension. Adds per-industry relevance + variety.
+  // industryAuto = cycle through all verticals per generation (max variety).
+  industryVerticalId: string | null;
+  industryVerticalName: string | null;
+  industryAuto: boolean;
   // Piece-level copy and image prompt (optional, for full-package mode)
   pieceCopy: PieceCopy | null;
   pieceImagePrompt: PieceImagePrompt | null;
@@ -109,6 +114,9 @@ export interface NarrativeAngleSelection {
   funnelStage: string;
   promptInstruction: string;
 }
+
+/** Industry selection: a specific vertical, 'auto' (cycle) or null (none). */
+export type IndustrySelection = { id: string; name: string } | 'auto' | null;
 
 export type SelectionCategory = 'background' | 'visualStyle' | 'contentType' | 'heroElement' | 'platform';
 
@@ -340,6 +348,7 @@ export interface DesignStudioActions {
   setCommercialBranch(slug: string | null): void;
   setCustomIdea(idea: string): void;
   setNarrativeAngle(angle: NarrativeAngleSelection | null): void;
+  setIndustryVertical(industry: IndustrySelection): void;
 
   // Piece copy & image prompt
   setPieceCopy(copy: PieceCopy | null): void;
