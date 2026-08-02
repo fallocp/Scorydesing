@@ -4,20 +4,26 @@
  * Shows when contentMode === 'branch' and allows the user to:
  * - Generate copy automatically from the branch (calls generate-ideas)
  * - Edit specific copy (headline, body, CTA, punchline)
- * - Select image type (Foto, Infografía, 3D Clay, Financiero)
+ * - Select image type (Foto, Infografía, Inf Rutas y Mapas)
  * - Edit the image prompt
  *
  * These fields are optional — if empty, the branch ingredients are used as fallback.
  */
 
-import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Camera, BarChart3, Box, TrendingUp, Sparkles, Loader2 } from 'lucide-react';
-import type { PieceCopy, PieceImagePrompt, DesignImageType } from '@/types/design-studio';
+import { Camera, BarChart3, TrendingUp, Sparkles, Loader2, Save } from 'lucide-react';
+import type {
+  CorridorFlowType,
+  CorridorMode,
+  CorridorOverride,
+  DesignImageType,
+  PieceCopy,
+  PieceImagePrompt,
+} from '@/types/design-studio';
 
 interface PieceCopyEditorProps {
   pieceCopy: PieceCopy | null;
@@ -25,18 +31,52 @@ interface PieceCopyEditorProps {
   onCopyFieldChange: (field: keyof PieceCopy, value: string) => void;
   onImageTypeChange: (type: DesignImageType) => void;
   onImagePromptChange: (text: string) => void;
+  corridorOverride?: CorridorOverride;
+  onCorridorOverrideChange?: (corridor: CorridorOverride) => void;
   textInImage?: boolean;
   onTextInImageChange?: (value: boolean) => void;
   onGenerateCopy?: () => Promise<void>;
   isGeneratingCopy?: boolean;
+  /** Label for the generate button. Defaults to the copy+image label. */
+  generateButtonLabel?: string;
+  /** Loading label for the generate button. */
+  generateButtonLoadingLabel?: string;
+  /** When true, hides the copy fields (headline/body/cta) — used in Stage B
+   *  where copy is fixed by the active bank candidate. */
+  hideCopyFields?: boolean;
+  /** When provided, shows a "Guardar copy" button under the copy fields that
+   *  persists the edited copy back to the bank before generating the image. */
+  onSaveCopy?: () => void;
+  isSavingCopy?: boolean;
   disabled?: boolean;
 }
 
 const IMAGE_TYPE_OPTIONS: { value: DesignImageType; label: string; icon: typeof Camera }[] = [
   { value: 'foto', label: 'Foto', icon: Camera },
   { value: 'infografia', label: 'Infografía', icon: BarChart3 },
-  { value: '3d_clay', label: '3D Clay', icon: Box },
-  { value: 'financiero', label: 'Financiero', icon: TrendingUp },
+  { value: 'financiero', label: 'Inf Rutas y Mapas', icon: TrendingUp },
+];
+
+const DEFAULT_CORRIDOR_OVERRIDE: CorridorOverride = {
+  mode: 'auto',
+  flowType: 'auto',
+  originCountry: '',
+  destinationCountry: '',
+};
+
+const CORRIDOR_MODE_OPTIONS: { value: CorridorMode; label: string }[] = [
+  { value: 'auto', label: 'Automático según el copy' },
+  { value: 'geographic_corridor', label: 'Corredor geográfico' },
+  { value: 'operational_route', label: 'Ruta operativa 3D' },
+  { value: 'global_network', label: 'Red global' },
+  { value: 'bidirectional_corridor', label: 'Corredor bidireccional' },
+];
+
+const CORRIDOR_FLOW_OPTIONS: { value: CorridorFlowType; label: string }[] = [
+  { value: 'auto', label: 'Detectar flujo' },
+  { value: 'payment', label: 'Pago' },
+  { value: 'goods', label: 'Mercancía' },
+  { value: 'bidirectional', label: 'Bidireccional' },
 ];
 
 export function PieceCopyEditor({
@@ -45,39 +85,29 @@ export function PieceCopyEditor({
   onCopyFieldChange,
   onImageTypeChange,
   onImagePromptChange,
+  corridorOverride,
+  onCorridorOverrideChange,
   textInImage = false,
   onTextInImageChange,
   onGenerateCopy,
   isGeneratingCopy = false,
+  generateButtonLabel = 'Generar copy + prompt de imagen',
+  generateButtonLoadingLabel = 'Generando copy e imagen...',
+  hideCopyFields = false,
+  onSaveCopy,
+  isSavingCopy = false,
   disabled = false,
 }: PieceCopyEditorProps) {
+  const resolvedCorridor = corridorOverride ?? DEFAULT_CORRIDOR_OVERRIDE;
+
+  const updateCorridor = (patch: Partial<CorridorOverride>) => {
+    onCorridorOverrideChange?.({ ...resolvedCorridor, ...patch });
+  };
+
   return (
     <div className="space-y-5 rounded-lg border border-border/50 bg-muted/30 p-4">
-      {/* Generate copy button */}
-      {onGenerateCopy && (
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={onGenerateCopy}
-          disabled={disabled || isGeneratingCopy}
-          className="w-full"
-        >
-          {isGeneratingCopy ? (
-            <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Generando copy e imagen...
-            </>
-          ) : (
-            <>
-              <Sparkles className="h-4 w-4 mr-2" />
-              Generar copy + prompt de imagen
-            </>
-          )}
-        </Button>
-      )}
-
       {/* Copy fields */}
+      {!hideCopyFields && (
       <div className="space-y-3">
         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
           Copy específico (opcional)
@@ -115,8 +145,32 @@ export function PieceCopyEditor({
               className="text-sm"
             />
           </div>
+
+          {onSaveCopy && (
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={onSaveCopy}
+              disabled={disabled || isSavingCopy || !pieceCopy?.headline?.trim()}
+              className="w-full"
+            >
+              {isSavingCopy ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Guardando copy...
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4 mr-2" />
+                  Guardar copy
+                </>
+              )}
+            </Button>
+          )}
         </div>
       </div>
+      )}
 
       {/* Image type selector */}
       <div className="space-y-3">
@@ -151,6 +205,67 @@ export function PieceCopyEditor({
           })}
         </div>
       </div>
+
+      {/* Corridor resolver override — only relevant to mapa/rutas. */}
+      {pieceImagePrompt?.type === 'financiero' && onCorridorOverrideChange && (
+        <div className="space-y-3 rounded-lg border border-border/60 bg-background/70 p-3">
+          <div>
+            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              Ruta geográfica
+            </Label>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Automático lee el copy. Define países solo cuando quieras forzar el corredor.
+            </p>
+          </div>
+
+          <div className="grid gap-2 sm:grid-cols-2">
+            <label className="space-y-1 text-xs text-muted-foreground">
+              Modo
+              <select
+                value={resolvedCorridor.mode}
+                onChange={(event) => updateCorridor({ mode: event.target.value as CorridorMode })}
+                disabled={disabled}
+                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+              >
+                {CORRIDOR_MODE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </label>
+
+            <label className="space-y-1 text-xs text-muted-foreground">
+              Flujo
+              <select
+                value={resolvedCorridor.flowType}
+                onChange={(event) => updateCorridor({ flowType: event.target.value as CorridorFlowType })}
+                disabled={disabled}
+                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+              >
+                {CORRIDOR_FLOW_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Input
+              value={resolvedCorridor.originCountry}
+              onChange={(event) => updateCorridor({ originCountry: event.target.value })}
+              disabled={disabled || resolvedCorridor.mode === 'operational_route' || resolvedCorridor.mode === 'global_network'}
+              placeholder="Origen — ej. China"
+              className="text-sm"
+            />
+            <Input
+              value={resolvedCorridor.destinationCountry}
+              onChange={(event) => updateCorridor({ destinationCountry: event.target.value })}
+              disabled={disabled || resolvedCorridor.mode === 'operational_route' || resolvedCorridor.mode === 'global_network'}
+              placeholder="Destino — ej. México"
+              className="text-sm"
+            />
+          </div>
+        </div>
+      )}
 
       {/* Text-in-image toggle */}
       {onTextInImageChange && (
@@ -202,6 +317,29 @@ export function PieceCopyEditor({
           className="text-sm resize-none"
         />
       </div>
+
+      {/* Generate image prompt button — at the bottom so the flow reads
+          edit copy → save → choose visual → generate. */}
+      {onGenerateCopy && (
+        <Button
+          type="button"
+          onClick={onGenerateCopy}
+          disabled={disabled || isGeneratingCopy}
+          className="w-full"
+        >
+          {isGeneratingCopy ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              {generateButtonLoadingLabel}
+            </>
+          ) : (
+            <>
+              <Sparkles className="h-4 w-4 mr-2" />
+              {generateButtonLabel}
+            </>
+          )}
+        </Button>
+      )}
     </div>
   );
 }

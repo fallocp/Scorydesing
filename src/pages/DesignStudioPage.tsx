@@ -19,6 +19,8 @@ import { ArrowLeft, Loader2, Sparkles, Save } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils';
@@ -27,6 +29,7 @@ import { BrandPalettePreview } from '@/components/design-studio/BrandPalettePrev
 import { VisualSelector } from '@/components/design-studio/VisualSelector';
 import { ContentModeSelector } from '@/components/design-studio/ContentModeSelector';
 import { PieceCopyEditor } from '@/components/design-studio/PieceCopyEditor';
+import { CopyBankPanel } from '@/components/design-studio/CopyBankPanel';
 import { AngleSelector, type SelectedAngle } from '@/components/AngleSelector';
 import { IndustrySelector } from '@/components/design-studio/IndustrySelector';
 import { ReferenceImageUploader } from '@/components/design-studio/ReferenceImageUploader';
@@ -48,12 +51,19 @@ import { useAuth } from '@/hooks/useAuth';
 import { useDesignStudioBranches, extractIngredients } from '@/hooks/useDesignStudioBranches';
 import { useGenerateIdeas } from '@/hooks/useGenerateIdeas';
 import { useAllIndustryVerticals } from '@/hooks/useIndustryVerticals';
+import { useCopyBank, useSaveBankCopies, useUpdateBankMeta, useUpdateBankCopy, type CopyBankItem } from '@/hooks/useDesignCopyBank';
+import { useDeleteGeneratedIdea } from '@/hooks/useGeneratedIdeas';
 
 import { validateBrandPalette } from '@/utils/design-studio/brandPaletteValidator';
 import { convertToTemplate } from '@/utils/design-studio/templateConverter';
 import { supabase } from '@/integrations/supabase/client';
 
-import type { BrandPalette, PlatformFormat } from '@/types/design-studio';
+import {
+  DESIGN_STUDIO_IMAGE_PROMPT_REVISION,
+  type BrandPalette,
+  type MasterImagePromptVersion,
+  type PlatformFormat,
+} from '@/types/design-studio';
 import type { SavedMockup } from '@/hooks/useDesignMockups';
 
 // Platform options for Mode B (reference image). Mirrors the "Plataforma base"
@@ -84,6 +94,36 @@ function appendNoLogoDirective(promptText: string): string {
   return `${promptText.trim()}\n\n${NO_LOGO_DIRECTIVE}`;
 }
 
+type MasterImageBackgroundStyle = 'navy' | 'light_cream' | 'white' | 'white_2';
+
+interface MasterImagePromptSelection {
+  backgroundStyle: MasterImageBackgroundStyle;
+  masterPromptVersion: MasterImagePromptVersion;
+}
+
+/**
+ * Resolve the visible Design Studio choice to an exact, reproducible prompt
+ * snapshot. Legacy values remain readable for restored sessions, but are no
+ * longer shown as new choices.
+ */
+function resolveMasterImagePromptSelection(background: string | null): MasterImagePromptSelection {
+  switch (background) {
+    case 'white-classic':
+    case 'white-minimal': // legacy value: the former "Blanco" option
+      return { backgroundStyle: 'white', masterPromptVersion: 'v1' };
+    case 'white-2':
+      return { backgroundStyle: 'white_2', masterPromptVersion: 'v2' };
+    case 'dark-navy':
+    case 'color-turquoise': // legacy value previously fell back to navy
+      return { backgroundStyle: 'navy', masterPromptVersion: 'v2' };
+    case 'light-cream': // restored legacy sessions remain reproducible on V2
+      return { backgroundStyle: 'light_cream', masterPromptVersion: 'v2' };
+    case 'white-xending-v2':
+    default:
+      return { backgroundStyle: 'white', masterPromptVersion: 'v2' };
+  }
+}
+
 export default function DesignStudioPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -112,6 +152,18 @@ export default function DesignStudioPage() {
   const { data: allVerticals = [] } = useAllIndustryVerticals();
   // Cursor for cycling industries when industryAuto is on.
   const industryCycleRef = useRef(0);
+
+  // --- Copy bank (Stage A persistence) ---
+  const selectedBranch = branches.find(b => b.slug === store.selections.commercialBranchSlug) ?? null;
+  const selectedBranchId = selectedBranch?.id ?? null;
+  const copyBank = useCopyBank(selectedBranchId);
+  const saveBankCopies = useSaveBankCopies();
+  const updateBankMeta = useUpdateBankMeta();
+  const updateBankCopy = useUpdateBankCopy();
+  const deleteIdea = useDeleteGeneratedIdea();
+  const [isGeneratingImagePrompt, setIsGeneratingImagePrompt] = useState(false);
+  // Free-text guidance that steers the copy generation (Stage A feedback loop).
+  const [copyGuidance, setCopyGuidance] = useState('');
 
   // --- Local UI state ---
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
@@ -182,30 +234,67 @@ export default function DesignStudioPage() {
   // Handlers
   // ---------------------------------------------------------------------------
 
+  // STAGE A — generate a batch of 4 copy candidates and save them ALL to the
+  // bank. No image prompt / no visual choices here: those belong to Stage B,
+  // applied per selected piece.
   const handleGenerateCopy = useCallback(async () => {
-    if (!activeBusinessId || !store.selections.commercialBranchSlug) return;
-
-    const selectedBranch = branches.find(b => b.slug === store.selections.commercialBranchSlug);
-    if (!selectedBranch) return;
+    if (!activeBusinessId || !selectedBranch) return;
 
     setIsGeneratingCopy(true);
 
     try {
-      // 1. Generate copy (headline + subcopy + CTA)
-      //    Pass narrative angle + funnel stage + previousIdeas so the
-      //    generate-ideas anti-repetition cascade works and the result is
-      //    persisted to content_library (same contract as Generador Combinable).
       const { selections } = store;
 
       // Resolve the industry vertical: fixed selection, auto (round-robin across
-      // all verticals for max variety), or none. Adds per-industry relevance +
-      // multiplies the idea space (branch × industry × angle × dolor).
+      // all verticals for max variety), or none. With Auto, each batch of 4 uses
+      // ONE industry; clicking "Generar 4 más" advances to the next → the bank
+      // fills across industries (and the industry filter chips appear).
       let resolvedVerticalId: string | undefined = selections.industryVerticalId ?? undefined;
+      let resolvedVerticalName: string | null = selections.industryVerticalName ?? null;
       if (selections.industryAuto && allVerticals.length > 0) {
         const v = allVerticals[industryCycleRef.current % allVerticals.length];
         industryCycleRef.current += 1;
         resolvedVerticalId = v.id;
+        resolvedVerticalName = v.name;
       }
+
+      // Feedback loop: build a combined instruction from the angle technique,
+      // the user's free-text guidance, and the liked/disliked examples so each
+      // new batch converges toward what the user likes.
+      const likedItems = copyBank.items.filter((it) => it.meta.rating === 'liked');
+      const dislikedItems = copyBank.items.filter((it) => it.meta.rating === 'disliked');
+
+      const instructionParts: string[] = [];
+      if (selections.narrativePromptInstruction) {
+        instructionParts.push(selections.narrativePromptInstruction);
+      }
+      if (copyGuidance.trim()) {
+        instructionParts.push(`INSTRUCCIÓN DEL USUARIO (prioritaria, respétala): ${copyGuidance.trim()}`);
+      }
+      if (likedItems.length > 0) {
+        const examples = likedItems
+          .slice(-5)
+          .map((it) => `- "${it.row.headline}"${it.row.subcopy ? ` / ${it.row.subcopy}` : ''}`)
+          .join('\n');
+        instructionParts.push(
+          `IMITA EL TONO, RITMO Y ESTILO DE ESTOS EJEMPLOS QUE SÍ FUNCIONAN (no los copies literal, escribe nuevos en su misma línea):\n${examples}`,
+        );
+      }
+      if (dislikedItems.length > 0) {
+        const bad = dislikedItems.slice(-5).map((it) => `- "${it.row.headline}"`).join('\n');
+        instructionParts.push(
+          `EVITA EL ESTILO DE ESTOS EJEMPLOS (no repitas su tono ni su enfoque):\n${bad}`,
+        );
+      }
+      const combinedInstruction = instructionParts.length > 0
+        ? instructionParts.join('\n\n')
+        : undefined;
+
+      // Avoid repeats: session headlines + disliked headlines.
+      const avoidHeadlines = Array.from(new Set([
+        ...previousHeadlinesRef.current,
+        ...dislikedItems.map((it) => it.row.headline),
+      ]));
 
       const copyResponse = await generateIdeas.mutateAsync({
         type: 'copy',
@@ -213,34 +302,17 @@ export default function DesignStudioPage() {
         business_id: activeBusinessId,
         branch_id: selectedBranch.id,
         vertical_id: resolvedVerticalId,
-        // Narrative angle dimension — drives variety and enables persistence.
         angle: selections.narrativeAngleSlug ?? undefined,
         narrativeAngle: selections.narrativeAngleName ?? undefined,
         narrativeAngleId: selections.narrativeAngleId ?? undefined,
         funnelStage: selections.funnelStage ?? undefined,
-        promptInstruction: selections.narrativePromptInstruction ?? undefined,
-        // Session-level headlines already produced, to avoid immediate repeats.
-        previousIdeas: previousHeadlinesRef.current.length > 0
-          ? previousHeadlinesRef.current
-          : undefined,
-        // Ask for several pieces so the model's "diversity BETWEEN pieces" rules
-        // kick in, then use one — this breaks the "always the same headline" loop
-        // that quantity:1 caused.
+        promptInstruction: combinedInstruction,
+        previousIdeas: avoidHeadlines.length > 0 ? avoidHeadlines : undefined,
         quantity: 4,
       });
 
-      // Pick the copy VARIANT by platform. v2 output has 3 overlays:
-      // professional (LinkedIn, executive/dry), square (IG/FB post, punchier),
-      // vertical (IG story, punchiest). Using 'professional' everywhere is why
-      // the copy read flat. Design Studio makes social pieces → prefer square/vertical.
-      const platform = store.selections.platform;
-      const variant: 'professional' | 'square' | 'vertical' =
-        platform === 'linkedin-post' ? 'professional'
-        : platform === 'instagram-story' ? 'vertical'
-        : 'square';
-
-      // Prefer the rich `mapped` array (has per-variant overlays); fall back to
-      // the legacy `ideas` array (professional-only) or raw strings.
+      // Use the 'square' overlay (social, punchy) as the bank copy. Platform is
+      // chosen later in Stage B; the square variant reads well as a default.
       // deno-lint-ignore no-explicit-any
       const mappedIdeas = (copyResponse as any).mapped as any[] | undefined;
       const source: unknown[] = Array.isArray(mappedIdeas) && mappedIdeas.length > 0
@@ -250,7 +322,7 @@ export default function DesignStudioPage() {
       const parsedIdeas = source.map((idea) => {
         // deno-lint-ignore no-explicit-any
         const o = idea as any;
-        const ov = o?.overlays?.[variant];
+        const ov = o?.overlays?.square;
         if (ov?.headline) {
           return { headline: ov.headline || '', body: ov.subcopy || '', cta: ov.cta || '' };
         }
@@ -260,117 +332,36 @@ export default function DesignStudioPage() {
         return { headline: String(idea), body: '', cta: '' };
       }).filter((i) => i.headline.trim());
 
-      // Pick one that we haven't used yet this session; otherwise pick at random
-      // so repeated clicks surface different pieces.
-      const used = new Set(previousHeadlinesRef.current);
-      const fresh = parsedIdeas.filter((i) => !used.has(i.headline.trim()));
-      const pool = fresh.length > 0 ? fresh : parsedIdeas;
-      const chosen = pool.length > 0
-        ? pool[Math.floor(Math.random() * pool.length)]
-        : { headline: '', body: '', cta: '' };
+      if (parsedIdeas.length === 0) {
+        toast({ title: 'No se generaron copys', description: 'Reintenta.', variant: 'destructive' });
+        return;
+      }
 
-      const headline = chosen.headline;
-      const body = chosen.body;
-      const cta = chosen.cta;
+      // Persist the whole batch to the bank.
+      await saveBankCopies.mutateAsync({
+        branchId: selectedBranch.id,
+        copies: parsedIdeas.map((i) => ({
+          headline: i.headline,
+          subcopy: i.body,
+          cta: i.cta,
+          angleName: selections.narrativeAngleName ?? null,
+          industryName: resolvedVerticalName,
+          verticalId: resolvedVerticalId ?? null,
+        })),
+      });
 
-      if (headline) store.updatePieceCopyField('headline', headline);
-      if (body) store.updatePieceCopyField('body', body);
-      if (cta) store.updatePieceCopyField('cta', cta);
-
-      // Remember ALL generated headlines this session so the next call avoids the
-      // whole batch, not just the one shown.
+      // Anti-repetition: remember all headlines from this batch.
       const allHeadlines = parsedIdeas.map((i) => i.headline.trim()).filter(Boolean);
       if (allHeadlines.length > 0) {
         previousHeadlinesRef.current = [
           ...previousHeadlinesRef.current,
           ...allHeadlines,
-        ].slice(-40); // keep the prompt bounded
-      }
-
-      // 2. Generate image prompts using generate-design-image (mode: prompts)
-      //    Same endpoint used in Crear Piezas — generates foto/infografia/mapa_rutas
-      try {
-        const { data: imageData, error: imageError } = await supabase.functions.invoke('generate-design-image', {
-          body: {
-            userRequest: headline,
-            brand: activeBusiness?.slug === 'xending-capital' ? 'xending_capital' : 'xending',
-            business_id: activeBusinessId,
-            branch_id: selectedBranch.id,
-            vertical_id: resolvedVerticalId,
-            mode: 'prompts',
-            headline,
-            body,
-            imageIntent: headline,
-            angle: selections.narrativeAngleSlug ?? 'general',
-            funnelStage: selections.funnelStage ?? undefined,
-            backgroundStyle: selections.background === 'light-cream' ? 'light_cream' : 'navy',
-            textInImage: selections.textInImage,
-            aspectRatio: store.selections.platform === 'instagram-story' ? '9:16' : '1:1',
-          },
-        });
-
-        console.log('generate-design-image response:', { imageError, imageData });
-
-        if (imageData?.prompts) {
-          const prompts = imageData.prompts;
-          // Cache for type switching
-          (window as any).__designStudioImagePrompts = prompts;
-
-          // Pick prompt based on selected type
-          // prompts can be { fotografia: string } or { fotografia: { prompt_final: string } } or { fotografia: { prompt: string } }
-          const getPromptText = (p: unknown): string => {
-            if (typeof p === 'string') return p;
-            if (p && typeof p === 'object') {
-              const obj = p as any;
-              if (obj.prompt_final) return obj.prompt_final;
-              if (obj.prompt) return obj.prompt;
-            }
-            return '';
-          };
-
-          const selectedType = store.selections.pieceImagePrompt?.type ?? 'foto';
-          let promptText = '';
-
-          if (selectedType === 'foto') {
-            promptText = getPromptText(prompts.fotografia);
-          } else if (selectedType === 'infografia' || selectedType === '3d_clay') {
-            promptText = getPromptText(prompts.infografia);
-          } else if (selectedType === 'financiero') {
-            promptText = getPromptText(prompts.mapa_rutas);
-          }
-
-          if (!promptText) {
-            // Fallback to first available
-            promptText = getPromptText(prompts.fotografia) || getPromptText(prompts.infografia) || getPromptText(prompts.mapa_rutas);
-          }
-
-          if (promptText) {
-            store.setPieceImagePromptText(appendNoLogoDirective(promptText));
-          }
-
-          if (!store.selections.pieceImagePrompt?.type) {
-            store.setPieceImageType('foto');
-          }
-        } else if (imageError) {
-          console.warn('generate-design-image error:', imageError);
-          toast({
-            title: 'Prompt de imagen no generado',
-            description: 'Puedes escribirlo manualmente o reintentar.',
-            variant: 'destructive',
-          });
-        }
-      } catch (imageErr) {
-        console.warn('Image prompt generation failed:', imageErr);
-        toast({
-          title: 'Prompt de imagen no generado',
-          description: 'Timeout o error en la función. Puedes escribirlo manualmente.',
-          variant: 'destructive',
-        });
+        ].slice(-40);
       }
 
       toast({
-        title: 'Copy generado',
-        description: 'Headline, body, CTA y prompt de imagen listos. Edita si quieres.',
+        title: `${parsedIdeas.length} copys al banco`,
+        description: 'Palomea uno abajo para elegir imagen y plataforma.',
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Error generando copy';
@@ -378,7 +369,186 @@ export default function DesignStudioPage() {
     } finally {
       setIsGeneratingCopy(false);
     }
-  }, [activeBusinessId, store.selections.commercialBranchSlug, store.selections.narrativeAngleId, store.selections.narrativeAngleSlug, store.selections.narrativeAngleName, store.selections.funnelStage, store.selections.narrativePromptInstruction, store.selections.industryVerticalId, store.selections.industryAuto, allVerticals, store.selections.pieceImagePrompt?.type, store.selections.platform, branches, activeBusiness]);
+  }, [activeBusinessId, selectedBranch, store.selections, allVerticals, generateIdeas, saveBankCopies, activeBusiness, toast, copyBank.items, copyGuidance]);
+
+  // Select a bank candidate as the active piece. Prompts created before the
+  // current runtime/style revision are intentionally not hydrated: the user
+  // must rebuild them so stale photography/3D rules cannot leak forward.
+  const handleSelectCandidate = useCallback((item: CopyBankItem) => {
+    const promptIsCurrent = item.meta.imagePromptRevision === DESIGN_STUDIO_IMAGE_PROMPT_REVISION;
+
+    store.invalidateGeneratedVisuals();
+    delete (window as any).__designStudioImagePrompts;
+    store.setActiveCandidate(item.row.id, {
+      headline: item.row.headline,
+      body: item.row.subcopy ?? '',
+      cta: item.row.cta ?? '',
+    });
+    store.setPieceImageType(item.meta.imageType ?? 'foto');
+    store.setPieceImagePromptText(promptIsCurrent ? (item.meta.imagePrompt ?? '') : '');
+  }, [store]);
+
+  // Rate a bank copy (toggle). 'liked' steers new batches to imitate it;
+  // 'disliked' avoids it. Persisted in piece_v2 meta.
+  const handleRateCandidate = useCallback((item: CopyBankItem, rating: 'liked' | 'disliked') => {
+    const nextRating = item.meta.rating === rating ? undefined : rating;
+    updateBankMeta.mutate({
+      id: item.row.id,
+      currentMeta: item.meta,
+      meta: { rating: nextRating },
+    });
+  }, [updateBankMeta]);
+
+  const handleDeleteCandidate = useCallback((id: string) => {
+    deleteIdea.mutate(id, {
+      onSuccess: () => {
+        if (store.activeCandidateId === id) {
+          store.setActiveCandidate(null, null);
+        }
+      },
+      onError: () => {
+        toast({ title: 'Error al eliminar', variant: 'destructive' });
+      },
+    });
+  }, [deleteIdea, store, toast]);
+
+  // Persist the edited copy of the ACTIVE candidate back to its bank row, so
+  // the change sticks before generating the image.
+  const handleSaveCopy = useCallback(() => {
+    if (!store.activeCandidateId || !store.selections.pieceCopy?.headline?.trim()) return;
+    const copy = store.selections.pieceCopy;
+    const activeId = store.activeCandidateId;
+    const active = copyBank.items.find((it) => it.row.id === activeId);
+    updateBankCopy.mutate(
+      {
+        id: activeId,
+        headline: copy.headline.trim(),
+        subcopy: copy.body ?? '',
+        cta: copy.cta ?? '',
+      },
+      {
+        onSuccess: () => {
+          // A user-corrected copy is a preferred reference → auto-like it so it
+          // steers future batches.
+          if (active && active.meta.rating !== 'liked') {
+            updateBankMeta.mutate({
+              id: activeId,
+              currentMeta: active.meta,
+              meta: { rating: 'liked' },
+            });
+          }
+          toast({ title: 'Copy guardado', description: 'Marcado como referencia 👍. Ya puedes generar la imagen.' });
+        },
+        onError: () => toast({ title: 'Error al guardar copy', variant: 'destructive' }),
+      },
+    );
+  }, [store.activeCandidateId, store.selections.pieceCopy, copyBank.items, updateBankCopy, updateBankMeta, toast]);
+
+  // STAGE B — generate the image prompt for the ACTIVE candidate, honoring the
+  // visual selections chosen now (type, background/color, platform aspect).
+  // Uses the CURRENT (possibly edited) copy so modifications are reflected.
+  // The prompt is saved onto the candidate's bank row so it persists.
+  const handleGenerateImagePrompt = useCallback(async () => {
+    if (!activeBusinessId || !selectedBranch) return;
+    const active = copyBank.items.find((it) => it.row.id === store.activeCandidateId);
+    if (!active) return;
+
+    store.invalidateGeneratedVisuals();
+    delete (window as any).__designStudioImagePrompts;
+
+    const { selections } = store;
+    // Prefer the edited copy in the editor; fall back to the saved row.
+    const headline = selections.pieceCopy?.headline?.trim() || active.row.headline;
+    const body = selections.pieceCopy?.body ?? active.row.subcopy ?? '';
+    const selectedType = selections.pieceImagePrompt?.type ?? 'foto';
+    const promptSelection = resolveMasterImagePromptSelection(selections.background);
+
+    setIsGeneratingImagePrompt(true);
+    try {
+      const { data: imageData, error: imageError } = await supabase.functions.invoke('generate-design-image', {
+        body: {
+          userRequest: headline,
+          brand: activeBusiness?.slug === 'xending-capital' ? 'xending_capital' : 'xending',
+          business_id: activeBusinessId,
+          branch_id: selectedBranch.id,
+          vertical_id: active.row.vertical_id ?? undefined,
+          mode: 'prompts',
+          headline,
+          body,
+          cta: selections.pieceCopy?.cta,
+          footer: businessConfig?.disclaimer,
+          imageIntent: headline,
+          angle: selections.narrativeAngleSlug ?? 'general',
+          funnelStage: selections.funnelStage ?? undefined,
+          backgroundStyle: promptSelection.backgroundStyle,
+          masterPromptVersion: promptSelection.masterPromptVersion,
+          corridorMode: selections.corridorOverride?.mode ?? 'auto',
+          corridorFlowType: selections.corridorOverride?.flowType ?? 'auto',
+          corridorOrigin: selections.corridorOverride?.originCountry.trim() || undefined,
+          corridorDestination: selections.corridorOverride?.destinationCountry.trim() || undefined,
+          textInImage: selections.textInImage,
+          aspectRatio: selections.platform === 'instagram-story' ? '9:16' : '1:1',
+        },
+      });
+
+      if (imageError || !imageData?.prompts) {
+        toast({
+          title: 'Prompt de imagen no generado',
+          description: 'Puedes escribirlo manualmente o reintentar.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const prompts = imageData.prompts;
+      (window as any).__designStudioImagePrompts = prompts;
+
+      const getPromptText = (p: unknown): string => {
+        if (typeof p === 'string') return p;
+        if (p && typeof p === 'object') {
+          const obj = p as any;
+          if (obj.prompt_final) return obj.prompt_final;
+          if (obj.prompt) return obj.prompt;
+        }
+        return '';
+      };
+
+      let promptText = '';
+      if (selectedType === 'foto') promptText = getPromptText(prompts.fotografia);
+      else if (selectedType === 'infografia') promptText = getPromptText(prompts.infografia);
+      else if (selectedType === 'financiero') promptText = getPromptText(prompts.mapa_rutas);
+      if (!promptText) {
+        promptText = getPromptText(prompts.fotografia) || getPromptText(prompts.infografia) || getPromptText(prompts.mapa_rutas);
+      }
+
+      if (promptText) {
+        const finalPrompt = appendNoLogoDirective(promptText);
+        store.setPieceImagePromptText(finalPrompt);
+        // Persist onto the candidate's bank row.
+        await updateBankMeta.mutateAsync({
+          id: active.row.id,
+          currentMeta: active.meta,
+          meta: {
+            imageType: selectedType,
+            imagePrompt: finalPrompt,
+            imagePromptRevision: DESIGN_STUDIO_IMAGE_PROMPT_REVISION,
+            imageMode: 'single',
+            masterImagePromptVersion: promptSelection.masterPromptVersion,
+            imageBackgroundStyle: promptSelection.backgroundStyle,
+            corridorOverride: selections.corridorOverride,
+            corridorAnalysis: imageData.promptMeta?.corridor ?? undefined,
+          },
+        });
+      }
+
+      toast({ title: 'Prompt de imagen listo', description: 'Revisa/edita y genera la imagen.' });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Error generando prompt de imagen';
+      toast({ title: 'Error', description: message, variant: 'destructive' });
+    } finally {
+      setIsGeneratingImagePrompt(false);
+    }
+  }, [activeBusinessId, selectedBranch, copyBank.items, store, activeBusiness, businessConfig, updateBankMeta, toast]);
 
   const handleGenerateMockups = useCallback(async () => {
     if (!store.brandPalette || !activeBusinessId) return;
@@ -760,13 +930,6 @@ export default function DesignStudioPage() {
           </TabsList>
 
           <TabsContent value="visual" className="mt-6 space-y-6">
-            <VisualSelector
-              selections={store.selections}
-              onSelect={(category, value) => store.setSelection(category, value)}
-              onCustomValue={(category, value) => store.setCustomValue(category, value)}
-              disabled={isAnyLoading}
-            />
-
             {/* Content Mode: Libre / Rama / Idea */}
             <ContentModeSelector
               contentMode={store.selections.contentMode}
@@ -780,62 +943,219 @@ export default function DesignStudioPage() {
               disabled={isAnyLoading}
             />
 
-            {/* Piece Copy & Image Prompt (visible when branch is selected) */}
+            {/* ============================================================ */}
+            {/* Branch flow: 2 stages (Copy bank → Visual per piece)         */}
+            {/* ============================================================ */}
             {store.selections.contentMode === 'branch' && store.selections.commercialBranchSlug && (
               <>
-                {/* Narrative angle — drives copy variety + content_library persistence */}
-                <div className="rounded-lg border border-border/50 bg-muted/30 p-4">
-                  <AngleSelector
-                    value={store.selections.narrativeAngleSlug}
-                    onChange={(angle: SelectedAngle | null) => store.setNarrativeAngle(angle)}
+                {/* ---------- ETAPA A — COPY ---------- */}
+                <section className="space-y-4">
+                  <StageHeader
+                    number={1}
+                    title="Copy"
+                    subtitle="Elige ángulo e industria, genera y palomea uno del banco"
                   />
-                </div>
 
-                {/* Industry/vertical — per-industry relevance + variety multiplier */}
-                <div className="rounded-lg border border-border/50 bg-muted/30 p-4">
-                  <IndustrySelector
-                    value={store.selections.industryAuto ? 'auto' : store.selections.industryVerticalId}
-                    onChange={(industry) => store.setIndustryVertical(industry)}
+                  <div className="rounded-lg border border-border/50 bg-muted/30 p-4">
+                    <AngleSelector
+                      value={store.selections.narrativeAngleSlug}
+                      onChange={(angle: SelectedAngle | null) => store.setNarrativeAngle(angle)}
+                    />
+                  </div>
+
+                  <div className="rounded-lg border border-border/50 bg-muted/30 p-4">
+                    <IndustrySelector
+                      value={store.selections.industryAuto ? 'auto' : store.selections.industryVerticalId}
+                      onChange={(industry) => store.setIndustryVertical(industry)}
+                    />
+                  </div>
+
+                  {/* Guidance box — steers the whole batch. Combined with the
+                      👍/👎 ratings on the cards to converge the copy. */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                      Guía de copy (opcional)
+                    </Label>
+                    <Textarea
+                      placeholder={'Dirige el tono/enfoque de las próximas. Ej: "Más profesional y sobrio, sin dramatizar." · "No uses \'reasigna la mercancía\'." · "Enfócate en el spread de tipo de cambio."'}
+                      value={copyGuidance}
+                      onChange={(e) => setCopyGuidance(e.target.value)}
+                      disabled={isAnyLoading || isGeneratingCopy}
+                      rows={2}
+                      className="text-sm resize-none"
+                    />
+                    {(copyBank.items.some((i) => i.meta.rating === 'liked') ||
+                      copyBank.items.some((i) => i.meta.rating === 'disliked')) && (
+                      <p className="text-[11px] text-muted-foreground">
+                        Usando {copyBank.items.filter((i) => i.meta.rating === 'liked').length} 👍 como referencia
+                        y evitando {copyBank.items.filter((i) => i.meta.rating === 'disliked').length} 👎.
+                      </p>
+                    )}
+                  </div>
+
+                  <Button
+                    type="button"
+                    onClick={handleGenerateCopy}
+                    disabled={isAnyLoading || isGeneratingCopy}
+                    className="w-full"
+                  >
+                    {isGeneratingCopy ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Generando 4 copys...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-4 w-4 mr-2" />
+                        {copyBank.items.length > 0 ? 'Generar 4 más' : 'Generar 4 copys'}
+                      </>
+                    )}
+                  </Button>
+
+                  <CopyBankPanel
+                    items={copyBank.items}
+                    activeId={store.activeCandidateId}
+                    isLoading={copyBank.isLoading}
+                    onSelectActive={handleSelectCandidate}
+                    onDelete={handleDeleteCandidate}
+                    onRate={handleRateCandidate}
                   />
-                </div>
+                </section>
 
-                <PieceCopyEditor
-                  pieceCopy={store.selections.pieceCopy}
-                  pieceImagePrompt={store.selections.pieceImagePrompt}
-                  onCopyFieldChange={(field, value) => store.updatePieceCopyField(field, value)}
-                  onImageTypeChange={(type) => {
-                    store.setPieceImageType(type);
-                    // Update prompt from cached prompts if available
-                    const cached = (window as any).__designStudioImagePrompts;
-                    if (cached) {
-                      const getPromptText = (p: unknown): string => {
-                        if (typeof p === 'string') return p;
-                        if (p && typeof p === 'object') {
-                          const obj = p as any;
-                          if (obj.prompt_final) return obj.prompt_final;
-                          if (obj.prompt) return obj.prompt;
+                {/* ---------- ETAPA B — IMAGEN Y PLATAFORMA ---------- */}
+                {store.activeCandidateId && (
+                  <section className="space-y-6 border-t border-border pt-6">
+                    <StageHeader
+                      number={2}
+                      title="Imagen y plataforma"
+                      subtitle="Edita el copy si quieres, elige lo visual y genera la imagen"
+                    />
+
+                    {/* Edit the active copy — right at the top so you can tweak
+                        what it says, save it, and then generate the image. */}
+                    <div className="rounded-lg border border-[#FF7A4A]/40 bg-[#FF7A4A]/5 p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs font-semibold text-foreground uppercase tracking-wide">
+                          Edita el copy activo
+                        </Label>
+                        <span className="text-[11px] text-muted-foreground">
+                          Cambia el texto y guarda antes de generar la imagen
+                        </span>
+                      </div>
+                      <Input
+                        placeholder="Headline"
+                        value={store.selections.pieceCopy?.headline ?? ''}
+                        onChange={(e) => store.updatePieceCopyField('headline', e.target.value)}
+                        disabled={isAnyLoading}
+                        className="text-sm font-semibold"
+                      />
+                      <Textarea
+                        placeholder="Body / subcopy"
+                        value={store.selections.pieceCopy?.body ?? ''}
+                        onChange={(e) => store.updatePieceCopyField('body', e.target.value)}
+                        disabled={isAnyLoading}
+                        rows={2}
+                        className="text-sm resize-none"
+                      />
+                      <Input
+                        placeholder="CTA"
+                        value={store.selections.pieceCopy?.cta ?? ''}
+                        onChange={(e) => store.updatePieceCopyField('cta', e.target.value)}
+                        disabled={isAnyLoading}
+                        className="text-sm"
+                      />
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={handleSaveCopy}
+                        disabled={isAnyLoading || updateBankCopy.isPending || !store.selections.pieceCopy?.headline?.trim()}
+                        className="w-full"
+                      >
+                        {updateBankCopy.isPending ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Guardando copy...
+                          </>
+                        ) : (
+                          <>
+                            <Save className="h-4 w-4 mr-2" />
+                            Guardar copy
+                          </>
+                        )}
+                      </Button>
+                    </div>
+
+                    <VisualSelector
+                      selections={store.selections}
+                      onSelect={(category, value) => store.setSelection(category, value)}
+                      onCustomValue={(category, value) => store.setCustomValue(category, value)}
+                      disabled={isAnyLoading}
+                    />
+
+                    <PieceCopyEditor
+                      pieceCopy={store.selections.pieceCopy}
+                      pieceImagePrompt={store.selections.pieceImagePrompt}
+                      hideCopyFields
+                      onCopyFieldChange={(field, value) => store.updatePieceCopyField(field, value)}
+                      onImageTypeChange={(type) => {
+                        store.invalidateGeneratedVisuals();
+                        store.setPieceImageType(type);
+                        const cached = (window as any).__designStudioImagePrompts;
+                        if (cached) {
+                          const getPromptText = (p: unknown): string => {
+                            if (typeof p === 'string') return p;
+                            if (p && typeof p === 'object') {
+                              const obj = p as any;
+                              if (obj.prompt_final) return obj.prompt_final;
+                              if (obj.prompt) return obj.prompt;
+                            }
+                            return '';
+                          };
+                          const promptMap: Record<string, string> = {
+                            'foto': getPromptText(cached.fotografia),
+                            'infografia': getPromptText(cached.infografia),
+                            'financiero': getPromptText(cached.mapa_rutas),
+                          };
+                          if (promptMap[type]) {
+                            store.setPieceImagePromptText(appendNoLogoDirective(promptMap[type]));
+                          }
                         }
-                        return '';
-                      };
-                      const promptMap: Record<string, string> = {
-                        'foto': getPromptText(cached.fotografia),
-                        'infografia': getPromptText(cached.infografia),
-                        '3d_clay': getPromptText(cached.infografia),
-                        'financiero': getPromptText(cached.mapa_rutas),
-                      };
-                      if (promptMap[type]) {
-                        store.setPieceImagePromptText(appendNoLogoDirective(promptMap[type]));
-                      }
-                    }
-                  }}
-                  onImagePromptChange={(text) => store.setPieceImagePromptText(text)}
-                  textInImage={store.selections.textInImage}
-                  onTextInImageChange={(value) => store.setTextInImage(value)}
-                  onGenerateCopy={handleGenerateCopy}
-                  isGeneratingCopy={isGeneratingCopy}
-                  disabled={isAnyLoading}
-                />
+                      }}
+                      onImagePromptChange={(text) => {
+                        store.invalidateGeneratedVisuals();
+                        store.setPieceImagePromptText(text);
+                      }}
+                      corridorOverride={store.selections.corridorOverride}
+                      onCorridorOverrideChange={(corridor) => {
+                        store.invalidateGeneratedVisuals();
+                        store.setCorridorOverride(corridor);
+                      }}
+                      textInImage={store.selections.textInImage}
+                      onTextInImageChange={(value) => {
+                        store.invalidateGeneratedVisuals();
+                        store.setTextInImage(value);
+                      }}
+                      onGenerateCopy={handleGenerateImagePrompt}
+                      isGeneratingCopy={isGeneratingImagePrompt}
+                      generateButtonLabel="Generar prompt de imagen"
+                      generateButtonLoadingLabel="Generando prompt de imagen..."
+                      disabled={isAnyLoading}
+                    />
+                  </section>
+                )}
               </>
+            )}
+
+            {/* Non-branch modes (libre / custom): keep the classic single-shot
+                visual selector so those flows still work. */}
+            {store.selections.contentMode !== 'branch' && (
+              <VisualSelector
+                selections={store.selections}
+                onSelect={(category, value) => store.setSelection(category, value)}
+                onCustomValue={(category, value) => store.setCustomValue(category, value)}
+                disabled={isAnyLoading}
+              />
             )}
           </TabsContent>
 
@@ -1063,6 +1383,29 @@ export default function DesignStudioPage() {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+/** Small numbered stage header for the 2-stage branch flow. */
+function StageHeader({
+  number,
+  title,
+  subtitle,
+}: {
+  number: number;
+  title: string;
+  subtitle: string;
+}) {
+  return (
+    <div className="flex items-start gap-3">
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">
+        {number}
+      </span>
+      <div>
+        <h2 className="text-base font-semibold text-foreground leading-tight">{title}</h2>
+        <p className="text-xs text-muted-foreground">{subtitle}</p>
+      </div>
+    </div>
+  );
+}
 
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {

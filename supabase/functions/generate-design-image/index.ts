@@ -89,9 +89,20 @@ interface GenerateImageRequest {
   aspectRatio?: '1:1' | '4:5' | '9:16' | '16:9';
   includeText?: boolean;
   avoid?: string[];
-  // Background style selector (master path). 'navy' = current default style,
-  // 'light_cream' = clean near-white/off-white style (opt-in per piece).
-  backgroundStyle?: 'navy' | 'light_cream';
+  // Background style selector (master path). Each value maps to a style block
+  // inside MASTER_IMAGE_PROMPT_V1:
+  //   'navy'        = current default (dark premium graphite).
+  //   'light_cream' = near-white / off-white clean style (opt-in).
+  //   'white'       = "White Xending": clean white premium + light brand touches.
+  //   'white_2'     = "White 2.0": premium/editorial with much less navy, airy.
+  backgroundStyle?: 'navy' | 'light_cream' | 'white' | 'white_2';
+  // Explicit per-request snapshot used by Design Studio A/B options. When set,
+  // it bypasses DB/global prompt selection so the result is reproducible.
+  masterPromptVersion?: 'v1' | 'v2';
+  corridorMode?: 'auto' | 'geographic_corridor' | 'operational_route' | 'global_network' | 'bidirectional_corridor';
+  corridorFlowType?: 'auto' | 'payment' | 'goods' | 'bidirectional';
+  corridorOrigin?: string;
+  corridorDestination?: string;
   // When true, the AI bakes the exact provided text into the image (headline +
   // optional CTA, exact spelling, brand highlights). When false/undefined the
   // image stays text-free and the template engine overlays the copy.
@@ -160,6 +171,15 @@ interface ImagePromptVariant {
   negative_instructions: string;
   aspect_ratio: string;
   creative_rationale: string;
+  corridor_analysis?: {
+    mode: string;
+    flow_type: string;
+    origin_country: string | null;
+    destination_country: string | null;
+    direction: string | null;
+    confidence: string;
+    evidence: string;
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -169,7 +189,7 @@ interface ImagePromptVariant {
 // Does NOT invent the scene — only does technical translation per image type.
 // ---------------------------------------------------------------------------
 
-const MASTER_IMAGE_PROMPT_FALLBACK = `Eres un prompt engineer especializado en generación de imágenes publicitarias para fintech B2B.
+const MASTER_IMAGE_PROMPT_V1 = `Eres un prompt engineer especializado en generación de imágenes publicitarias para fintech B2B.
 
 Tu tarea es recibir el concepto visual semántico de una pieza (imageIntent) junto con su copy completo, y traducirlos en tres prompts técnicos optimizados para GPT Image 2 — uno por tipo de imagen.
 
@@ -271,6 +291,63 @@ NEGATIVE (añadir a negative_instructions de cada tipo cuando el estilo sea navy
 - Acentos de marca (turquesa #2ED4C7, coral #FF7A4A) SOLO en objetos de la escena, máximo 2-3 elementos. El resto de la paleta neutra (grises claros, blancos).
 - Composición aireada y equilibrada, sensación clean y moderna.
 
+### white  (estilo "White Xending" — blanco limpio premium con toques ligeros de marca)
+Base visual BLANCA y limpia, tipo estudio, premium y aireada. Es el estilo de referencia de las piezas que la marca considera "on-brand claras": fondo blanco puro / casi blanco, objetos 3D premium en blanco, gris muy claro y graphite claro, con TOQUES LIGEROS de color de marca que hacen contraste (nunca saturado). NO llevar logo de ninguna marca (se añade después en la capa HTML).
+
+APLICACIÓN POR TIPO DE IMAGEN (importante)
+- Fotografía: adoptar SOLO el AMBIENTE (fondo blanco luminoso de estudio, luz suave y neutra, sombras delicadas, acentos de marca ligeros en objetos del entorno). La persona y la escena siguen HIPERREALISTAS y naturales. NO convertir a la persona en 3D, clay ni graphite.
+- Infografía: aquí vive de lleno la dirección de OBJETO 3D premium sobre blanco (materiales, objeto principal, elementos secundarios, dirección por escena descritos abajo). Es el tipo que produce las piezas de referencia (contenedor blanco, reloj de arena, checklist, globo con acento teal).
+- Mapa/Rutas: aplicar el fondo blanco limpio + iluminación luminosa; el color de regiones y rutas lo manda la sección "Mapa / Rutas".
+
+FONDO E ILUMINACIÓN
+- Fondo blanco puro / casi blanco (#FFFFFF a ~#FAFAFA), limpio, sin textura sucia ni amarillenta. Puede insinuarse una tarjeta/plano flotante blanco con esquinas redondeadas y sombra suave (soft UI / clay premium).
+- Iluminación de estudio neutra, luminosa y difusa. Sombras suaves y realistas (contact shadow) que asienten los objetos. Sin drama oscuro, sin viñeteado negro.
+
+MATERIALES Y PALETA
+- El objeto/sujeto principal se construye en blanco, gris muy claro, graphite claro y acero satinado claro, con superficies mate premium y reflejos sutiles. Look "Apple/clay 3D": limpio, sólido, corporativo.
+- Los colores de marca viven SOLO como TOQUES LIGEROS de acento que generan contraste sobre el blanco: turquesa (#2ED4C7) para conexión, trazabilidad y rutas/checks; coral (#FF7A4A) para acción, énfasis y elementos "en curso/aprobado" (ej. arena del reloj coral, botón de pausa coral, línea de ruta teal). Máximo 2-3 acentos. NUNCA teñir de navy el fondo ni los objetos principales.
+
+OBJETO / SUJETO PRINCIPAL (derivado del imageIntent)
+- Un solo elemento protagonista relacionado con el tema: contenedor de carga, barco, camión, pallets, caja de exportación, reloj de arena, checklist, factura, laptop con dashboard, candado, wallet multimoneda o globo terráqueo, según el imageIntent.
+- Máximo 2 elementos secundarios pequeños que apoyen la narrativa (nodo de ruta, check, sello, moneda, punto de trazabilidad). No deben competir con el principal ni sobrecargar.
+
+DIRECCIÓN POR TIPO DE ESCENA
+- Logística/embarques: contenedores, barco, camión, grúa, puerto o checklist en blanco/gris claro, conectados por rutas punteadas con nodos; toques teal para "conexión" y coral para "pausa/en espera/acción".
+- Proveedores/pagos: factura, checklist, laptop con dashboard o reloj de arena en blanco premium; check teal, énfasis coral, sensación de claridad y control.
+- Seguridad: escudo, candado o documento validado en blanco/gris claro con check teal y acento coral sutil.
+- Globo terráqueo (si aparece): esfera blanca o de puntos gris claro, con una región/arco de conexión en teal (#2ED4C7) y acento coral (#FF7A4A) en el destino. Resto neutro. Sin negro, sin navy.
+
+SENSACIÓN FINAL: limpio, luminoso, premium, confiable, moderno, tecnológico. Campaña B2B clara y aireada. NO oscuro, NO navy dominante, NO cripto, NO gamer, NO cartoon, NO sobrecargado, NO sucio.
+
+NEGATIVE (añadir a negative_instructions de cada tipo cuando el estilo sea white): dark background, navy background, navy-tinted objects, grey dirty background, heavy shadows, moody lighting, low-key lighting, black background, saturated colors, neon, too many accent colors, too many icons, overloaded scene, cluttered composition, cream or yellow tint, dirty textures, wrong brand colors, excessive coral, excessive turquoise.
+
+### white_2  (estilo "White 2.0" — premium actual con menos navy, más aireado)
+Punto medio entre el navy premium y el white limpio: conserva el ADN premium/editorial y la riqueza de materiales del estilo navy (graphite, acero, profundidad, contraste), pero sobre una base CLARA en lugar de oscura. El navy deja de dominar y pasa a ser, como mucho, un acento menor. NO llevar logo de ninguna marca.
+
+APLICACIÓN POR TIPO DE IMAGEN (importante)
+- Fotografía: ambiente claro premium (fondo claro luminoso con leve gradiente frío, luz suave direccional desde el centro-derecha, sombras presentes pero no aplastadas). Persona y escena HIPERREALISTAS y naturales.
+- Infografía: OBJETO 3D premium con materiales ricos (graphite claro, acero satinado, aluminio cepillado, blancos) sobre base clara; más profundidad, reflejos y contraste que en "white", pero sin oscurecer el fondo.
+- Mapa/Rutas: fondo claro premium + iluminación; color de regiones y rutas según la sección "Mapa / Rutas".
+
+FONDO E ILUMINACIÓN
+- Fondo claro premium (#F4F6F8 a #FAFAFA) con mesh gradient MUY sutil frío (gris/azulado apenas perceptible), nunca oscuro. Puede haber un halo teal muy sutil detrás del sujeto.
+- Luz de estudio suave con algo más de dirección y contraste que "white"; sombras realistas con cuerpo pero no negras aplastadas. Reflejos suaves en metálicos.
+
+MATERIALES Y PALETA
+- Objeto/sujeto principal en graphite claro, acero satinado, aluminio cepillado, charcoal SOLO en detalles pequeños y blancos. Look premium industrial-financiero, más material y sólido que "white".
+- Navy (#0F1419) permitido ÚNICAMENTE como acento menor y puntual (un detalle, un borde, tipografía de un sello), jamás como fondo ni como material dominante del objeto.
+- Colores de marca como acentos que generan contraste: turquesa (#2ED4C7) conexión/trazabilidad, coral (#FF7A4A) acción/énfasis. Máximo 2-3 acentos, sin saturar.
+
+OBJETO / SUJETO PRINCIPAL (derivado del imageIntent)
+- Igual que en navy/white: un solo protagonista relacionado con el tema (contenedor, barco, maquinaria, factura, checklist, laptop, candado, globo), con máximo 2 elementos secundarios pequeños de apoyo.
+
+DIRECCIÓN POR TIPO DE ESCENA
+- Misma lógica que navy (logística, maquinaria, proveedores/pagos, seguridad, globo), pero SIEMPRE sobre base clara: materiales graphite claro/acero sobre fondo luminoso, con acentos teal/coral. El globo va en gris graphite claro con México en teal y destino en coral.
+
+SENSACIÓN FINAL: premium, sólido, editorial y tecnológico, pero luminoso y aireado. Más "cara" y con más profundidad que "white", sin la pesadez del navy. NO oscuro, NO navy dominante, NO cripto, NO gamer, NO cartoon, NO sobrecargado.
+
+NEGATIVE (añadir a negative_instructions de cada tipo cuando el estilo sea white_2): dark background, navy background, navy-dominant objects, black background, crushed shadows, low-key moody lighting, saturated colors, neon, too many icons, overloaded scene, cluttered composition, cream or yellow tint, dirty factory, messy warehouse, crypto aesthetic, gamer aesthetic, cartoon style, wrong brand colors, excessive coral, excessive turquoise.
+
 ## TEXTO EN LA IMAGEN (controlado por textInImage)
 
 ### textInImage = false  (DEFAULT)
@@ -298,26 +375,81 @@ NEGATIVE (añadir a negative_instructions de cada tipo cuando el estilo sea navy
 ## REGLAS POR TIPO
 
 ### Fotografía
-- Escena hiperrealista con persona real en contexto de negocio
-- Iluminación cinematográfica suave, profundidad de campo, colores naturales
-- La persona y el contexto deben ser creíbles y específicos (no stock genérico)
-- Restrictions: no text, no words, no numbers, no letters, no typography, no logos, no captions, no watermarks, no signage with readable text, no misspelled words, no clutter
+- Escena hiperrealista en contexto operativo B2B: puerto, almacén limpio, oficina financiera, centro logístico o comercio exterior.
+- Si aparecen personas, apoyan la historia pero NO son protagonistas: preferir espalda, perfil parcial, rostro fuera de foco/cortado, manos trabajando o figuras a distancia. Evitar retrato frontal y sonrisa stock.
+- Luz natural o de estudio suave, blancos limpios, contraste moderado, temperatura neutra, profundidad de campo y materiales reales.
+- La persona y el contexto deben ser creíbles y específicos (no stock genérico, no escena oscura dramática).
+- Restrictions: no text, no words, no numbers, no letters, no typography, no logos, no captions, no watermarks, no signage with readable text, no misspelled words, no frontal portrait, no stock-photo smile, no clutter.
 
-### Infografía
-- Traducir el imageIntent a elementos gráficos abstractos: íconos, formas geométricas, datos visualizados
-- Sin personas. Sin elementos fotorrealistas.
-- Flat design, paleta de marca dominante, composición modular
-- Los datos visualizados deben ser FORMAS abstractas (barras, pies, líneas, áreas) — JAMÁS con números legibles ni etiquetas escritas
-- Restrictions: no text, no words, no numbers, no letters, no typography, no logos, no labels, no chart axis labels, no captions, no people, no photorealistic elements, no clutter
+### Infografía / Iconografía 3D Xending
 
-### Mapa / Rutas
-- Mapa estilizado, limpio y minimalista, enfocado en DOS regiones conectadas: el país origen (México) y el país/región destino que sugiera el copy o el imageIntent (por defecto China, USA o Europa).
-- México SIEMPRE pintado en turquesa (#2ED4C7). El país/región destino en coral (#FF7A4A). Regiones de apoyo (ej. Europa cuando no es el destino) en azul muy claro y sutil.
-- El resto del mundo en gris muy claro o line-art tenue, para que las 2 regiones protagonistas destaquen.
-- Conexión OBLIGATORIA entre ambas regiones: líneas de ruta curvas y luminosas con degradado turquesa→coral, nodos en los extremos y sensación de flujo/movimiento direccional.
-- El fondo sigue el backgroundStyle indicado (navy o light_cream). NUNCA pastel saturado.
-- Composición equilibrada con amplio espacio negativo (≥40%) para el texto del template (salvo que textInImage = true).
-- Restrictions: no city names, no labels, no legend, no compass with text, no realistic satellite imagery, no logos, no people. (El texto de país solo se permite si textInImage = true; de lo contrario, sin nombres de países escritos.)
+REGLA DE ESTILO MADRE
+- Para backgroundStyle = white o white_2, NO crear flat design ni infografía vectorial genérica. Crear PREMIUM 3D ICONOGRAPHY: render de producto 3D ultra-clean, corporativo, institucional y coherente con una misma familia visual Xending.
+- Para backgroundStyle = navy, conservar la materialidad premium graphite/acero definida en su bloque, pero mantener las mismas reglas de composición, anatomía y claridad descritas aquí.
+- Sin personas y sin escena fotográfica real. SÍ se permite y se exige realismo de producto 3D: geometría precisa, materiales refinados, profundidad física y sombras de estudio.
+
+MATERIALIDAD Y ACABADO (white / white_2)
+- Superficie dominante (80–90%): cerámica blanca refinada, acrílico blanco mate/satinado, light gray #F5F5F5 y graphite MUY claro. Bordes redondeados, biseles precisos, reflejos limpios, volumen suave, alta definición.
+- Navy #0F1419 (6–12% máximo): estructura visual, contornos finos, checks, flechas, símbolos y detalles mecánicos; NUNCA teñir grandes superficies ni el fondo.
+- Turquesa #2ED4C7 (2–5%): activación, conexión, ruta, nodo, check o indicador de avance. Color sólido exacto, sin glow barato ni gradiente ruidoso.
+- Coral #FF7A4A (1–3%): punto focal, pausa, espera, origen o alerta suave. Un acento claro, no múltiples manchas.
+- Iluminación de estudio softbox, sombras tenues de contacto, fondo blanco/clear indicado por backgroundStyle. Evitar plástico barato, aspecto inflable, juguete infantil, metal pesado, cristal excesivo, bloom y reflejos quemados.
+
+CÁMARA, ESCALA Y FAMILIA VISUAL
+- Vista isométrica / tres cuartos elevada consistente, equivalente a lente de producto 45–70 mm; perspectiva suave, nunca gran angular. Todos los objetos comparten el MISMO ángulo de cámara, escala visual, iluminación, material y nivel de detalle.
+- Silueta reconocible en menos de 3 segundos. Proporciones físicamente creíbles aunque estén simplificadas como miniatura editorial.
+- Una sola composición y una sola idea. Un hero object claro + máximo 1–3 elementos secundarios. No entregar mosaico, catálogo de opciones, tres tarjetas independientes ni comparación de estilos dentro de la imagen.
+- Mucho espacio negativo. No llenar todo el lienzo. Evitar objetos cortados accidentalmente por el encuadre.
+
+ANATOMÍA OBLIGATORIA POR OBJETO
+- Contenedor marítimo: prisma ISO reconocible con corrugaciones verticales, corner castings, puertas dobles, locking bars, bisagras y bastidor; blanco/gris claro. Evitar caja lisa, puertas de bodega o contenedor genérico sin herrajes.
+- Tractocamión/tráiler: cabina, chasis, quinta rueda, ruedas/ejes y contenedor correctamente apoyado; orientación y escala coherentes. Evitar camión de juguete, ruedas duplicadas o remolque deformado.
+- Buque portacontenedores: casco náutico creíble, proa/popa, puente, cubierta y pilas ordenadas de contenedores. No convertirlo en bañera, ferry turístico o barco infantil.
+- Grúa portuaria: estructura de pórtico/gantry o ship-to-shore reconocible, boom, patas y spreader/cable cuando corresponda. No usar grúa de construcción genérica si la escena es puerto.
+- Almacén/aduana: volumen arquitectónico limpio con puertas de carga/andenes legibles, sin texto ni logos.
+- Reloj de arena: vidrio transparente limpio, armazón/base blanca y arena coral controlada; proporciones elegantes, no cartoon.
+- Reloj/status: reloj blanco minimalista sin números, agujas navy y segundo/nodo teal; para pausa usar un solo badge coral con símbolo universal, no texto.
+- Checklist/documento: hoja blanca vertical con bordes redondeados, pocas líneas gris/navy y checks claros; sin párrafos, datos o marcas inventadas.
+- Globo: esfera blanca; continentes en relieve o puntos uniformes light gray; rutas curvas finas, nodos teal y máximo un nodo coral. Geografía reconocible, sin etiquetas.
+- Factura/wallet/monedas: formas blancas premium, símbolos estructurales navy y anillos/acento teal/coral MUY finos. Solo incluir letras o números si textInImage = true y fueron provistos exactamente.
+
+DIORAMAS, RUTAS Y BASES
+- Si el concepto es un proceso logístico, construir un MINI-DIORAMA CONTINUO: 2–4 hitos físicamente coherentes (ej. puerto → barco/transporte → aduana/almacén → contenedor detenido) unidos por una única ruta fina. No convertirlo en diagrama escolar con columnas y párrafos.
+- Rutas: curvas elegantes o tramos segmentados finos; navy como estructura, teal para avance/activación y coral únicamente en el punto de bloqueo/espera. Pocos nodos pequeños, sin glow intenso.
+- Base default: SIN pedestal. Usar plataformas blancas flotantes, rectangulares redondeadas o circulares SOLO cuando representan una ubicación, etapa o estado. Deben ser bajas, sutiles y con sombra suave; no poner cada objeto en un pedestal pesado sin razón.
+- Puede usarse un mapa mundial punteado MUY tenue como textura secundaria, nunca como elemento dominante ni como ruido de fondo.
+
+JERARQUÍA NARRATIVA
+- Visualizar la tensión exacta del copy con un estado físico evidente: pausa coral, barrera baja, reloj de arena, ruta interrumpida o último nodo sin activar. Elegir UNO, no todos.
+- El objeto principal representa el negocio/operación; el acento coral representa el problema; el teal representa el flujo o la solución. Esta semántica debe ser consistente.
+- Si textInImage = false, expresar todo mediante objetos y símbolos universales: NO palabras, etiquetas, leyendas, números, títulos, CTA ni disclaimer dentro de la imagen.
+
+NEGATIVE (añadir a negative_instructions de Infografía/Iconografía 3D): flat vector illustration, generic infographic, clipart, generic cubes, childish toy, inflatable objects, cheap plastic, cartoon, low-poly game asset, inconsistent camera angles, inconsistent scale, malformed container, smooth box without corrugation, wrong container doors, deformed truck, duplicated wheels, toy truck, malformed ship, construction crane instead of port crane, too many platforms, thick arrows, educational flowchart, three-column layout, catalog grid, excessive labels, paragraphs, random UI text, invented data, clutter, excessive navy, excessive coral, excessive turquoise, dark background when white style is selected.
+
+### Mapa / Rutas — sistema dual
+- Esta variante NO significa siempre "mapa plano". Primero clasifica el imageIntent y el copy en UNO de dos modos; nunca mezclar ambos sin necesidad:
+
+MODO A — CORREDOR GEOGRÁFICO / GLOBO
+- Usar SOLO cuando el mensaje depende de países, regiones, pagos globales, presencia internacional o un corredor explícito (México–USA, China–México, Asia, Europa).
+- Globo Xending: esfera blanca limpia, continentes en relieve sutil o puntos uniformes light gray, geografía reconocible, rutas curvas finas y nodos pequeños. México en turquesa #2ED4C7 y destino en coral #FF7A4A; resto neutro.
+- Si se usa mapa 2D, enfocarlo en máximo DOS regiones conectadas. Sin mapa turístico, fronteras ruidosas, etiquetas, leyenda o brújula.
+- Conexión obligatoria pero sobria: 1–2 líneas curvas delgadas con flujo teal→coral; no red global caótica.
+
+MODO B — RUTA OPERATIVA 3D / DIORAMA LOGÍSTICO
+- Usar cuando el mensaje depende de secuencia operativa, embarque, liquidación, pago, liberación, aduana, contenedor detenido, tiempo o bloqueo. Este es el modo preferido para copy como "el contenedor sigue esperando" o "el horario de embarque puede cerrar".
+- Aplicar COMPLETAS las reglas de "Infografía / Iconografía 3D Xending": materialidad premium blanca, cámara isométrica/tres cuartos consistente, anatomía obligatoria, proporciones de color, escala y negative instructions.
+- Construir una sola ruta operacional continua con 2–4 hitos reconocibles: por ejemplo proveedor/puerto → buque o tractocamión → aduana/almacén → contenedor/mercancía. Un hero object domina; los demás son secundarios.
+- Conectar hitos con UNA ruta fina, segmentada o curva. Navy = estructura ya recorrida; teal = flujo/avance/confirmación; coral = ÚNICO punto de espera, corte o bloqueo.
+- Representar la tensión con UN símbolo universal: badge de pausa coral, barrera baja, reloj de arena o último nodo sin activar. No usar todos a la vez.
+- Plataformas blancas bajas solo para separar hitos/ubicaciones. No encerrar cada fase en tarjetas ni construir columnas con explicaciones.
+- Puede aparecer un mapa mundial punteado light gray al 3–6% de contraste como contexto secundario, nunca como protagonista.
+
+REGLAS COMUNES
+- Fondo según backgroundStyle (navy, light_cream, white o white_2). Para white/white_2 mantener 80–90% de superficie blanca/clara y navy estructural limitado; para navy aplicar su bloque oscuro.
+- Composición editorial con ≥40% de espacio negativo para el texto del template salvo textInImage=true. El hero visual debe ocupar una zona clara sin invadir el área de copy.
+- Sin personas, logos, marcas reales ni elementos de UI inventados.
+- Si textInImage=false: no city names, no country names, no labels, no legend, no numbers, no captions, no stage titles, no CTA, no readable signage. Los pasos se entienden solo por los objetos y la ruta.
+- Restrictions: no realistic satellite imagery, no tourist map, no political map clutter, no distorted geography, no thick glowing routes, no many pins, no many routes, no three-column educational infographic, no paragraphs, no catalog grid, no mixed camera angles, no inconsistent scale, no toy logistics objects, no malformed container/truck/ship/crane, no logos, no people, no clutter.
 
 ## FORMATO DE SALIDA
 
@@ -343,6 +475,213 @@ Devuelve exclusivamente JSON válido con esta estructura exacta. No incluyas exp
     "creative_rationale": "string"
   }
 }`;
+
+/**
+ * Master Image Prompt V2 — executable distillation of
+ * docs/prompts/XENDING_VISUAL_SYSTEM_v1.md.
+ *
+ * V1 above is intentionally immutable: it is the rollback snapshot that
+ * produced the approved pre-V2 results. Do not edit V1 when tuning V2.
+ */
+const MASTER_IMAGE_PROMPT_V2 = `[XENDING_MASTER_IMAGE_V2]
+
+Eres director creativo y prompt engineer de Xending, fintech B2B de pagos internacionales, treasury, FX, financiamiento y comercio exterior.
+
+Recibes un concepto semántico y su copy. Tu trabajo NO es inventar el mensaje: debes traducir la misma intención a TRES prompts técnicos en inglés para GPT Image 2: fotografía, infografía/iconografía 3D y mapa/rutas.
+
+## INPUT
+imageIntent: {{imageIntent}}
+Headline: {{headline}}
+Body: {{body}}
+CTA: {{cta}}
+Footer/disclaimer: {{footer}}
+Ángulo: {{angle}}
+Funnel: {{funnelStage}}
+Formato: {{format}}
+Colores: {{brandColors}}
+Estilo visual adicional: {{visualStyle}}
+Restricciones: {{visualRestrictions}}
+Background style: {{backgroundStyle}}
+Text in image: {{textInImage}}
+Corridor mode override: {{corridorMode}}
+Corridor flow override: {{corridorFlowType}}
+Corridor origin override: {{corridorOrigin}}
+Corridor destination override: {{corridorDestination}}
+
+## PRINCIPIO RECTOR
+Xending = infraestructura financiera global, clara, premium y confiable.
+Cada resultado debe sentirse corporativo, blanco, institucional, moderno, tecnológico, internacional y B2B. Debe comunicar una sola idea, con un hero visual claro, máximo 1–3 elementos secundarios y mucho espacio negativo.
+
+Evita siempre: startup saturada, Canva genérico, crypto, gamer, cyberpunk, neón, caricatura, juguete infantil, plástico barato, stock corporativo falso, exceso de elementos, fondos oscuros por defecto, logos inventados y texto falso.
+
+## JERARQUÍA DE DECISIÓN
+1. Comprende headline, body e imageIntent como una sola idea. Representa la metáfora exacta: capas, espera, bloqueo, flujo, liberación, conversión, control o velocidad.
+2. Ancla la escena al servicio real: pagos/transferencias, FX/divisas, banca, treasury, logística, importación/exportación o financiamiento.
+3. Elige el modo visual correcto para cada una de las tres variantes.
+4. Aplica ÚNICAMENTE el bloque de backgroundStyle solicitado.
+5. Aplica textInImage al final. Ningún modo puede contradecirlo.
+
+## BRAND DNA Y COLOR
+Para estilos claros, distribución visual objetivo:
+- 80–90% blanco #FFFFFF, light gray #F5F5F5 o cream mínimo.
+- 6–12% navy #0F1419 como estructura, contorno, símbolo o flecha; no como masa dominante.
+- 2–5% teal #2ED4C7 como activación, avance, nodo, check o ruta.
+- 1–3% coral #FF7A4A como único foco, espera, bloqueo, origen o alerta suave.
+
+Semántica: navy = estructura/control; teal = flujo/activación/solución; coral = tensión/espera/acción. No intercambiar esta lógica sin una razón del copy.
+
+## BACKGROUND STYLES
+Si backgroundStyle viene vacío o no reconocido, usar white.
+
+### white — WHITE XENDING OFICIAL
+Aplicación más fiel al sistema visual Xending. Fondo puro #FFFFFF o casi blanco, estudio luminoso, sombras de contacto muy suaves. Hero object en cerámica blanca refinada, acrílico blanco mate/satinado y light gray; bordes redondeados, biseles precisos y reflejos limpios. Navy solo estructural; teal/coral como microacentos funcionales. Aspecto ultra-clean, institucional y fácil de leer. No fondo navy, no objeto principal navy, no degradado visible pesado.
+
+### white_2 — WHITE 2.0 EXPERIMENTAL
+Misma gramática, paleta y semántica de White Xending, con más profundidad editorial: base #F4F6F8–#FAFAFA, mesh frío apenas perceptible, graphite claro, acero satinado y aluminio cepillado en detalles, luz algo más direccional y sombras con más cuerpo. Debe seguir siendo 75–85% claro. Navy jamás domina ni ocupa el fondo. Más material y contraste que white, no más color.
+
+### light_cream — CLARO CÁLIDO
+Fondo #FAFAF7 / #F5F3F0 muy sutil, nunca amarillo ni beige dominante. Objetos blancos, luz neutra-cálida delicada, acentos controlados y composición aireada.
+
+### navy — DARK PREMIUM OPT-IN
+Solo cuando se solicita explícitamente. Fondo #0F1419 con mesh sutil, aire y lectura clara; no negro plano. Fotografía conserva piel/ropa/materiales naturales. Infografía usa graphite, acero satinado y aluminio, con teal/coral solo en detalles. Evitar black-on-black, sombras aplastadas, glow excesivo y estética crypto/gamer.
+
+## CORRIDOR RESOLVER (obligatorio antes de mapa_rutas)
+Resuelve mode, flow_type, origin_country, destination_country, direction, confidence y evidence.
+Prioridad: (1) overrides no-auto, (2) países/dirección explícitos en copy, (3) expresiones desde/hacia/proveedor/importa/exporta/recibe/paga, (4) pares CNY-MXN, CNY-USD, USD-MXN, EUR-MXN, (5) contexto de sucursal/negocio. Nunca inventes un país.
+- payment: la dirección va del pagador al beneficiario. "Paga a proveedor en China desde México" = México → China.
+- goods: la dirección va del proveedor/origen al importador/destino. "Importa de China a México" = China → México.
+- bidirectional: usar ↔ cuando el copy solo diga "entre" dos países.
+- sin países + espera/embarque/aduana/bloqueo = operational_route, sin corredor inventado.
+- sin países + cobertura/pagos internacionales = global_network.
+Los overrides de origen/destino mandan. operational_route/global_network ignoran países vacíos. El color sigue la semántica (teal flujo/solución, coral bloqueo), NO un país fijo.
+
+## RECETAS WHITE XENDING V2
+Selecciona UNA familia principal y máximo UNA secundaria:
+- Trade/logistics: contenedor, buque, tráiler, grúa, almacén, pallet.
+- Status/waiting (GOLDEN RECIPE): contenedor ISO blanco técnico + reloj de arena de cristal con arena coral + panel blanco de estados + globo punteado y un arco teal. Un solo estado coral; checks navy; futuro gris.
+- Operational route: 2–4 hitos continuos con una ruta fina; no tres tarjetas didácticas.
+- Globe/corridor: globo blanco, geografía reconocible, 1–2 rutas y pocos nodos.
+- FX/currency: monedas blancas, símbolos navy, anillos teal/coral finos y flechas curvas.
+- Invoice/payment: documento, wallet, banco, beneficiario y check; texto solo si fue provisto.
+- Treasury/product: laptop/teléfono premium, UI clara, cuentas multidivisa y gráficos mínimos.
+- Liquidity/credit: moneda, documento aprobado, reloj o flujo desbloqueado.
+En white, conservar layout editorial y aire de V1; mejorar anatomía/materiales, no oscurecer ni metalizar toda la pieza.
+
+## ROUTER VISUAL
+
+### SALIDA fotografia — EXCEPCIÓN FOTOGRÁFICA NATURAL
+Elegir una escena específica según imageIntent; NO repetir una composición fija ni forzar personas o dispositivos en todas las piezas:
+A. Corporate Professional Photography para credibilidad, treasury, FX, pagos, oficinas, dashboards o documentos.
+B. Shipping / Ports / Global Trade Photography para buques, puertos, almacenes, contenedores, pallets e import/export.
+C. Operational Detail Photography cuando manos, documentos, equipo, mercancía o un dispositivo cuentan mejor la historia que una persona completa.
+
+El backgroundStyle NO convierte la fotografía en un set blanco ni en un render. En white/white_2/light_cream, interpretarlo solo como dirección de exposición y acabado: imagen clara y limpia, pero conservar los colores, texturas y materiales reales del lugar (cartón, madera, acero, concreto, cielo, agua, contenedores, mobiliario). En navy, conservar una exposición fotográfica natural y usar el tono oscuro solo en wardrobe, sombras o ambiente existente; nunca reemplazar el entorno por un fondo navy artificial. Los acentos teal/coral solo aparecen cuando son plausibles dentro de la escena.
+
+Composición editorial variable y guiada por el concepto: alternar plano general ambiental, plano medio sobre el trabajo, over-the-shoulder, detalle de manos/documentos/dispositivo, sujeto lateral o figura pequeña dentro del espacio. Mantener un único foco narrativo y un área limpia para copy, sin centrar siempre a una persona caminando con tablet.
+
+PERSONAS — política estricta: son opcionales y secundarias. Si aparecen, su identidad facial NO debe ser visible ni evaluable: preferir espalda, over-the-shoulder, encuadre por debajo de ojos/nariz, rostro completamente fuera de cuadro, oculto por perspectiva o profundidad de campo fuerte, o figura lejana. No usar perfil facial nítido como solución por defecto. Priorizar manos trabajando y postura natural. Evitar retratos, mirada a cámara, rostros completos, grupos posando, sonrisas stock, piel encerada y rasgos AI.
+
+DISPOSITIVOS — solo si aportan al imageIntent. Tablet/laptop/monitor reales y contemporáneos, proporciones correctas, grosor y biseles plausibles, perspectiva consistente, gravedad y contacto físico creíbles. La persona debe sujetar la tablet con agarre anatómico natural y mirar/interactuar con ella; no tablet flotante, sobredimensionada, genérica de plástico ni presentada de frente como cartel. Pantalla con UI operativa sobria, abstracta o ligeramente fuera de foco, reflejos coherentes y sin texto/datos legibles cuando textInImage=false.
+
+MICRODETALLE CONTEXTUAL — seleccionar solo 2–4 señales creíbles relacionadas con la escena, nunca todas ni como decoración aleatoria. Almacén/logística: pliegues y reflejos del stretch film, veta y uniones de pallets, sellos o etiquetas neutras sin texto legible, corrugado y cinta de cajas, juntas/líneas de seguridad del piso, bolardos, andenes y herrajes reales del contenedor. Oficina/treasury: cantos de papel, carpeta, libreta, pluma, cableado discreto, reflejos de ventana, huellas mínimas de uso y objetos de escritorio funcionales. Puerto/comercio: grúas o pilas de contenedores en profundidad, bruma atmosférica leve, agua y metal con reflejos naturales, marcas de uso sutiles sin logos. Los detalles deben reforzar la actividad y crear capas de primer plano, plano medio y fondo; evitar superficies perfectas, repetición clonada y utilería genérica.
+
+Acabado: fotografía hiperrealista editorial B2B, luz disponible natural o softbox integrada en el espacio, rango dinámico realista, contraste moderado, profundidad de campo óptica, textura fotográfica y color grading neutro o levemente cálido. Evitar blanco clínico sobreexpuesto, escenario vacío irreal, CGI/3D, simetría perfecta, manos/dedos deformes, interfaces falsas dominantes, almacén sucio, escena dramática y logos legibles.
+
+### SALIDA infografia
+Elegir uno:
+A. Premium 3D Iconography para servicios, beneficios, estados, procesos, FX, pagos y logística.
+B. Product / Dashboard Mockup cuando el mensaje depende de cuentas multidivisa, balances, treasury, beneficiarios o control de plataforma.
+C. Hybrid Corporate Visual solo cuando fotografía + un elemento gráfico pequeño aporta más claridad; nunca collage.
+
+Default: Premium 3D Iconography. NO flat vector design. Render de producto 3D ultra-clean, una familia visual coherente, cámara isométrica/tres cuartos elevada, lente equivalente 45–70 mm, perspectiva suave, misma escala/luz/material para todos los objetos.
+
+Materiales: cerámica blanca, acrílico mate/satinado, superficies refinadas, bordes redondeados, alta definición y sombras softbox. Sin toy look, inflables, low-poly, plástico barato, vidrio excesivo ni bloom.
+
+Composición: un hero object + máximo 1–3 secundarios; lectura menor a 3 segundos; no mosaico, catálogo, tres tarjetas independientes ni diagrama escolar. Base default sin pedestal. Plataformas blancas bajas solo para ubicación, etapa, status o feature.
+
+### SALIDA mapa_rutas — SISTEMA DUAL
+Elegir exactamente uno:
+A. Global Map / Globe cuando el mensaje depende de países, cobertura, pagos globales o corredor geográfico explícito. Globo blanco, continentes light gray punteados o en relieve, geografía reconocible, 1–2 rutas curvas finas y nodos pequeños. México teal y destino coral solo cuando esos países sean relevantes.
+B. Operational Route Diorama cuando depende de embarque, liquidación, pago, aduana, liberación, contenedor detenido, tiempo o bloqueo. Este es el default para copy como “el contenedor sigue esperando”, “el horario puede cerrar” o “la línea no espera al banco”.
+
+Diorama: una ruta continua con 2–4 hitos físicamente coherentes, por ejemplo puerto/proveedor → buque o tractocamión → aduana/almacén → contenedor/mercancía. Un hero domina. Una sola ruta fina: navy estructura, teal avance y coral único bloqueo. Representa la tensión con UN recurso: badge de pausa, barrera, reloj de arena o último nodo inactivo. No usar todos.
+
+## ANATOMÍA OBLIGATORIA
+- Contenedor ISO: corrugaciones, corner castings, puertas dobles, locking bars, bisagras y bastidor. No caja lisa.
+- Tractocamión: cabina, chasis, quinta rueda, ejes/ruedas correctos y contenedor apoyado. No ruedas duplicadas ni camión de juguete.
+- Portacontenedores: casco, proa/popa, puente, cubierta y pilas ordenadas. No ferry, bañera ni barco infantil.
+- Grúa portuaria: gantry o ship-to-shore reconocible, boom, patas y spreader/cable. No grúa de construcción genérica.
+- Almacén/aduana: arquitectura limpia con andenes/puertas de carga, sin texto/logos.
+- Reloj de arena: cristal limpio, marco blanco y arena coral controlada.
+- Reloj/status: blanco, sin números, agujas navy, segundo/nodo teal; pausa en un único badge coral.
+- Checklist/documento: hoja blanca, bordes redondeados, pocas líneas abstractas y checks; sin párrafos inventados.
+- Globo: esfera blanca, continentes light gray reconocibles, rutas finas, nodos teal y máximo un coral.
+- Wallet/monedas/factura: cuerpo blanco premium, símbolos navy y anillos teal/coral muy finos.
+
+## TEXTO
+Si textInImage = false: prohibido todo texto legible dentro de la imagen: no words, letters, numbers, labels, titles, CTA, country/city names, captions, legends, documents with readable text, dashboard text, logos or watermarks. Permitir solo símbolos universales no tipográficos como check, flecha, candado, pausa y nodos. En dashboards usar módulos abstractos sin palabras ni datos legibles.
+
+Si textInImage = true: incluir SOLO los textos exactos provistos (Headline, Body, CTA y Footer/disclaimer). No inventar etapas, labels, datos, marcas ni frases. Ortografía exacta; no traducir. Headline editorial serif en navy; body/CTA sans-serif limpia. Máximo una frase coral para tensión/problema y una frase teal para solución/beneficio; no colorear más de 25% del headline. Si una receta usa microcopy funcional, solo usar labels proporcionados explícitamente en el copy.
+
+## FUNNEL
+- atraccion: composición más dinámica y contraste alto, sin romper proporciones de marca.
+- conexion: educativa, equilibrada, seria y accesible.
+- conversion: enfocada, directa, un foco coral y espacio claro para CTA.
+
+## NEGATIVE BASE
+Cada negative_instructions debe incluir lo relevante de: fake logos, third-party brands, watermark, gibberish, invented text, misspellings, invented data, clutter, generic Canva infographic, three-column layout, catalog grid, inconsistent camera angles, inconsistent scale, childish toy, inflatable object, cheap plastic, low-poly, malformed container, smooth box without corrugation, wrong container doors, duplicated wheels, deformed truck, malformed ship, construction crane instead of port crane, thick arrows, too many routes, too many pins, excessive navy, excessive teal, excessive coral, neon, crypto, gamer aesthetic.
+
+## OUTPUT
+Devuelve SOLO JSON válido. prompt_final y negative_instructions deben escribirse en inglés, ser autosuficientes y contener sujeto, contexto, modo visual, composición, cámara, materiales, luz, jerarquía, paleta, espacio negativo y restricciones.
+
+{
+  "fotografia": {
+    "prompt_final": "string",
+    "negative_instructions": "string",
+    "aspect_ratio": "{{format}}",
+    "creative_rationale": "string"
+  },
+  "infografia": {
+    "prompt_final": "string",
+    "negative_instructions": "string",
+    "aspect_ratio": "{{format}}",
+    "creative_rationale": "string"
+  },
+  "mapa_rutas": {
+    "prompt_final": "string",
+    "negative_instructions": "string",
+    "aspect_ratio": "{{format}}",
+    "creative_rationale": "string",
+    "corridor_analysis": {
+      "mode": "geographic_corridor | operational_route | global_network | bidirectional_corridor",
+      "flow_type": "payment | goods | bidirectional | network | shipment_status",
+      "origin_country": "string or null",
+      "destination_country": "string or null",
+      "direction": "string or null",
+      "confidence": "high | medium | low",
+      "evidence": "string"
+    }
+  }
+}`;
+
+// Default to V2. Emergency fallback without a code change:
+//   supabase secrets set MASTER_IMAGE_PROMPT_VERSION=v1
+const MASTER_IMAGE_PROMPT_VERSION = Deno.env.get('MASTER_IMAGE_PROMPT_VERSION') === 'v1'
+  ? 'v1'
+  : 'v2';
+const MASTER_IMAGE_PROMPT_FALLBACK = MASTER_IMAGE_PROMPT_VERSION === 'v1'
+  ? MASTER_IMAGE_PROMPT_V1
+  : MASTER_IMAGE_PROMPT_V2;
+const DEFAULT_MASTER_IMAGE_BACKGROUND_STYLE = MASTER_IMAGE_PROMPT_VERSION === 'v1'
+  ? 'navy'
+  : 'white';
+// During the V2 evaluation, code is the deterministic source of truth so an
+// unknown/stale DB row cannot silently override the selected version. Existing
+// DB rows remain untouched and can be re-enabled after approval:
+//   supabase secrets set MASTER_IMAGE_PROMPT_SOURCE=database
+const MASTER_IMAGE_PROMPT_SOURCE = Deno.env.get('MASTER_IMAGE_PROMPT_SOURCE') === 'database'
+  ? 'database'
+  : 'code';
 
 serve(async (req) => {
   console.log('generate-design-image function started');
@@ -428,6 +767,14 @@ async function handleMasterImagePath(
 ): Promise<Response> {
   const { business_id, branch_id, vertical_id, moment_id, userRequest, brand } = requestBody;
   const mode = requestBody.mode ?? 'prompts';
+  const selectedMasterPromptVersion = requestBody.masterPromptVersion ?? MASTER_IMAGE_PROMPT_VERSION;
+  const selectedCodePrompt = requestBody.masterPromptVersion
+    ? (selectedMasterPromptVersion === 'v1' ? MASTER_IMAGE_PROMPT_V1 : MASTER_IMAGE_PROMPT_V2)
+    : MASTER_IMAGE_PROMPT_FALLBACK;
+  const selectedDefaultBackgroundStyle = requestBody.masterPromptVersion
+    ? (selectedMasterPromptVersion === 'v1' ? 'navy' : 'white')
+    : DEFAULT_MASTER_IMAGE_BACKGROUND_STYLE;
+  const effectiveBackgroundStyle = requestBody.backgroundStyle ?? selectedDefaultBackgroundStyle;
 
   // ── mode = "generate": skip prompt building, go straight to image generation ──
   if (mode === 'generate') {
@@ -574,9 +921,19 @@ async function handleMasterImagePath(
     momentDescription = moment?.description ?? null;
   }
 
-  // 5. Fetch image prompt template from DB, fall back to hardcoded
-  const promptTemplate = await fetchMasterPromptByType(supabase, business_id!, 'image')
-    ?? MASTER_IMAGE_PROMPT_FALLBACK;
+  // 5. An explicit per-request version always wins so Design Studio can A/B
+  // V1 and V2 in the same session. DB/global settings apply only when omitted.
+  const hasExplicitPromptVersion = requestBody.masterPromptVersion !== undefined;
+  const shouldUseDatabasePrompt = !hasExplicitPromptVersion
+    && MASTER_IMAGE_PROMPT_SOURCE === 'database';
+  const databasePrompt = shouldUseDatabasePrompt
+    ? await fetchMasterPromptByType(supabase, business_id!, 'image')
+    : null;
+  const promptTemplate = databasePrompt ?? selectedCodePrompt;
+  const promptSource = databasePrompt
+    ? 'database'
+    : `code-${selectedMasterPromptVersion}${hasExplicitPromptVersion ? '-request' : ''}`;
+  console.log(`Master image prompt source: ${promptSource}`);
 
   // 6. Assemble interpolation variables — Image Prompt receives imageIntent
   //    (semantic concept from Content Prompt) + copy context for coherence
@@ -590,6 +947,8 @@ async function handleMasterImagePath(
     imageIntent: requestBody.imageIntent ?? requestBody.imageDirection, // support both during transition
     headline: requestBody.headline,
     body: requestBody.body,
+    cta: requestBody.cta,
+    footer: requestBody.footer,
     angle: requestBody.angle,
     funnelStage: requestBody.funnelStage,
     format: aspectRatio,
@@ -598,8 +957,12 @@ async function handleMasterImagePath(
     visualRestrictions: businessCtx.complianceRules.forbidden_terms.length > 0
       ? businessCtx.complianceRules.forbidden_terms.join(', ')
       : undefined,
-    backgroundStyle: requestBody.backgroundStyle ?? 'navy',
+    backgroundStyle: effectiveBackgroundStyle,
     textInImage: (requestBody.textInImage ?? requestBody.includeText ?? false) ? 'true' : 'false',
+    corridorMode: requestBody.corridorMode ?? 'auto',
+    corridorFlowType: requestBody.corridorFlowType ?? 'auto',
+    corridorOrigin: requestBody.corridorOrigin,
+    corridorDestination: requestBody.corridorDestination,
   };
 
   const interpolatedPrompt = interpolateTemplate(promptTemplate, templateVariables);
@@ -607,7 +970,7 @@ async function handleMasterImagePath(
   // 7. Step 1: Generate all 3 prompts in a single call to gpt-5.4-mini
   console.log('Step 1 (prompts mode): Generating 3 image prompts via gpt-5.4-mini...');
 
-  const step1UserMessage = `Traduce el siguiente imageIntent a los tres prompts técnicos (fotografía, infografía, mapa/rutas). imageIntent: "${requestBody.imageIntent ?? requestBody.imageDirection ?? requestBody.userRequest}". Headline de la pieza: "${requestBody.headline ?? ''}". Estilo de fondo: ${requestBody.backgroundStyle ?? 'navy'}. Texto en imagen: ${(requestBody.textInImage ?? requestBody.includeText ?? false) ? 'true' : 'false'}. Responde SOLO con JSON válido con las claves: fotografia, infografia, mapa_rutas.`;
+  const step1UserMessage = `Traduce el imageIntent a tres prompts técnicos (fotografía, infografía, mapa/rutas). imageIntent: "${requestBody.imageIntent ?? requestBody.imageDirection ?? requestBody.userRequest}". Headline: "${requestBody.headline ?? ''}". Body: "${requestBody.body ?? ''}". CTA: "${requestBody.cta ?? ''}". Fondo: ${effectiveBackgroundStyle}. Texto en imagen: ${(requestBody.textInImage ?? requestBody.includeText ?? false) ? 'true' : 'false'}. Override de corredor: mode=${requestBody.corridorMode ?? 'auto'}, flow=${requestBody.corridorFlowType ?? 'auto'}, origin=${requestBody.corridorOrigin ?? ''}, destination=${requestBody.corridorDestination ?? ''}. Responde SOLO JSON válido con fotografia, infografia y mapa_rutas; mapa_rutas debe incluir corridor_analysis.`;
 
   const step1Response = await fetchWithRetry(
     'https://api.openai.com/v1/chat/completions',
@@ -680,6 +1043,12 @@ async function handleMasterImagePath(
     JSON.stringify({
       prompts: threePrompts,
       aspectRatio,
+      promptMeta: {
+        source: promptSource,
+        version: selectedMasterPromptVersion,
+        backgroundStyle: effectiveBackgroundStyle,
+        corridor: threePrompts.mapa_rutas.corridor_analysis ?? null,
+      },
       // Convenience: tell the caller how to activate each type
       usage: {
         next_step: 'Call this endpoint again with mode="generate", imageType=<type>, promptFinal=<prompts[type].prompt_final>',

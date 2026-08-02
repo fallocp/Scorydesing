@@ -47,7 +47,43 @@ export type ContentMode = 'free' | 'branch' | 'custom';
  * Type of image to generate. Determines the style of the visual element
  * in the mockup (photo, infographic, 3D clay, financial data).
  */
-export type DesignImageType = 'foto' | 'infografia' | '3d_clay' | 'financiero';
+export type DesignImageType = 'foto' | 'infografia' | 'financiero';
+
+/** Versioned master prompt selected per piece for reproducible A/B tests. */
+export type MasterImagePromptVersion = 'v1' | 'v2';
+
+/**
+ * Revision of the effective image-prompt behavior. Persisted with bank items so
+ * prompts built before a style/runtime change are not silently reused.
+ */
+export const DESIGN_STUDIO_IMAGE_PROMPT_REVISION = 'photo-natural-v3' as const;
+
+export type CorridorMode =
+  | 'auto'
+  | 'geographic_corridor'
+  | 'operational_route'
+  | 'global_network'
+  | 'bidirectional_corridor';
+
+export type CorridorFlowType = 'auto' | 'payment' | 'goods' | 'bidirectional';
+
+/** Optional user override; `auto` lets the image prompt infer from copy/context. */
+export interface CorridorOverride {
+  mode: CorridorMode;
+  flowType: CorridorFlowType;
+  originCountry: string;
+  destinationCountry: string;
+}
+
+export interface CorridorAnalysis {
+  mode: Exclude<CorridorMode, 'auto'>;
+  flow_type: Exclude<CorridorFlowType, 'auto'> | 'network' | 'shipment_status';
+  origin_country: string | null;
+  destination_country: string | null;
+  direction: string | null;
+  confidence: 'high' | 'medium' | 'low';
+  evidence: string;
+}
 
 // --- Piece Copy (specific copy for the mockup) ---
 
@@ -73,10 +109,71 @@ export interface PieceImagePrompt {
   prompt: string;
 }
 
+// --- Copy Bank (Design Studio 2-stage flow) ---
+
+/**
+ * How the image for a bank copy is produced:
+ * - 'single': one image (one slot).
+ * - 'carousel': the idea is split into N chained slides (hook/problema/solucion),
+ *   each with its own prompt and image, generated in a queue.
+ */
+export type CopyBankImageMode = 'single' | 'carousel';
+
+/** Render lifecycle for an image slot (drives the sequential queue UI). */
+export type ImageSlotStatus = 'idle' | 'queued' | 'generating' | 'done' | 'error';
+
+/**
+ * One image to render for a bank copy. `single` mode has exactly one slot;
+ * `carousel` mode has one slot per slide.
+ */
+export interface CopyBankImageSlot {
+  id: string;
+  role: 'single' | 'hook' | 'problema' | 'solucion';
+  type: DesignImageType;
+  prompt: string;               // generated image prompt (Stage B)
+  status: ImageSlotStatus;
+  imageBase64?: string;         // populated when status === 'done'
+  error?: string;
+}
+
+/**
+ * Design-Studio-specific payload stored inside `generated_ideas.piece_v2`
+ * (JSONB). Using the existing column avoids a schema migration while marking
+ * the row's origin (`source`) so the pipeline's IdeasPanel can filter it out.
+ * The multichannel render only reads piece_v2 when it has `overlays`+`captions`,
+ * so this shape is never misinterpreted there.
+ */
+export interface DesignStudioIdeaMeta {
+  source: 'design_studio';
+  angleName?: string | null;
+  industryName?: string | null;
+  imageMode: CopyBankImageMode;
+  imageType?: DesignImageType;   // active type for single mode
+  imagePrompt?: string;          // generated prompt for single mode
+  imagePromptRevision?: string;  // invalidates cached prompts after runtime/style changes
+  masterImagePromptVersion?: MasterImagePromptVersion; // exact V1/V2 snapshot used
+  imageBackgroundStyle?: 'navy' | 'light_cream' | 'white' | 'white_2';
+  corridorOverride?: CorridorOverride;
+  corridorAnalysis?: CorridorAnalysis;
+  slots?: CopyBankImageSlot[];   // carousel slots
+  // Feedback loop: 'liked' copies steer new batches (imitate tone), 'disliked'
+  // ones are avoided. A user-corrected+saved copy is auto-marked 'liked'.
+  rating?: 'liked' | 'disliked';
+}
+
+/** Marker string kept in one place so producers and filters never drift. */
+export const DESIGN_STUDIO_SOURCE = 'design_studio' as const;
+
+/** True when a generated_ideas row originated in the Design Studio copy bank. */
+export function isDesignStudioIdea(pieceV2: unknown): boolean {
+  return !!pieceV2 && typeof pieceV2 === 'object'
+    && (pieceV2 as { source?: string }).source === DESIGN_STUDIO_SOURCE;
+}
+
 // --- Visual Selections (Mode A) ---
 
 export interface VisualSelections {
-  background: string | null;    // 'dark-navy' | 'light-cream' | 'color-turquoise' | custom
+  background: string | null;    // white-classic | white-xending-v2 | white-2 | dark-navy | legacy/custom
   visualStyle: string | null;   // 'minimalist' | 'glassmorphism' | 'bold' | 'financial' | 'gradients' | 'hero-photo' | custom
   contentType: string | null;   // 'stat' | 'news' | 'educational' | 'promo' | 'comparison' | 'event' | 'testimonial' | custom
   heroElement: string | null;   // 'big-number' | 'main-photo' | 'icon' | 'floating-badge' | 'no-image' | custom
@@ -101,6 +198,8 @@ export interface VisualSelections {
   // Piece-level copy and image prompt (optional, for full-package mode)
   pieceCopy: PieceCopy | null;
   pieceImagePrompt: PieceImagePrompt | null;
+  // Optional route hints for mapa_rutas. Auto mode infers from copy/context.
+  corridorOverride?: CorridorOverride;
   // When true, the AI bakes the exact headline/CTA into the generated image.
   // When false (default), the image stays text-free and the template overlays copy.
   textInImage: boolean;
@@ -318,6 +417,11 @@ export interface DesignStudioState {
   mockups: GeneratedMockup[];
   selectedMockupIndex: number | null;
 
+  // Copy bank: which candidate (generated_ideas row id) is currently active.
+  // The active candidate's copy is mirrored into selections.pieceCopy so the
+  // Stage-B visual editor and mockup generation consume it unchanged.
+  activeCandidateId: string | null;
+
   // HTML
   currentHtml: string | null;
   htmlHistory: HtmlIteration[];
@@ -356,6 +460,7 @@ export interface DesignStudioActions {
   setPieceImagePrompt(prompt: PieceImagePrompt | null): void;
   setPieceImageType(type: DesignImageType): void;
   setPieceImagePromptText(text: string): void;
+  setCorridorOverride(corridor: CorridorOverride): void;
   setTextInImage(value: boolean): void;
 
   // Reference
@@ -365,6 +470,10 @@ export interface DesignStudioActions {
   // Mockups
   setMockups(mockups: GeneratedMockup[]): void;
   selectMockup(index: number): void;
+  invalidateGeneratedVisuals(): void;
+
+  // Copy bank
+  setActiveCandidate(id: string | null, copy: PieceCopy | null): void;
 
   // HTML
   setCurrentHtml(html: string): void;

@@ -199,6 +199,8 @@ export async function fetchMasterPromptByType(
     .eq("business_id", businessId)
     .eq("prompt_type", promptType)
     .order("version", { ascending: false })
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
     .limit(1)
     .maybeSingle();
 

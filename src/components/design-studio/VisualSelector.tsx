@@ -13,12 +13,12 @@ const CATEGORY_CONFIGS: CategoryConfig[] = [
   {
     id: 'background',
     label: 'Fondo',
-    allowCustom: true,
+    allowCustom: false,
     options: [
-      { value: 'dark-navy', label: 'Oscuro/Navy' },
-      { value: 'light-cream', label: 'Claro/Cream' },
-      { value: 'white-minimal', label: 'Blanco' },
-      { value: 'color-turquoise', label: 'Color/Turquesa' },
+      { value: 'white-classic', label: 'Blanco V1 / Clásico' },
+      { value: 'white-xending-v2', label: 'Blanco Xending V2' },
+      { value: 'white-2', label: 'Blanco 2.0' },
+      { value: 'dark-navy', label: 'Navy' },
     ],
   },
   {
@@ -94,7 +94,14 @@ export function VisualSelector({
    * Maps category id to the corresponding field in VisualSelections.
    */
   function getSelectionValue(categoryId: SelectionCategory): string | null {
-    return selections[categoryId] ?? null;
+    const value = selections[categoryId] ?? null;
+    if (categoryId !== 'background') return value;
+    if (!value) return 'white-xending-v2';
+
+    // Keep restored sessions understandable after renaming the visible choices.
+    if (value === 'white-minimal') return 'white-classic';
+    if (value === 'color-turquoise') return 'dark-navy';
+    return value;
   }
 
   /**

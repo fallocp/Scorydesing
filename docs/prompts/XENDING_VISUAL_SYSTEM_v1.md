@@ -2,6 +2,8 @@
 
 Documento maestro para agentes generadores de imágenes de Xending.
 
+> **Integración runtime:** este archivo define la fuente conceptual del sistema visual, pero la Edge Function no lee Markdown en ejecución. `MASTER_IMAGE_PROMPT_V1` conserva el snapshot anterior y `MASTER_IMAGE_PROMPT_V2` contiene la traducción operativa de este sistema en `supabase/functions/generate-design-image/index.ts`. Durante la evaluación, el runtime usa código por defecto (`MASTER_IMAGE_PROMPT_SOURCE=code`); una fila `master_prompts` con `prompt_type='image'` solo vuelve a tener precedencia al configurar `MASTER_IMAGE_PROMPT_SOURCE=database`. Rollback: `MASTER_IMAGE_PROMPT_VERSION=v1`.
+
 Este sistema define el estilo visual de Xending para piezas de LinkedIn, Instagram, presentaciones, campañas, imágenes corporativas, iconografía 3D, mockups, mapas, globos, comercio internacional, pagos, treasury, FX y financiamiento.
 
 ---
@@ -826,22 +828,28 @@ The result must look like part of a consistent premium fintech 3D icon family.
 ## 20. Prompt base — Corporate Professional Photography
 
 ```text
-Create a premium corporate professional photograph for Xending, a B2B fintech focused on international payments, FX, treasury, financing and global trade.
+Create a premium editorial corporate photograph for Xending, a B2B fintech focused on international payments, FX, treasury, financing and global trade.
 
-Style:
-bright, clean, realistic, institutional, global, executive, modern, premium.
+STYLE
+Photorealistic, natural, operational, institutional and modern. Use the real colors, textures and materials of the selected location: cardboard, wood, steel, concrete, daylight, water, containers and office furniture. A bright style means clean exposure and controlled contrast, not an all-white studio, bleached environment or 3D render.
 
-Scene:
-business operations, logistics, warehouse, port, corporate office, financial dashboard, treasury desk, FX strategy documents, laptop or tablet.
+SCENE AND COMPOSITION
+Choose one credible scene that communicates the brief: warehouse or port operation, executive office, treasury desk, financial documents, cargo, laptop, tablet or monitors. Vary the composition according to the concept: environmental wide shot, medium working shot, over-the-shoulder view, close detail of hands/documents/device, lateral subject or distant figure. Use one narrative focus and reserve clean negative space for copy. Do not default to a centered professional walking with a tablet.
 
-People:
-if people appear, avoid visible faces as the protagonist. Prefer side profiles, back view, cropped faces, hands working, people looking at documents or screens, or professionals seen from distance. Avoid people looking directly at the camera.
+PEOPLE
+People are optional and secondary. If present, do not show an identifiable or evaluable face. Prefer back view, over-the-shoulder framing, crop below the eyes or nose, face fully outside the frame, face hidden by perspective or strong depth of field, hands working, or a distant figure. Do not use a sharp side profile as the default workaround. Natural posture and task interaction; no portraits, direct eye contact, posed groups, stock smiles, waxy skin or AI-looking facial features.
 
-Visual rules:
-white and bright environment, navy suits or neutral wardrobe, clean corporate lighting, organized space, premium composition, space for copy, subtle Xending color accents in turquoise or coral if natural.
+DEVICES
+Include a tablet, laptop or monitor only when it strengthens the concept. Use a real contemporary device with plausible proportions, thickness, bezels, perspective, weight, contact and reflections. A tablet must be held with anatomically natural grip and oriented toward the person using it, never floating, oversized or displayed front-on like a sign. Show a restrained operational interface that is abstract or slightly out of focus, with no readable text or invented data unless exact text was explicitly requested.
 
-Avoid:
-stock-photo smiles, frontal portraits, artificial AI-looking faces, chaotic warehouses, dirty industrial look, overly dramatic lighting, crypto style, neon, excessive saturation, logos or readable brand names.
+LIGHT AND COLOR
+Use natural available light or softbox light integrated into the real location, realistic dynamic range, moderate contrast, optical depth of field, photographic texture and neutral or slightly warm color grading. Navy or neutral wardrobe is welcome. Teal/coral accents appear only when physically plausible and never recolor the entire scene.
+
+CONTEXTUAL MICRODETAILS
+Select only 2–4 credible operational cues for the chosen scene; never include all of them or use random decoration. Warehouse/logistics: stretch-wrap folds and reflections, pallet wood grain and joints, neutral unreadable labels, cardboard corrugation and tape, floor seams or safety lines, bollards, loading docks and real container hardware. Office/treasury: paper edges, folder, notebook, pen, restrained cable management, window reflections and minimal signs of use. Port/trade: distant cranes or container stacks, slight atmospheric haze, natural water/metal reflections and controlled wear without logos. Use these cues to create foreground, middle-ground and background depth. Avoid flawless surfaces, cloned repetition and generic props.
+
+AVOID
+all-white clinical set, blown highlights, fake empty warehouse, CGI, 3D render, perfect synthetic symmetry, repeated stock composition, frontal or visible faces, sharp facial profile, malformed hands or fingers, floating or toy-like tablet, fake dominant UI, flawless unused surfaces, cloned boxes or pallets, random decorative clutter, chaotic or dirty industrial scene, dramatic cinematic darkness, crypto/neon look, logos and readable brand names.
 ```
 
 ---

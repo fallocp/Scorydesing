@@ -52,6 +52,7 @@ import {
   useUpdateIdeaStatus,
 } from '@/hooks/useGeneratedIdeas';
 import type { GeneratedIdeaRow } from '@/hooks/useGeneratedIdeas';
+import { isDesignStudioIdea } from '@/types/design-studio';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
@@ -133,8 +134,11 @@ function XendingDesignPage() {
   const [showPromptEditor, setShowPromptEditor] = useState(false);
   const [showBranchConfig, setShowBranchConfig] = useState(false);
 
-  // Persisted ideas hooks
-  const { data: persistedIdeas = [] } = useGeneratedIdeas(selectedBranch?.id);
+  // Persisted ideas hooks. Exclude Design-Studio-origin rows: they share the
+  // `generated_ideas` table but belong to the Design Studio copy bank, not this
+  // pipeline's idea panel.
+  const { data: allPersistedIdeas = [] } = useGeneratedIdeas(selectedBranch?.id);
+  const persistedIdeas = allPersistedIdeas.filter((i) => !isDesignStudioIdea(i.piece_v2));
   const saveIdeas = useSaveGeneratedIdeas();
   const deleteIdea = useDeleteGeneratedIdea();
   const deleteAllIdeas = useDeleteAllGeneratedIdeas();

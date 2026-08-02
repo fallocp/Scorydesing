@@ -269,6 +269,7 @@ function buildGenerationPrompt(
   learnedPreferencesSection?: string,
 ): string {
   const sections: string[] = [];
+  const isPhotography = pieceImagePrompt?.type === 'foto';
 
   // Section 1: Role and objective
   const brandDesc = businessName || 'Xending';
@@ -286,18 +287,23 @@ Generate a COMPLETE, FINISHED advertising piece — not just a background. The o
 - A small disclaimer/legal text at the bottom as light gray text on white (NOT inside a navy/dark band)
 - Professional layout with clear visual hierarchy
 
-XENDING VISUAL SYSTEM (apply to every mockup):
-- Surface balance: ~85% white/very light gray, navy for text and thin lines, and only ~3% TOTAL accent color (mint + coral COMBINED). White dominates; navy is the workhorse; accent color is RARE.
+XENDING VISUAL SYSTEM:
+${isPhotography ? `PHOTOGRAPHY MODE — THIS OVERRIDES ALL GENERIC WHITE/3D RULES:
+- The hero visual is a real editorial photograph occupying roughly 50–70% of the ad or used as a purposeful full-bleed scene with a clean copy area. White belongs to the editorial copy area, not as an artificial all-white warehouse/office/port.
+- Preserve believable location colors and materials: cardboard, pallet wood, steel, concrete, water, sky, furniture and naturally colored containers. Use neutral or slightly warm photographic grading, realistic dynamic range and optical depth.
+- ABSOLUTELY NO 3D render, clay object, icon, illustration, miniature, CGI machinery or synthetic product render anywhere in the main visual.
+- People are optional and secondary. If present, no identifiable/evaluable face: use back view, over-the-shoulder, face fully outside frame/hidden/strongly defocused, hands at work or a distant figure. No frontal face, no sharp profile, no posed walking team.
+- Select only 2–4 contextual microdetails: stretch-wrap folds, pallet joints, box tape, floor seams, loading-dock hardware, paper edges, notebook/pen, restrained cables, window reflections, distant cranes or atmospheric haze. No cloned props or random clutter.
+- A tablet/laptop appears only if the scene requires it, with correct scale, bezels, grip, perspective and reflections; screen content stays abstract or softly defocused.` : `GRAPHIC / 3D MODE:
+- Surface balance: ~85% white/very light gray, navy for text and thin lines, and only ~3% TOTAL accent color (mint + coral COMBINED). White dominates; navy is the workhorse; accent color is rare.
+- Prefer premium 3D icons/objects in satin white ceramic or matte acrylic, rounded edges, clean geometry and soft studio shadows. Navy for structure, thin mint accent and coral micro-detail only. Never toy-like, plastic, inflatable, metallic-heavy or crypto.`}
 - TEXT AND ICONS DEFAULT TO NAVY #0F1419 (not black, not colored). Headlines, body, labels, step numbers (1/2/3), checkmarks and MOST icons are NAVY or neutral gray — do NOT tint them turquoise/coral.
-- ACCENTS ARE SCARCE (KEY RULE): mint turquoise #2ED4C7 and coral #FF7A4A appear on AT MOST 2-3 small elements in the WHOLE piece (e.g., one accent word in the headline + one status highlight). NEVER color every icon, number or check — that looks saturated and off-brand. Aim for ~20% of the color you would normally add.
+- ACCENTS ARE SCARCE (KEY RULE): mint turquoise #2ED4C7 and coral #FF7A4A appear on AT MOST 2-3 small elements in the WHOLE piece. NEVER color every icon, number or check.
 - Navy is text/thin structure only: NO navy footer band, NO navy-filled buttons on white.
-- CTA button: ONE subtle treatment only — a navy outline with navy text, OR a single coral fill. NOT a fully turquoise button. Only ONE prominent colored element in the whole piece.
-- CONTENT ACCURACY: the recipient RECEIVES the full amount sent. Do NOT depict "sends 10,000, receives 9,500" as a deduction from the received amount — that is factually wrong. If showing a cost comparison, the hidden cost lives in the EXCHANGE RATE (spread) the client doesn't notice and in recurring FLAT FEES (~$35-40 per transfer) that add up over many transfers. Do not invent guarantees or specific savings percentages.
-- Premium, clean, editorial B2B fintech. Airy layout, generous negative space, ONE clear idea, clear visual hierarchy, readable in under 3 seconds.
-- Soft neutral studio lighting, delicate shadows. No drama, no dark scenes.
-- 3D icons/objects: PREFER premium 3D icons (satin white ceramic or matte acrylic, rounded edges, clean geometry, soft studio shadow) over flat 2D line icons — this is the target look. Navy #0F1419 for structural symbols/letters/checks/arrows, thin mint accent, coral micro-detail only. Refined premium financial object — never toy-like, plastic, inflatable, metallic-heavy or crypto.
-- PEOPLE: avoid AI-looking faces. Do NOT put a visible protagonic face (AI faces look fake and kill trust). Prefer hands, over-the-shoulder, back or side view, cropped faces, or focus entirely on the product/objects/scene. If a person appears, the face is not the subject.
-- Avoid: crypto/neon/gamer look, cartoon, cluttered composition, too many icons, heavy visible gradients, oversaturated color, dirty industrial look, dark dominant backgrounds, colored tints/gradients/glows in the background corners or edges (keep the background flat and clean).`);
+- CTA button: ONE subtle treatment only — a navy outline with navy text, OR a single coral fill. NOT a fully turquoise button.
+- CONTENT ACCURACY: the recipient RECEIVES the full amount sent. Do NOT depict "sends 10,000, receives 9,500" as a deduction. If showing cost, place it in exchange-rate spread or recurring flat fees; do not invent guarantees or savings percentages.
+- Premium, clean, editorial B2B fintech. One clear idea and generous intentional negative space.
+- Avoid: crypto/neon/gamer look, cartoon, clutter, heavy gradients, oversaturated color, dirty industrial look and dark dominant backgrounds.`);
 
   // Section 2: Design Specifications
   const selectionLines: string[] = [];
@@ -310,6 +316,9 @@ XENDING VISUAL SYSTEM (apply to every mockup):
       'color-turquoise': 'Turquoise/teal gradient background',
     };
     selectionLines.push(`Background: ${bgMap[selections.background] || selections.background}`);
+    if (isPhotography) {
+      selectionLines.push('Photography background exception: the selected background controls only the ad copy surface and overall exposure. It MUST NOT recolor, bleach or replace the real photographed environment. The photo keeps natural location colors and materials.');
+    }
   }
   if (selections.visualStyle) {
     const styleMap: Record<string, string> = {
@@ -433,7 +442,7 @@ XENDING VISUAL SYSTEM (apply to every mockup):
 
   if (pieceImagePrompt?.type) {
     const mediumByType: Record<string, string> = {
-      'foto': 'hyper-realistic editorial PHOTOGRAPHY — a real photographed business/operational scene (office, treasury desk, warehouse, port, logistics, laptop with dashboard), natural light and real materials. It is a PHOTO: NOT a 3D render, NOT an illustration, NOT icons. People: no protagonic AI faces (hands, back/side view, cropped, or focus on objects).',
+      'foto': 'AUTHORITATIVE PHOTOGRAPHY ONLY. Use a large hyper-realistic editorial photograph as the hero, occupying roughly 50–70% of the ad or as purposeful full bleed with a clean copy zone. Depict a real operational scene in an office, treasury desk, warehouse, port or logistics environment with natural light, real materials, contextual microdetails and optical depth. Preserve natural scene colors; do not bleach the environment white. People are optional; if present, their face must be fully outside frame, hidden, seen from behind/over-the-shoulder, strongly defocused or too distant to evaluate. ABSOLUTELY NO 3D render, clay object, illustration, icon, CGI machine, visible face, sharp side profile or posed walking team.',
       'infografia': 'a clean INFOGRAPHIC built with premium 3D Xending icons (satin white ceramic objects, soft shadows) plus minimal flat elements/arrows on white. Few elements, clear hierarchy. NOT a photograph.',
       '3d_clay': 'premium 3D ICONOGRAPHY in the Xending master style — satin white ceramic / matte acrylic 3D objects on a white studio background, rounded edges, soft shadows, navy symbols, tiny mint/coral accents. NOT a photograph, NOT flat 2D.',
       'financiero': 'a clean FINANCIAL visualization — a laptop/monitor dashboard or simple charts/tickers, premium and legible, on white, navy UI with tiny mint/coral accents. NOT a dark trading screen, NOT a photo of a person.',
@@ -451,11 +460,17 @@ XENDING VISUAL SYSTEM (apply to every mockup):
   }
 
   // Section 5: Variation and quality instructions
-  const variationHints = [
-    'Layout A: Split layout — text on left, visual element on right. Bold headline with italic accent words in secondary color.',
-    'Layout B: Centered composition — hero visual in the middle, headline above, CTA below. Use gradient mesh background.',
-    'Layout C: Full-bleed visual with overlay card — text in a semi-transparent card floating over the image. Modern glassmorphism feel.',
-  ];
+  const variationHints = isPhotography
+    ? [
+        'Photo layout A: Editorial split — exact copy in a clean white area on the left; a large natural operational photograph on the right. The photograph keeps real location colors and materials.',
+        'Photo layout B: Full-bleed documentary photograph with one calm, high-contrast editorial copy panel. Keep the face fully hidden or out of frame.',
+        'Photo layout C: Wide environmental photograph with copy in genuine negative space; use foreground/mid-ground/background depth and no synthetic 3D objects.',
+      ]
+    : [
+        'Layout A: Split layout — text on left, visual element on right. Bold headline with italic accent words in secondary color.',
+        'Layout B: Centered composition — hero visual in the middle, headline above, CTA below. Use a clean light background.',
+        'Layout C: Editorial composition with one hero object, text on the opposite side and generous whitespace.',
+      ];
 
   const instructions = [
     `VARIATION: ${variationHints[variationIndex % variationHints.length]}`,

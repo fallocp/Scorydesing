@@ -8,6 +8,7 @@ import { devtools } from 'zustand/middleware';
 import type {
   BrandPalette,
   ContentMode,
+  CorridorOverride,
   DesignImageType,
   DesignSession,
   DesignSessionStatus,
@@ -41,6 +42,12 @@ const initialSelections: VisualSelections = {
   industryAuto: false,
   pieceCopy: null,
   pieceImagePrompt: null,
+  corridorOverride: {
+    mode: 'auto',
+    flowType: 'auto',
+    originCountry: '',
+    destinationCountry: '',
+  },
   textInImage: false,
 };
 
@@ -70,6 +77,9 @@ const initialState = {
   // Generated mockups
   mockups: [] as GeneratedMockup[],
   selectedMockupIndex: null as number | null,
+
+  // Copy bank: active candidate row id
+  activeCandidateId: null as string | null,
 
   // HTML
   currentHtml: null as string | null,
@@ -105,7 +115,14 @@ export const useDesignStudioStore = create<DesignStudioStore>()(
             sessionId: session.id,
             sessionStatus: session.status,
             inputMode: session.input_mode,
-            selections: session.selections ?? { ...initialSelections },
+            selections: session.selections
+              ? {
+                  ...initialSelections,
+                  ...session.selections,
+                  corridorOverride: session.selections.corridorOverride
+                    ?? initialSelections.corridorOverride,
+                }
+              : { ...initialSelections },
             referenceImagePreview: session.reference_image_url,
             referenceDescription: session.reference_description ?? '',
             selectedPlatform: session.platform,
@@ -298,6 +315,15 @@ export const useDesignStudioStore = create<DesignStudioStore>()(
           'setPieceImagePromptText'
         ),
 
+      setCorridorOverride: (corridor: CorridorOverride) =>
+        set(
+          (state) => ({
+            selections: { ...state.selections, corridorOverride: corridor },
+          }),
+          false,
+          'setCorridorOverride'
+        ),
+
       setTextInImage: (value: boolean) =>
         set(
           (state) => ({
@@ -327,6 +353,30 @@ export const useDesignStudioStore = create<DesignStudioStore>()(
 
       selectMockup: (index: number) =>
         set({ selectedMockupIndex: index }, false, 'selectMockup'),
+
+      invalidateGeneratedVisuals: () =>
+        set(
+          {
+            mockups: [],
+            selectedMockupIndex: null,
+            currentHtml: null,
+            htmlHistory: [],
+            iterationCount: 0,
+          },
+          false,
+          'invalidateGeneratedVisuals'
+        ),
+
+      // --- Copy bank ---
+      setActiveCandidate: (id: string | null, copy: PieceCopy | null) =>
+        set(
+          (state) => ({
+            activeCandidateId: id,
+            selections: { ...state.selections, pieceCopy: copy },
+          }),
+          false,
+          'setActiveCandidate'
+        ),
 
       // --- HTML ---
       setCurrentHtml: (html: string) =>
