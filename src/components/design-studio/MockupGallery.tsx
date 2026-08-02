@@ -3,8 +3,9 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Plus, Trash2, Download, Maximize2, X, RefreshCw, Send } from 'lucide-react'
+import { Plus, Trash2, Download, Maximize2 } from 'lucide-react'
 import type { GeneratedMockup } from '@/types/design-studio'
+import { MockupSlideViewer, type MockupSlideItem } from './MockupSlideViewer'
 
 export interface MockupGalleryProps {
   mockups: GeneratedMockup[]
@@ -53,55 +54,48 @@ export function MockupGallery({
     return null
   }
 
+  const slideItems: MockupSlideItem[] = mockups.map((mockup) => ({
+    id: String(mockup.index),
+    src: `data:image/png;base64,${mockup.image_base64}`,
+    downloadName: `mockup-${mockup.index + 1}.png`,
+  }))
+
   return (
     <>
-      {/* Lightbox / Expanded view */}
+      {/* Slide viewer — navigate the session mockups with ← / → */}
       {expandedIndex !== null && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
-          onClick={() => setExpandedIndex(null)}
-          role="dialog"
-          aria-label="Vista ampliada del mockup"
-        >
-          <div className="relative max-h-[90vh] max-w-[90vw]" onClick={(e) => e.stopPropagation()}>
-            <img
-              src={`data:image/png;base64,${mockups.find(m => m.index === expandedIndex)?.image_base64}`}
-              alt={`Mockup ${expandedIndex + 1} ampliado`}
-              className="max-h-[85vh] max-w-full rounded-lg object-contain shadow-2xl"
-            />
-            <div className="absolute top-3 right-3 flex gap-2">
-              <Button
-                size="icon"
-                variant="secondary"
-                className="h-9 w-9 rounded-full bg-white/90 hover:bg-white shadow"
+        <MockupSlideViewer
+          items={slideItems}
+          index={expandedIndex}
+          onIndexChange={setExpandedIndex}
+          onClose={() => setExpandedIndex(null)}
+          renderActions={(_item, i) => {
+            const mockup = mockups[i]
+            if (!mockup || disabled) return null
+            return (
+              <button
+                type="button"
                 onClick={() => {
-                  const mockup = mockups.find(m => m.index === expandedIndex)
-                  if (mockup) downloadMockup(mockup)
+                  onSelect(mockup.index)
+                  setExpandedIndex(null)
                 }}
-                title="Descargar"
+                className={cn(
+                  'h-10 rounded-full px-4 text-sm font-medium transition',
+                  selectedIndex === mockup.index
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-white/10 text-white hover:bg-white/20',
+                )}
               >
-                <Download className="h-4 w-4" />
-              </Button>
-              <Button
-                size="icon"
-                variant="secondary"
-                className="h-9 w-9 rounded-full bg-white/90 hover:bg-white shadow"
-                onClick={() => setExpandedIndex(null)}
-                title="Cerrar"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-            <p className="text-center text-white/70 text-xs mt-3">
-              Mockup {expandedIndex + 1} de {mockups.length}
-            </p>
-          </div>
-        </div>
+                {selectedIndex === mockup.index ? 'Seleccionado' : 'Seleccionar'}
+              </button>
+            )
+          }}
+        />
       )}
 
       <div className="space-y-4">
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-          {mockups.map((mockup) => (
+          {mockups.map((mockup, mockupIndex) => (
             <div
               key={mockup.index}
               className={cn(
@@ -130,19 +124,19 @@ export function MockupGallery({
               <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button
                   type="button"
-                  onClick={() => setExpandedIndex(mockup.index)}
-                  className="h-7 w-7 flex items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80 transition"
+                  onClick={() => setExpandedIndex(mockupIndex)}
+                  className="h-9 w-9 flex items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80 transition"
                   title="Ampliar"
                 >
-                  <Maximize2 className="h-3.5 w-3.5" />
+                  <Maximize2 className="h-4 w-4" />
                 </button>
                 <button
                   type="button"
                   onClick={() => downloadMockup(mockup)}
-                  className="h-7 w-7 flex items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80 transition"
+                  className="h-9 w-9 flex items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80 transition"
                   title="Descargar"
                 >
-                  <Download className="h-3.5 w-3.5" />
+                  <Download className="h-4 w-4" />
                 </button>
               </div>
 
