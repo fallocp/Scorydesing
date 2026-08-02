@@ -16,6 +16,7 @@ import {
   Facebook,
   Linkedin,
   RectangleHorizontal,
+  Stamp,
   type LucideIcon,
 } from 'lucide-react'
 import { useState } from 'react'
@@ -23,14 +24,24 @@ import type { SavedMockup } from '@/hooks/useDesignMockups'
 import { useLikeMockup, useDislikeMockup, useRecentFeedback } from '@/hooks/useDesignFeedback'
 import { MockupIterationChat } from './MockupIterationChat'
 import { MockupSlideViewer, type MockupSlideItem } from './MockupSlideViewer'
+import { BrandLayerDialog } from './BrandLayerDialog'
 
-/** Icon + short label per platform, shown on the thumbnail badge. */
-const PLATFORM_META: Record<string, { label: string; Icon: LucideIcon }> = {
-  'instagram-story': { label: 'IG Story', Icon: Instagram },
-  'instagram-post': { label: 'IG Post', Icon: Instagram },
-  'facebook-post': { label: 'Facebook', Icon: Facebook },
-  'linkedin-post': { label: 'LinkedIn', Icon: Linkedin },
-  banner: { label: 'Banner', Icon: RectangleHorizontal },
+/**
+ * Icon, short label and thumbnail aspect per platform.
+ *
+ * `aspect` mirrors the exact size the backend asks the image model for
+ * (`platformToSize` in generate-design-mockups): story 1024x1536 (2:3),
+ * IG post 1024x1024 (1:1), LinkedIn/Facebook/banner 1536x1024 (3:2).
+ * Matching the box to that ratio removes the letterboxing. `object-contain`
+ * stays as the safety net so an old mockup with a different ratio is shown
+ * whole instead of cropped.
+ */
+const PLATFORM_META: Record<string, { label: string; Icon: LucideIcon; aspect: string }> = {
+  'instagram-story': { label: 'IG Story', Icon: Instagram, aspect: 'aspect-[2/3]' },
+  'instagram-post': { label: 'IG Post', Icon: Instagram, aspect: 'aspect-square' },
+  'facebook-post': { label: 'Facebook', Icon: Facebook, aspect: 'aspect-[3/2]' },
+  'linkedin-post': { label: 'LinkedIn', Icon: Linkedin, aspect: 'aspect-[3/2]' },
+  banner: { label: 'Banner', Icon: RectangleHorizontal, aspect: 'aspect-[3/2]' },
 }
 
 function platformMeta(platform: string) {
@@ -38,6 +49,7 @@ function platformMeta(platform: string) {
     PLATFORM_META[platform] ?? {
       label: platform.replace(/-/g, ' '),
       Icon: RectangleHorizontal,
+      aspect: 'aspect-square',
     }
   )
 }
@@ -61,6 +73,7 @@ export function SavedMockupsGrid({
 }: SavedMockupsGridProps) {
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
   const [iteratingMockup, setIteratingMockup] = useState<SavedMockup | null>(null)
+  const [brandingMockup, setBrandingMockup] = useState<SavedMockup | null>(null)
   const { data: feedbackMap } = useRecentFeedback()
   const likeMutation = useLikeMockup()
   const dislikeMutation = useDislikeMockup()
@@ -130,6 +143,18 @@ export function SavedMockupsGrid({
             const feedback = feedbackMap?.get(mockup.id)
             return (
               <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setExpandedIndex(null)
+                    setBrandingMockup(mockup)
+                  }}
+                  className="flex h-10 items-center gap-1.5 rounded-full bg-white/10 px-4 text-sm font-medium text-white transition hover:bg-white/20"
+                  title="Montar logo y disclaimer"
+                >
+                  <Stamp className="h-4 w-4" />
+                  Montar marca
+                </button>
                 {onIterateFrom && (
                   <button
                     type="button"
@@ -177,6 +202,14 @@ export function SavedMockupsGrid({
         />
       )}
 
+      {/* Brand layer — logo, disclaimer and optional person over the mockup */}
+      {brandingMockup && (
+        <BrandLayerDialog
+          mockup={brandingMockup}
+          onClose={() => setBrandingMockup(null)}
+        />
+      )}
+
       {/* Iteration Chat Modal */}
       {iteratingMockup && onIterateFrom && (
         <MockupIterationChat
@@ -201,12 +234,18 @@ export function SavedMockupsGrid({
             Clic para seleccionar · ⤢ abre el visor y navegas con ← →
           </p>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        {/* items-start: tiles keep their own height (a story is taller than a
+            square post) instead of stretching to the tallest one in the row. */}
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 items-start">
           {mockups.map((mockup, mockupIndex) => {
             const feedback = feedbackMap?.get(mockup.id)
             const isLiked = feedback === 'like'
             const isDisliked = feedback === 'dislike'
-            const { label: platformLabel, Icon: PlatformIcon } = platformMeta(mockup.platform)
+            const {
+              label: platformLabel,
+              Icon: PlatformIcon,
+              aspect: platformAspect,
+            } = platformMeta(mockup.platform)
 
             return (
               <div
@@ -221,12 +260,10 @@ export function SavedMockupsGrid({
                 )}
                 onClick={() => onSelect(mockup)}
               >
-                {/* object-contain: mockups have different aspect ratios per
-                    platform, cropping was cutting headlines off. */}
                 <img
                   src={mockup.image_url}
                   alt={`Mockup ${platformLabel}`}
-                  className="w-full object-contain aspect-[4/5] bg-muted/40"
+                  className={cn('w-full object-contain bg-muted/40', platformAspect)}
                   loading="lazy"
                 />
 
@@ -253,6 +290,17 @@ export function SavedMockupsGrid({
 
                 {/* Bottom right: Like/Dislike + Iterate */}
                 <div className="absolute bottom-2 right-2 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setBrandingMockup(mockup)
+                    }}
+                    className="h-9 w-9 flex items-center justify-center rounded-full bg-black/60 text-white hover:bg-primary/80 transition"
+                    title="Montar marca"
+                  >
+                    <Stamp className="h-4 w-4" />
+                  </button>
                   {onIterateFrom && (
                     <button
                       type="button"

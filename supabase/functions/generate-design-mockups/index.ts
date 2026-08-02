@@ -284,7 +284,7 @@ Generate a COMPLETE, FINISHED advertising piece — not just a background. The o
 - A bold headline text (short, impactful, in Spanish)
 - A supporting body text or subcopy (1-2 lines, in Spanish)
 - A clear CTA button with text (in Spanish)
-- A small disclaimer/legal text at the bottom as light gray text on white (NOT inside a navy/dark band)
+- Clean empty negative space reserved as a horizontal band along the BOTTOM of the piece for legal text to be added LATER. Do NOT write any disclaimer, legal note, terms, fine print or small text there — leave it blank, light and uniform, with no objects, lines or dark band crossing it.
 - Professional layout with clear visual hierarchy
 
 XENDING VISUAL SYSTEM:
@@ -303,7 +303,7 @@ ${isPhotography ? `PHOTOGRAPHY MODE — THIS OVERRIDES ALL GENERIC WHITE/3D RULE
 - CTA button: ONE subtle treatment only — a navy outline with navy text, OR a single coral fill. NOT a fully turquoise button.
 - CONTENT ACCURACY: the recipient RECEIVES the full amount sent. Do NOT depict "sends 10,000, receives 9,500" as a deduction. If showing cost, place it in exchange-rate spread or recurring flat fees; do not invent guarantees or savings percentages.
 - Premium, clean, editorial B2B fintech. One clear idea and generous intentional negative space.
-- Avoid: crypto/neon/gamer look, cartoon, clutter, heavy gradients, oversaturated color, dirty industrial look and dark dominant backgrounds.`);
+- Avoid: crypto/neon/gamer look, cartoon, clutter, heavy gradients, oversaturated color, dirty industrial look, dark dominant backgrounds, and any printed legal text, disclaimer or fine print.`);
 
   // Section 2: Design Specifications
   const selectionLines: string[] = [];
@@ -483,7 +483,7 @@ ${isPhotography ? `PHOTOGRAPHY MODE — THIS OVERRIDES ALL GENERIC WHITE/3D RULE
     '- Use ONLY the brand colors specified — no other colors',
     '- Make it look premium, modern, and ready for paid advertising on social media',
     '- The overall quality should match top-tier fintech brands like Stripe, Wise, or Mercury',
-    `- Include a small legal disclaimer at the very bottom: "${brandPalette.disclaimer || 'Aplican términos y condiciones.'}"`,
+    `- Do NOT write any legal disclaimer, terms, fine print or small legal text. Leave a clean, blank horizontal band along the very bottom of the piece as reserved space for legal text that is composited LATER.`,
     `- Do NOT include any logo, wordmark, brand name, symbol or icon anywhere in the image (it will be added later). Keep the top-left/top-center as clean negative space reserved for it.`,
   ];
 
@@ -516,7 +516,7 @@ The output must be a real, publishable ad — not just a background. Include:
 - Bold headline in Spanish (4-8 words, with accent color on 1-2 key words)
 - Supporting subcopy (1-2 lines in Spanish)
 - CTA button with text in Spanish
-- Small disclaimer at the bottom
+- Clean empty band along the BOTTOM reserved for legal text added LATER (do NOT write any disclaimer, terms or fine print there — leave it blank and uniform)
 - Professional layout with clear visual hierarchy`);
 
   // Section 2: Reference context
