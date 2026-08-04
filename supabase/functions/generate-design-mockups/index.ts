@@ -280,11 +280,11 @@ function buildGenerationPrompt(
   sections.push(`You are a senior advertising creative director designing a complete social media ad mockup for the brand "${brandDesc}".${contextLine}
 
 Generate a COMPLETE, FINISHED advertising piece — not just a background. The output must look like a real ad ready to publish, including:
-- Clean empty negative space reserved in the top-left or top-center for a logo to be added LATER. Do NOT draw any logo, wordmark, brand name, symbol or icon there — leave it blank.
+- The top-left / top-center area kept clear for a logo composited LATER: the background continues through it completely unchanged, same exact color, tone, texture and lighting as the surrounding background. Do NOT draw a panel, box, card, band, border, gradient or any tonal shift there, and do NOT draw a logo, wordmark, brand name, symbol or icon. It stays empty background.
 - A bold headline text (short, impactful, in Spanish)
 - A supporting body text or subcopy (1-2 lines, in Spanish)
 - A clear CTA button with text (in Spanish)
-- Clean empty negative space reserved as a horizontal band along the BOTTOM of the piece for legal text to be added LATER. Do NOT write any disclaimer, legal note, terms, fine print or small text there — leave it blank, light and uniform, with no objects, lines or dark band crossing it.
+- The bottom strip of the piece (about 12% of the height) kept clear for legal text composited LATER: the background continues through it completely unchanged, same exact color, tone, texture and lighting as the background directly above it, with NO visible boundary where it begins. Do NOT draw a band, footer, bar, panel, divider line, border, gradient or any tonal change, and do NOT place objects there. Do NOT write any disclaimer, legal note, terms, fine print or small text. It stays empty background.
 - Professional layout with clear visual hierarchy
 
 XENDING VISUAL SYSTEM:
@@ -483,8 +483,8 @@ ${isPhotography ? `PHOTOGRAPHY MODE — THIS OVERRIDES ALL GENERIC WHITE/3D RULE
     '- Use ONLY the brand colors specified — no other colors',
     '- Make it look premium, modern, and ready for paid advertising on social media',
     '- The overall quality should match top-tier fintech brands like Stripe, Wise, or Mercury',
-    `- Do NOT write any legal disclaimer, terms, fine print or small legal text. Leave a clean, blank horizontal band along the very bottom of the piece as reserved space for legal text that is composited LATER.`,
-    `- Do NOT include any logo, wordmark, brand name, symbol or icon anywhere in the image (it will be added later). Keep the top-left/top-center as clean negative space reserved for it.`,
+    `- Do NOT write any legal disclaimer, terms, fine print or small legal text anywhere. The bottom 12% stays empty background for legal text composited later: same exact background color and tone as above it, no band, no footer, no bar, no divider, no tonal shift and no visible edge where it starts.`,
+    `- Do NOT include any logo, wordmark, brand name, symbol or icon anywhere in the image (it will be added later). The top-left/top-center stays empty background for it: no panel, no box, no card, no tonal shift.`,
   ];
 
   sections.push(instructions.join('\n'));
@@ -512,11 +512,11 @@ function buildReferencePrompt(
   sections.push(`You are a senior advertising creative director. Generate a COMPLETE, FINISHED social media ad mockup for "${brandDesc}" inspired by a reference image.${contextLine}
 
 The output must be a real, publishable ad — not just a background. Include:
-- Clean empty negative space in the top-left or top-center reserved for a logo to be added LATER (do NOT draw any logo, wordmark, brand name, symbol or icon there)
+- The top-left / top-center kept clear for a logo composited LATER: background continues unchanged, no panel, box, card or tonal shift, and no logo, wordmark, brand name, symbol or icon drawn there
 - Bold headline in Spanish (4-8 words, with accent color on 1-2 key words)
 - Supporting subcopy (1-2 lines in Spanish)
 - CTA button with text in Spanish
-- Clean empty band along the BOTTOM reserved for legal text added LATER (do NOT write any disclaimer, terms or fine print there — leave it blank and uniform)
+- The bottom 12% kept clear for legal text composited LATER: background continues unchanged with the same exact color and tone as above it, no band, footer, bar, divider or visible edge, and no disclaimer, terms or fine print written
 - Professional layout with clear visual hierarchy`);
 
   // Section 2: Reference context
