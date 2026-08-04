@@ -388,7 +388,7 @@ DIRECCIÓN POR TIPO DE ESCENA
 
 SENSACIÓN FINAL: limpio, luminoso, premium, confiable, moderno, tecnológico. Campaña B2B clara y aireada. NO oscuro, NO navy dominante, NO cripto, NO gamer, NO cartoon, NO sobrecargado, NO sucio.
 
-NEGATIVE (añadir a negative_instructions de cada tipo cuando el estilo sea white): dark background, navy background, navy-tinted objects, grey dirty background, heavy shadows, moody lighting, low-key lighting, black background, saturated colors, neon, too many accent colors, too many icons, overloaded scene, cluttered composition, cream or yellow tint, dirty textures, wrong brand colors, excessive coral, excessive turquoise.
+NEGATIVE (añadir a negative_instructions de cada tipo cuando el estilo sea white): dark background, navy background, navy-tinted objects, grey dirty background, heavy shadows, moody lighting, low-key lighting, black background, saturated colors, neon, too many accent colors, too many icons, overloaded scene, cluttered composition, cream or yellow tint, dirty textures, wrong brand colors, excessive coral, excessive turquoise, featureless white blobs, detail-free surfaces, objects without structural line work, smooth undefined shapes, objects floating without contact shadow.
 
 ### white_2  (estilo "White 2.0" — premium actual con menos navy, más aireado)
 Punto medio entre el navy premium y el white limpio: conserva el ADN premium/editorial y la riqueza de materiales del estilo navy (graphite, acero, profundidad, contraste), pero sobre una base CLARA en lugar de oscura. El navy deja de dominar y pasa a ser, como mucho, un acento menor. NO llevar logo de ninguna marca.
@@ -415,7 +415,7 @@ DIRECCIÓN POR TIPO DE ESCENA
 
 SENSACIÓN FINAL: premium, sólido, editorial y tecnológico, pero luminoso y aireado. Más "cara" y con más profundidad que "white", sin la pesadez del navy. NO oscuro, NO navy dominante, NO cripto, NO gamer, NO cartoon, NO sobrecargado.
 
-NEGATIVE (añadir a negative_instructions de cada tipo cuando el estilo sea white_2): dark background, navy background, navy-dominant objects, black background, crushed shadows, low-key moody lighting, saturated colors, neon, too many icons, overloaded scene, cluttered composition, cream or yellow tint, dirty factory, messy warehouse, crypto aesthetic, gamer aesthetic, cartoon style, wrong brand colors, excessive coral, excessive turquoise.
+NEGATIVE (añadir a negative_instructions de cada tipo cuando el estilo sea white_2): dark background, navy background, navy-dominant objects, black background, crushed shadows, low-key moody lighting, saturated colors, neon, too many icons, overloaded scene, cluttered composition, cream or yellow tint, dirty factory, messy warehouse, crypto aesthetic, gamer aesthetic, cartoon style, wrong brand colors, excessive coral, excessive turquoise, featureless white blobs, detail-free surfaces, objects without structural line work, smooth undefined shapes, objects floating without contact shadow.
 
 ## TEXTO EN LA IMAGEN (controlado por textInImage)
 
@@ -459,10 +459,10 @@ REGLA DE ESTILO MADRE
 
 MATERIALIDAD Y ACABADO (white / white_2)
 - Superficie dominante (80–90%): cerámica blanca refinada, acrílico blanco mate/satinado, light gray #F5F5F5 y graphite MUY claro. Bordes redondeados, biseles precisos, reflejos limpios, volumen suave, alta definición.
-- Navy #0F1419 (6–12% máximo): estructura visual, contornos finos, checks, flechas, símbolos y detalles mecánicos; NUNCA teñir grandes superficies ni el fondo.
+- Navy #0F1419 (6–12%): OBLIGATORIO en todo objeto neutro, no es opcional. Cada objeto blanco lleva líneas navy finas de estructura donde su anatomía real las tendría: juntas de panel, aristas, corrugaciones, barandales, celosía, línea de cubierta, puente, herrajes, marcos de puerta y ejes. Ningún objeto queda como volumen blanco liso sin detalle: un barco, una bodega o una grúa sin líneas de estructura está MAL y hay que rehacerla. El navy DEFINE, no rellena: NUNCA teñir grandes superficies ni el fondo.
 - Turquesa #2ED4C7 (2–5%): activación, conexión, ruta, nodo, check o indicador de avance. Color sólido exacto, sin glow barato ni gradiente ruidoso.
 - Coral #FF7A4A (1–3%): punto focal, pausa, espera, origen o alerta suave. Un acento claro, no múltiples manchas.
-- Iluminación de estudio softbox, sombras tenues de contacto, fondo blanco/clear indicado por backgroundStyle. Evitar plástico barato, aspecto inflable, juguete infantil, metal pesado, cristal excesivo, bloom y reflejos quemados.
+- Iluminación de estudio softbox, fondo blanco/clear indicado por backgroundStyle. Sombra de contacto OBLIGATORIA y visible debajo de cada objeto y cada plataforma: tenue y suave, pero suficiente para que un objeto blanco se separe con claridad de un fondo blanco. Sin sombra de contacto los objetos se ven flotando y lavados. Evitar plástico barato, aspecto inflable, juguete infantil, metal pesado, cristal excesivo, bloom y reflejos quemados.
 
 CÁMARA, ESCALA Y FAMILIA VISUAL
 - Vista isométrica / tres cuartos elevada consistente, equivalente a lente de producto 45–70 mm; perspectiva suave, nunca gran angular. Todos los objetos comparten el MISMO ángulo de cámara, escala visual, iluminación, material y nivel de detalle.
