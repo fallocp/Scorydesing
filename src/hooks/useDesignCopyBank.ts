@@ -56,7 +56,7 @@ function toMeta(row: GeneratedIdeaRow): DesignStudioIdeaMeta {
     imageBackgroundStyle: raw.imageBackgroundStyle,
     corridorOverride: raw.corridorOverride,
     corridorAnalysis: raw.corridorAnalysis,
-    slots: raw.slots,
+    carousel: raw.carousel,
     rating: raw.rating,
   };
 }
@@ -155,7 +155,7 @@ export function useUpdateBankCopy() {
   });
 }
 
-/** Patch the design-studio meta (image prompt/type/slots/mode) on a bank row. */
+/** Patch the design-studio meta (image prompt/type/carousel/mode) on a bank row. */
 export function useUpdateBankMeta() {
   const queryClient = useQueryClient();
 

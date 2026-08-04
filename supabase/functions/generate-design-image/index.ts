@@ -127,12 +127,23 @@ interface GenerateImageRequest {
   // Three-prompt flow: mode selector
   // "prompts" → generate all 3 prompts, no image yet (default for master path)
   // "generate" → generate image from a pre-built prompt
-  mode?: 'prompts' | 'generate';
-  // Used when mode = "generate": which type to activate
+  // "carousel_prompts" → one self-contained prompt per carousel slide, single call
+  mode?: 'prompts' | 'generate' | 'carousel_prompts';
+  // Used when mode = "generate": which type to activate.
+  // Used when mode = "carousel_prompts": the medium for the WHOLE set.
   imageType?: 'fotografia' | 'infografia' | 'mapa_rutas';
   // Used when mode = "generate": the pre-built prompt to use
   promptFinal?: string;
   negativeInstructions?: string;
+  // ── mode = "carousel_prompts" ──
+  // The slides to build prompts for, in reading order.
+  carouselSlides?: CarouselPromptSlideInput[];
+  // Recurring concrete subject that threads the slides together, from the
+  // carousel script agent. Keeps the set reading as a series.
+  visualMotif?: string;
+  // Explicit pixel size, e.g. "1080x1350". Wins over the aspectRatio mapping,
+  // which only covers the handful of ratios the older flows use.
+  imageSize?: string;
   // Image Stock Studio: process-specific style prompt. When provided, the
   // single-image (legacy) path uses this text as the step-1 system prompt
   // instead of the generic PROMPT_ENGINEER_SYSTEM. Lets each generator
@@ -181,6 +192,64 @@ interface ImagePromptVariant {
     evidence: string;
   };
 }
+
+// ---------------------------------------------------------------------------
+// Carousel prompts (mode = "carousel_prompts")
+// ---------------------------------------------------------------------------
+
+/** One slide to build a prompt for. Copy comes already final from the script. */
+interface CarouselPromptSlideInput {
+  /** 0-based reading order. */
+  index: number;
+  /** Narrative role key, e.g. 'hook' | 'problem' | 'example' | 'solution'. */
+  role: string;
+  /** Exact text to bake into the image. Spelling is authoritative. */
+  headline: string;
+  body?: string;
+  cta?: string;
+  /** What this slide's image must communicate. */
+  imageIntent: string;
+  /** Brand elements composited later ('logo' | 'disclaimer'). Drives the
+   *  reserved negative space: slides without any use the whole frame. */
+  brandElements?: string[];
+}
+
+/** What the model returns: the design block once, plus one scene per slide. */
+interface CarouselPromptsModelResponse {
+  /**
+   * The shared design block. Returned ONCE and stitched verbatim into every
+   * slide prompt server-side, so the four prompts carry a byte-identical design
+   * spec instead of four paraphrases of it.
+   */
+  designBlock: string;
+  slides: Array<{
+    index: number;
+    sceneBlock: string;
+    negativeInstructions?: string;
+  }>;
+}
+
+// ---------------------------------------------------------------------------
+// Typography for text baked into an image
+// ---------------------------------------------------------------------------
+
+/**
+ * An image model cannot load a font — it synthesizes letterforms, so naming
+ * Montserrat on its own is a coin flip. This spells out the LETTERFORM TRAITS
+ * that make a geometric sans read as Montserrat and then closes off the styles
+ * the model drifts into; the prohibition list does most of the work.
+ *
+ * It gets close, not exact. Text that must genuinely BE Montserrat has to be
+ * composited as HTML on top of the image instead of baked into it.
+ *
+ * Declared before the master prompts because they interpolate it, and shared
+ * with the carousel path so the two cannot drift apart.
+ *
+ * Source of truth for the families: docs/prompts/XENDING_VISUAL_SYSTEM_v1.md §4.
+ */
+const BRAND_TYPOGRAPHY = `TIPOGRAFÍA (obligatoria, es la del sistema de marca Xending): toda la letra es sans-serif GEOMÉTRICA. Montserrat Bold o ExtraBold en el headline; Poppins Medium o SemiBold en body, CTA y microcopy. Si no reconoces esas familias, usa la más cercana: Gotham, Proxima Nova o Poppins.
+Rasgos que debe cumplir: grosor de trazo uniforme, sin ningún contraste entre trazos gruesos y delgados; 'O' y 'o' casi círculos perfectos; altura de x alta; terminaciones rectas horizontales o verticales; tracking ligeramente cerrado en el headline. Letra plana y vectorial, nítida, como diseño editorial digital.
+PROHIBIDO en la tipografía: serifas de cualquier tipo, didone, slab, transicional, caligráfica, script, itálica, condensada, expandida, redondeada tipo burbuja, contraste variable de trazo, letras decorativas, 3D, relieve, sombra proyectada, acabado metálico y texturizado.`;
 
 // ---------------------------------------------------------------------------
 // Hardcoded fallback — Master Image Prompt (Req 2.2, 6.4)
@@ -621,7 +690,9 @@ Diorama: una ruta continua con 2–4 hitos físicamente coherentes, por ejemplo 
 ## TEXTO
 Si textInImage = false: prohibido todo texto legible dentro de la imagen: no words, letters, numbers, labels, titles, CTA, country/city names, captions, legends, documents with readable text, dashboard text, logos or watermarks. Permitir solo símbolos universales no tipográficos como check, flecha, candado, pausa y nodos. En dashboards usar módulos abstractos sin palabras ni datos legibles.
 
-Si textInImage = true: incluir SOLO los textos exactos provistos (Headline, Body, CTA y Footer/disclaimer). No inventar etapas, labels, datos, marcas ni frases. Ortografía exacta; no traducir. Headline editorial serif en navy; body/CTA sans-serif limpia. Máximo una frase coral para tensión/problema y una frase teal para solución/beneficio; no colorear más de 25% del headline. Si una receta usa microcopy funcional, solo usar labels proporcionados explícitamente en el copy.
+Si textInImage = true: incluir SOLO los textos exactos provistos (Headline, Body, CTA y Footer/disclaimer). No inventar etapas, labels, datos, marcas ni frases. Ortografía exacta; no traducir.
+${BRAND_TYPOGRAPHY}
+Headline en navy. Máximo una frase coral para tensión/problema y una frase teal para solución/beneficio; no colorear más de 25% del headline. Si una receta usa microcopy funcional, solo usar labels proporcionados explícitamente en el copy.
 
 ## FUNNEL
 - atraccion: composición más dinámica y contraste alto, sin romper proporciones de marca.
@@ -755,9 +826,144 @@ serve(async (req) => {
 });
 
 // ---------------------------------------------------------------------------
+// Carousel prompt assembly
+// ---------------------------------------------------------------------------
+
+/** Master-prompt router section that governs each medium. */
+const CAROUSEL_MEDIUM_SECTION: Record<string, string> = {
+  fotografia: 'SALIDA fotografia (excepción fotográfica natural)',
+  infografia: 'SALIDA infografia (iconografía 3D Xending)',
+  mapa_rutas: 'SALIDA mapa_rutas (ruta operacional continua)',
+};
+
+/**
+ * Negative space a slide must reserve for the brand elements composited on top
+ * of it later. Slides that carry none get the whole frame — otherwise every
+ * slide ends up with an unused hole in the corner.
+ */
+function reservedSpaceBlock(brandElements: string[]): string {
+  const parts: string[] = [];
+
+  // Phrased as an ABSENCE, never as a "band" or "panel". Naming a band makes the
+  // image model treat it as a surface to paint, and it comes out as a visibly
+  // different rectangle instead of untouched background.
+  if (brandElements.includes('logo')) {
+    parts.push(
+      'KEEP CLEAR — TOP-LEFT: the background must continue through the top-left corner (roughly the first 22% of the width and 12% of the height) completely unchanged: exact same color, tone, texture and lighting as the surrounding background. Do NOT draw a panel, box, band, card, border, gradient or tonal shift there, and do NOT place objects, text, shadows or edges in it. It simply stays empty background.',
+    );
+  }
+  if (brandElements.includes('disclaimer')) {
+    parts.push(
+      'KEEP CLEAR — BOTTOM STRIP: the background must continue through the bottom 12% of the image completely unchanged: exact same color, tone, texture and lighting as the background directly above it, with no visible boundary where it begins. Do NOT draw a band, footer, panel, bar, border, divider line, gradient or any tonal change, and do NOT place objects or text there. It simply stays empty background. Do NOT write any legal text.',
+    );
+  }
+  if (parts.length === 0) {
+    return 'This slide carries no brand element: use the whole frame. Do NOT reserve an empty corner or bottom band.';
+  }
+  return parts.join('\n');
+}
+
+/**
+ * Stitch one slide's final prompt.
+ *
+ * The design block is inserted verbatim, identical in every slide, so a slide
+ * can later be edited and regenerated on its own and still match the set. That
+ * is why the model returns the block once instead of rewriting it per slide:
+ * four paraphrases of the same spec drift, one copy cannot.
+ */
+function assembleCarouselSlidePrompt(params: {
+  slide: CarouselPromptSlideInput;
+  totalSlides: number;
+  designBlock: string;
+  sceneBlock: string;
+  negativeInstructions: string;
+  visualMotif: string;
+  aspectRatio: string;
+}): string {
+  const {
+    slide, totalSlides, designBlock, sceneBlock,
+    negativeInstructions, visualMotif, aspectRatio,
+  } = params;
+
+  const textLines = [`- Headline: "${slide.headline}"`];
+  if (slide.body?.trim()) textLines.push(`- Body: "${slide.body.trim()}"`);
+  if (slide.cta?.trim()) textLines.push(`- CTA: "${slide.cta.trim()}"`);
+
+  return [
+    `CAROUSEL SLIDE ${slide.index + 1} OF ${totalSlides} — narrative role "${slide.role}". This image is one piece of a series. The DESIGN SPEC below is identical across every slide on purpose: keep the same visual family, the same recurring subject, the same camera treatment and the same palette. Only the narrative beat changes.`,
+    visualMotif.trim()
+      ? `RECURRING SUBJECT ACROSS THE SET: ${visualMotif.trim()}`
+      : '',
+    `DESIGN SPEC (shared by the whole set):\n${designBlock.trim()}`,
+    `SCENE FOR THIS SLIDE:\n${sceneBlock.trim()}`,
+    `TEXT TO RENDER IN THE IMAGE (exact and authoritative):\n${textLines.join('\n')}\nRender ONLY this text, spelled exactly as written, in Spanish, without translating it and without adding words, labels, numbers, captions, stage titles, legends or invented UI text.\n${BRAND_TYPOGRAPHY}\nHeadline in navy #0F1419; at most one short phrase in an accent color. No paragraph blocks, no bullet lists.`,
+    'NO BRANDING: do not render any logo, wordmark, brand name (including "Xending"), symbol, watermark or readable signage anywhere. Do not write any legal disclaimer, terms or fine print.',
+    reservedSpaceBlock(params.slide.brandElements ?? []),
+    `Canvas: ${aspectRatio}, read on a phone while swiping. Text must stay legible at thumbnail size.`,
+    negativeInstructions.trim() ? `NEGATIVE: ${negativeInstructions.trim()}` : '',
+  ].filter(Boolean).join('\n\n');
+}
+
+/** User message asking the model for the shared design block + one scene per slide. */
+function buildCarouselUserMessage(params: {
+  slides: CarouselPromptSlideInput[];
+  visualMotif: string;
+  imageType: string;
+  backgroundStyle: string;
+  aspectRatio: string;
+}): string {
+  const { slides, visualMotif, imageType, backgroundStyle, aspectRatio } = params;
+  const mediumSection = CAROUSEL_MEDIUM_SECTION[imageType] ?? imageType;
+
+  const slideLines = slides
+    .map((s) => {
+      const brand = (s.brandElements ?? []).length > 0
+        ? ` Lleva ${s.brandElements!.join(' y ')} montados encima después.`
+        : '';
+      return [
+        `Slide ${s.index + 1} (rol "${s.role}"):`,
+        `  imageIntent: ${s.imageIntent}`,
+        `  texto que se hornea: "${s.headline}"${s.body ? ` / "${s.body}"` : ''}${s.cta ? ` / CTA "${s.cta}"` : ''}`,
+        brand ? `  nota:${brand}` : '',
+      ].filter(Boolean).join('\n');
+    })
+    .join('\n\n');
+
+  return `Construye los prompts técnicos en inglés para un CARRUSEL de ${slides.length} slides que se leen en orden.
+
+Medio visual del set completo: ${mediumSection}. Aplica COMPLETAS sus reglas del ROUTER VISUAL a los ${slides.length} slides. No mezcles medios entre slides.
+Estilo de fondo: ${backgroundStyle}.
+Formato: ${aspectRatio}.
+Texto en imagen: true — cada slide hornea su propio texto, exacto.
+${visualMotif ? `Motivo visual recurrente que hilvana el set: ${visualMotif}` : ''}
+
+## SLIDES
+
+${slideLines}
+
+## QUÉ DEBES DEVOLVER
+
+1. designBlock — UN bloque de diseño en inglés, compartido por los ${slides.length} slides. Se va a insertar textualmente e idéntico en cada prompt, así que escríbelo una sola vez y que sea completo y autosuficiente: medio y materialidad, tratamiento de cámara y escala, iluminación, paleta con hex y sus proporciones, tipografía, densidad de composición, espacio negativo y restricciones del sistema visual. NO metas aquí nada específico de un slide.
+
+2. slides[] — por cada slide, su sceneBlock: la escena concreta de ESE slide en inglés (sujeto, qué hace el motivo recurrente en este momento de la historia, encuadre, dónde vive el texto dentro del cuadro). Entre 40 y 90 palabras. Que los ${slides.length} sceneBlock sean claramente distintos entre sí pero obviamente de la misma serie: el motivo recurrente evoluciona, no se reemplaza.
+
+Devuelve SOLO JSON válido, sin fences:
+
+{
+  "designBlock": "",
+  "slides": [
+    { "index": 0, "sceneBlock": "", "negativeInstructions": "" }
+  ]
+}
+
+El arreglo "slides" trae exactamente ${slides.length} elementos con index 0..${slides.length - 1}.`;
+}
+
+// ---------------------------------------------------------------------------
 // Master Image Prompt path (Req 2.1–2.7)
 // mode = "prompts" (default): generate 3 prompts, no image yet
 // mode = "generate": generate image from pre-built prompt
+// mode = "carousel_prompts": one self-contained prompt per slide, single call
 // ---------------------------------------------------------------------------
 
 async function handleMasterImagePath(
@@ -799,7 +1005,7 @@ async function handleMasterImagePath(
           model: 'gpt-image-2',
           prompt: requestBody.promptFinal,
           n: 1,
-          size: aspectRatioToSize(aspectRatio),
+          size: resolveImageSize(requestBody.imageSize, aspectRatio),
           quality: requestBody.imageQuality ?? 'medium',
         }),
       },
@@ -958,7 +1164,12 @@ async function handleMasterImagePath(
       ? businessCtx.complianceRules.forbidden_terms.join(', ')
       : undefined,
     backgroundStyle: effectiveBackgroundStyle,
-    textInImage: (requestBody.textInImage ?? requestBody.includeText ?? false) ? 'true' : 'false',
+    // Carousel slides always bake their copy: the reader swipes through text,
+    // so a text-free slide has nothing to say on its own.
+    textInImage: (mode === 'carousel_prompts'
+      || (requestBody.textInImage ?? requestBody.includeText ?? false))
+      ? 'true'
+      : 'false',
     corridorMode: requestBody.corridorMode ?? 'auto',
     corridorFlowType: requestBody.corridorFlowType ?? 'auto',
     corridorOrigin: requestBody.corridorOrigin,
@@ -966,6 +1177,18 @@ async function handleMasterImagePath(
   };
 
   const interpolatedPrompt = interpolateTemplate(promptTemplate, templateVariables);
+
+  // ── mode = "carousel_prompts": one self-contained prompt per slide ──
+  if (mode === 'carousel_prompts') {
+    return await buildCarouselPrompts(
+      requestBody,
+      openAIApiKey,
+      aspectRatio,
+      interpolatedPrompt,
+      effectiveBackgroundStyle,
+      { source: promptSource, version: selectedMasterPromptVersion },
+    );
+  }
 
   // 7. Step 1: Generate all 3 prompts in a single call to gpt-5.4-mini
   console.log('Step 1 (prompts mode): Generating 3 image prompts via gpt-5.4-mini...');
@@ -1053,6 +1276,185 @@ async function handleMasterImagePath(
       usage: {
         next_step: 'Call this endpoint again with mode="generate", imageType=<type>, promptFinal=<prompts[type].prompt_final>',
         available_types: ['fotografia', 'infografia', 'mapa_rutas'],
+      },
+    }),
+    { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  );
+}
+
+// ---------------------------------------------------------------------------
+// mode = "carousel_prompts"
+// ---------------------------------------------------------------------------
+
+/**
+ * Build one self-contained image prompt per carousel slide in a single model
+ * call, under the same master visual system the single-image flow uses.
+ *
+ * The model writes the shared design block once and one scene per slide; this
+ * function stitches them so every stored prompt carries the full spec. That way
+ * a slide the user edits and regenerates alone still belongs to the set.
+ */
+async function buildCarouselPrompts(
+  requestBody: GenerateImageRequest,
+  openAIApiKey: string,
+  aspectRatio: string,
+  systemPrompt: string,
+  backgroundStyle: string,
+  promptMeta: { source: string; version: string },
+): Promise<Response> {
+  const rawSlides = requestBody.carouselSlides ?? [];
+  if (rawSlides.length === 0) {
+    return new Response(
+      JSON.stringify({ error: 'parse_error', message: 'Missing carouselSlides for mode=carousel_prompts' }),
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  const missingHeadline = rawSlides.find((s) => !s.headline?.trim());
+  if (missingHeadline) {
+    return new Response(
+      JSON.stringify({ error: 'parse_error', message: 'Every carousel slide needs its final headline before prompts can be built' }),
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  // Reading order is authoritative and comes from the caller's preset; reindex
+  // so a caller passing sparse or unsorted indexes cannot scramble the set.
+  const slides: CarouselPromptSlideInput[] = [...rawSlides]
+    .sort((a, b) => (a.index ?? 0) - (b.index ?? 0))
+    .map((s, i) => ({ ...s, index: i }));
+
+  const imageType = requestBody.imageType ?? 'fotografia';
+  const visualMotif = requestBody.visualMotif?.trim() ?? '';
+
+  const userMessage = buildCarouselUserMessage({
+    slides,
+    visualMotif,
+    imageType,
+    backgroundStyle,
+    aspectRatio,
+  });
+
+  console.log(`carousel_prompts: building ${slides.length} prompts (medium=${imageType})...`);
+
+  const response = await fetchWithRetry(
+    'https://api.openai.com/v1/chat/completions',
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openAIApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-5.4-mini',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userMessage },
+        ],
+        // One design block plus N scenes — scales with the slide count.
+        max_completion_tokens: 1200 + slides.length * 500,
+        temperature: 0.7,
+      }),
+    },
+    openAIApiKey
+  );
+
+  if (response.error) {
+    return new Response(
+      JSON.stringify(response),
+      { status: response.status || 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  const data = await response.response!.json();
+  const content = data.choices?.[0]?.message?.content;
+
+  if (!content) {
+    return new Response(
+      JSON.stringify({ error: 'parse_error', message: 'No carousel prompts generated from AI' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  let parsed: CarouselPromptsModelResponse;
+  try {
+    parsed = JSON.parse(content);
+  } catch (_err) {
+    const cleaned = content.replace(/```json|```/g, '').trim();
+    const match = cleaned.match(/\{[\s\S]*\}/);
+    if (!match) {
+      console.error('Could not parse carousel prompts response:', content.slice(0, 500));
+      return new Response(
+        JSON.stringify({ error: 'parse_error', message: 'Failed to parse carousel prompts response' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    parsed = JSON.parse(match[0]);
+  }
+
+  if (!parsed.designBlock?.trim() || !Array.isArray(parsed.slides)) {
+    console.error('Incomplete carousel prompts response:', Object.keys(parsed ?? {}));
+    return new Response(
+      JSON.stringify({ error: 'parse_error', message: 'Incomplete carousel prompts response — missing designBlock or slides' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  const sceneByIndex = new Map<number, { sceneBlock?: string; negativeInstructions?: string }>();
+  for (const s of parsed.slides) {
+    if (typeof s?.index === 'number') sceneByIndex.set(s.index, s);
+  }
+
+  const missingScene = slides.filter((s) => !sceneByIndex.get(s.index)?.sceneBlock?.trim());
+  if (missingScene.length > 0) {
+    return new Response(
+      JSON.stringify({
+        error: 'parse_error',
+        message: `${missingScene.length} slide(s) sin escena. Reintenta.`,
+      }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  const designBlock = parsed.designBlock.trim();
+  const builtSlides = slides.map((slide) => {
+    const scene = sceneByIndex.get(slide.index)!;
+    return {
+      index: slide.index,
+      role: slide.role,
+      promptFinal: assembleCarouselSlidePrompt({
+        slide,
+        totalSlides: slides.length,
+        designBlock,
+        sceneBlock: scene.sceneBlock!,
+        negativeInstructions: scene.negativeInstructions ?? '',
+        visualMotif,
+        aspectRatio,
+      }),
+      negativeInstructions: scene.negativeInstructions ?? '',
+    };
+  });
+
+  const imageSize = resolveImageSize(requestBody.imageSize, aspectRatio);
+  console.log(`carousel_prompts: ${builtSlides.length} prompts ready (size=${imageSize}).`);
+
+  return new Response(
+    JSON.stringify({
+      carousel: {
+        designBlock,
+        visualMotif,
+        imageType,
+        slides: builtSlides,
+      },
+      aspectRatio,
+      imageSize,
+      promptMeta: {
+        source: promptMeta.source,
+        version: promptMeta.version,
+        backgroundStyle,
+      },
+      usage: {
+        next_step: 'Call this endpoint again per slide with mode="generate", promptFinal=<slides[i].promptFinal>, imageSize=<imageSize>',
       },
     }),
     { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -1377,10 +1779,31 @@ function aspectRatioToSize(aspectRatio: string): string {
   switch (aspectRatio) {
     case '9:16': return '1024x1536';
     case '16:9': return '1536x1024';
-    case '4:5': return '1024x1536';
+    // 1024x1536 is 2:3, not 4:5 — the old value mislabeled the ratio and
+    // produced a taller crop than callers asked for.
+    case '4:5': return '1080x1350';
     case '1:1':
     default: return '1024x1024';
   }
+}
+
+/** Sizes the mapping above can produce, used to sanity-check explicit input. */
+const SIZE_PATTERN = /^\d{3,4}x\d{3,4}$/;
+
+/**
+ * Resolve the size sent to the image API.
+ *
+ * An explicit `imageSize` wins, because the ratio table only covers the few
+ * ratios the older flows use and carousels need an exact canvas. Falls back to
+ * the ratio mapping when absent or malformed.
+ */
+function resolveImageSize(imageSize: string | undefined, aspectRatio: string): string {
+  const explicit = imageSize?.trim();
+  if (explicit && SIZE_PATTERN.test(explicit)) return explicit;
+  if (explicit) {
+    console.warn(`Ignoring malformed imageSize "${explicit}"; falling back to ${aspectRatio}.`);
+  }
+  return aspectRatioToSize(aspectRatio);
 }
 
 /**

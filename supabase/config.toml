@@ -7,6 +7,11 @@ verify_jwt = false
 [functions.generate-design-copy]
 verify_jwt = false
 
+# Carousel script requires a real session: it validates business membership
+# before reading tenant data, instead of trusting the business_id in the body.
+[functions.generate-carousel-script]
+verify_jwt = true
+
 [functions.generate-design-html]
 verify_jwt = false
 

@@ -30,6 +30,7 @@ import { VisualSelector } from '@/components/design-studio/VisualSelector';
 import { ContentModeSelector } from '@/components/design-studio/ContentModeSelector';
 import { PieceCopyEditor } from '@/components/design-studio/PieceCopyEditor';
 import { CopyBankPanel } from '@/components/design-studio/CopyBankPanel';
+import { CarouselPanel } from '@/components/design-studio/CarouselPanel';
 import { AngleSelector, type SelectedAngle } from '@/components/AngleSelector';
 import { IndustrySelector } from '@/components/design-studio/IndustrySelector';
 import { ReferenceImageUploader } from '@/components/design-studio/ReferenceImageUploader';
@@ -56,12 +57,12 @@ import { useDeleteGeneratedIdea } from '@/hooks/useGeneratedIdeas';
 
 import { validateBrandPalette } from '@/utils/design-studio/brandPaletteValidator';
 import { convertToTemplate } from '@/utils/design-studio/templateConverter';
+import { resolveMasterImagePromptSelection } from '@/utils/design-studio/masterImagePrompt';
 import { supabase } from '@/integrations/supabase/client';
 
 import {
   DESIGN_STUDIO_IMAGE_PROMPT_REVISION,
   type BrandPalette,
-  type MasterImagePromptVersion,
   type PlatformFormat,
 } from '@/types/design-studio';
 import type { SavedMockup } from '@/hooks/useDesignMockups';
@@ -94,36 +95,6 @@ function appendNoLogoDirective(promptText: string): string {
   return `${promptText.trim()}\n\n${NO_LOGO_DIRECTIVE}`;
 }
 
-type MasterImageBackgroundStyle = 'navy' | 'light_cream' | 'white' | 'white_2';
-
-interface MasterImagePromptSelection {
-  backgroundStyle: MasterImageBackgroundStyle;
-  masterPromptVersion: MasterImagePromptVersion;
-}
-
-/**
- * Resolve the visible Design Studio choice to an exact, reproducible prompt
- * snapshot. Legacy values remain readable for restored sessions, but are no
- * longer shown as new choices.
- */
-function resolveMasterImagePromptSelection(background: string | null): MasterImagePromptSelection {
-  switch (background) {
-    case 'white-classic':
-    case 'white-minimal': // legacy value: the former "Blanco" option
-      return { backgroundStyle: 'white', masterPromptVersion: 'v1' };
-    case 'white-2':
-      return { backgroundStyle: 'white_2', masterPromptVersion: 'v2' };
-    case 'dark-navy':
-    case 'color-turquoise': // legacy value previously fell back to navy
-      return { backgroundStyle: 'navy', masterPromptVersion: 'v2' };
-    case 'light-cream': // restored legacy sessions remain reproducible on V2
-      return { backgroundStyle: 'light_cream', masterPromptVersion: 'v2' };
-    case 'white-xending-v2':
-    default:
-      return { backgroundStyle: 'white', masterPromptVersion: 'v2' };
-  }
-}
-
 export default function DesignStudioPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -145,7 +116,11 @@ export default function DesignStudioPage() {
   const generateHtml = useGenerateDesignHtmlFromMockup();
   const saveTemplate = useSaveCustomTemplate();
   const saveMockup = useSaveMockup();
-  const { data: savedMockups = [], isLoading: isLoadingSaved } = useSavedMockups();
+  const {
+    data: savedMockups = [],
+    isLoading: isLoadingSaved,
+    error: savedMockupsError,
+  } = useSavedMockups();
   const { data: branches = [], isLoading: isLoadingBranches } = useDesignStudioBranches();
   const generateIdeas = useGenerateIdeas();
   // All industry verticals (for the "Auto (variar)" round-robin).
@@ -1144,6 +1119,35 @@ export default function DesignStudioPage() {
                     />
                   </section>
                 )}
+
+                {/* ---------- ETAPA C — CARRUSEL ---------- */}
+                {/* Derives a 4-slide set from the same active copy. Independent
+                    of Stage B: the single image and the carousel are two
+                    different outputs of one approved copy. */}
+                {store.activeCandidateId && (
+                  <section className="space-y-4 border-t border-border pt-6">
+                    <StageHeader
+                      number={3}
+                      title="Carrusel (opcional)"
+                      subtitle="Desglosa el copy activo en 4 slides encadenados"
+                    />
+                    <CarouselPanel
+                      bankItem={
+                        copyBank.items.find((it) => it.row.id === store.activeCandidateId) ?? null
+                      }
+                      branchId={selectedBranch?.id ?? null}
+                      background={store.selections.background}
+                      imageType={store.selections.pieceImagePrompt?.type ?? 'foto'}
+                      brandSlug={activeBusiness?.slug}
+                      branding={{
+                        logoUrl: businessConfig?.logo_url ?? null,
+                        wordmark: activeBusiness?.name ?? null,
+                        disclaimer: businessConfig?.disclaimer ?? null,
+                      }}
+                      disabled={isAnyLoading}
+                    />
+                  </section>
+                )}
               </>
             )}
 
@@ -1275,6 +1279,21 @@ export default function DesignStudioPage() {
 
         {/* Design Feedback Chat */}
         <DesignFeedbackChat />
+
+        {/* The grid renders nothing when the list is empty, so a failed query
+            used to look identical to "no mockups yet". Surface the reason. */}
+        {savedMockupsError && (
+          <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4">
+            <p className="text-sm font-medium text-destructive">
+              No se pudieron cargar los mockups guardados
+            </p>
+            <p className="mt-1 text-xs text-destructive/80">
+              {savedMockupsError instanceof Error
+                ? savedMockupsError.message
+                : 'Error desconocido'}
+            </p>
+          </div>
+        )}
 
         {/* Saved Mockups from DB — always visible */}
         <SavedMockupsGrid

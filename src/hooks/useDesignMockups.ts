@@ -18,7 +18,27 @@ export interface SavedMockup {
   prompt_used: string | null;
   status: string;
   created_at: string;
+  /**
+   * Carousel grouping. Optional because the list query does not fetch these —
+   * see the comment on the query. Present when a caller selects them explicitly.
+   */
+  carousel_group_id?: string | null;
+  /** 0-based reading order inside the carousel. */
+  carousel_index?: number | null;
 }
+
+/**
+ * Loosely typed handle on `design_mockups`.
+ *
+ * The table is absent from the generated Supabase types, so every column
+ * resolves to `never` and each query degrades into `SelectQueryError`, which
+ * then poisons all downstream inference. Casting once at the table boundary
+ * keeps the escape hatch in a single place — the same approach already used for
+ * `design_feedback` and `brand_disclaimers`.
+ */
+const mockupsTable = () =>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase.from('design_mockups' as any) as any;
 
 interface SaveMockupParams {
   imageBase64: string;
@@ -27,6 +47,9 @@ interface SaveMockupParams {
   promptUsed?: string;
   parentMockupId?: string;
   iterationFeedback?: string;
+  /** Carousel slides pass both: the group they belong to and their position. */
+  carouselGroupId?: string;
+  carouselIndex?: number;
 }
 
 /**
@@ -64,24 +87,39 @@ export function useSaveMockup() {
 
       const imageUrl = urlData.publicUrl;
 
-      // 4. Insert row in design_mockups
-      const { error: insertError } = await supabase
-        .from('design_mockups')
-        .insert({
-          business_id: activeBusinessId,
-          created_by: user.id,
-          image_url: imageUrl,
-          platform: params.platform,
-          selections: params.selections || null,
-          prompt_used: params.promptUsed || null,
-          parent_mockup_id: params.parentMockupId || null,
-          iteration_feedback: params.iterationFeedback || null,
-          status: 'saved',
-        });
+      // 4. Insert row in design_mockups.
+      const row = {
+        business_id: activeBusinessId,
+        created_by: user.id,
+        image_url: imageUrl,
+        platform: params.platform,
+        selections: params.selections || null,
+        prompt_used: params.promptUsed || null,
+        parent_mockup_id: params.parentMockupId || null,
+        iteration_feedback: params.iterationFeedback || null,
+        status: 'saved',
+        // The carousel columns are only sent when a slide actually belongs to a
+        // carousel. Sending them as null on every save would make the whole
+        // single-image flow depend on the carousel migration having run.
+        // Both or neither — a DB check constraint enforces the pair.
+        ...(params.carouselGroupId
+          ? {
+              carousel_group_id: params.carouselGroupId,
+              carousel_index: params.carouselIndex ?? 0,
+            }
+          : {}),
+      };
+
+      // The id is returned so callers can link the row to what produced it
+      // (a carousel slot keeps the mockup id instead of the base64).
+      const { data: inserted, error: insertError } = await mockupsTable()
+        .insert(row)
+        .select('id')
+        .single();
 
       if (insertError) throw new Error(`Insert failed: ${insertError.message}`);
 
-      return { imageUrl };
+      return { imageUrl, mockupId: (inserted as { id: string }).id };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['design-mockups', activeBusinessId] });
@@ -98,8 +136,11 @@ export function useSavedMockups() {
   return useQuery({
     queryKey: ['design-mockups', activeBusinessId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('design_mockups')
+      // Deliberately does NOT name the carousel columns: asking for a column
+      // that does not exist makes Postgres reject the whole query, which would
+      // blank the entire grid on any environment where the carousel migration
+      // has not run yet. Nothing in this grid reads them today.
+      const { data, error } = await mockupsTable()
         .select('id, image_url, platform, selections, prompt_used, status, created_at')
         .eq('business_id', activeBusinessId!)
         .eq('status', 'saved')

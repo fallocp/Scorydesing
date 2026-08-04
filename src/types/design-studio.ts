@@ -113,27 +113,178 @@ export interface PieceImagePrompt {
 
 /**
  * How the image for a bank copy is produced:
- * - 'single': one image (one slot).
- * - 'carousel': the idea is split into N chained slides (hook/problema/solucion),
- *   each with its own prompt and image, generated in a queue.
+ * - 'single': one image.
+ * - 'carousel': the seed copy is exploded into N chained slides, each with its
+ *   own slide copy, its own self-contained prompt and its own image. Slides are
+ *   rendered one at a time so a bad slide is regenerated alone.
  */
 export type CopyBankImageMode = 'single' | 'carousel';
 
-/** Render lifecycle for an image slot (drives the sequential queue UI). */
-export type ImageSlotStatus = 'idle' | 'queued' | 'generating' | 'done' | 'error';
+// --- Carousel (Design Studio Stage C) ---
 
 /**
- * One image to render for a bank copy. `single` mode has exactly one slot;
- * `carousel` mode has one slot per slide.
+ * Narrative function of a slide. Values stay in English because they are
+ * persisted in `piece_v2`; the UI labels them in Spanish.
  */
-export interface CopyBankImageSlot {
+export type CarouselSlideRole = 'hook' | 'problem' | 'example' | 'solution';
+
+/** Render lifecycle for a slide (drives the per-slot queue UI). */
+export type CarouselSlotStatus =
+  | 'idle'
+  | 'queued'
+  | 'generating'
+  | 'done'
+  | 'error';
+
+/** Brand elements composited on a slide AFTER its image is generated. */
+export type CarouselBrandElement = 'logo' | 'disclaimer';
+
+/** Copy rendered on a single slide. `cta` normally lives on the closing slide. */
+export interface CarouselSlideCopy {
+  headline: string;
+  body?: string;
+  cta?: string;
+}
+
+/**
+ * Canvas for every carousel slide: the same square the existing `instagram-post`
+ * flow already renders, so the carousel inherits a size that is known to work
+ * end to end instead of introducing a new one.
+ *
+ * One square set covers both platforms: Instagram takes the slides as separate
+ * images, LinkedIn packs the same ones into a multi-page PDF (its swipeable
+ * "carousel" is a document post, and 1:1 is a supported document size).
+ *
+ * Single source of truth on purpose — changing the format means changing these
+ * two values and nothing else.
+ */
+export const CAROUSEL_DIMENSIONS: PlatformDimensions = { width: 1024, height: 1024 };
+
+/** Aspect ratio sent to the image model, kept in sync with the dimensions. */
+export const CAROUSEL_ASPECT_RATIO = '1:1' as const;
+
+/**
+ * One slide of a carousel: its copy, its prompt and where its image landed.
+ */
+export interface CarouselSlot {
   id: string;
-  role: 'single' | 'hook' | 'problema' | 'solucion';
-  type: DesignImageType;
-  prompt: string;               // generated image prompt (Stage B)
-  status: ImageSlotStatus;
-  imageBase64?: string;         // populated when status === 'done'
+  /** 0-based position. Also the reading order and the export order. */
+  index: number;
+  role: CarouselSlideRole;
+  /**
+   * Copy for this slide. Must be final BEFORE the prompt is built: the exact
+   * spelling is baked into the prompt, so editing it later means regenerating.
+   */
+  slideCopy: CarouselSlideCopy;
+  /**
+   * What this slide's image must communicate, from the script agent. Persisted
+   * because rebuilding the prompts after a reload needs it.
+   */
+  imageIntent: string;
+  /**
+   * Self-contained image prompt. Carries the full design block verbatim (not a
+   * delta over a shared base), so this slide can be edited and regenerated on
+   * its own without losing the visual system.
+   */
+  prompt: string;
+  /**
+   * Brand elements this slide reserves negative space for. Slides with no brand
+   * element use the whole frame.
+   */
+  brandElements: CarouselBrandElement[];
+  status: CarouselSlotStatus;
+  /** Rendered result. Base64 is deliberately NOT stored: it would add megabytes
+   *  to the `piece_v2` JSONB and be refetched on every copy-bank query. */
+  mockupId?: string;
+  imageUrl?: string;
   error?: string;
+}
+
+/**
+ * A carousel hanging off its seed copy in the bank. One carousel per bank row.
+ */
+export interface CarouselMeta {
+  presetSlug: string;
+  /**
+   * The design block shared verbatim by every slide prompt. Persisted so a
+   * single slide can be rebuilt from scratch and still match the set.
+   */
+  visualAnchor: string;
+  /** Ties the rendered images together (`design_mockups.carousel_group_id`). */
+  groupId: string;
+  /** Medium picked for the whole set — mixing mediums breaks the set. */
+  imageType: DesignImageType;
+  slots: CarouselSlot[];
+  createdAt: string;
+}
+
+/**
+ * A narrative shape for a carousel. The preset — not the agent — decides how
+ * many slides there are and which ones carry brand elements, so adding
+ * "mito vs realidad" or "3 pasos" later needs no change to the agent.
+ */
+export interface CarouselPreset {
+  slug: string;
+  name: string;
+  description: string;
+  /** One entry per slide, in reading order. Length = number of slides. */
+  roles: CarouselSlideRole[];
+  /**
+   * Which slide carries each brand element, addressed by role so the mapping
+   * survives presets of different lengths. Omit an element to leave it off.
+   *
+   * The disclaimer rides the slide that makes the claim, not automatically the
+   * last one: a legal note has to sit next to the number it qualifies.
+   */
+  brandPlacement: Partial<Record<CarouselBrandElement, CarouselSlideRole>>;
+}
+
+export const CAROUSEL_ROLE_LABELS: Record<CarouselSlideRole, string> = {
+  hook: 'Gancho',
+  problem: 'Problema',
+  example: 'Ejemplo',
+  solution: 'Solución',
+};
+
+/** Short brief given to the script agent for each role. */
+export const CAROUSEL_ROLE_BRIEFS: Record<CarouselSlideRole, string> = {
+  hook: 'Detiene el scroll. Parte del headline del copy semilla, casi tal cual.',
+  problem: 'El costo concreto de no resolverlo. Nada abstracto.',
+  example: 'El caso tangible: números, corredor, industria.',
+  solution: 'Cómo se resuelve, y cierra con el CTA.',
+};
+
+export const CAROUSEL_PRESETS: CarouselPreset[] = [
+  {
+    slug: 'hook-problem-example-solution',
+    name: 'Gancho → Problema → Ejemplo → Solución',
+    description:
+      'Arco de 4 slides para explicar un tema y aterrizarlo con un caso concreto.',
+    roles: ['hook', 'problem', 'example', 'solution'],
+    // Logo on the cover: it is the only slide everyone sees in the feed.
+    // Disclaimer on the example, which is where the hard numbers live.
+    brandPlacement: { logo: 'hook', disclaimer: 'example' },
+  },
+];
+
+export const DEFAULT_CAROUSEL_PRESET_SLUG = 'hook-problem-example-solution';
+
+export function getCarouselPreset(slug: string): CarouselPreset {
+  return (
+    CAROUSEL_PRESETS.find((p) => p.slug === slug) ?? CAROUSEL_PRESETS[0]
+  );
+}
+
+/** Brand elements a given role carries under a preset. */
+export function brandElementsForRole(
+  preset: CarouselPreset,
+  role: CarouselSlideRole,
+): CarouselBrandElement[] {
+  return (Object.entries(preset.brandPlacement) as Array<
+    [CarouselBrandElement, CarouselSlideRole]
+  >)
+    .filter(([, target]) => target === role)
+    .map(([element]) => element);
 }
 
 /**
@@ -155,7 +306,8 @@ export interface DesignStudioIdeaMeta {
   imageBackgroundStyle?: 'navy' | 'light_cream' | 'white' | 'white_2';
   corridorOverride?: CorridorOverride;
   corridorAnalysis?: CorridorAnalysis;
-  slots?: CopyBankImageSlot[];   // carousel slots
+  /** Carousel derived from this copy (Stage C). One per bank row. */
+  carousel?: CarouselMeta;
   // Feedback loop: 'liked' copies steer new batches (imitate tone), 'disliked'
   // ones are avoided. A user-corrected+saved copy is auto-marked 'liked'.
   rating?: 'liked' | 'disliked';
