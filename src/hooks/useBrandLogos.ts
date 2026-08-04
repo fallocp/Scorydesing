@@ -37,8 +37,19 @@ export interface BrandLogo {
   name: string
   url: string
   bucket: string
+  /** Full object path inside the bucket. Needed to delete without guessing. */
+  path: string
   /** Subfolder inside the source prefix, when logos are filed per brand. */
   folder: string | null
+  /**
+   * Whether the picker may delete this file.
+   *
+   * Only files the app itself uploaded are deletable. The `Brand` bucket is off
+   * limits: `presentationTemplates_v2` hardcodes a signed URL to
+   * `Brand/Xending bola logoabril26.png`, so removing anything from there would
+   * silently break the logo on every presentation.
+   */
+  deletable: boolean
 }
 
 function joinPath(...parts: Array<string | null | undefined>): string {
@@ -70,7 +81,14 @@ async function listSigned(
 
   return signed.flatMap((entry, index) =>
     entry.signedUrl
-      ? [{ name: files[index].name, url: entry.signedUrl, bucket, folder }]
+      ? [{
+          name: files[index].name,
+          url: entry.signedUrl,
+          bucket,
+          path: paths[index],
+          folder,
+          deletable: bucket === UPLOAD_BUCKET && paths[index].startsWith(`${UPLOAD_PREFIX}/`),
+        }]
       : [],
   )
 }
@@ -185,6 +203,37 @@ export function useUploadBrandLogo() {
       if ((params.kind ?? 'logo') === 'logo') {
         queryClient.invalidateQueries({ queryKey: ['brand-logos'] })
       }
+    },
+  })
+}
+
+/**
+ * Delete a logo the app uploaded.
+ *
+ * Refuses anything outside `design-images/brand-icons/`. The `Brand` bucket is
+ * shared with the presentation templates, which reference one of its files by a
+ * hardcoded signed URL, so a delete there would break presentations with no
+ * visible cause. Storage removes are permanent — there is no trash to restore
+ * from — which is why the guard lives here and not only in the UI.
+ */
+export function useDeleteBrandLogo() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (logo: BrandLogo) => {
+      if (!logo.deletable) {
+        throw new Error(
+          `"${logo.name}" vive en el bucket ${logo.bucket}, que comparten las presentaciones. Solo se pueden borrar los logos subidos desde este panel.`,
+        )
+      }
+
+      const { error } = await supabase.storage.from(logo.bucket).remove([logo.path])
+      if (error) throw new Error(error.message)
+
+      return logo.path
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['brand-logos'] })
     },
   })
 }

@@ -24,7 +24,12 @@ import { useToast } from '@/components/ui/use-toast'
 import { VisualDesignEditor } from '@/components/VisualDesignEditor'
 import { useActiveBusiness } from '@/hooks/useActiveBusiness'
 import { useBusinessConfig } from '@/hooks/useBusinessConfig'
-import { useBrandLogos, useUploadBrandLogo } from '@/hooks/useBrandLogos'
+import {
+  useBrandLogos,
+  useDeleteBrandLogo,
+  useUploadBrandLogo,
+  type BrandLogo,
+} from '@/hooks/useBrandLogos'
 import { useSaveMockup, type SavedMockup } from '@/hooks/useDesignMockups'
 import { renderHtmlToPng } from '@/utils/xendingDesign/canvasRenderer'
 import {
@@ -71,6 +76,7 @@ export function BrandLayerDialog({ mockup, onClose }: BrandLayerDialogProps) {
   const { data: businessConfig } = useBusinessConfig()
   const saveMockup = useSaveMockup()
   const uploadLogo = useUploadBrandLogo()
+  const deleteLogo = useDeleteBrandLogo()
 
   const [brandKey, setBrandKey] = useState<BrandKey>('xending')
   const { logos, isLoading: isLoadingLogos } = useBrandLogos(brandKey)
@@ -377,6 +383,29 @@ export function BrandLayerDialog({ mockup, onClose }: BrandLayerDialogProps) {
     }
   }
 
+  /**
+   * Remove a logo from Storage. Deletes are permanent, so it asks first, and
+   * clears the selection when the file being deleted is the one in use.
+   */
+  const handleDeleteLogo = async (logo: BrandLogo) => {
+    const confirmed = window.confirm(
+      `¿Borrar "${logo.name}"? Se elimina del storage y no se puede recuperar.`,
+    )
+    if (!confirmed) return
+
+    try {
+      await deleteLogo.mutateAsync(logo)
+      if (logoUrl === logo.url) applyBrandChange({ logoUrl: null })
+      toast({ title: 'Logo borrado', description: logo.name })
+    } catch (err) {
+      toast({
+        title: 'No se pudo borrar el logo',
+        description: err instanceof Error ? err.message : 'Intenta de nuevo',
+        variant: 'destructive',
+      })
+    }
+  }
+
   // --- Full editor takes over the screen ---
   if (isEditing && html && canvas) {
     return (
@@ -631,24 +660,41 @@ export function BrandLayerDialog({ mockup, onClose }: BrandLayerDialogProps) {
                     Sin logo
                   </button>
                   {logos.map((logo) => (
-                    <button
-                      key={logo.url}
-                      type="button"
-                      onClick={() => applyBrandChange({ logoUrl: logo.url })}
-                      className={cn(
-                        'h-14 overflow-hidden rounded border bg-muted/30 p-1 transition',
-                        logoUrl === logo.url
-                          ? 'border-primary ring-1 ring-primary'
-                          : 'hover:bg-muted',
+                    <div key={logo.url} className="group relative">
+                      <button
+                        type="button"
+                        onClick={() => applyBrandChange({ logoUrl: logo.url })}
+                        className={cn(
+                          'h-14 w-full overflow-hidden rounded border bg-muted/30 p-1 transition',
+                          logoUrl === logo.url
+                            ? 'border-primary ring-1 ring-primary'
+                            : 'hover:bg-muted',
+                        )}
+                        title={logo.name}
+                      >
+                        <img
+                          src={logo.url}
+                          alt={logo.name}
+                          className="h-full w-full object-contain"
+                        />
+                      </button>
+
+                      {/* Only files uploaded from this panel can be removed. The
+                          `Brand` bucket is shared with the presentation
+                          templates, which point at one of its files. */}
+                      {logo.deletable && (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteLogo(logo)}
+                          disabled={deleteLogo.isPending}
+                          aria-label={`Borrar logo ${logo.name}`}
+                          title={`Borrar ${logo.name}`}
+                          className="absolute -right-1 -top-1 hidden h-5 w-5 items-center justify-center rounded-full border border-destructive/40 bg-background text-destructive shadow-sm transition hover:bg-destructive hover:text-destructive-foreground focus-visible:flex focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive group-hover:flex disabled:opacity-50"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
                       )}
-                      title={logo.name}
-                    >
-                      <img
-                        src={logo.url}
-                        alt={logo.name}
-                        className="h-full w-full object-contain"
-                      />
-                    </button>
+                    </div>
                   ))}
                 </div>
               )}
