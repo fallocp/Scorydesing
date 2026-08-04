@@ -327,3 +327,21 @@ export async function callOpenAIStream(
 
   return { success: true, stream: transformedStream };
 }
+
+// ---------------------------------------------------------------------------
+// Model capability helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Whether a model accepts a custom `temperature`.
+ *
+ * The gpt-5 family and the o-series reasoning models only allow the default
+ * (temperature=1) and reject any other value with HTTP 400, so callers must omit
+ * the field entirely for them.
+ */
+export function supportsCustomTemperature(model: string): boolean {
+  const normalized = model.toLowerCase();
+  if (normalized.startsWith('gpt-5')) return false;
+  if (/^o\d/.test(normalized)) return false;
+  return true;
+}
