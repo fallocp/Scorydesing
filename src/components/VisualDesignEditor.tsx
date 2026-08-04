@@ -1165,6 +1165,11 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const [layersOpen, setLayersOpen] = useState(false);
   const [workingHtml, setWorkingHtml] = useState(html);
+  /**
+   * Last document this editor handed to the parent via onApply. Used to ignore
+   * the echo when the parent stores it and feeds it back as the `html` prop.
+   */
+  const lastEmittedRef = useRef<string>(html);
   const [changes, setChanges] = useState<Array<PositionDelta | TextEdit>>([]);
   const [isDragging, setIsDragging] = useState(false);
   const dragRef = useRef<{ id: string; startX: number; startY: number; origTop: number; origLeft: number; maybeEdit?: boolean; members: Array<{ id: string; selector: string; origTop: number; origLeft: number; baseTx: number; baseTy: number; baseRot: number }> } | null>(null);
@@ -1653,6 +1658,25 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
     setRedoStack((r) => r.slice(0, -1));
   }, [redoStack, styleOverrides, workingHtml, insertedElements, usedFonts]);
 
+  /**
+   * Adopt a new document when the parent swaps the `html` prop while the editor
+   * is open — swapping the logo, the disclaimer or the slide. Without this the
+   * prop was only an initial value and every external change was ignored.
+   *
+   * The incoming HTML already carries the styles that were applied, so the
+   * override map is cleared: keeping it would re-apply the same rules on top of
+   * a document that already has them baked in.
+   */
+  useEffect(() => {
+    if (html === lastEmittedRef.current) return;
+    lastEmittedRef.current = html;
+    setWorkingHtml(html);
+    setStyleOverrides({});
+    setChanges([]);
+    setSelectedId(null);
+    setSelectedIds([]);
+  }, [html]);
+
   // --- Save ---
 
   const handleSave = useCallback(() => {
@@ -1660,6 +1684,9 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
   }, [htmlWithOverrides, onSave]);
 
   const handleApply = useCallback(() => {
+    // Remember what we emitted so the sync effect below can tell our own echo
+    // apart from a genuinely new document coming from the parent.
+    lastEmittedRef.current = htmlWithOverrides;
     onApply?.(htmlWithOverrides);
   }, [htmlWithOverrides, onApply]);
 

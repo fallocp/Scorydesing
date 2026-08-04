@@ -39,22 +39,52 @@ export interface BottomCoverInput {
 export interface BrandLayerInput {
   /** Public URL (or data URL) of the generated mockup. */
   imageUrl: string
-  /** Canvas size — use the image's natural pixel size. */
+  /**
+   * Canvas size. Defaults to the image's natural pixel size; set it to the
+   * platform's canonical size to letterbox the piece into that format.
+   */
   width: number
   height: number
+  /**
+   * How the base image fills the canvas.
+   * - 'cover' (default): canvas matches the image, nothing is scaled or cut.
+   * - 'contain': the whole image fits and the leftover shows as bands of
+   *   `canvasBackground`. Never crops.
+   */
+  imageFit?: 'cover' | 'contain'
+  /** Canvas background — what the bands look like when fitting to a format. */
+  canvasBackground?: string
   logoUrl?: string | null
+  /** Brand name rendered next to the symbol, like the presentation lockup. */
+  wordmark?: string | null
   disclaimer?: string | null
   /** 'dark' = dark text for light pieces (default). 'light' = white text. */
   disclaimerTheme?: 'dark' | 'light'
   promoter?: PromoterOverlayInput | null
   cover?: BottomCoverInput | null
+  /** Overrides the default logo box. */
+  logoBox?: { width: number; height: number }
+  /** Overrides the default wordmark size. */
+  wordmarkFontPx?: number
 }
+
+/**
+ * Lockup defaults, in absolute px, taken from the sizing the team settled on in
+ * the editor (logo 212x109, wordmark 68px, no gap between them). Absolute
+ * instead of proportional on purpose: the mockups only range from 1024 to
+ * 1536 px wide, and a predictable lockup beats one that shifts per format.
+ */
+const DEFAULT_LOGO_BOX = { width: 212, height: 109 }
+const DEFAULT_WORDMARK_FONT_PX = 68
+const DEFAULT_LOCKUP_GAP_PX = 0
 
 /** Editable/draggable elements exposed to VisualDesignEditor for this layer. */
 export const BRAND_LAYER_ELEMENTS: ElementDef[] = [
   { id: 'piece-photo', label: 'Imagen base', emoji: '🖼️', color: '#14B8A6', selector: '.piece-photo', editable: false, draggable: false },
   { id: 'bottom-cover', label: 'Tapa inferior', emoji: '🩹', color: '#94A3B8', selector: '.bottom-cover', editable: false, draggable: true, kind: 'shape' },
+  { id: 'brand-lockup', label: 'Lockup (logo + nombre)', emoji: '🏷️', color: '#8B5CF6', selector: '.brand-lockup', editable: false, draggable: true },
   { id: 'brand-logo', label: 'Logo', emoji: '🎨', color: '#8B5CF6', selector: '.brand-logo', editable: false, draggable: true, kind: 'image' },
+  { id: 'brand-wordmark', label: 'Nombre de marca', emoji: '✒️', color: '#6366F1', selector: '.brand-wordmark', editable: true, draggable: true, kind: 'text' },
   { id: 'brand-disclaimer', label: 'Disclaimer', emoji: '⚖️', color: '#CA8A04', selector: '.brand-disclaimer', editable: true, draggable: true, kind: 'text' },
   { id: 'promoter', label: 'Promotor', emoji: '👤', color: '#14B8A6', selector: '.promoter-overlay', editable: false, draggable: true },
   { id: 'promoter-name', label: 'Nombre', emoji: '✏️', color: '#0D9488', selector: '.promoter-name', editable: true, draggable: false, kind: 'text' },
@@ -76,16 +106,20 @@ export function buildBrandLayerHtml(input: BrandLayerInput): string {
     imageUrl,
     width,
     height,
+    imageFit = 'cover',
+    canvasBackground = '#FFFFFF',
     logoUrl,
+    wordmark,
     disclaimer,
     disclaimerTheme = 'dark',
     promoter,
     cover,
+    logoBox = DEFAULT_LOGO_BOX,
+    wordmarkFontPx = DEFAULT_WORDMARK_FONT_PX,
   } = input
 
   // Proportional metrics (percentages of canvas width).
   const pad = Math.round(width * 0.04)
-  const logoWidth = Math.round(width * 0.16)
   const discFont = Math.max(11, Math.round(width * 0.0155))
   const nameFont = Math.max(12, Math.round(width * 0.019))
   const roleFont = Math.max(10, Math.round(width * 0.015))
@@ -106,15 +140,24 @@ export function buildBrandLayerHtml(input: BrandLayerInput): string {
     ></div>`
       : ''
 
-  const logoBlock = logoUrl
-    ? `
-    <img
-      class="brand-logo"
-      src="${logoUrl}"
-      alt="Logo"
-      style="position:absolute;left:${pad}px;top:${pad}px;width:${logoWidth}px;height:auto;object-fit:contain;z-index:30;"
-    />`
+  // Logo and brand name travel together in a lockup, same as the presentation
+  // templates (`.logo-row` + `.wordmark`), so dragging moves both at once.
+  const logoImg = logoUrl
+    ? `<img class="brand-logo" src="${logoUrl}" alt="Logo" style="width:${logoBox.width}px;height:${logoBox.height}px;object-fit:contain;" />`
     : ''
+
+  const wordmarkSpan = wordmark?.trim()
+    ? `<span class="brand-wordmark" style="font-family:'Poppins','Inter',sans-serif;font-size:${wordmarkFontPx}px;font-weight:600;letter-spacing:-0.02em;color:#0F1419;line-height:1;white-space:nowrap;">${escapeHtml(wordmark.trim())}</span>`
+    : ''
+
+  const logoBlock =
+    logoImg || wordmarkSpan
+      ? `
+    <div
+      class="brand-lockup"
+      style="position:absolute;left:${pad}px;top:${pad}px;display:flex;align-items:center;gap:${DEFAULT_LOCKUP_GAP_PX}px;z-index:30;"
+    >${logoImg}${wordmarkSpan}</div>`
+      : ''
 
   const promoterBlock = promoter
     ? `
@@ -139,7 +182,7 @@ export function buildBrandLayerHtml(input: BrandLayerInput): string {
     ? `
     <div
       class="brand-disclaimer"
-      style="position:absolute;left:${pad}px;right:${pad}px;bottom:${pad}px;font-family:'Inter',sans-serif;font-size:${discFont}px;font-weight:400;line-height:1.35;color:${discColor};text-shadow:${discShadow};text-align:left;z-index:30;"
+      style="position:absolute;left:${pad}px;right:${pad}px;bottom:${pad}px;font-family:'Inter',sans-serif;font-size:${discFont}px;font-weight:400;line-height:1.35;color:${discColor};text-shadow:${discShadow};text-align:center;z-index:30;"
     >${escapeHtml(disclaimer.trim())}</div>`
     : ''
 
@@ -151,8 +194,8 @@ export function buildBrandLayerHtml(input: BrandLayerInput): string {
 <style>
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; background: #FFFFFF; }
-  .brand-canvas { position: relative; width: ${width}px; height: ${height}px; overflow: hidden; background: #FFFFFF; }
-  .piece-photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 10; }
+  .brand-canvas { position: relative; width: ${width}px; height: ${height}px; overflow: hidden; background: ${canvasBackground}; }
+  .piece-photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: ${imageFit}; z-index: 10; }
 </style>
 </head>
 <body>
@@ -161,4 +204,59 @@ export function buildBrandLayerHtml(input: BrandLayerInput): string {
   </div>
 </body>
 </html>`
+}
+
+export interface BrandLayerPatch {
+  logoUrl?: string | null
+  wordmark?: string | null
+  disclaimer?: string | null
+}
+
+/**
+ * Swap the logo, the brand name or the legal text on an ALREADY EDITED layer.
+ *
+ * Rebuilding the document would throw away everything dragged or resized in the
+ * editor, so these are surgical replacements: only the `src` of `.brand-logo`
+ * and the text inside `.brand-wordmark` / `.brand-disclaimer` change. Position,
+ * size and typography stay exactly as the user left them.
+ *
+ * `missing` lists the targets that were not present (e.g. swapping a logo into
+ * a layer that was built without one), so the caller can fall back to a rebuild.
+ */
+export function patchBrandLayerHtml(
+  html: string,
+  patch: BrandLayerPatch,
+): { html: string; missing: Array<keyof BrandLayerPatch> } {
+  let next = html
+  const missing: Array<keyof BrandLayerPatch> = []
+
+  if (patch.logoUrl !== undefined) {
+    const tagRe = /<img[^>]*class="[^"]*brand-logo[^"]*"[^>]*>/
+    const tag = next.match(tagRe)?.[0]
+    if (tag && patch.logoUrl) {
+      next = next.replace(tagRe, tag.replace(/src="[^"]*"/, `src="${patch.logoUrl}"`))
+    } else {
+      missing.push('logoUrl')
+    }
+  }
+
+  if (patch.wordmark !== undefined) {
+    const re = /(<span[^>]*class="[^"]*brand-wordmark[^"]*"[^>]*>)([\s\S]*?)(<\/span>)/
+    if (re.test(next)) {
+      next = next.replace(re, `$1${escapeHtml((patch.wordmark ?? '').trim())}$3`)
+    } else {
+      missing.push('wordmark')
+    }
+  }
+
+  if (patch.disclaimer !== undefined) {
+    const re = /(<div[^>]*class="[^"]*brand-disclaimer[^"]*"[^>]*>)([\s\S]*?)(<\/div>)/
+    if (re.test(next)) {
+      next = next.replace(re, `$1${escapeHtml((patch.disclaimer ?? '').trim())}$3`)
+    } else {
+      missing.push('disclaimer')
+    }
+  }
+
+  return { html: next, missing }
 }

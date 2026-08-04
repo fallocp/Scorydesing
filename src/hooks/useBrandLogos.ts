@@ -30,6 +30,8 @@ const LOGO_SOURCES: Array<{ bucket: string; prefix: string }> = [
 /** Upload target — `design-images` is the bucket the app already writes to. */
 const UPLOAD_BUCKET = 'design-images'
 const UPLOAD_PREFIX = 'brand-icons'
+/** Portraits live apart so they never show up in the logo picker. */
+const PROMOTER_PREFIX = 'promoter-photos'
 
 export interface BrandLogo {
   name: string
@@ -134,18 +136,36 @@ export function useBrandLogos(brandKey?: string | null) {
   }
 }
 
-/** Upload a logo from the panel into `design-images/brand-icons/<brand>/`. */
+/**
+ * Upload an image from the panel.
+ *
+ * `kind` keeps portraits out of the logo picker: a promoter headshot filed under
+ * `brand-icons/` would show up as a selectable brand logo.
+ *  - 'logo'     → `design-images/brand-icons/<brand>/`
+ *  - 'promoter' → `design-images/promoter-photos/`
+ */
 export function useUploadBrandLogo() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (params: { file: File; brandKey?: string | null }) => {
+    mutationFn: async (params: {
+      file: File
+      brandKey?: string | null
+      kind?: 'logo' | 'promoter'
+    }) => {
+      const kind = params.kind ?? 'logo'
       const ext = params.file.name.split('.').pop() || 'png'
-      const path = joinPath(
-        UPLOAD_PREFIX,
-        params.brandKey,
-        `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`,
-      )
+      const path =
+        kind === 'promoter'
+          ? joinPath(
+              PROMOTER_PREFIX,
+              `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`,
+            )
+          : joinPath(
+              UPLOAD_PREFIX,
+              params.brandKey,
+              `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`,
+            )
 
       const { error } = await supabase.storage
         .from(UPLOAD_BUCKET)
@@ -156,13 +176,15 @@ export function useUploadBrandLogo() {
         .from(UPLOAD_BUCKET)
         .createSignedUrl(path, SIGNED_URL_TTL_SECONDS)
       if (signError || !signed?.signedUrl) {
-        throw new Error(signError?.message || 'No se pudo firmar la URL del logo')
+        throw new Error(signError?.message || 'No se pudo firmar la URL de la imagen')
       }
 
       return signed.signedUrl
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['brand-logos'] })
+    onSuccess: (_url, params) => {
+      if ((params.kind ?? 'logo') === 'logo') {
+        queryClient.invalidateQueries({ queryKey: ['brand-logos'] })
+      }
     },
   })
 }
