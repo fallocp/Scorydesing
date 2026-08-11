@@ -26,7 +26,7 @@ export interface DesignTemplate {
 
 const LOGO_URL = 'https://gdfhytvjnzdovjfovqfv.supabase.co/storage/v1/object/sign/Brand/Xending%20bola%20logoabril26.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV8zNDdhNjgwZi1hZGU3LTQ3OGYtYjdkNy1kMGY5YzJjMDc4NDEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJCcmFuZC9YZW5kaW5nIGJvbGEgbG9nb2FicmlsMjYucG5nIiwiaWF0IjoxNzc3MTU1Nzg2LCJleHAiOjE4MDg2OTE3ODZ9.8ZrGD1_TGdtzJn5lSP3X3pvlqvFV-mfgwxLySRQUO3U';
 
-const FONTS = 'https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap';
+const FONTS = 'https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Poppins:wght@400;500;600;700&family=Fraunces:wght@400;600&family=JetBrains+Mono:wght@400;500;600&display=swap';
 
 const GRAIN = `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`;
 
@@ -92,14 +92,14 @@ const SHARED_CSS = `
       padding: 60px 70px 40px; overflow: visible; }
     .logo-row { display: flex; align-items: center; gap: 20px; margin-bottom: 40px; }
     .logo { width: 80px; height: 80px; object-fit: contain; }
-    .wordmark { font-family: 'Inter', sans-serif; font-weight: 700; font-size: 42px; }
-    .headline { font-family: 'Fraunces', serif; font-weight: 600; font-size: 68px;
+    .wordmark { font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 42px; }
+    .headline { font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 68px;
       line-height: 1.0; margin-bottom: 30px; }
     .accent-coral { font-style: italic; background: linear-gradient(135deg, #FF7A4A, #E85A2C);
       -webkit-background-clip: text; background-clip: text; color: transparent; }
     .accent-tq { font-style: italic; background: linear-gradient(135deg, #2ED4C7, #1FB8AC);
       -webkit-background-clip: text; background-clip: text; color: transparent; }
-    .subcopy { font-family: 'Inter', sans-serif; font-size: 26px; line-height: 1.4;
+    .subcopy { font-family: 'Poppins', sans-serif; font-size: 26px; line-height: 1.4;
       margin-bottom: 40px; }
     .photo-wrapper { position: relative; overflow: visible; margin-bottom: 30px; }
     .photo { width: 100%; height: 700px; object-fit: cover; object-position: center top;
@@ -111,7 +111,7 @@ const SHARED_CSS = `
       box-shadow: 0 8px 32px rgba(0,0,0,0.12); }
     .floating-element .label { font-family: 'JetBrains Mono', monospace; font-size: 12px;
       color: #888; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; }
-    .floating-element .value { font-family: 'Inter', sans-serif; font-weight: 700;
+    .floating-element .value { font-family: 'Poppins', sans-serif; font-weight: 700;
       font-size: 24px; color: #2ED4C7; }
     .floating-element .trend { width: 8px; height: 8px; background: #FF7A4A;
       border-radius: 50%; display: inline-block; animation: pulse 2s infinite; }
@@ -121,12 +121,12 @@ const SHARED_CSS = `
     .stat-dot { width: 10px; height: 10px; border-radius: 50%; }
     .accent-bar { display: none; height: 3px; margin-top: 12px; }
     .footer { position: absolute; bottom: 50px; left: 70px; right: 70px; text-align: center; }
-    .punchline { font-family: 'Fraunces', serif; font-weight: 600; font-size: 48px;
+    .punchline { font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 48px;
       margin-bottom: 30px; }
     .cta { display: inline-flex; align-items: center; gap: 14px; padding: 24px 40px;
-      border-radius: 100px; border: none; font-family: 'Inter', sans-serif;
+      border-radius: 100px; border: none; font-family: 'Poppins', sans-serif;
       font-weight: 600; font-size: 24px; cursor: pointer; }
-    .disclaimer { font-family: 'Inter', sans-serif; font-size: 14px; margin-top: 16px; }
+    .disclaimer { font-family: 'Fraunces', serif; font-size: 14px; margin-top: 16px; }
     /* Promoter overlay base styles (hidden by default via {{promoterDisplay}}) */
     .promoter-overlay { display: flex; flex-direction: column; align-items: center; gap: 6px;
       margin-top: 12px; }
@@ -135,10 +135,10 @@ const SHARED_CSS = `
       padding: 5px; box-shadow: 0 12px 40px rgba(0,0,0,0.2), 0 4px 16px rgba(46,212,199,0.3); }
     .promoter-photo { width: 100%; height: 100%; border-radius: 50%; object-fit: cover;
       border: 4px solid #fff; }
-    .promoter-name { font-family: 'Inter', sans-serif; font-weight: 700; font-size: 28px; color: #0F1419;
+    .promoter-name { font-family: 'Poppins', sans-serif; font-weight: 700; font-size: 28px; color: #0F1419;
       text-align: center; margin-top: 4px;
       text-shadow: 0 1px 8px rgba(255,255,255,0.8); }
-    .promoter-role { font-family: 'Inter', sans-serif; font-size: 18px; color: #2ED4C7; font-weight: 600;
+    .promoter-role { font-family: 'Poppins', sans-serif; font-size: 18px; color: #2ED4C7; font-weight: 600;
       text-align: center; letter-spacing: 0.3px;
       text-shadow: 0 1px 8px rgba(255,255,255,0.8); }
 `;
@@ -158,7 +158,7 @@ const CARD_LIGHT_CSS = SHARED_CSS + `
     .headline { color: #0F1419; }
     .subcopy { color: #555; }
     .stat-pill { background: rgba(46,212,199,0.08); }
-    .stat-pill span { color: #0F1419; font-family: 'Inter', sans-serif; font-weight: 600; font-size: 18px; }
+    .stat-pill span { color: #0F1419; font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 18px; }
     .stat-dot { background: #2ED4C7; box-shadow: 0 0 12px rgba(46,212,199,0.8); }
     .accent-bar { background: linear-gradient(90deg, #FF7A4A, #2ED4C7); }
     .punchline { color: #0F1419; }
@@ -183,7 +183,7 @@ const CARD_DARK_CSS = SHARED_CSS + `
     .floating-element .label { color: rgba(255,255,255,0.5); }
     .floating-element .value { color: #2ED4C7; }
     .stat-pill { background: rgba(255,255,255,0.06); }
-    .stat-pill span { color: #fff; font-family: 'Inter', sans-serif; font-weight: 600; font-size: 18px; }
+    .stat-pill span { color: #fff; font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 18px; }
     .stat-dot { background: #2ED4C7; box-shadow: 0 0 12px rgba(46,212,199,0.8); }
     .accent-bar { background: linear-gradient(90deg, #FF7A4A, #2ED4C7); }
     .punchline { color: #FFFFFF; }
@@ -210,7 +210,7 @@ const CARD_CORAL_CSS = SHARED_CSS + `
     .floating-element .value { color: #FFFFFF; }
     .floating-element .trend { background: #fff; }
     .stat-pill { background: rgba(255,120,70,0.08); }
-    .stat-pill span { color: #0F1419; font-family: 'Inter', sans-serif; font-weight: 600; font-size: 18px; }
+    .stat-pill span { color: #0F1419; font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 18px; }
     .stat-dot { background: #FF7A4A; box-shadow: 0 0 12px rgba(255,120,70,0.8); }
     .accent-bar { background: linear-gradient(90deg, #FF7A4A, #E85A2C); }
     .punchline { color: #0F1419; }
@@ -237,7 +237,7 @@ const CARD_TURQUESA_CSS = SHARED_CSS + `
     .floating-element .value { color: #FFFFFF; }
     .floating-element .trend { background: #fff; }
     .stat-pill { background: rgba(46,212,199,0.08); }
-    .stat-pill span { color: #0F1419; font-family: 'Inter', sans-serif; font-weight: 600; font-size: 18px; }
+    .stat-pill span { color: #0F1419; font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 18px; }
     .stat-dot { background: #2ED4C7; box-shadow: 0 0 12px rgba(46,212,199,0.8); }
     .accent-bar { background: linear-gradient(90deg, #2ED4C7, #1FB8AC); }
     .punchline { color: #0F1419; }
@@ -263,7 +263,7 @@ const CARD_NAVY_CSS = SHARED_CSS + `
     .floating-element .label { color: rgba(255,255,255,0.5); }
     .floating-element .value { color: #2ED4C7; }
     .stat-pill { background: rgba(46,212,199,0.08); }
-    .stat-pill span { color: #2ED4C7; font-family: 'Inter', sans-serif; font-weight: 600; font-size: 18px; }
+    .stat-pill span { color: #2ED4C7; font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 18px; }
     .stat-dot { background: #FF7A4A; box-shadow: 0 0 12px rgba(255,120,70,0.8); }
     .accent-bar { background: linear-gradient(90deg, #2ED4C7, #FF7A4A); }
     .punchline { color: #FFFFFF; }
@@ -304,10 +304,10 @@ const PROMOTER_CSS = SHARED_CSS + `
       padding: 5px; box-shadow: 0 12px 40px rgba(0,0,0,0.2), 0 4px 16px rgba(46,212,199,0.3); }
     .promoter-photo { width: 100%; height: 100%; border-radius: 50%; object-fit: cover;
       border: 4px solid #fff; }
-    .promoter-name { font-family: 'Inter', sans-serif; font-weight: 700; font-size: 28px; color: #0F1419;
+    .promoter-name { font-family: 'Poppins', sans-serif; font-weight: 700; font-size: 28px; color: #0F1419;
       text-align: center; margin-top: 4px;
       text-shadow: 0 1px 8px rgba(255,255,255,0.8); }
-    .promoter-role { font-family: 'Inter', sans-serif; font-size: 18px; color: #2ED4C7; font-weight: 600;
+    .promoter-role { font-family: 'Poppins', sans-serif; font-size: 18px; color: #2ED4C7; font-weight: 600;
       text-align: center; letter-spacing: 0.3px;
       text-shadow: 0 1px 8px rgba(255,255,255,0.8); }
     .footer { position: absolute; bottom: 50px; left: 70px; right: 70px;

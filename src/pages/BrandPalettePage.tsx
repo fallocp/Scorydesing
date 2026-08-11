@@ -55,16 +55,28 @@ interface FontToken {
 
 const FONT_TOKENS: FontToken[] = [
   {
-    family: 'Fraunces',
-    usage: 'Display — headlines, títulos grandes, italic acentuado',
-    weights: '600 (SemiBold), 700 (Bold), 900 (Black)',
-    cssImport: "@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&display=swap');",
+    family: 'Montserrat',
+    usage: 'Display — headlines, títulos grandes, wordmark, italic acentuado',
+    weights: '600 (SemiBold), 700 (Bold), 800 (ExtraBold)',
+    cssImport: "@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&display=swap');",
+  },
+  {
+    family: 'Poppins',
+    usage: 'Body — subcopy, CTA, labels, microcopy de las piezas',
+    weights: '400, 500, 600, 700',
+    cssImport: "@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');",
   },
   {
     family: 'Inter',
-    usage: 'Body — subcopy, disclaimers, texto general, UI',
+    usage: 'Texto denso — tablas, bloques de datos y UI de la app',
     weights: '300, 400, 500, 600, 700, 800',
     cssImport: "@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');",
+  },
+  {
+    family: 'Fraunces',
+    usage: 'Legal — únicamente notas legales y disclaimers al pie',
+    weights: '400, 600',
+    cssImport: "@import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;600&display=swap');",
   },
   {
     family: 'JetBrains Mono',
@@ -216,7 +228,12 @@ function FontPreview({ token, onCopy, copiedKey }: { token: FontToken; onCopy: (
   const justCopied = copiedKey === token.cssImport;
   const isMono = token.family === 'JetBrains Mono';
   const isSerif = token.family === 'Fraunces';
-  const sample = isMono ? '17.85 · 130+ · 1d' : isSerif ? 'Operación financiera internacional' : 'Más rápido. Más inteligente.';
+  const sample = isMono
+    ? '17.85 · 130+ · 1d'
+    : isSerif
+      // Fraunces only ever sets legal copy now, so the specimen shows that.
+      ? 'Sujeto a condiciones de la operación.'
+      : 'Más rápido. Más inteligente.';
 
   return (
     <Card>
@@ -369,9 +386,10 @@ function exportAsBrandGuide() {
   <meta charset="utf-8">
   <title>Xending — Guía de Marca</title>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Poppins:wght@400;500;600;700&display=swap');
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Inter', sans-serif; color: #1a1a1a; padding: 48px; max-width: 900px; margin: 0 auto; }
+    body { font-family: 'Poppins', sans-serif; color: #1a1a1a; padding: 48px; max-width: 900px; margin: 0 auto; }
+    h1, h2, h3 { font-family: 'Montserrat', sans-serif; }
     h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; }
     h2 { font-size: 20px; font-weight: 700; margin-top: 40px; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 2px solid #2ED4C7; }
     .subtitle { font-size: 14px; color: #666; margin-bottom: 32px; }
@@ -415,10 +433,11 @@ function exportAsBrandGuide() {
     <div class="rule-item"><span class="rule-label">Highlight</span><span class="rule-value">Coral #FF7A4A para sublabel "CAPITAL", italic acentuado, alertas</span></div>
     <div class="rule-item"><span class="rule-label">Contraste</span><span class="rule-value">Mínimo WCAG AA (4.5:1) para texto normal</span></div>
     <div class="rule-item"><span class="rule-label">Texto sobre navy</span><span class="rule-value">Siempre blanco #FFFFFF</span></div>
-    <div class="rule-item"><span class="rule-label">Headlines</span><span class="rule-value">Fraunces SemiBold/Bold, italic para acentos</span></div>
-    <div class="rule-item"><span class="rule-label">Body / UI</span><span class="rule-value">Inter Regular/Medium</span></div>
-    <div class="rule-item"><span class="rule-label">Números / datos</span><span class="rule-value">JetBrains Mono Medium/Bold</span></div>
-    <div class="rule-item"><span class="rule-label">Mesh gradient</span><span class="rule-value">Turquesa domina (opacity 0.15), coral sutil (0.10)</span></div>
+    <div class="rule-item"><span class="rule-label">Headlines</span><span class="rule-value">Montserrat Bold/ExtraBold, italic para acentos</span></div>
+    <div class="rule-item"><span class="rule-label">Body / CTA</span><span class="rule-value">Poppins Regular/Medium/SemiBold</span></div>
+    <div class="rule-item"><span class="rule-label">Números / datos</span><span class="rule-value">JetBrains Mono Medium/Bold; Inter para tablas densas</span></div>
+    <div class="rule-item"><span class="rule-label">Nota legal</span><span class="rule-value">Fraunces Regular, únicamente al pie de la pieza</span></div>
+              <div class="rule-item"><span class="rule-label">Mesh gradient</span><span class="rule-value">Turquesa domina (opacity 0.15), coral sutil (0.10)</span></div>
     <div class="rule-item"><span class="rule-label">Grain overlay</span><span class="rule-value">Opacidad 0.03–0.06, mix-blend-mode: overlay</span></div>
   </div>
 

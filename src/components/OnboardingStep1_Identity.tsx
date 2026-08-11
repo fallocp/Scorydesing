@@ -84,8 +84,8 @@ export function OnboardingStep1_Identity({ data, updateData, onValidChange, goNe
       primary_color: '#FF7A4A',
       secondary_color: '#2ED4C7',
       accent_color: '#0F1419',
-      font_display: 'Inter',
-      font_body: 'Inter',
+      font_display: 'Montserrat',
+      font_body: 'Poppins',
       font_mono: 'JetBrains Mono',
     },
   });

@@ -107,7 +107,7 @@ function BrandIdentityEditor({ businessId }: { businessId: string }) {
           primary_color: primaryColor || null,
           secondary_color: secondaryColor || null,
           accent_color: accentColor || null,
-          fonts: { display: displayFont || 'Inter', body: bodyFont || 'Inter', mono: 'JetBrains Mono' },
+          fonts: { display: displayFont || 'Montserrat', body: bodyFont || 'Poppins', mono: 'JetBrains Mono' },
           disclaimer: disclaimer || null,
         })
         .eq('id', businessId);
@@ -223,7 +223,7 @@ function BrandIdentityEditor({ businessId }: { businessId: string }) {
               id="admin-display-font"
               value={displayFont}
               onChange={(e) => setDisplayFont(e.target.value)}
-              placeholder="Fraunces"
+              placeholder="Montserrat"
             />
           </div>
           <div className="space-y-2">

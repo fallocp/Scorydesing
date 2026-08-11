@@ -236,20 +236,38 @@ interface CarouselPromptsModelResponse {
 /**
  * An image model cannot load a font — it synthesizes letterforms, so naming
  * Montserrat on its own is a coin flip. This spells out the LETTERFORM TRAITS
- * that make a geometric sans read as Montserrat and then closes off the styles
- * the model drifts into; the prohibition list does most of the work.
+ * that make a geometric sans read as Montserrat.
+ *
+ * WHY THERE IS NO PROHIBITION LIST
+ * -------------------------------
+ * There used to be one, and it named what it forbade: "serifas de cualquier
+ * tipo, didone, slab, transicional, caligráfica...". Image models weight the
+ * concepts in a prompt and do not reliably apply the negation attached to them,
+ * so naming a style is a way of asking for it. The pieces that came out wrong
+ * came out as high-contrast didone — the first two items on that list.
+ *
+ * Every rule below is therefore phrased as a property the letter MUST have, and
+ * each one closes off a family without naming it:
+ *
+ *   constant stroke weight        → rules out didone and any modulated face
+ *   terminals cut square, same
+ *     thickness as the stroke     → rules out serifs and slabs
+ *   normal letter widths          → rules out condensed and expanded
+ *   upright vertical axis         → rules out italic and script
+ *   single flat ink               → rules out 3D, emboss, shadow, metallic
  *
  * It gets close, not exact. Text that must genuinely BE Montserrat has to be
- * composited as HTML on top of the image instead of baked into it.
+ * composited as HTML on top of the image instead of baked into it — see
+ * buildBrandLayerHtml, which already does that for the logo and the legal note.
  *
  * Declared before the master prompts because they interpolate it, and shared
  * with the carousel path so the two cannot drift apart.
  *
  * Source of truth for the families: docs/prompts/XENDING_VISUAL_SYSTEM_v1.md §4.
  */
-const BRAND_TYPOGRAPHY = `TIPOGRAFÍA (obligatoria, es la del sistema de marca Xending): toda la letra es sans-serif GEOMÉTRICA. Montserrat Bold o ExtraBold en el headline; Poppins Medium o SemiBold en body, CTA y microcopy. Si no reconoces esas familias, usa la más cercana: Gotham, Proxima Nova o Poppins.
-Rasgos que debe cumplir: grosor de trazo uniforme, sin ningún contraste entre trazos gruesos y delgados; 'O' y 'o' casi círculos perfectos; altura de x alta; terminaciones rectas horizontales o verticales; tracking ligeramente cerrado en el headline. Letra plana y vectorial, nítida, como diseño editorial digital.
-PROHIBIDO en la tipografía: serifas de cualquier tipo, didone, slab, transicional, caligráfica, script, itálica, condensada, expandida, redondeada tipo burbuja, contraste variable de trazo, letras decorativas, 3D, relieve, sombra proyectada, acabado metálico y texturizado.`;
+const BRAND_TYPOGRAPHY = `TIPOGRAFÍA (obligatoria, es la del sistema de marca Xending): Montserrat Bold o ExtraBold en el headline; Poppins Medium o SemiBold en body, CTA y microcopy. Si no reconoces esas familias, usa Gotham, Proxima Nova o Poppins.
+La letra debe cumplir TODOS estos rasgos: grosor de trazo constante de principio a fin de cada letra; 'O' y 'o' como círculos casi perfectos; altura de x alta; cada asta termina en un corte recto, horizontal o vertical, del mismo grosor que el resto del trazo; anchos de letra normales; eje completamente vertical; tracking ligeramente cerrado en el headline.
+Acabado: letra plana y vectorial, de una sola tinta mate, nítida y de bordes limpios, como diseño editorial digital.`;
 
 // ---------------------------------------------------------------------------
 // Hardcoded fallback — Master Image Prompt (Req 2.2, 6.4)

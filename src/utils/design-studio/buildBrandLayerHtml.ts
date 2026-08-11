@@ -147,7 +147,7 @@ export function buildBrandLayerHtml(input: BrandLayerInput): string {
     : ''
 
   const wordmarkSpan = wordmark?.trim()
-    ? `<span class="brand-wordmark" style="font-family:'Poppins','Inter',sans-serif;font-size:${wordmarkFontPx}px;font-weight:600;letter-spacing:-0.02em;color:#0F1419;line-height:1;white-space:nowrap;">${escapeHtml(wordmark.trim())}</span>`
+    ? `<span class="brand-wordmark" style="font-family:'Montserrat',Arial,sans-serif;font-size:${wordmarkFontPx}px;font-weight:700;letter-spacing:-0.02em;color:#0F1419;line-height:1;white-space:nowrap;">${escapeHtml(wordmark.trim())}</span>`
     : ''
 
   const logoBlock =
@@ -182,7 +182,7 @@ export function buildBrandLayerHtml(input: BrandLayerInput): string {
     ? `
     <div
       class="brand-disclaimer"
-      style="position:absolute;left:${pad}px;right:${pad}px;bottom:${pad}px;font-family:'Inter',sans-serif;font-size:${discFont}px;font-weight:400;line-height:1.35;color:${discColor};text-shadow:${discShadow};text-align:center;z-index:30;"
+      style="position:absolute;left:${pad}px;right:${pad}px;bottom:${pad}px;font-family:'Fraunces',Georgia,serif;font-size:${discFont}px;font-weight:400;line-height:1.35;color:${discColor};text-shadow:${discShadow};text-align:center;z-index:30;"
     >${escapeHtml(disclaimer.trim())}</div>`
     : ''
 
@@ -190,10 +190,13 @@ export function buildBrandLayerHtml(input: BrandLayerInput): string {
 <html lang="es">
 <head>
 <meta charset="utf-8" />
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Poppins:wght@400;500;600;700&family=Fraunces:wght@400;600&display=swap" rel="stylesheet" />
 <style>
   * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; background: #FFFFFF; }
+  /* Poppins as the base so the promoter name and role — the only text here that
+     does not set its own family — land on the brand font instead of the
+     browser default serif. */
+  html, body { margin: 0; padding: 0; background: #FFFFFF; font-family: 'Poppins', Arial, sans-serif; }
   .brand-canvas { position: relative; width: ${width}px; height: ${height}px; overflow: hidden; background: ${canvasBackground}; }
   .piece-photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: ${imageFit}; z-index: 10; }
 </style>

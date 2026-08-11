@@ -4,13 +4,14 @@
  * Variante con portada "Split Navy/Cream":
  * - Lado izquierdo: fondo navy #0F1419, texto blanco, acentos turquesa/coral
  * - Lado derecho: cream con imagen placeholder
- * - Tipografía: Fraunces (headlines), Inter (body), JetBrains Mono (números)
+ * - Tipografía: Montserrat (headlines), Poppins (body), JetBrains Mono (números),
+ *   Fraunces solo para notas legales
  * - Format: 1920x1080 (16:9 presentation)
  */
 
 const LOGO_URL = 'https://gdfhytvjnzdovjfovqfv.supabase.co/storage/v1/object/sign/Brand/Xending%20bola%20logoabril26.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV8zNDdhNjgwZi1hZGU3LTQ3OGYtYjdkNy1kMGY5YzJjMDc4NDEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJCcmFuZC9YZW5kaW5nIGJvbGEgbG9nb2FicmlsMjYucG5nIiwiaWF0IjoxNzc3MTU1Nzg2LCJleHAiOjE4MDg2OTE3ODZ9.8ZrGD1_TGdtzJn5lSP3X3pvlqvFV-mfgwxLySRQUO3U';
 
-const FONTS = 'https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap';
+const FONTS = 'https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Poppins:wght@400;500;600;700&family=Fraunces:wght@400;600&family=JetBrains+Mono:wght@400;500;600&display=swap';
 
 const GRAIN = `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`;
 
@@ -21,7 +22,7 @@ const MAP_COVER_URL = 'https://gdfhytvjnzdovjfovqfv.supabase.co/storage/v1/objec
 
 // Tipografía de la portada del mapa. Para cambiar el tipo de letra, edita SOLO
 // estas dos líneas (familia de Google Fonts + nombres CSS).
-const MAP_COVER_FONTS = 'https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Poppins:wght@500;600;700&display=swap';
+const MAP_COVER_FONTS = 'https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Poppins:wght@400;500;600;700&family=Fraunces:wght@400;600&family=JetBrains+Mono:wght@400;500;600&display=swap';
 const MAP_COVER_FONT_TITLE = "'Montserrat', sans-serif";
 const MAP_COVER_FONT_BODY = "'Poppins', sans-serif";
 
@@ -43,7 +44,7 @@ export const slide01_cover_v2: string = `<!DOCTYPE html>
       height: 1080px;
       position: relative;
       overflow: hidden;
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       display: flex;
       transform-origin: top left;
     }
@@ -124,14 +125,14 @@ export const slide01_cover_v2: string = `<!DOCTYPE html>
     }
 
     .wordmark {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Montserrat', sans-serif;
       font-weight: 700;
       font-size: 30px;
       color: #ffffff;
     }
 
     h1 {
-      font-family: 'Fraunces', serif;
+      font-family: 'Montserrat', sans-serif;
       font-weight: 600;
       font-size: 72px;
       line-height: 1.08;
@@ -157,7 +158,7 @@ export const slide01_cover_v2: string = `<!DOCTYPE html>
     }
 
     .subtitle {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       font-size: 24px;
       font-weight: 400;
       color: rgba(255,255,255,0.75);
@@ -308,7 +309,7 @@ export const slide01_cover_v3: string = `<!DOCTYPE html>
       height: 1080px;
       position: relative;
       overflow: hidden;
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       background:
         radial-gradient(ellipse 800px 700px at 90% 10%, rgba(46,212,199,0.10) 0%, transparent 60%),
         radial-gradient(ellipse 800px 700px at 10% 95%, rgba(255,122,74,0.08) 0%, transparent 60%),
@@ -366,14 +367,14 @@ export const slide01_cover_v3: string = `<!DOCTYPE html>
     .logo-row img { width: 56px; height: 56px; object-fit: contain; }
 
     .wordmark {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Montserrat', sans-serif;
       font-weight: 700;
       font-size: 32px;
       color: #ffffff;
     }
 
     h1 {
-      font-family: 'Fraunces', serif;
+      font-family: 'Montserrat', sans-serif;
       font-weight: 600;
       font-size: 84px;
       line-height: 1.05;
@@ -490,7 +491,7 @@ export const slide01_cover_v4: string = `<!DOCTYPE html>
       height: 1080px;
       position: relative;
       overflow: hidden;
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       background: linear-gradient(135deg, #0F1419 0%, #1a2838 50%, #0F1419 100%);
       transform-origin: top left;
     }
@@ -568,7 +569,7 @@ export const slide01_cover_v4: string = `<!DOCTYPE html>
     }
 
     h1 {
-      font-family: 'Fraunces', serif;
+      font-family: 'Montserrat', sans-serif;
       font-weight: 600;
       font-size: 78px;
       line-height: 1.05;
@@ -706,7 +707,7 @@ export const slide01_cover_v5: string = `<!DOCTYPE html>
       height: 1080px;
       position: relative;
       overflow: hidden;
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       background:
         radial-gradient(ellipse 900px 700px at 20% 20%, rgba(46,212,199,0.22) 0%, transparent 55%),
         radial-gradient(ellipse 900px 700px at 80% 80%, rgba(255,122,74,0.18) 0%, transparent 55%),
@@ -771,7 +772,7 @@ export const slide01_cover_v5: string = `<!DOCTYPE html>
     }
 
     h1 {
-      font-family: 'Fraunces', serif;
+      font-family: 'Montserrat', sans-serif;
       font-weight: 600;
       font-size: 72px;
       line-height: 1.06;
@@ -912,7 +913,7 @@ export const slide01_cover_v6: string = `<!DOCTYPE html>
       height: 1080px;
       position: relative;
       overflow: hidden;
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       background:
         radial-gradient(ellipse 1200px 1000px at 75% 50%, rgba(46,212,199,0.22) 0%, rgba(46,212,199,0.05) 40%, transparent 70%),
         radial-gradient(ellipse 900px 700px at 85% 60%, rgba(255,122,74,0.10) 0%, transparent 55%),
@@ -1007,7 +1008,7 @@ export const slide01_cover_v6: string = `<!DOCTYPE html>
     }
 
     h1 {
-      font-family: 'Fraunces', serif;
+      font-family: 'Montserrat', sans-serif;
       font-weight: 600;
       font-size: 92px;
       line-height: 1.02;
@@ -1061,7 +1062,7 @@ export const slide01_cover_v6: string = `<!DOCTYPE html>
     }
 
     .stat-label {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       font-size: 12px;
       color: rgba(255,255,255,0.5);
       text-transform: uppercase;
@@ -1174,7 +1175,7 @@ export const slide01_cover_v7: string = `<!DOCTYPE html>
       height: 1080px;
       position: relative;
       overflow: hidden;
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       background:
         radial-gradient(ellipse 1200px 1000px at 75% 50%, rgba(46,212,199,0.25) 0%, rgba(46,212,199,0.06) 40%, transparent 70%),
         radial-gradient(ellipse 900px 700px at 85% 60%, rgba(255,122,74,0.18) 0%, transparent 55%),
@@ -1270,7 +1271,7 @@ export const slide01_cover_v7: string = `<!DOCTYPE html>
     }
 
     h1 {
-      font-family: 'Fraunces', serif;
+      font-family: 'Montserrat', sans-serif;
       font-weight: 600;
       font-size: 92px;
       line-height: 1.02;
@@ -1324,7 +1325,7 @@ export const slide01_cover_v7: string = `<!DOCTYPE html>
     }
 
     .stat-label {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       font-size: 12px;
       color: rgba(15,20,25,0.5);
       text-transform: uppercase;
@@ -1437,7 +1438,7 @@ export const slide01_cover_v8: string = `<!DOCTYPE html>
       height: 1080px;
       position: relative;
       overflow: hidden;
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       background:
         radial-gradient(ellipse 1200px 1000px at 75% 50%, rgba(46,212,199,0.22) 0%, rgba(46,212,199,0.05) 40%, transparent 70%),
         radial-gradient(ellipse 900px 700px at 85% 60%, rgba(255,122,74,0.10) 0%, transparent 55%),
@@ -1521,7 +1522,7 @@ export const slide01_cover_v8: string = `<!DOCTYPE html>
     }
 
     h1 {
-      font-family: 'Fraunces', serif;
+      font-family: 'Montserrat', sans-serif;
       font-weight: 600;
       font-size: 84px;
       line-height: 1.02;
@@ -1592,14 +1593,14 @@ export const slide01_cover_v8: string = `<!DOCTYPE html>
     }
 
     .stat-number.same-day {
-      font-family: 'Fraunces', serif;
+      font-family: 'Montserrat', sans-serif;
       font-style: italic;
       font-weight: 500;
       font-size: 36px;
     }
 
     .stat-label {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       font-size: 12px;
       color: rgba(255,255,255,0.55);
       text-transform: uppercase;
@@ -1776,7 +1777,7 @@ export const slide01_cover_v9: string = `<!DOCTYPE html>
       height: 1080px;
       position: relative;
       overflow: hidden;
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       background:
         radial-gradient(ellipse 1000px 800px at 75% 50%, rgba(46,212,199,0.18) 0%, rgba(46,212,199,0.04) 40%, transparent 70%),
         radial-gradient(ellipse 800px 600px at 85% 70%, rgba(255,122,74,0.10) 0%, transparent 55%),
@@ -1838,7 +1839,7 @@ export const slide01_cover_v9: string = `<!DOCTYPE html>
     }
 
     h1 {
-      font-family: 'Fraunces', serif;
+      font-family: 'Montserrat', sans-serif;
       font-weight: 600;
       font-size: 84px;
       line-height: 1.02;
@@ -1908,14 +1909,14 @@ export const slide01_cover_v9: string = `<!DOCTYPE html>
     }
 
     .stat-number.same-day {
-      font-family: 'Fraunces', serif;
+      font-family: 'Montserrat', sans-serif;
       font-style: italic;
       font-weight: 500;
       font-size: 36px;
     }
 
     .stat-label {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       font-size: 12px;
       color: rgba(255,255,255,0.55);
       text-transform: uppercase;
@@ -2133,7 +2134,7 @@ export const slide01_cover_v10: string = `<!DOCTYPE html>
       height: 1080px;
       position: relative;
       overflow: hidden;
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       display: flex;
       transform-origin: top left;
     }
@@ -2289,7 +2290,7 @@ export const slide01_cover_v10: string = `<!DOCTYPE html>
     }
 
     h1 {
-      font-family: 'Fraunces', serif;
+      font-family: 'Montserrat', sans-serif;
       font-weight: 600;
       font-size: 72px;
       line-height: 1.08;
@@ -2434,7 +2435,7 @@ export const slide01_cover_v11: string = `<!DOCTYPE html>
       height: 1080px;
       position: relative;
       overflow: hidden;
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       background:
         radial-gradient(ellipse 900px 700px at 15% 20%, rgba(46,212,199,0.08) 0%, transparent 55%),
         linear-gradient(135deg, #0A0E14 0%, #141C28 50%, #0A0E14 100%);
@@ -2512,7 +2513,7 @@ export const slide01_cover_v11: string = `<!DOCTYPE html>
     }
 
     h1 {
-      font-family: 'Fraunces', serif;
+      font-family: 'Montserrat', sans-serif;
       font-weight: 600;
       font-size: 84px;
       line-height: 1.02;
@@ -2573,14 +2574,14 @@ export const slide01_cover_v11: string = `<!DOCTYPE html>
     }
 
     .stat-number.same-day {
-      font-family: 'Fraunces', serif;
+      font-family: 'Montserrat', sans-serif;
       font-style: italic;
       font-weight: 500;
       font-size: 36px;
     }
 
     .stat-label {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       font-size: 12px;
       color: rgba(255,255,255,0.55);
       text-transform: uppercase;
@@ -2730,7 +2731,7 @@ export const slide01_cover_v12: string = `<!DOCTYPE html>
       height: 1080px;
       position: relative;
       overflow: hidden;
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       background:
         radial-gradient(ellipse 1200px 1000px at 75% 50%, rgba(46,212,199,0.22) 0%, rgba(46,212,199,0.05) 40%, transparent 70%),
         radial-gradient(ellipse 900px 700px at 85% 60%, rgba(255,122,74,0.10) 0%, transparent 55%),
@@ -2804,7 +2805,7 @@ export const slide01_cover_v12: string = `<!DOCTYPE html>
     }
 
     h1 {
-      font-family: 'Fraunces', serif;
+      font-family: 'Montserrat', sans-serif;
       font-weight: 600;
       font-size: 84px;
       line-height: 1.02;
@@ -2864,14 +2865,14 @@ export const slide01_cover_v12: string = `<!DOCTYPE html>
     }
 
     .stat-number.same-day {
-      font-family: 'Fraunces', serif;
+      font-family: 'Montserrat', sans-serif;
       font-style: italic;
       font-weight: 500;
       font-size: 36px;
     }
 
     .stat-label {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       font-size: 12px;
       color: rgba(255,255,255,0.55);
       text-transform: uppercase;
@@ -3044,7 +3045,7 @@ export const slide02_services_v1: string = `<!DOCTYPE html>
       height: 1080px;
       position: relative;
       overflow: hidden;
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       background:
         radial-gradient(ellipse 1000px 800px at 50% 50%, rgba(46,212,199,0.18) 0%, rgba(46,212,199,0.04) 45%, transparent 70%),
         radial-gradient(ellipse 700px 500px at 50% 50%, rgba(255,122,74,0.08) 0%, transparent 55%),
@@ -3083,7 +3084,7 @@ export const slide02_services_v1: string = `<!DOCTYPE html>
     }
 
     h1 {
-      font-family: 'Fraunces', serif;
+      font-family: 'Montserrat', sans-serif;
       font-weight: 600;
       font-size: 46px;
       line-height: 1.1;
@@ -3209,7 +3210,7 @@ export const slide02_services_v1: string = `<!DOCTYPE html>
 
     /* Títulos de servicio: primera palabra coral, segunda blanca */
     h3 {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       font-weight: 700;
       font-size: 20px;
       letter-spacing: 2px;
@@ -3224,7 +3225,7 @@ export const slide02_services_v1: string = `<!DOCTYPE html>
     }
 
     .subtitle {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       font-weight: 500;
       font-size: 17px;
       color: #2ED4C7;
@@ -3234,7 +3235,7 @@ export const slide02_services_v1: string = `<!DOCTYPE html>
     }
 
     .body {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       font-weight: 400;
       font-size: 15px;
       color: rgba(255,255,255,0.82);
@@ -3315,7 +3316,7 @@ export const slide02_services_v1: string = `<!DOCTYPE html>
     .feature-icon svg { width: 26px; height: 26px; }
 
     .feature-label {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       font-weight: 600;
       font-size: 12px;
       color: rgba(255,255,255,0.85);
@@ -3568,7 +3569,7 @@ export const slide03_services_v2: string = `<!DOCTYPE html>
       height: 1080px;
       position: relative;
       overflow: hidden;
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       background:
         radial-gradient(ellipse 1100px 900px at 50% 55%, rgba(46,212,199,0.15) 0%, rgba(46,212,199,0.03) 45%, transparent 72%),
         radial-gradient(ellipse 800px 600px at 50% 55%, rgba(255,122,74,0.07) 0%, transparent 60%),
@@ -3659,7 +3660,7 @@ export const slide03_services_v2: string = `<!DOCTYPE html>
     }
 
     h1 {
-      font-family: 'Fraunces', serif;
+      font-family: 'Montserrat', sans-serif;
       font-weight: 600;
       font-size: 62px;
       line-height: 1.05;
@@ -3784,7 +3785,7 @@ export const slide03_services_v2: string = `<!DOCTYPE html>
     .is-hero .service-icon svg { width: 42px; height: 42px; }
 
     h3 {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       font-weight: 700;
       font-size: 24px;
       letter-spacing: 1px;
@@ -3817,7 +3818,7 @@ export const slide03_services_v2: string = `<!DOCTYPE html>
     }
 
     .body {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       font-weight: 400;
       font-size: 17px;
       color: rgba(255,255,255,0.78);
@@ -3848,7 +3849,7 @@ export const slide03_services_v2: string = `<!DOCTYPE html>
     }
 
     .support-row .subtitle {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       font-weight: 500;
       font-size: 14px;
       color: #2ED4C7;
@@ -3872,7 +3873,7 @@ export const slide03_services_v2: string = `<!DOCTYPE html>
 
     /* Disclaimer (small print) */
     .disclaimer {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       font-weight: 400;
       font-size: 11px;
       color: rgba(255,255,255,0.40);
@@ -4063,7 +4064,7 @@ export const slide04_differentiators_v1: string = `<!DOCTYPE html>
       height: 1080px;
       position: relative;
       overflow: hidden;
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       background:
         radial-gradient(ellipse 1100px 900px at 50% 55%, rgba(46,212,199,0.15) 0%, rgba(46,212,199,0.03) 45%, transparent 72%),
         radial-gradient(ellipse 800px 600px at 50% 55%, rgba(255,122,74,0.07) 0%, transparent 60%),
@@ -4154,7 +4155,7 @@ export const slide04_differentiators_v1: string = `<!DOCTYPE html>
     }
 
     h1 {
-      font-family: 'Fraunces', serif;
+      font-family: 'Montserrat', sans-serif;
       font-weight: 600;
       font-size: 58px;
       line-height: 1.05;
@@ -4171,7 +4172,7 @@ export const slide04_differentiators_v1: string = `<!DOCTYPE html>
     }
 
     .header-subtitle {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       font-weight: 400;
       font-size: 20px;
       color: rgba(255,255,255,0.65);
@@ -4202,7 +4203,7 @@ export const slide04_differentiators_v1: string = `<!DOCTYPE html>
       background: rgba(46,212,199,0.12);
       border: 1px solid rgba(46,212,199,0.35);
       color: #2ED4C7;
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       font-weight: 500;
       font-size: 13px;
       padding: 7px 14px;
@@ -4223,7 +4224,7 @@ export const slide04_differentiators_v1: string = `<!DOCTYPE html>
       bottom: 200px;
       text-align: center;
       z-index: 5;
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       font-weight: 400;
       font-size: 12px;
       font-style: italic;
@@ -4300,7 +4301,7 @@ export const slide04_differentiators_v1: string = `<!DOCTYPE html>
     }
 
     .feature-card h3 {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       font-weight: 700;
       font-size: 22px;
       line-height: 1.15;
@@ -4316,7 +4317,7 @@ export const slide04_differentiators_v1: string = `<!DOCTYPE html>
     }
 
     .feature-card .lead {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       font-weight: 500;
       font-size: 15px;
       color: rgba(255,255,255,0.88);
@@ -4324,7 +4325,7 @@ export const slide04_differentiators_v1: string = `<!DOCTYPE html>
     }
 
     .feature-card .body {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       font-weight: 400;
       font-size: 14px;
       color: rgba(255,255,255,0.65);
@@ -4353,7 +4354,7 @@ export const slide04_differentiators_v1: string = `<!DOCTYPE html>
       display: flex;
       align-items: flex-start;
       gap: 10px;
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       font-weight: 400;
       font-size: 13px;
       color: rgba(255,255,255,0.75);
@@ -4412,7 +4413,7 @@ export const slide04_differentiators_v1: string = `<!DOCTYPE html>
     }
 
     .pill-title {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       font-weight: 700;
       font-size: 15px;
       color: #ffffff;
@@ -4420,7 +4421,7 @@ export const slide04_differentiators_v1: string = `<!DOCTYPE html>
     }
 
     .pill-desc {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       font-weight: 400;
       font-size: 12px;
       color: rgba(255,255,255,0.55);
@@ -4642,7 +4643,7 @@ export const slide05_hedging_v1: string = `<!DOCTYPE html>
       height: 1080px;
       position: relative;
       overflow: hidden;
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       background:
         radial-gradient(ellipse 1100px 900px at 50% 55%, rgba(46,212,199,0.15) 0%, rgba(46,212,199,0.03) 45%, transparent 72%),
         radial-gradient(ellipse 800px 600px at 50% 55%, rgba(255,122,74,0.07) 0%, transparent 60%),
@@ -4739,7 +4740,7 @@ export const slide05_hedging_v1: string = `<!DOCTYPE html>
     }
 
     h1 {
-      font-family: 'Fraunces', serif;
+      font-family: 'Montserrat', sans-serif;
       font-weight: 600;
       font-size: 68px;
       line-height: 1.0;
@@ -4756,7 +4757,7 @@ export const slide05_hedging_v1: string = `<!DOCTYPE html>
     }
 
     .header-subtitle {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       font-weight: 400;
       font-size: 19px;
       color: rgba(255,255,255,0.65);
@@ -4772,7 +4773,7 @@ export const slide05_hedging_v1: string = `<!DOCTYPE html>
     }
 
     .ideal-panel-title {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       font-weight: 600;
       font-size: 14px;
       color: #2ED4C7;
@@ -4820,7 +4821,7 @@ export const slide05_hedging_v1: string = `<!DOCTYPE html>
     }
 
     .ideal-title {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       font-weight: 600;
       font-size: 14px;
       color: #ffffff;
@@ -4828,7 +4829,7 @@ export const slide05_hedging_v1: string = `<!DOCTYPE html>
     }
 
     .ideal-desc {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       font-weight: 400;
       font-size: 12px;
       color: rgba(255,255,255,0.55);
@@ -4925,7 +4926,7 @@ export const slide05_hedging_v1: string = `<!DOCTYPE html>
     .strategy-icon svg { width: 32px; height: 32px; }
 
     .strategy-title-block h3 {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       font-weight: 800;
       font-size: 28px;
       letter-spacing: 2px;
@@ -4935,7 +4936,7 @@ export const slide05_hedging_v1: string = `<!DOCTYPE html>
     }
 
     .strategy-tagline {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       font-weight: 500;
       font-size: 15px;
       margin-top: 4px;
@@ -4946,7 +4947,7 @@ export const slide05_hedging_v1: string = `<!DOCTYPE html>
     .is-cr .strategy-tagline { color: #FF7A4A; }
 
     .strategy-body {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       font-weight: 400;
       font-size: 15px;
       color: rgba(255,255,255,0.70);
@@ -4956,7 +4957,7 @@ export const slide05_hedging_v1: string = `<!DOCTYPE html>
     }
 
     .strategy-list-label {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       font-weight: 600;
       font-size: 11px;
       letter-spacing: 2px;
@@ -4979,7 +4980,7 @@ export const slide05_hedging_v1: string = `<!DOCTYPE html>
       display: flex;
       align-items: center;
       gap: 8px;
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       font-weight: 500;
       font-size: 13px;
       color: rgba(255,255,255,0.85);
@@ -5047,7 +5048,7 @@ export const slide05_hedging_v1: string = `<!DOCTYPE html>
     }
 
     .benefit-title {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       font-weight: 700;
       font-size: 14px;
       color: #ffffff;
@@ -5055,7 +5056,7 @@ export const slide05_hedging_v1: string = `<!DOCTYPE html>
     }
 
     .benefit-desc {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       font-weight: 400;
       font-size: 12px;
       color: rgba(255,255,255,0.55);
@@ -5091,7 +5092,7 @@ export const slide05_hedging_v1: string = `<!DOCTYPE html>
     }
 
     .closing-text {
-      font-family: 'Fraunces', serif;
+      font-family: 'Montserrat', sans-serif;
       font-weight: 500;
       font-size: 26px;
       color: #ffffff;
@@ -5112,7 +5113,7 @@ export const slide05_hedging_v1: string = `<!DOCTYPE html>
       left: 64px;
       right: 64px;
       text-align: center;
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       font-weight: 400;
       font-size: 11px;
       font-style: italic;
@@ -5382,7 +5383,7 @@ export const slide06_capital_v1: string = `<!DOCTYPE html>
       height: 1080px;
       position: relative;
       overflow: hidden;
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       background:
         radial-gradient(ellipse 1100px 900px at 30% 50%, rgba(46,212,199,0.12) 0%, rgba(46,212,199,0.02) 45%, transparent 72%),
         radial-gradient(ellipse 900px 700px at 80% 60%, rgba(255,122,74,0.10) 0%, transparent 60%),
@@ -5481,7 +5482,7 @@ export const slide06_capital_v1: string = `<!DOCTYPE html>
     }
 
     .product-title {
-      font-family: 'Fraunces', serif;
+      font-family: 'Montserrat', sans-serif;
       font-weight: 600;
       font-size: 64px;
       line-height: 1.0;
@@ -5498,7 +5499,7 @@ export const slide06_capital_v1: string = `<!DOCTYPE html>
     }
 
     h1 {
-      font-family: 'Fraunces', serif;
+      font-family: 'Montserrat', sans-serif;
       font-weight: 500;
       font-size: 44px;
       line-height: 1.15;
@@ -5515,7 +5516,7 @@ export const slide06_capital_v1: string = `<!DOCTYPE html>
     }
 
     .subheadline {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       font-weight: 400;
       font-size: 19px;
       color: rgba(255,255,255,0.65);
@@ -5624,7 +5625,7 @@ export const slide06_capital_v1: string = `<!DOCTYPE html>
     }
 
     .chart-title-block .chart-pair {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       font-weight: 700;
       font-size: 16px;
       color: #ffffff;
@@ -5680,7 +5681,7 @@ export const slide06_capital_v1: string = `<!DOCTYPE html>
     }
 
     .currency-icon span {
-      font-family: 'Fraunces', serif;
+      font-family: 'Montserrat', sans-serif;
       font-weight: 600;
       font-size: 34px;
       color: #2ED4C7;
@@ -5734,7 +5735,7 @@ export const slide06_capital_v1: string = `<!DOCTYPE html>
     }
 
     .zero-rate-label {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       font-weight: 700;
       font-size: 15px;
       color: #ffffff;
@@ -5742,7 +5743,7 @@ export const slide06_capital_v1: string = `<!DOCTYPE html>
     }
 
     .zero-rate-sub {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       font-weight: 400;
       font-size: 12px;
       color: rgba(255,255,255,0.60);
@@ -5799,7 +5800,7 @@ export const slide06_capital_v1: string = `<!DOCTYPE html>
     .benefit-icon svg { width: 20px; height: 20px; }
 
     .benefit-title {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       font-weight: 700;
       font-size: 17px;
       color: #ffffff;
@@ -5812,7 +5813,7 @@ export const slide06_capital_v1: string = `<!DOCTYPE html>
     }
 
     .benefit-desc {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       font-weight: 400;
       font-size: 13px;
       color: rgba(255,255,255,0.62);
@@ -5865,7 +5866,7 @@ export const slide06_capital_v1: string = `<!DOCTYPE html>
     }
 
     .preapproval-title {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       font-weight: 700;
       font-size: 17px;
       color: #ffffff;
@@ -5875,7 +5876,7 @@ export const slide06_capital_v1: string = `<!DOCTYPE html>
     .preapproval-title .asterisk { color: #FF7A4A; }
 
     .preapproval-desc {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       font-weight: 400;
       font-size: 13px;
       color: rgba(255,255,255,0.62);
@@ -5894,7 +5895,7 @@ export const slide06_capital_v1: string = `<!DOCTYPE html>
     }
 
     .claim-text {
-      font-family: 'Fraunces', serif;
+      font-family: 'Montserrat', sans-serif;
       font-weight: 600;
       font-style: italic;
       font-size: 22px;
@@ -5918,7 +5919,7 @@ export const slide06_capital_v1: string = `<!DOCTYPE html>
     }
 
     .legal-note {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       font-weight: 400;
       font-size: 10px;
       font-style: italic;
@@ -5928,7 +5929,7 @@ export const slide06_capital_v1: string = `<!DOCTYPE html>
     }
 
     .legal-disclosure {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       font-weight: 400;
       font-size: 9.5px;
       color: rgba(255,255,255,0.35);
@@ -6176,7 +6177,7 @@ export const slide07_closing_v1: string = `<!DOCTYPE html>
       height: 1080px;
       position: relative;
       overflow: hidden;
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       background:
         radial-gradient(ellipse 900px 700px at 20% 50%, rgba(46,212,199,0.08) 0%, transparent 60%),
         radial-gradient(ellipse 700px 600px at 50% 50%, rgba(255,255,255,0.02) 0%, transparent 65%),
@@ -6245,7 +6246,7 @@ export const slide07_closing_v1: string = `<!DOCTYPE html>
     }
 
     .logo-wordmark {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       font-weight: 700;
       font-size: 110px;
       color: #ffffff;
@@ -6254,7 +6255,7 @@ export const slide07_closing_v1: string = `<!DOCTYPE html>
     }
 
     .tagline {
-      font-family: 'Fraunces', serif;
+      font-family: 'Montserrat', sans-serif;
       font-weight: 400;
       font-style: italic;
       font-size: 30px;
@@ -6307,7 +6308,7 @@ export const slide07_closing_v1: string = `<!DOCTYPE html>
     .contact-icon svg { width: 18px; height: 18px; }
 
     .contact-text {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       font-weight: 400;
       font-size: 18px;
       color: rgba(255,255,255,0.80);
@@ -6435,7 +6436,7 @@ export const slide01_cover_v13: string = `<!DOCTYPE html>
       display: flex; align-items: center; gap: 14px;
     }
     .logo-row img { width: 48px; height: 48px; object-fit: contain; }
-    .logo-row .wordmark { font-family: ${MAP_COVER_FONT_BODY}; font-weight: 700; font-size: 28px; color: #081b57; }
+    .logo-row .wordmark { font-family: ${MAP_COVER_FONT_TITLE}; font-weight: 700; font-size: 28px; color: #081b57; }
 
     .content { position: absolute; left: 76px; top: 200px; width: 710px; z-index: 3; }
     h1 {
@@ -6495,7 +6496,7 @@ export const slide01_cover_v13: string = `<!DOCTYPE html>
 
 // ─── SLIDE 2: Presencia global (3 stats con iconos reemplazables) ───────────
 
-const PG_FONTS = 'https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..700&family=Poppins:wght@400;500;600;700&display=swap';
+const PG_FONTS = 'https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Poppins:wght@400;500;600;700&family=Fraunces:wght@400;600&family=JetBrains+Mono:wght@400;500;600&display=swap';
 const PG_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='280' height='280'%3E%3Crect x='6' y='6' width='268' height='268' rx='28' fill='%23F5F7FA' stroke='%23CBD5E1' stroke-width='2' stroke-dasharray='9 7'/%3E%3Ctext x='50%25' y='50%25' font-family='Poppins,sans-serif' font-size='20' fill='%2394A3B8' text-anchor='middle' dominant-baseline='middle'%3Eicono%3C/text%3E%3C/svg%3E";
 
 export const slide02_presencia_global: string = `<!DOCTYPE html>
@@ -6521,7 +6522,7 @@ export const slide02_presencia_global: string = `<!DOCTYPE html>
     /* Header */
     .header { text-align: center; }
     h1 {
-      font-family: 'Fraunces', serif; font-weight: 600; font-size: 104px; line-height: 1;
+      font-family: 'Montserrat', sans-serif; font-weight: 600; font-size: 104px; line-height: 1;
       color: var(--navy-title); letter-spacing: -1px;
     }
     h1 .accent {
@@ -6546,7 +6547,7 @@ export const slide02_presencia_global: string = `<!DOCTYPE html>
 
     .stat-line { width: 60px; height: 4px; background: var(--coral); border-radius: 999px; margin: 30px 0 22px; }
     .number {
-      font-family: 'Fraunces', serif; font-weight: 600; font-size: 88px; line-height: 1;
+      font-family: 'Montserrat', sans-serif; font-weight: 600; font-size: 88px; line-height: 1;
       color: var(--navy-title);
     }
     .number.same-day { font-style: italic; font-weight: 500; font-size: 72px; }
@@ -6636,7 +6637,7 @@ export const slide03_porque_xending: string = `<!DOCTYPE html>
     .eyebrow-row { display: flex; align-items: center; gap: 14px; }
     .eyebrow-line { width: 44px; height: 3px; background: var(--coral); border-radius: 999px; }
     .eyebrow { color: var(--coral); font-weight: 600; font-size: 15px; letter-spacing: 3px; text-transform: uppercase; }
-    h1 { font-family: 'Fraunces', serif; font-weight: 600; font-size: 76px; line-height: 1.05; color: var(--navy-title); margin-top: 24px; letter-spacing: -1px; }
+    h1 { font-family: 'Montserrat', sans-serif; font-weight: 600; font-size: 76px; line-height: 1.05; color: var(--navy-title); margin-top: 24px; letter-spacing: -1px; }
     h1 .accent { font-style: italic; background: linear-gradient(135deg, #FF7A4A, #FF9468); -webkit-background-clip: text; background-clip: text; color: transparent; }
     .subtitle { font-family: 'Poppins', sans-serif; font-weight: 500; font-size: 22px; line-height: 1.55; color: #1a2a62; margin-top: 26px; max-width: 560px; }
     .hero {
@@ -6656,7 +6657,7 @@ export const slide03_porque_xending: string = `<!DOCTYPE html>
     .icon-slot { width: 190px; height: 190px; align-self: center; margin: 6px 0 10px; }
     .stat-icon { width: 100%; height: 100%; object-fit: contain; }
     .card-line { width: 52px; height: 3px; background: var(--coral); border-radius: 999px; margin: 30px 0 20px; }
-    .card h3 { font-family: 'Fraunces', serif; font-weight: 600; font-size: 30px; line-height: 1.18; color: var(--navy-title); }
+    .card h3 { font-family: 'Montserrat', sans-serif; font-weight: 600; font-size: 30px; line-height: 1.18; color: var(--navy-title); }
     .card-sub { font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 18px; line-height: 1.4; color: var(--navy-title); margin-top: 20px; }
     .card-body { font-family: 'Poppins', sans-serif; font-weight: 400; font-size: 16px; line-height: 1.6; color: var(--gray); margin-top: 12px; }
     .card-body .hl { color: var(--mint); font-weight: 600; }
@@ -6759,7 +6760,7 @@ export const slide04_onboarding_ia: string = `<!DOCTYPE html>
     .eyebrow-row { display: flex; align-items: center; gap: 14px; }
     .eyebrow-line { width: 44px; height: 3px; background: var(--coral); border-radius: 999px; }
     .eyebrow { color: var(--coral); font-weight: 600; font-size: 15px; letter-spacing: 3px; text-transform: uppercase; }
-    h1 { font-family: 'Fraunces', serif; font-weight: 600; font-size: 84px; line-height: 1.02; color: var(--navy-title); margin-top: 24px; letter-spacing: -1px; }
+    h1 { font-family: 'Montserrat', sans-serif; font-weight: 600; font-size: 84px; line-height: 1.02; color: var(--navy-title); margin-top: 24px; letter-spacing: -1px; }
     h1 .accent { display: block; font-style: italic; background: linear-gradient(135deg, #FF7A4A, #FF9468); -webkit-background-clip: text; background-clip: text; color: transparent; }
     .accent-line { width: 60px; height: 4px; background: var(--coral); border-radius: 999px; margin: 32px 0 28px; }
     .subtitle { font-family: 'Poppins', sans-serif; font-weight: 400; font-size: 22px; line-height: 1.6; color: #1a2a62; max-width: 540px; }
@@ -6901,7 +6902,7 @@ export const slide_cards3_template: string = `<!DOCTYPE html>
     .icon-slot { width: 190px; height: 190px; align-self: center; margin: 6px 0 10px; }
     .stat-icon { width: 100%; height: 100%; object-fit: contain; }
     .card-line { width: 52px; height: 3px; background: var(--coral); border-radius: 999px; margin: 30px 0 20px; }
-    .card h3 { font-family: 'Fraunces', serif; font-weight: 600; font-size: 30px; line-height: 1.18; color: var(--navy-title); }
+    .card h3 { font-family: 'Montserrat', sans-serif; font-weight: 600; font-size: 30px; line-height: 1.18; color: var(--navy-title); }
     .card-sub { font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 18px; line-height: 1.4; color: var(--navy-title); margin-top: 20px; }
     .card-body { font-family: 'Poppins', sans-serif; font-weight: 400; font-size: 16px; line-height: 1.6; color: var(--gray); margin-top: 12px; }
     .card-body .hl { color: var(--mint); font-weight: 600; }

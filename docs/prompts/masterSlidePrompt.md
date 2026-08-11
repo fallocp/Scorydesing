@@ -45,9 +45,9 @@ explicaciones.
 }
 ```
 
-- **Fuentes:** Fraunces (títulos, peso 600; acento en *itálica* con degradado coral) + Poppins (cuerpo 400/500/600/700).
+- **Fuentes:** Montserrat (títulos, peso 700; acento en *itálica* con degradado coral) + Poppins (cuerpo 400/500/600/700). Fraunces queda reservada para la nota legal al pie.
 - **Fondo de slide:** `linear-gradient(180deg, #ffffff 0%, #fbfcfd 100%)` (blanco limpio, NUNCA color de marca de fondo).
-- **Import de fuentes:** `https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..700&family=Poppins:wght@400;500;600;700&display=swap`
+- **Import de fuentes:** `https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Poppins:wght@400;500;600;700&family=Fraunces:wght@400;600&display=swap`
 
 ### Regla de oro de las cajas
 - Las cajas son **blancas** (`#ffffff`) con borde **neutro** `1px solid rgba(8,27,87,0.06)` y sombra suave `0 20px 55px rgba(15,20,25,0.06)`. **Nunca** llevan color de marca en el borde exterior. El único acento de color dentro de la caja es la **línea coral** y, si aplica, el **pill turquesa** o un `<span class="hl">`.
@@ -68,7 +68,7 @@ explicaciones.
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width">
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..700&family=Poppins:wght@400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Poppins:wght@400;500;600;700&family=Fraunces:wght@400;600&display=swap');
     :root { --mint:#2ED4C7; --coral:#FF7A4A; --navy:#0F1419; --navy-title:#081B57; --gray:#6B7280; }
     * { margin:0; padding:0; box-sizing:border-box; }
     body { margin:0; overflow:hidden; background:#ffffff; }
@@ -112,7 +112,7 @@ explicaciones.
 <div class="accent-line"></div>
 ```
 ```css
-h1 { font-family:'Fraunces',serif; font-weight:600; font-size:84px; line-height:1.02; color:var(--navy-title); letter-spacing:-1px; }
+h1 { font-family:'Montserrat',sans-serif; font-weight:700; font-size:84px; line-height:1.02; color:var(--navy-title); letter-spacing:-1px; }
 h1 .accent { display:block; font-style:italic; background:linear-gradient(135deg,#FF7A4A,#FF9468); -webkit-background-clip:text; background-clip:text; color:transparent; }
 .accent-line { width:60px; height:4px; background:var(--coral); border-radius:999px; margin:32px 0 28px; }
 ```
@@ -142,7 +142,7 @@ h1 .accent { display:block; font-style:italic; background:linear-gradient(135deg
 .icon-slot { width:190px; height:190px; align-self:center; margin:6px 0 10px; }
 .stat-icon { width:100%; height:100%; object-fit:contain; }
 .card-line { width:52px; height:3px; background:var(--coral); border-radius:999px; margin:30px 0 20px; }
-.card h3 { font-family:'Fraunces',serif; font-weight:600; font-size:30px; line-height:1.18; color:var(--navy-title); }
+.card h3 { font-family:'Montserrat',sans-serif; font-weight:700; font-size:30px; line-height:1.18; color:var(--navy-title); }
 .card-sub { font-family:'Poppins',sans-serif; font-weight:600; font-size:18px; line-height:1.4; color:var(--navy-title); margin-top:20px; }
 .card-body { font-family:'Poppins',sans-serif; font-weight:400; font-size:16px; line-height:1.6; color:var(--gray); margin-top:12px; }
 .card-body .hl { color:var(--mint); font-weight:600; }
@@ -202,7 +202,7 @@ h1 .accent { display:block; font-style:italic; background:linear-gradient(135deg
 .col { flex:1; display:flex; flex-direction:column; align-items:center; text-align:center; padding:0 40px; }
 .divider { width:1px; background:rgba(8,27,87,0.12); align-self:center; height:420px; }
 .stat-line { width:60px; height:4px; background:var(--coral); border-radius:999px; margin:30px 0 22px; }
-.number { font-family:'Fraunces',serif; font-weight:600; font-size:88px; line-height:1; color:var(--navy-title); }
+.number { font-family:'Montserrat',sans-serif; font-weight:700; font-size:88px; line-height:1; color:var(--navy-title); }
 .number.same-day { font-style:italic; font-weight:500; font-size:72px; }
 .label { font-weight:500; font-size:24px; line-height:1.4; color:var(--gray); margin-top:16px; }
 ```
@@ -252,7 +252,7 @@ Card con icono GRANDE a la izquierda y contenido + lista a la derecha (tipo "For
 .split-icon { flex:none; width:150px; height:150px; display:flex; align-items:center; justify-content:center; }
 .split-icon img { width:100%; height:100%; object-fit:contain; }
 .split-body { flex:1; min-width:0; }
-.split-card h3 { font-family:'Fraunces',serif; font-weight:600; font-size:28px; line-height:1.1; color:var(--navy-title); }
+.split-card h3 { font-family:'Montserrat',sans-serif; font-weight:700; font-size:28px; line-height:1.1; color:var(--navy-title); }
 .split-tagline { font-weight:600; font-size:15px; margin-top:4px; }
 .split-tagline.tq { color:var(--mint); }
 .split-tagline.cr { color:var(--coral); }
@@ -272,7 +272,7 @@ Card con icono GRANDE a la izquierda y contenido + lista a la derecha (tipo "For
 3. Cajas/paneles **blancos con borde neutro**. Sin color en el borde exterior.
 4. Acentos de color SOLO en: línea coral, título acento coral, pill turquesa, `.hl` turquesa, marcas/divisores. Nunca saturar.
 5. Iconos e imágenes = **placeholders con id único** (`PG_ICON#xx` / `PG_HERO#xx`). Jamás iconos fijos en los slots.
-6. Títulos en Fraunces; cuerpo en Poppins. Respetar pesos y tamaños de los componentes.
+6. Títulos en Montserrat; cuerpo en Poppins; nota legal en Fraunces. Respetar pesos y tamaños de los componentes.
 7. No inventar componentes nuevos: combinar los de la librería.
 8. Texto en español (labels UI en español; valores técnicos/ids en inglés).
 

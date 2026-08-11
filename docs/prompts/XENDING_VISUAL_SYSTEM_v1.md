@@ -179,7 +179,42 @@ Usar:
 
 Aplicar en subtítulos, etiquetas, bullets, captions, UI, navegación, textos en tarjetas y microcopy.
 
-### 4.3 Reglas de texto en imágenes generadas
+### 4.3 Texto denso
+
+Usar:
+
+- **Inter Regular**
+- **Inter Medium**
+
+Aplicar únicamente en tablas, bloques de datos y UI de la aplicación. No usar en piezas gráficas: ahí el cuerpo es Poppins.
+
+### 4.4 Notas legales
+
+Usar:
+
+- **Fraunces Regular**
+
+Aplicar **solo** en disclaimers y notas legales al pie de la pieza. Es la única serif del sistema y nunca debe llevar un titular, un subtítulo ni un CTA.
+
+### 4.5 Números y métricas
+
+Usar **JetBrains Mono** Medium o Bold en tasas, porcentajes, métricas y cotizaciones.
+
+### 4.6 Resumen ejecutable
+
+| Rol | Familia | Variable CSS |
+|---|---|---|
+| Titular, wordmark, punchline | Montserrat 700/800 | `--font-display` |
+| Subline, CTA, labels, microcopy | Poppins 400–600 | `--font-body` |
+| Tablas y datos densos, UI | Inter 400/500 | — |
+| Nota legal | Fraunces 400 | `--font-legal` |
+| Cifras | JetBrains Mono 500/700 | `--font-numbers` |
+
+Este bloque es la fuente de verdad. Los templates del renderer, `generate-design-html`, `templateAssembler`, las presentaciones y los boletines lo implementan; si alguno se desvía, el error está en él y no aquí.
+
+Toda plantilla que declare estas familias **debe además cargarlas**. Declararlas sin pedir la hoja de estilo hace que el navegador caiga a Arial o Georgia, que es exactamente cómo aparecieron titulares en serif con el sistema pidiendo un sans.
+
+### 4.7 Reglas de texto en imágenes generadas
 
 Preferir poco texto dentro de la imagen generada. Cuando haya texto, debe ser corto y controlado.
 

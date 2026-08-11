@@ -53,6 +53,18 @@ export interface UseCarouselQueueParams {
   /** Medium for the whole set. Mixing mediums breaks the set. */
   imageType: DesignImageType;
   brandSlug: string | undefined;
+  /**
+   * Where to write the carousel state.
+   *
+   * Defaults to `generated_ideas.piece_v2` via useUpdateBankMeta, which is
+   * correct for v1 bank rows. Copies coming from `copy_bank_items` pass their own
+   * writer: their id does not exist in generated_ideas, so the default update
+   * would match zero rows and silently drop the carousel.
+   */
+  persistMeta?: (patch: {
+    imageMode: 'carousel';
+    carousel: CarouselMeta;
+  }) => Promise<void>;
 }
 
 const IMAGE_SIZE = `${CAROUSEL_DIMENSIONS.width}x${CAROUSEL_DIMENSIONS.height}`;
@@ -78,6 +90,7 @@ export function useCarouselQueue({
   background,
   imageType,
   brandSlug,
+  persistMeta,
 }: UseCarouselQueueParams) {
   const { activeBusinessId } = useActiveBusiness();
   const saveMockup = useSaveMockup();
@@ -174,13 +187,18 @@ export function useCarouselQueue({
         createdAt: bankItem.meta.carousel?.createdAt ?? new Date().toISOString(),
       };
 
+      if (persistMeta) {
+        await persistMeta({ imageMode: 'carousel', carousel: meta });
+        return;
+      }
+
       await updateBankMeta.mutateAsync({
         id: bankItem.row.id,
         currentMeta: bankItem.meta,
         meta: { imageMode: 'carousel', carousel: meta },
       });
     },
-    [bankItem, presetSlug, visualAnchor, groupId, imageType, updateBankMeta],
+    [bankItem, presetSlug, visualAnchor, groupId, imageType, updateBankMeta, persistMeta],
   );
 
   // -------------------------------------------------------------------------

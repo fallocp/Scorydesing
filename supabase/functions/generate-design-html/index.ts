@@ -35,14 +35,23 @@ const GRAIN_CSS = `.grain { position: absolute; inset: 0; opacity: 0.08; mix-ble
 const ACCENT_CSS = `.accent-coral { font-style: italic; background: linear-gradient(135deg, #FF7A4A, #E85A2C); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .accent-tq { font-style: italic; background: linear-gradient(135deg, #2ED4C7, #1FB8AC); -webkit-background-clip: text; background-clip: text; color: transparent; }`;
 
-const SHARED_FONT_CSS = `.headline { font-family: 'Fraunces', serif; font-weight: 600; line-height: 1.0; }
-.subcopy { font-family: 'Inter', sans-serif; line-height: 1.4; }
-.punchline { font-family: 'Fraunces', serif; font-weight: 600; }
-.cta { display: inline-flex; align-items: center; gap: 14px; border-radius: 100px; border: none; font-family: 'Inter', sans-serif; font-weight: 600; cursor: pointer; }
-.disclaimer { font-family: 'Inter', sans-serif; font-size: 14px; margin-top: 16px; }
+// Brand typography, per docs/prompts/XENDING_VISUAL_SYSTEM_v1.md §4:
+// Montserrat carries every title, Poppins every piece text, and Fraunces is
+// confined to the legal note. Inter is deliberately absent — it is reserved for
+// dense tables and app UI, neither of which appears in these pieces.
+//
+// The legal family is a constant rather than part of BrandFonts because it does
+// not vary per tenant: it is the smallest text on the piece and always the same.
+const LEGAL_FONT = 'Fraunces';
+
+const SHARED_FONT_CSS = `.headline { font-family: 'Montserrat', sans-serif; font-weight: 700; line-height: 1.0; }
+.subcopy { font-family: 'Poppins', sans-serif; line-height: 1.4; }
+.punchline { font-family: 'Montserrat', sans-serif; font-weight: 700; }
+.cta { display: inline-flex; align-items: center; gap: 14px; border-radius: 100px; border: none; font-family: 'Poppins', sans-serif; font-weight: 600; cursor: pointer; }
+.disclaimer { font-family: 'Fraunces', serif; font-size: 14px; margin-top: 16px; }
 .logo-row { display: flex; align-items: center; gap: 20px; }
 .logo { width: 80px; height: 80px; object-fit: contain; }
-.wordmark { font-family: 'Inter', sans-serif; font-weight: 700; font-size: 42px; }
+.wordmark { font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 42px; }
 .stat-pill { display: inline-flex; align-items: center; gap: 14px; padding: 18px 26px; border-radius: 100px; }
 .stat-dot { width: 10px; height: 10px; border-radius: 50%; background: #2ED4C7; box-shadow: 0 0 12px rgba(46,212,199,0.8); }
 .accent-bar { height: 3px; background: linear-gradient(90deg, #FF7A4A, #2ED4C7); }
@@ -265,7 +274,7 @@ function buildLegacySystemPrompt(brand: string, template: string = 'card'): stri
     brandName,
     logoUrl: XENDING_LOGO_URL,
     colors: { primary: '#FF7A4A', secondary: '#2ED4C7', accent: '#0F1419' },
-    fonts: { display: 'Fraunces', body: 'Inter', mono: 'JetBrains Mono' },
+    fonts: { display: 'Montserrat', body: 'Poppins', mono: 'JetBrains Mono' },
     disclaimer,
     ctaBank,
   };
@@ -308,15 +317,18 @@ function buildSystemPromptFromIdentity(
   const { brandName, logoUrl, colors, fonts, disclaimer, ctaBank } = identity;
   const t = TEMPLATE_CONFIGS[template] || TEMPLATE_CONFIGS['card'];
 
-  // Build dynamic font CSS overrides based on brand fonts
-  const dynamicFontCSS = `.headline { font-family: '${fonts.display}', serif; font-weight: 600; line-height: 1.0; }
+  // Build dynamic font CSS overrides based on brand fonts.
+  // Fallbacks are sans-serif because the display family is a geometric sans now:
+  // falling back to `serif` was what made a missing webfont render as Georgia.
+  // The legal note is the one exception and stays on the serif on purpose.
+  const dynamicFontCSS = `.headline { font-family: '${fonts.display}', sans-serif; font-weight: 700; line-height: 1.0; }
 .subcopy { font-family: '${fonts.body}', sans-serif; line-height: 1.4; }
-.punchline { font-family: '${fonts.display}', serif; font-weight: 600; }
+.punchline { font-family: '${fonts.display}', sans-serif; font-weight: 700; }
 .cta { display: inline-flex; align-items: center; gap: 14px; border-radius: 100px; border: none; font-family: '${fonts.body}', sans-serif; font-weight: 600; cursor: pointer; }
-.disclaimer { font-family: '${fonts.body}', sans-serif; font-size: 14px; margin-top: 16px; }
+.disclaimer { font-family: '${LEGAL_FONT}', serif; font-size: 14px; margin-top: 16px; }
 .logo-row { display: flex; align-items: center; gap: 20px; }
 .logo { width: 80px; height: 80px; object-fit: contain; }
-.wordmark { font-family: '${fonts.body}', sans-serif; font-weight: 700; font-size: 42px; }
+.wordmark { font-family: '${fonts.display}', sans-serif; font-weight: 700; font-size: 42px; }
 .stat-pill { display: inline-flex; align-items: center; gap: 14px; padding: 18px 26px; border-radius: 100px; }
 .stat-dot { width: 10px; height: 10px; border-radius: 50%; background: ${colors.secondary}; box-shadow: 0 0 12px ${colors.secondary}80; }
 .accent-bar { height: 3px; background: linear-gradient(90deg, ${colors.primary}, ${colors.secondary}); }
@@ -408,12 +420,15 @@ function buildDesignStudioSystemPrompt(
   platform: string,
 ): string {
   const dims = PLATFORM_DIMENSIONS[platform] || PLATFORM_DIMENSIONS['instagram-story'];
-  const displayFont = brandPalette.fonts?.display || 'Inter';
-  const bodyFont = brandPalette.fonts?.body || 'Inter';
+  // Defaults match the brand system rather than a neutral sans, so a tenant with
+  // no fonts configured still gets Montserrat/Poppins instead of Inter for both.
+  const displayFont = brandPalette.fonts?.display || 'Montserrat';
+  const bodyFont = brandPalette.fonts?.body || 'Poppins';
 
+  // The legal family always rides along: the disclaimer is set in it.
   const googleFontsUrl = displayFont === bodyFont
-    ? `https://fonts.googleapis.com/css2?family=${encodeURIComponent(displayFont)}:wght@400;600;700&display=swap`
-    : `https://fonts.googleapis.com/css2?family=${encodeURIComponent(displayFont)}:wght@400;600;700&family=${encodeURIComponent(bodyFont)}:wght@400;500;600;700&display=swap`;
+    ? `https://fonts.googleapis.com/css2?family=${encodeURIComponent(displayFont)}:wght@400;600;700&family=${encodeURIComponent(LEGAL_FONT)}:wght@400;600&display=swap`
+    : `https://fonts.googleapis.com/css2?family=${encodeURIComponent(displayFont)}:wght@400;600;700&family=${encodeURIComponent(bodyFont)}:wght@400;500;600;700&family=${encodeURIComponent(LEGAL_FONT)}:wght@400;600&display=swap`;
 
   return `Eres un director creativo senior especializado en convertir mockups visuales a HTML pixel-perfect.
 
@@ -458,8 +473,8 @@ function buildDesignStudioIterationPrompt(
   platform: string,
 ): string {
   const dims = PLATFORM_DIMENSIONS[platform] || PLATFORM_DIMENSIONS['instagram-story'];
-  const displayFont = brandPalette.fonts?.display || 'Inter';
-  const bodyFont = brandPalette.fonts?.body || 'Inter';
+  const displayFont = brandPalette.fonts?.display || 'Montserrat';
+  const bodyFont = brandPalette.fonts?.body || 'Poppins';
 
   return `Eres un director creativo senior. Tu tarea es refinar HTML existente basándote en el feedback del usuario.
 
@@ -488,7 +503,7 @@ Responde SOLO con el HTML completo refinado. Sin explicaciones, sin markdown fen
 // ─── Presentation Slides: "Xending Light Editorial" design system ───
 // Fuente de verdad documentada: docs/prompts/masterSlidePrompt.md
 
-const SLIDE_FONTS_URL = 'https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..700&family=Poppins:wght@400;500;600;700&display=swap';
+const SLIDE_FONTS_URL = 'https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Poppins:wght@400;500;600;700&family=Fraunces:wght@400;600&display=swap';
 const SLIDE_ICON_PLACEHOLDER = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='280' height='280'%3E%3Crect x='6' y='6' width='268' height='268' rx='28' fill='%23F5F7FA' stroke='%23CBD5E1' stroke-width='2' stroke-dasharray='9 7'/%3E%3Ctext x='50%25' y='50%25' font-family='Poppins,sans-serif' font-size='20' fill='%2394A3B8' text-anchor='middle' dominant-baseline='middle'%3Eicono%3C/text%3E%3C/svg%3E";
 const SLIDE_HERO_PLACEHOLDER = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='760' height='380'%3E%3Crect x='4' y='4' width='752' height='372' rx='22' fill='%23F5F7FA' stroke='%23CBD5E1' stroke-width='2' stroke-dasharray='11 8'/%3E%3Ctext x='50%25' y='50%25' font-family='Poppins,sans-serif' font-size='24' fill='%2394A3B8' text-anchor='middle' dominant-baseline='middle'%3Eimagen%3C/text%3E%3C/svg%3E";
 
@@ -518,7 +533,7 @@ NO inventas estilos nuevos: combinas EXCLUSIVAMENTE los componentes de la librer
 
 ## TOKENS
 :root { --mint:#2ED4C7; --coral:#FF7A4A; --navy:#0F1419; --navy-title:#081B57; --gray:#6B7280; }
-- Fuentes: Fraunces (títulos, peso 600; acento en *itálica* con degradado coral) + Poppins (cuerpo 400/500/600/700).
+- Fuentes: Montserrat (títulos, peso 700; acento en *itálica* con degradado coral) + Poppins (cuerpo 400/500/600/700). Fraunces SOLO para la nota legal al pie.
 - Fondo del slide: linear-gradient(180deg,#ffffff 0%,#fbfcfd 100%). NUNCA fondo navy o coral lleno.
 - Import de fuentes (obligatorio en <head>): @import url('${SLIDE_FONTS_URL}');
 
@@ -552,7 +567,7 @@ CSS: .eyebrow-row{display:flex;align-items:center;gap:14px;} .eyebrow-line{width
 
 ### Título con acento coral + línea
 HTML: <h1>Texto <span class="accent">parte acentuada</span></h1><div class="accent-line"></div>
-CSS: h1{font-family:'Fraunces',serif;font-weight:600;font-size:84px;line-height:1.02;color:var(--navy-title);letter-spacing:-1px;} h1 .accent{font-style:italic;background:linear-gradient(135deg,#FF7A4A,#FF9468);-webkit-background-clip:text;background-clip:text;color:transparent;} .accent-line{width:60px;height:4px;background:var(--coral);border-radius:999px;margin:32px 0 28px;}
+CSS: h1{font-family:'Montserrat',sans-serif;font-weight:700;font-size:84px;line-height:1.02;color:var(--navy-title);letter-spacing:-1px;} h1 .accent{font-style:italic;background:linear-gradient(135deg,#FF7A4A,#FF9468);-webkit-background-clip:text;background-clip:text;color:transparent;} .accent-line{width:60px;height:4px;background:var(--coral);border-radius:999px;margin:32px 0 28px;}
 (Para acento en bloque añade display:block al .accent.)
 
 ### Subtítulo
@@ -562,7 +577,7 @@ CSS: .subtitle{font-weight:400;font-size:22px;line-height:1.6;color:#1a2a62;max-
 ### CAJA (card) — componente clave, SIN color exterior
 HTML:
 <div class="card"><div class="icon-slot"><img class="stat-icon" src="${SLIDE_ICON_PLACEHOLDER}#c1" alt=""/></div><div class="card-line"></div><h3>Título</h3><div class="card-sub">Subtítulo.</div><div class="card-body">Texto con <span class="hl">resaltado</span>.</div><div class="pill">✓ Etiqueta</div></div>
-CSS: .cards{display:flex;gap:28px;align-items:stretch;} .card{flex:1;background:#fff;border:1px solid rgba(8,27,87,0.06);border-radius:26px;padding:40px 34px;box-shadow:0 20px 55px rgba(15,20,25,0.06);display:flex;flex-direction:column;} .icon-slot{width:190px;height:190px;align-self:center;margin:6px 0 10px;} .stat-icon{width:100%;height:100%;object-fit:contain;} .card-line{width:52px;height:3px;background:var(--coral);border-radius:999px;margin:30px 0 20px;} .card h3{font-family:'Fraunces',serif;font-weight:600;font-size:30px;line-height:1.18;color:var(--navy-title);} .card-sub{font-weight:600;font-size:18px;line-height:1.4;color:var(--navy-title);margin-top:20px;} .card-body{font-weight:400;font-size:16px;line-height:1.6;color:var(--gray);margin-top:12px;} .card-body .hl{color:var(--mint);font-weight:600;} .pill{margin-top:auto;align-self:flex-start;display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:999px;background:rgba(46,212,199,0.12);color:#1FB8AC;font-weight:600;font-size:13px;}
+CSS: .cards{display:flex;gap:28px;align-items:stretch;} .card{flex:1;background:#fff;border:1px solid rgba(8,27,87,0.06);border-radius:26px;padding:40px 34px;box-shadow:0 20px 55px rgba(15,20,25,0.06);display:flex;flex-direction:column;} .icon-slot{width:190px;height:190px;align-self:center;margin:6px 0 10px;} .stat-icon{width:100%;height:100%;object-fit:contain;} .card-line{width:52px;height:3px;background:var(--coral);border-radius:999px;margin:30px 0 20px;} .card h3{font-family:'Montserrat',sans-serif;font-weight:700;font-size:30px;line-height:1.18;color:var(--navy-title);} .card-sub{font-weight:600;font-size:18px;line-height:1.4;color:var(--navy-title);margin-top:20px;} .card-body{font-weight:400;font-size:16px;line-height:1.6;color:var(--gray);margin-top:12px;} .card-body .hl{color:var(--mint);font-weight:600;} .pill{margin-top:auto;align-self:flex-start;display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:999px;background:rgba(46,212,199,0.12);color:#1FB8AC;font-weight:600;font-size:13px;}
 (El pill es opcional. Si las cajas deben igualar altura, usa una height fija común, p.ej. 810px.)
 
 ### Panel con checklist (borde neutro, hero + lista)
@@ -578,7 +593,7 @@ CSS: .strip{display:flex;align-items:stretch;background:linear-gradient(180deg,#
 ### Stats (columnas número + label + divisor)
 HTML:
 <div class="cols"><div class="col"><div class="icon-slot"><img class="stat-icon" src="${SLIDE_ICON_PLACEHOLDER}#i1" alt=""/></div><div class="stat-line"></div><div class="number">30+</div><div class="label">label</div></div><div class="divider"></div></div>
-CSS: .cols{display:flex;align-items:stretch;justify-content:center;} .col{flex:1;display:flex;flex-direction:column;align-items:center;text-align:center;padding:0 40px;} .divider{width:1px;background:rgba(8,27,87,0.12);align-self:center;height:420px;} .stat-line{width:60px;height:4px;background:var(--coral);border-radius:999px;margin:30px 0 22px;} .number{font-family:'Fraunces',serif;font-weight:600;font-size:88px;line-height:1;color:var(--navy-title);} .number.same-day{font-style:italic;font-weight:500;font-size:72px;} .label{font-weight:500;font-size:24px;line-height:1.4;color:var(--gray);margin-top:16px;}
+CSS: .cols{display:flex;align-items:stretch;justify-content:center;} .col{flex:1;display:flex;flex-direction:column;align-items:center;text-align:center;padding:0 40px;} .divider{width:1px;background:rgba(8,27,87,0.12);align-self:center;height:420px;} .stat-line{width:60px;height:4px;background:var(--coral);border-radius:999px;margin:30px 0 22px;} .number{font-family:'Montserrat',sans-serif;font-weight:700;font-size:88px;line-height:1;color:var(--navy-title);} .number.same-day{font-style:italic;font-weight:500;font-size:72px;} .label{font-weight:500;font-size:24px;line-height:1.4;color:var(--gray);margin-top:16px;}
 
 ### Grid de mini-ítems 2×2 (panel tipo "Ideal para empresas que:")
 Úsalo cuando hay 3–4 ítems cortos con icono pequeño + título + descripción (p.ej. "ideal para…", "casos de uso", "requisitos"). Es un GRID, nunca una fila que desborda. Icono pequeño inline (no icon-slot gigante).
@@ -611,7 +626,7 @@ HTML:
   </div>
   <!-- segunda split-card (usar .split-tagline.cr para acento coral) -->
 </div>
-CSS: .split-row{display:flex;gap:28px;align-items:stretch;} .split-card{flex:1;background:#fff;border:1px solid rgba(8,27,87,0.06);border-radius:26px;box-shadow:0 20px 55px rgba(15,20,25,0.06);padding:38px 40px;display:flex;align-items:flex-start;gap:30px;} .split-icon{flex:none;width:150px;height:150px;display:flex;align-items:center;justify-content:center;} .split-icon img{width:100%;height:100%;object-fit:contain;} .split-body{flex:1;min-width:0;} .split-card h3{font-family:'Fraunces',serif;font-weight:600;font-size:28px;line-height:1.1;color:var(--navy-title);} .split-tagline{font-weight:600;font-size:15px;margin-top:4px;} .split-tagline.tq{color:var(--mint);} .split-tagline.cr{color:var(--coral);} .split-text{font-weight:400;font-size:15px;line-height:1.55;color:var(--gray);margin-top:12px;} .split-list-label{font-weight:600;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--gray);margin-top:18px;} .split-list{display:grid;grid-template-columns:1fr 1fr;gap:8px 20px;margin-top:12px;} .split-li{font-weight:500;font-size:14px;line-height:1.35;color:var(--navy-title);display:flex;align-items:center;gap:8px;} .split-li::before{content:'›';color:var(--coral);font-weight:700;font-size:16px;line-height:1;}
+CSS: .split-row{display:flex;gap:28px;align-items:stretch;} .split-card{flex:1;background:#fff;border:1px solid rgba(8,27,87,0.06);border-radius:26px;box-shadow:0 20px 55px rgba(15,20,25,0.06);padding:38px 40px;display:flex;align-items:flex-start;gap:30px;} .split-icon{flex:none;width:150px;height:150px;display:flex;align-items:center;justify-content:center;} .split-icon img{width:100%;height:100%;object-fit:contain;} .split-body{flex:1;min-width:0;} .split-card h3{font-family:'Montserrat',sans-serif;font-weight:700;font-size:28px;line-height:1.1;color:var(--navy-title);} .split-tagline{font-weight:600;font-size:15px;margin-top:4px;} .split-tagline.tq{color:var(--mint);} .split-tagline.cr{color:var(--coral);} .split-text{font-weight:400;font-size:15px;line-height:1.55;color:var(--gray);margin-top:12px;} .split-list-label{font-weight:600;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--gray);margin-top:18px;} .split-list{display:grid;grid-template-columns:1fr 1fr;gap:8px 20px;margin-top:12px;} .split-li{font-weight:500;font-size:14px;line-height:1.35;color:var(--navy-title);display:flex;align-items:center;gap:8px;} .split-li::before{content:'›';color:var(--coral);font-weight:700;font-size:16px;line-height:1;}
 
 ## REGLAS DURAS
 1. Lienzo 1920×1080 SIEMPRE, con el <script> de resize del scaffold.
@@ -619,7 +634,7 @@ CSS: .split-row{display:flex;gap:28px;align-items:stretch;} .split-card{flex:1;b
 3. Cajas/paneles blancos con borde neutro. Sin color en el borde exterior.
 4. Acentos de color SOLO en: línea coral, título acento coral, pill turquesa, .hl turquesa, marcas/divisores. Nunca saturar.
 5. Iconos e imágenes = placeholders con id ÚNICO. Jamás iconos fijos.
-6. Títulos en Fraunces; cuerpo en Poppins. Respeta pesos/tamaños.
+6. Títulos en Montserrat; cuerpo en Poppins; nota legal en Fraunces. Respeta pesos/tamaños.
 7. Texto en español. No inventes datos ni claims.
 
 ## LAYOUT Y ALINEACIÓN (REGLAS DURAS — prohibido romperlas)
@@ -672,7 +687,7 @@ function buildSlideIterationPrompt(): string {
 ## REGLAS
 1. Aplica SOLO los cambios solicitados; mantén todo lo demás intacto.
 2. Conserva el lienzo 1920×1080 y el <script> de resize.
-3. Respeta los tokens y componentes del sistema (cajas blancas borde neutro, Fraunces/Poppins, acentos coral/turquesa, placeholders de imagen con id único).
+3. Respeta los tokens y componentes del sistema (cajas blancas borde neutro, Montserrat/Poppins, acentos coral/turquesa, placeholders de imagen con id único).
 4. No elimines ids de imágenes existentes salvo que se pida.
 5. Mantén la alineación: nada puede desbordar el lienzo 1920×1080 (margen exterior 64px). Paneles con 3+ ítems en grid, nunca en una fila que se salga. Iconos inline 40–64px salvo el icon-slot héroe (≈190px) de cards stat. Cards de una fila con igual ancho, alto y gap.
 6. Si recibes DOS imágenes (OBJETIVO + RESULTADO ACTUAL), compáralas: detecta qué difiere (orden, layout, alineación, tamaños, componentes, contenido) y corrige el HTML para que el resultado se parezca al OBJETIVO. No te limites al texto del feedback si las imágenes muestran más diferencias.
@@ -770,7 +785,7 @@ serve(async (req) => {
 
         if (refImage) {
           // Vision: la imagen es REFERENCIA de diseño; recréala con la librería de componentes.
-          const textPart = `Analiza esta imagen como REFERENCIA DE DISEÑO y recréala como un slide HTML usando EXCLUSIVAMENTE los componentes y estilos de los EJEMPLOS DE REFERENCIA del sistema (mismas clases, tamaños, sombras, líneas coral, tipografía Fraunces/Poppins y colores). Mapea lo que ves al componente más cercano: cajas→cards, lista con checks→panel checklist, fila inferior de features→strip, columnas con número→stats, grid de ítems cortos con icono pequeño→mini-grid 2×2, card con icono al lado del texto y una sublista→split-card (si ves dos conceptos lado a lado, son DOS split-cards, nunca una sola). Todo icono/ilustración debe ser un placeholder de imagen con id único. Respeta el layout, la jerarquía y el número de cajas/columnas que se ven en la imagen. NO uses fondos de color ni bordes de color saturados.${instruction ? `\n\nINTENCIÓN / TEXTO DEL USUARIO:\n${instruction}` : ''}`;
+          const textPart = `Analiza esta imagen como REFERENCIA DE DISEÑO y recréala como un slide HTML usando EXCLUSIVAMENTE los componentes y estilos de los EJEMPLOS DE REFERENCIA del sistema (mismas clases, tamaños, sombras, líneas coral, tipografía Montserrat/Poppins y colores). Mapea lo que ves al componente más cercano: cajas→cards, lista con checks→panel checklist, fila inferior de features→strip, columnas con número→stats, grid de ítems cortos con icono pequeño→mini-grid 2×2, card con icono al lado del texto y una sublista→split-card (si ves dos conceptos lado a lado, son DOS split-cards, nunca una sola). Todo icono/ilustración debe ser un placeholder de imagen con id único. Respeta el layout, la jerarquía y el número de cajas/columnas que se ven en la imagen. NO uses fondos de color ni bordes de color saturados.${instruction ? `\n\nINTENCIÓN / TEXTO DEL USUARIO:\n${instruction}` : ''}`;
           messages = [
             { role: 'system', content: systemPrompt },
             {

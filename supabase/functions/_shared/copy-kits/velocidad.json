@@ -1,0 +1,393 @@
+{
+  "kit_version": "velocidad-v2.0",
+  "branch_slug": "velocidad",
+  "branch_name": "Velocidad de pagos internacionales",
+  "source": "contexto_maestro_xending_velocidad.md + 90 copys aprobados (china_asia 30, internacional 30, industria 30)",
+
+  "editorial_objective": "Comunicar que Xending ayuda a pagar proveedores internacionales con mayor velocidad, seguimiento y acompañamiento. El mensaje debe mostrar cómo ayuda Xending, nunca limitarse a recomendarle al cliente que se organice, prepare su transferencia, revise horarios o planee con anticipación.",
+
+  "client_should_think": [
+    "Mi pago internacional no debería tardar varios días.",
+    "Xending puede ayudarme a pagar a mi proveedor con mayor rapidez.",
+    "Puedo mantener mi compra, embarque o producción en movimiento.",
+    "Vale la pena preguntar si mi pago puede llegar hoy.",
+    "Xending entiende los tiempos reales de una importación.",
+    "Puedo pagar con rapidez sin perder seguimiento ni acompañamiento."
+  ],
+
+  "positioning_must_communicate": [
+    "pagos más ágiles",
+    "pagos a China el mismo día cuando aplique",
+    "menos días de espera",
+    "continuidad operativa",
+    "rapidez con seguimiento",
+    "acompañamiento durante el proceso",
+    "especialización por mercado",
+    "claridad sobre los tiempos"
+  ],
+
+  "allowed_situations": [
+    "el proveedor ya terminó la mercancía",
+    "la fábrica está esperando confirmación",
+    "la producción necesita insumos",
+    "un embarque tiene una fecha",
+    "una refacción es urgente",
+    "el inventario necesita reposición",
+    "un proyecto tiene fecha de apertura o instalación",
+    "diferencia horaria con Asia",
+    "horario de corte del día",
+    "el pago y la confirmación como dos momentos distintos"
+  ],
+
+  "situation_framing_rule": "Las situaciones anteriores se usan como TENSIÓN, nunca como AMENAZA ni como CULPA. Prohibido afirmar que el pago es la única causa de un retraso, que la mercancía está detenida por culpa del cliente, o que el proveedor le dará la orden a otro comprador. El copy señala que el tiempo importa; no castiga al lector. Reencuadre correcto: 'El proveedor está listo. Xending también' en vez de 'tu proveedor elegirá a otro'.",
+
+  "tone": {
+    "yes": ["empresarial", "directo", "cercano", "sobrio", "seguro", "moderno", "tranquilo", "orientado a resultados"],
+    "no": ["alarmista", "exagerado", "bancario tradicional", "excesivamente publicitario", "clase de logística", "orden para que el cliente se organice", "agresividad comercial"],
+    "tension": "moderada",
+    "hedging": "El condicional es preferido: 'puede procesarse', 'puede llegar hoy', 'no tiene que tardar'. Nunca afirmación absoluta de tiempo."
+  },
+
+  "corridor_quota": {
+    "china_asia": 30,
+    "internacional_general": 25,
+    "industria": 35,
+    "institucional": 10
+  },
+  "corridor_quota_note": "Distribución objetivo sobre bloques de 30 copys. 'institucional' = mensajes sobre seguimiento, confianza y acompañamiento, sin corredor específico.",
+
+  "tone_quota": {
+    "tension_moderada": 35,
+    "beneficio_directo": 40,
+    "confianza_seguimiento": 15,
+    "posicionamiento": 10
+  },
+
+  "angles": {
+    "producto_listo": {
+      "label": "Producto listo",
+      "premise": "La mercancía, el molde, la maquinaria o el equipo ya están terminados y esperan que avance el pago."
+    },
+    "proveedor_esperando": {
+      "label": "Proveedor esperando",
+      "premise": "El proveedor o la fábrica espera la confirmación del pago para seguir adelante.",
+      "note": "Nunca amenazar con que el proveedor le dará la orden a otro."
+    },
+    "oportunidad_mismo_dia": {
+      "label": "Oportunidad de mismo día",
+      "premise": "Hoy todavía es posible: si el pago entra dentro del horario, el proveedor puede recibir el mismo día.",
+      "note": "Activa la nota legal."
+    },
+    "reposicion": {
+      "label": "Reposición",
+      "premise": "Una pieza, refacción o insumo necesita reponerse y el tiempo de pago define cuándo llega."
+    },
+    "fecha_temporada": {
+      "label": "Fecha de temporada",
+      "premise": "La temporada comercial, el lanzamiento o el calendario de venta tienen fecha fija."
+    },
+    "continuidad_produccion": {
+      "label": "Continuidad de producción",
+      "premise": "La línea, el ensamble o el llenado dependen de que el material llegue a tiempo."
+    },
+    "mantenimiento": {
+      "label": "Mantenimiento",
+      "premise": "Maquinaria detenida o mantenimiento pendiente que espera una pieza importada."
+    },
+    "inventario": {
+      "label": "Inventario",
+      "premise": "El inventario necesita reposición para sostener la disponibilidad comercial."
+    },
+    "instalacion": {
+      "label": "Instalación",
+      "premise": "Una obra, instalación o inauguración tiene fecha y el equipo debe llegar antes."
+    },
+    "pago_confirmacion": {
+      "label": "Pago y confirmación",
+      "premise": "Enviar el pago y que el proveedor lo cobre son dos momentos distintos. El seguimiento cubre el intermedio."
+    },
+    "menos_espera": {
+      "label": "Menos espera",
+      "premise": "Menos días entre el pago y el cobro. La operación avanza sin quedarse esperando la transferencia.",
+      "note": "Es el ángulo de agilidad general, sin producto ni situación específica. Útil para China/Asia e internacional; en industria prefiere un ángulo de producto."
+    },
+    "acompanamiento": {
+      "label": "Seguimiento y acompañamiento",
+      "premise": "La operación se acompaña de principio a fin, con visibilidad del avance de la transferencia."
+    },
+    "especializacion_mercado": {
+      "label": "Especialización por mercado",
+      "premise": "Cada país y moneda tiene sus tiempos; la red especializada ajusta la operación al destino."
+    }
+  },
+  "angle_rotation_note": "Rotar entre estos ángulos. No generar todos los titulares con el mismo. Agotar los disponibles antes de repetir uno. La cuota de esta rama es por corredor y por tono, no por ángulo: el ángulo solo sirve para forzar variedad.",
+
+  "corridors": {
+    "china_asia": {
+      "label": "China y Asia",
+      "objective": "Posicionar a Xending como solución especializada para pagar proveedores en China y Asia con rapidez, seguimiento y acompañamiento.",
+      "allowed_claims": [
+        "pagos a China el mismo día",
+        "posibilidad de que el proveedor reciba el mismo día",
+        "especialización en China y Asia",
+        "rapidez mediante una red conectada con la región",
+        "seguimiento y acompañamiento"
+      ],
+      "infrastructure_basis": "Infraestructura y socios especializados en la región, incluyendo PingPong Payments (sede en Hong Kong). PROHIBIDO afirmar presencia física propia de Xending en Asia o usar el nombre 'Xending Asia'.",
+      "vocabulary": ["proveedor chino", "fábrica", "China", "Asia", "embarque", "horario límite", "mismo día", "diferencia horaria", "trazabilidad", "red regional"],
+      "cta": ["Paga a China hoy", "Pagos a China, mismo día", "Paga a Asia hoy", "Cotiza tu pago a China", "Cotiza tu pago a Asia", "Consulta si llega hoy", "Paga hoy con Xending", "Paga sin demoras a tu proveedor", "Habla con Xending", "Pregúntale a Xending"],
+      "cta_banned": ["Activa tu pago", "Inicia tu pago", "Conoce la ruta", "Cotiza tu ruta", "Conoce Xending Asia", "Organiza tu envío", "Prepara tu transferencia", "Planea tu pago"]
+    },
+    "internacional_general": {
+      "label": "Pagos internacionales generales",
+      "objective": "Comunicar que Xending ayuda a pagar proveedores en Estados Unidos, Europa, Asia y otros mercados con mayor agilidad, seguimiento y soporte.",
+      "allowed_claims": [
+        "mayor agilidad",
+        "menos espera",
+        "tiempos claros",
+        "seguimiento durante el proceso",
+        "soporte",
+        "posibilidad de consultar si una operación puede llegar hoy",
+        "pagos a Estados Unidos, Europa, Asia y otros mercados",
+        "pagos internacionales desde una sola solución",
+        "rapidez ajustada al país y la moneda"
+      ],
+      "hard_limit": "NO afirmar que todos los pagos internacionales llegan el mismo día. Cuando el tiempo no puede prometerse, invitar a consultar.",
+      "vocabulary": ["proveedor", "transferencia", "dólares", "Estados Unidos", "Europa", "país", "moneda", "destino", "tiempos", "confirmación", "seguimiento", "continuidad"],
+      "cta": ["Paga hoy con Xending", "Paga sin demoras a tu proveedor", "Envía tu pago hoy", "Cotiza tu pago", "Cotiza tu próximo pago", "Cotiza tu pago internacional", "Cotiza tu pago a Estados Unidos", "Solicita una cotización", "Consulta si llega hoy", "Consulta tiempos de pago", "Habla con Xending", "Pregúntale a Xending"],
+      "cta_banned": ["Paga internacionalmente", "Conoce tus opciones", "Cotiza tu ruta", "Conoce la ruta", "Activa tu transferencia", "Inicia tu operación", "Revisa tus horarios", "Organiza tu próximo pago", "Planea tu conversión"]
+    },
+    "industria": {
+      "label": "Velocidad por tipo de importación o industria",
+      "objective": "Relacionar la velocidad de pago con una situación concreta de cada producto, industria o tipo de importación. Deben sentirse hechos para la actividad del cliente, no como mensajes financieros genéricos.",
+      "structure": [
+        "Mencionar el producto o industria en el headline.",
+        "Identificar una consecuencia real del tiempo.",
+        "Explicar cómo Xending agiliza el pago.",
+        "CTA directamente relacionado con pagar, cotizar o consultar."
+      ],
+      "cta": ["Pagos a China, mismo día", "Paga a China hoy", "Paga a Asia hoy", "Paga hoy con Xending", "Paga sin demoras a tu proveedor", "Consulta si llega hoy", "Cotiza tu pago", "Cotiza tu próximo pago", "Cotiza tu pago a China", "Habla con Xending", "Pregúntale a Xending"]
+    },
+    "institucional": {
+      "label": "Institucional — seguimiento, confianza y acompañamiento",
+      "objective": "Comunicar que Xending acompaña la operación de principio a fin, sin anclarse a un corredor específico.",
+      "cta": ["Habla con Xending", "Pregúntale a Xending", "Cotiza tu pago", "Consulta tiempos de pago"]
+    }
+  },
+
+  "industries": {
+    "autopartes": { "angles": ["continuidad de suministro", "ensamblaje", "reposición", "producción automotriz"] },
+    "maquinaria": { "angles": ["liberación de fábrica", "embarque", "instalación", "arranque de proyecto"] },
+    "electronicos": { "angles": ["velocidad del mercado", "actualización de inventario", "ciclos tecnológicos"] },
+    "textiles_calzado": { "angles": ["temporadas", "producción", "lanzamientos", "disponibilidad comercial"] },
+    "empaques_envases": { "angles": ["continuidad de producción", "llenado", "entrega", "presentación final del producto"] },
+    "insumos_industriales": { "angles": ["continuidad de línea", "materiales", "producción", "abastecimiento"] },
+    "refacciones_motores_valvulas_bombas_rodamientos": { "angles": ["mantenimiento", "reposición crítica", "maquinaria detenida", "continuidad industrial"] },
+    "moldes_herramientas": { "angles": ["pruebas", "producción", "instalación", "cumplimiento de proyecto"] },
+    "solar_iluminacion_electrico": { "angles": ["instalación", "obra", "inauguración", "calendario de proyecto"] },
+    "electrodomesticos_pantallas_ferreteria_baterias": { "angles": ["inventario", "reposición", "demanda", "renovación tecnológica", "disponibilidad comercial"] }
+  },
+
+  "formulas_allowed": [
+    "[A] está listo. [B] también",
+    "[A] está listo. Que [B] no lo detenga",
+    "[A] no debería [tardar / esperar / detener] [B]",
+    "[X] también [Y]",
+    "De [origen] a [destino], sin/con [efecto]",
+    "Menos [A]. Más [B]",
+    "[X] no tiene que [tardar / esperar]",
+    "Cuando [A], [B] [consecuencia]",
+    "[Producto/industria] + [consecuencia real del tiempo]"
+  ],
+
+  "banned_openings": [
+    "no debería esperar",
+    "mantén tu operación en movimiento",
+    "Tu proveedor",
+    "Menos espera",
+    "De México a"
+  ],
+  "banned_openings_note": "Muletillas y arranques saturados. Los dos primeros vienen del contexto maestro; los otros salen de medir los 90 copys aprobados de esta rama (7 headlines abren con 'Tu proveedor', 3 con 'Menos espera', 3 con 'De México a'). Cambiar el arranque, NO la fórmula. 'sin demoras' no debe usarse como promesa absoluta dentro del subline (sí como CTA aprobado).",
+
+  "banned_phrases": [
+    "pagos elegibles",
+    "garantiza que llegue hoy",
+    "siempre el mismo día",
+    "garantizado el mismo día",
+    "pago instantáneo",
+    "instantáneo",
+    "inmediato",
+    "sin ningún retraso",
+    "la línea no arranca por tu pago",
+    "el contenedor está detenido por tu culpa",
+    "tu proveedor elegirá a otro",
+    "el proveedor reasigna la mercancía a otro comprador",
+    "estás perdiendo dinero",
+    "el mundo no espera",
+    "no te quedes atrás",
+    "actúa ahora",
+    "aprovecha antes de que sea tarde",
+    "conoce Xending Asia"
+  ],
+  "banned_phrases_note": "'pagos elegibles' se evita porque suena técnico y no se entiende con naturalidad en México. Evitar además titulares abstractos que no expliquen qué producto, mercado o situación está involucrada.",
+
+  "legal_note": {
+    "text": "Sujeto a horario de recepción, validación y condiciones de la operación.",
+    "trigger": "Toda pieza que mencione 'mismo día', 'llega hoy', 'recibe hoy' o una promesa equivalente de tiempo.",
+    "style": "Nota discreta al pie de la pieza.",
+    "detect": [
+      "mismo d[íi]a",
+      "llega hoy",
+      "llegar hoy",
+      "recibe hoy",
+      "recibir hoy",
+      "cobr[ae]n? hoy",
+      "confirma hoy",
+      "hoy todav[íi]a",
+      "dentro del mismo d[íi]a"
+    ]
+  },
+
+  "numbers_policy": {
+    "allowed": "Ninguna. Este eje no usa cifras.",
+    "banned": [
+      "tiempos exactos o plazos inventados",
+      "porcentajes de mejora en velocidad",
+      "afirmar que Xending siempre es más rápido"
+    ],
+    "principle": "Los tiempos de liquidación dependen del país destino y horarios de corte. Se comunica posibilidad, no plazo."
+  },
+
+  "cta_selection_rule": [
+    "Si el copy habla de China y mismo día: 'Paga a China hoy' o 'Pagos a China, mismo día'.",
+    "Si habla de una refacción urgente o un producto listo: 'Paga sin demoras a tu proveedor'.",
+    "Si no puede prometerse el tiempo exacto: 'Cotiza tu pago' o 'Consulta si llega hoy'.",
+    "Si el mensaje es institucional: 'Habla con Xending' o 'Pregúntale a Xending'.",
+    "El CTA puede repetirse entre piezas. No se penaliza reusar el mismo verbo."
+  ],
+
+  "gold_examples": [
+    {
+      "headline": "Pagar a China no debería tomar días",
+      "subcopy": "Con Xending, tu pago a proveedores puede procesarse el mismo día.",
+      "cta": "Paga a China hoy",
+      "angleLabel": "China y pago el mismo día",
+      "corridor": "china_asia",
+      "toneBucket": "beneficio_directo",
+      "needsLegalNote": true
+    },
+    {
+      "headline": "El proveedor está listo. Xending también",
+      "subcopy": "Completa pagos a China con velocidad, trazabilidad y acompañamiento.",
+      "cta": "Paga hoy con Xending",
+      "angleLabel": "Proveedor esperando y acompañamiento",
+      "corridor": "china_asia",
+      "toneBucket": "tension_moderada",
+      "needsLegalNote": false
+    },
+    {
+      "headline": "La fábrica confirmó. El pago puede llegar hoy",
+      "subcopy": "Xending agiliza transferencias empresariales hacia China.",
+      "cta": "Paga a China hoy",
+      "angleLabel": "Confirmación de fábrica y mismo día",
+      "corridor": "china_asia",
+      "toneBucket": "tension_moderada",
+      "needsLegalNote": true
+    },
+    {
+      "headline": "Hoy todavía cuenta en China",
+      "subcopy": "Envía tu pago dentro del mismo día, según el horario aplicable.",
+      "cta": "Pagos a China, mismo día",
+      "angleLabel": "Horario de corte y oportunidad de mismo día",
+      "corridor": "china_asia",
+      "toneBucket": "beneficio_directo",
+      "needsLegalNote": true
+    },
+    {
+      "headline": "Tu proveedor está listo. Que el pago también",
+      "subcopy": "Envía fondos internacionales con rapidez, seguimiento y soporte.",
+      "cta": "Paga sin demoras a tu proveedor",
+      "angleLabel": "Proveedor esperando y continuidad",
+      "corridor": "internacional_general",
+      "toneBucket": "tension_moderada",
+      "needsLegalNote": false
+    },
+    {
+      "headline": "La operación no debería detenerse por una transferencia",
+      "subcopy": "Xending facilita pagos internacionales con mayor velocidad y visibilidad.",
+      "cta": "Pregúntale a Xending",
+      "angleLabel": "Continuidad operativa y visibilidad",
+      "corridor": "internacional_general",
+      "toneBucket": "tension_moderada",
+      "needsLegalNote": false
+    },
+    {
+      "headline": "De México a Estados Unidos, con menos espera",
+      "subcopy": "Paga a proveedores en dólares desde una sola solución.",
+      "cta": "Paga sin demoras a tu proveedor",
+      "angleLabel": "Estados Unidos y pago en dólares",
+      "corridor": "internacional_general",
+      "toneBucket": "beneficio_directo",
+      "needsLegalNote": false
+    },
+    {
+      "headline": "Las autopartes pueden estar listas antes que el pago",
+      "subcopy": "Paga a proveedores en China el mismo día y mantén tu compra en movimiento.",
+      "cta": "Pagos a China, mismo día",
+      "angleLabel": "Autopartes y continuidad de suministro",
+      "corridor": "industria",
+      "industry": "autopartes",
+      "toneBucket": "tension_moderada",
+      "needsLegalNote": true
+    },
+    {
+      "headline": "El molde está listo. Que el pago no lo detenga",
+      "subcopy": "Agiliza transferencias a China para continuar con pruebas, producción y embarque.",
+      "cta": "Paga a China hoy",
+      "angleLabel": "Moldes y arranque de producción",
+      "corridor": "industria",
+      "industry": "moldes_herramientas",
+      "toneBucket": "tension_moderada",
+      "needsLegalNote": false
+    },
+    {
+      "headline": "La tecnología de pantallas cambia rápido",
+      "subcopy": "Agiliza pagos a proveedores para renovar tu inventario al ritmo del mercado.",
+      "cta": "Paga a Asia hoy",
+      "angleLabel": "Pantallas y renovación tecnológica",
+      "corridor": "industria",
+      "industry": "electrodomesticos_pantallas_ferreteria_baterias",
+      "toneBucket": "beneficio_directo",
+      "needsLegalNote": false
+    },
+    {
+      "headline": "Distintos productos. Una misma necesidad: pagar a tiempo",
+      "subcopy": "Agiliza pagos internacionales sin complicar el trabajo de tu empresa.",
+      "cta": "Cotiza tu pago",
+      "angleLabel": "Portafolio amplio y puntualidad",
+      "corridor": "institucional",
+      "toneBucket": "posicionamiento",
+      "needsLegalNote": false
+    },
+    {
+      "headline": "Tu proveedor puede estar lejos. El seguimiento no",
+      "subcopy": "Consulta el avance de tu transferencia durante la operación.",
+      "cta": "Habla con Xending",
+      "angleLabel": "Seguimiento y acompañamiento",
+      "corridor": "institucional",
+      "toneBucket": "confianza_seguimiento",
+      "needsLegalNote": false
+    }
+  ],
+
+  "rejected_examples": [
+    { "text": "Tu banco te está robando", "reason": "acusatorio, ataca a terceros" },
+    { "text": "Estás perdiendo miles de dólares", "reason": "alarmista, cifra no sustentada" },
+    { "text": "Tu operación ya tomó cinco decisiones esperando", "reason": "abstracto, no se entiende" },
+    { "text": "Ese estatus pendiente afecta tu próxima cotización", "reason": "corporativo sin dolor real" },
+    { "text": "Activa tu pago", "reason": "CTA ficticio, no corresponde a una acción real" },
+    { "text": "Conoce la ruta", "reason": "suena a logística, no a pago" },
+    { "text": "Revisa tus horarios", "reason": "asigna tarea al cliente en vez de comunicar cómo ayuda Xending" },
+    { "text": "El contenedor está detenido por tu culpa", "reason": "culpa al cliente y exagera la consecuencia" }
+  ]
+}

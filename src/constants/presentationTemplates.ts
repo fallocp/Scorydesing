@@ -4,7 +4,7 @@
  * Uses the "Card Light" visual style from designTemplates.ts:
  * - Background: Cream #F5F3F0 with soft mesh gradient (coral top-right, turquoise bottom-left)
  * - Cards: White with soft shadows
- * - Typography: Fraunces (headlines, italic accents), Inter (body), JetBrains Mono (numbers)
+ * - Typography: Montserrat (headlines, italic accents), Poppins (body), JetBrains Mono (numbers), Fraunces (legal notes only)
  * - Colors: Navy #0F1419 (text), Turquoise #2ED4C7, Coral #FF7A4A (accents)
  * - Format: 1920x1080 (16:9 presentation)
  */
@@ -18,7 +18,7 @@ export interface PresentationSlide {
 
 const LOGO_URL = 'https://gdfhytvjnzdovjfovqfv.supabase.co/storage/v1/object/sign/Brand/Xending%20bola%20logoabril26.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV8zNDdhNjgwZi1hZGU3LTQ3OGYtYjdkNy1kMGY5YzJjMDc4NDEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJCcmFuZC9YZW5kaW5nIGJvbGEgbG9nb2FicmlsMjYucG5nIiwiaWF0IjoxNzc3MTU1Nzg2LCJleHAiOjE4MDg2OTE3ODZ9.8ZrGD1_TGdtzJn5lSP3X3pvlqvFV-mfgwxLySRQUO3U';
 
-const FONTS = 'https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap';
+const FONTS = 'https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Poppins:wght@400;500;600;700&family=Fraunces:wght@400;600&family=JetBrains+Mono:wght@400;500;600&display=swap';
 
 const GRAIN = `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`;
 
@@ -35,7 +35,7 @@ const BASE_STYLES = `
       height: 1080px;
       position: relative;
       overflow: hidden;
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       color: #0F1419;
       transform-origin: top left;
     }
@@ -72,7 +72,7 @@ const BASE_STYLES = `
 
     /* Typography */
     h1 {
-      font-family: 'Fraunces', serif;
+      font-family: 'Montserrat', sans-serif;
       font-weight: 600;
       font-size: 72px;
       line-height: 1.05;
@@ -80,7 +80,7 @@ const BASE_STYLES = `
     }
 
     h2 {
-      font-family: 'Fraunces', serif;
+      font-family: 'Montserrat', sans-serif;
       font-weight: 600;
       font-size: 52px;
       line-height: 1.1;
@@ -88,7 +88,7 @@ const BASE_STYLES = `
     }
 
     h3 {
-      font-family: 'Fraunces', serif;
+      font-family: 'Montserrat', sans-serif;
       font-weight: 600;
       font-size: 36px;
       line-height: 1.15;
@@ -96,7 +96,7 @@ const BASE_STYLES = `
     }
 
     .subtitle {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       font-size: 26px;
       font-weight: 400;
       color: #555;
@@ -104,7 +104,7 @@ const BASE_STYLES = `
     }
 
     .body {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       font-size: 22px;
       font-weight: 400;
       color: #555;
@@ -189,7 +189,7 @@ const BASE_STYLES = `
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 1.2px;
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
     }
 
     .tag-tq {
@@ -210,7 +210,7 @@ const BASE_STYLES = `
       padding: 20px 40px;
       border-radius: 100px;
       border: none;
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       font-weight: 600;
       font-size: 22px;
       background: linear-gradient(135deg, #FF7A4A, #E85A2C);
@@ -225,7 +225,7 @@ const BASE_STYLES = `
       padding: 20px 40px;
       border-radius: 100px;
       border: none;
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       font-weight: 600;
       font-size: 22px;
       background: linear-gradient(135deg, #2ED4C7, #1FB8AC);
@@ -247,7 +247,7 @@ const BASE_STYLES = `
     }
 
     .wordmark {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Montserrat', sans-serif;
       font-weight: 700;
       font-size: 28px;
       color: #1a1a1a;
@@ -266,7 +266,7 @@ const BASE_STYLES = `
     }
 
     .disclaimer {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       font-size: 13px;
       color: #999;
     }
@@ -480,7 +480,7 @@ const slide04_experience = wrapSlide(`
     <div style="flex:1;">
       <div class="card-coral" style="padding:44px;">
         <p style="font-size:13px;font-weight:600;color:#E85A2C;letter-spacing:1px;text-transform:uppercase;margin-bottom:16px;">Nuestra Filosofía</p>
-        <p style="font-family:'Fraunces',serif;font-size:26px;font-weight:600;line-height:1.35;color:#0F1419;font-style:italic;">
+        <p style="font-family:'Montserrat',sans-serif;font-size:26px;font-weight:600;line-height:1.35;color:#0F1419;font-style:italic;">
           "No somos un proveedor de pagos. Somos el área de tesorería internacional que tu empresa necesita
           — sin el costo de tenerla internamente."
         </p>
@@ -879,7 +879,7 @@ const slide11_cta = wrapSlide(`
     <!-- Right: Contact card -->
     <div style="flex:0.7;">
       <div class="card" style="display:flex;flex-direction:column;gap:20px;padding:40px;">
-        <span style="font-family:'Inter',sans-serif;font-weight:700;font-size:20px;color:#0F1419;letter-spacing:2px;">XENDING GLOBAL</span>
+        <span style="font-family:'Poppins',sans-serif;font-weight:700;font-size:20px;color:#0F1419;letter-spacing:2px;">XENDING GLOBAL</span>
         <div class="divider"></div>
         <div style="display:flex;flex-direction:column;gap:14px;">
           <div>
@@ -980,7 +980,7 @@ export function getPresentationHtml(): string {
       bottom: 20px;
       right: 20px;
       color: rgba(0,0,0,0.3);
-      font-family: 'Inter', sans-serif;
+      font-family: 'Poppins', sans-serif;
       font-size: 14px;
       z-index: 100;
     }

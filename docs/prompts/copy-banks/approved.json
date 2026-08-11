@@ -1,0 +1,2406 @@
+{
+  "generated_at": "2026-08-10T03:28:49.828Z",
+  "count": 240,
+  "copies": [
+    {
+      "branch": "costos-ahorro",
+      "corridor": "china_asia",
+      "headline": "La diferencia cambiaria también viaja a China",
+      "subcopy": "El tipo de cambio puede modificar el costo final de cada importación.",
+      "cta": "Cotiza tu pago a China",
+      "angleLabel": "Costo cambiario",
+      "product": null,
+      "source": "costos-ahorro.china-asia-e-internacional.v2.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "china_asia",
+      "headline": "Cotizar tus dólares también protege tu margen",
+      "subcopy": "Revisa el costo y el tipo de cambio antes de pagar a tu proveedor en China.",
+      "cta": "Cotiza con Xending",
+      "angleLabel": "Protección del margen",
+      "product": null,
+      "source": "costos-ahorro.china-asia-e-internacional.v2.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "china_asia",
+      "headline": "Antes de pagar, consulta otra opción",
+      "subcopy": "Suma una cotización de Xending para tu siguiente operación con China.",
+      "cta": "Pide una segunda cotización",
+      "angleLabel": "Segunda alternativa de pago",
+      "product": null,
+      "source": "costos-ahorro.china-asia-e-internacional.v2.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "china_asia",
+      "headline": "Décimas que suman todo el año",
+      "subcopy": "En pagos recurrentes, pequeñas diferencias pueden acumular un impacto relevante.",
+      "cta": "Compara tu tipo de cambio",
+      "angleLabel": "Ahorro acumulado",
+      "product": null,
+      "source": "costos-ahorro.china-asia-e-internacional.v2.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "china_asia",
+      "headline": "Comprar bien también implica pagar bien",
+      "subcopy": "Accede a condiciones competitivas para pagar a tus proveedores en China y Asia.",
+      "cta": "Cotiza tu pago a China",
+      "angleLabel": "Costo de importación",
+      "product": null,
+      "source": "costos-ahorro.china-asia-e-internacional.v2.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "china_asia",
+      "headline": "Los aranceles no son el único costo",
+      "subcopy": "El tipo de cambio y la transferencia también impactan el costo de importar desde China.",
+      "cta": "Cotiza el costo completo",
+      "angleLabel": "Costo total de importación",
+      "product": null,
+      "source": "costos-ahorro.china-asia-e-internacional.v2.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "china_asia",
+      "headline": "El precio acordado no es el costo final",
+      "subcopy": "La conversión de moneda también influye en lo que termina costando tu compra.",
+      "cta": "Cotiza antes de pagar",
+      "angleLabel": "Costo final de compra",
+      "product": null,
+      "source": "costos-ahorro.china-asia-e-internacional.v2.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "china_asia",
+      "headline": "El ahorro no siempre viene de comprar en China",
+      "subcopy": "También puede venir de un mejor tipo de cambio.",
+      "cta": "Cotiza con Xending",
+      "angleLabel": "Eficiencia financiera",
+      "product": null,
+      "source": "costos-ahorro.china-asia-e-internacional.v2.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "china_asia",
+      "headline": "Diversifica cómo paga tu empresa",
+      "subcopy": "Compara costo, tipo de cambio y velocidad para tu próximo pago a China.",
+      "cta": "Cotiza tu próximo pago",
+      "angleLabel": "Diversificación de proveedores",
+      "product": null,
+      "source": "costos-ahorro.china-asia-e-internacional.v2.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "china_asia",
+      "headline": "Más monedas no deberían significar más cuentas",
+      "subcopy": "Simplifica pagos a Asia sin multiplicar portales y conciliaciones.",
+      "cta": "Habla con Xending",
+      "angleLabel": "Simplificación operativa",
+      "product": null,
+      "source": "costos-ahorro.china-asia-e-internacional.v2.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "china_asia",
+      "headline": "Tu próximo pago merece otra alternativa",
+      "subcopy": "Cotiza con Xending antes de transferir a tu proveedor en China.",
+      "cta": "Cotiza antes de pagar",
+      "angleLabel": "Alternativa de pago",
+      "product": null,
+      "source": "costos-ahorro.china-asia-e-internacional.v2.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "china_asia",
+      "headline": "La compra se negocia. El pago también",
+      "subcopy": "Evalúa costo, tipo de cambio y tiempo antes de transferir a China.",
+      "cta": "Cotiza costo y velocidad",
+      "angleLabel": "Negociación integral",
+      "product": null,
+      "source": "costos-ahorro.china-asia-e-internacional.v2.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "china_asia",
+      "headline": "China tiene sus propias condiciones de pago",
+      "subcopy": "La moneda, el destino y la operación pueden cambiar el costo de la transferencia.",
+      "cta": "Cotiza tu pago a China",
+      "angleLabel": "Diferencias por mercado",
+      "product": null,
+      "source": "costos-ahorro.china-asia-e-internacional.v2.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "china_asia",
+      "headline": "Tu costo de importación no termina con los aranceles",
+      "subcopy": "El tipo de cambio y la transferencia también influyen en el costo final de tu compra.",
+      "cta": "Cotiza tu pago a China",
+      "angleLabel": "Costo total de importación",
+      "product": null,
+      "source": "costos-ahorro.china-asia-e-internacional.v2.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "china_asia",
+      "headline": "Tu margen también cruza fronteras",
+      "subcopy": "Las condiciones del pago pueden influir en la rentabilidad de tu importación.",
+      "cta": "Cotiza con Xending",
+      "angleLabel": "Protección del margen",
+      "product": null,
+      "source": "costos-ahorro.china-asia-e-internacional.v2.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "china_asia",
+      "headline": "El tiempo también forma parte del costo",
+      "subcopy": "Cotiza cuánto cuesta y cuánto tarda tu próximo pago a China.",
+      "cta": "Cotiza costo y velocidad",
+      "angleLabel": "Costo y velocidad",
+      "product": null,
+      "source": "costos-ahorro.china-asia-e-internacional.v2.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "china_asia",
+      "headline": "Una sola cotización limita tus opciones",
+      "subcopy": "Xending suma una alternativa para pagar a China sin cambiar toda tu operación.",
+      "cta": "Pide una segunda cotización",
+      "angleLabel": "Diversificación financiera",
+      "product": null,
+      "source": "costos-ahorro.china-asia-e-internacional.v2.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "china_asia",
+      "headline": "Cambia la forma, no al proveedor",
+      "subcopy": "Prueba otra alternativa de pago para tu siguiente compra en China.",
+      "cta": "Cotiza con Xending",
+      "angleLabel": "Adopción sencilla",
+      "product": null,
+      "source": "costos-ahorro.china-asia-e-internacional.v2.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "china_asia",
+      "headline": "Más pagos, más valor en cada décima",
+      "subcopy": "En operaciones recurrentes, pequeñas diferencias pueden acumularse durante el año.",
+      "cta": "Compara tu tipo de cambio",
+      "angleLabel": "Impacto acumulado",
+      "product": null,
+      "source": "costos-ahorro.china-asia-e-internacional.v2.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "china_asia",
+      "headline": "El costo anual se construye pago a pago",
+      "subcopy": "Mejores condiciones en operaciones recurrentes pueden marcar una diferencia al cierre del año.",
+      "cta": "Cotiza tu próximo pago",
+      "angleLabel": "Impacto anual",
+      "product": null,
+      "source": "costos-ahorro.china-asia-e-internacional.v2.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "china_asia",
+      "headline": "Una cuenta menos también cuenta",
+      "subcopy": "Opera distintas monedas sin multiplicar cuentas, portales y procesos de conciliación.",
+      "cta": "Habla con Xending",
+      "angleLabel": "Simplificación operativa",
+      "product": null,
+      "source": "costos-ahorro.china-asia-e-internacional.v2.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "china_asia",
+      "headline": "Cada moneda cambia la ecuación",
+      "subcopy": "Cotiza según el país, la divisa y las condiciones de tu operación.",
+      "cta": "Cotiza con Xending",
+      "angleLabel": "Diferencias por moneda",
+      "product": null,
+      "source": "costos-ahorro.china-asia-e-internacional.v2.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "china_asia",
+      "headline": "El costo no es solo el tipo de cambio",
+      "subcopy": "Una cotización completa considera comisión, tiempo y condiciones de la operación.",
+      "cta": "Cotiza el costo completo",
+      "angleLabel": "Comparación integral",
+      "product": null,
+      "source": "costos-ahorro.china-asia-e-internacional.v2.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "china_asia",
+      "headline": "Medio punto también cuenta",
+      "subcopy": "En un pago de USD 100,000, una diferencia de 0.5% representa USD 500.",
+      "cta": "Compara antes de pagar",
+      "angleLabel": "Ejemplo numérico ilustrativo",
+      "product": null,
+      "source": "costos-ahorro.china-asia-e-internacional.v2.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "china_asia",
+      "headline": "Negocia también cómo pagas",
+      "subcopy": "Suma una alternativa para cuidar el costo financiero de tu compra.",
+      "cta": "Cotiza antes de pagar",
+      "angleLabel": "Capacidad de negociación",
+      "product": null,
+      "source": "costos-ahorro.china-asia-e-internacional.v2.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "china_asia",
+      "headline": "Menos conciliación también es ahorro",
+      "subcopy": "Centraliza pagos y monedas sin multiplicar cuentas ni procesos administrativos.",
+      "cta": "Habla con Xending",
+      "angleLabel": "Ahorro operativo",
+      "product": null,
+      "source": "costos-ahorro.china-asia-e-internacional.v2.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "china_asia",
+      "headline": "Pagar a China es una decisión financiera",
+      "subcopy": "Considera tipo de cambio, costo y velocidad antes de transferir.",
+      "cta": "Cotiza tu pago a China",
+      "angleLabel": "Estrategia financiera",
+      "product": null,
+      "source": "costos-ahorro.china-asia-e-internacional.v2.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "china_asia",
+      "headline": "Tu opción habitual no tiene que ser la única",
+      "subcopy": "Suma a Xending para cotizar y pagar tus operaciones con China.",
+      "cta": "Pide una segunda cotización",
+      "angleLabel": "Diversificación de proveedores",
+      "product": null,
+      "source": "costos-ahorro.china-asia-e-internacional.v2.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "china_asia",
+      "headline": "El costo final se define al pagar",
+      "subcopy": "Una mejor cotización puede ayudarte a cuidar el margen de tu importación.",
+      "cta": "Cotiza con Xending",
+      "angleLabel": "Momento de conversión",
+      "product": null,
+      "source": "costos-ahorro.china-asia-e-internacional.v2.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "china_asia",
+      "headline": "Ahorrar también puede empezar en tesorería",
+      "subcopy": "Revisa las condiciones de tu próximo pago a China antes de transferir.",
+      "cta": "Cotiza tu próximo pago",
+      "angleLabel": "Eficiencia de tesorería",
+      "product": null,
+      "source": "costos-ahorro.china-asia-e-internacional.v2.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "internacional_general",
+      "headline": "Cada pago internacional mueve tu margen",
+      "subcopy": "El tipo de cambio también influye en el costo final de tu operación.",
+      "cta": "Cotiza tu pago internacional",
+      "angleLabel": "Protección del margen",
+      "product": null,
+      "source": "costos-ahorro.china-asia-e-internacional.v2.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "internacional_general",
+      "headline": "El tipo de cambio también es costo",
+      "subcopy": "Compara las condiciones de tu siguiente transferencia antes de pagar.",
+      "cta": "Compara antes de pagar",
+      "angleLabel": "Costo cambiario",
+      "product": null,
+      "source": "costos-ahorro.china-asia-e-internacional.v2.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "internacional_general",
+      "headline": "Una segunda cotización cambia la perspectiva",
+      "subcopy": "Suma otra alternativa para evaluar tu próximo pago internacional.",
+      "cta": "Pide una segunda cotización",
+      "angleLabel": "Segunda alternativa",
+      "product": null,
+      "source": "costos-ahorro.china-asia-e-internacional.v2.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "internacional_general",
+      "headline": "El ahorro se acumula transferencia a transferencia",
+      "subcopy": "Pequeñas diferencias pueden representar un impacto relevante durante el año.",
+      "cta": "Compara tu tipo de cambio",
+      "angleLabel": "Ahorro acumulado",
+      "product": null,
+      "source": "costos-ahorro.china-asia-e-internacional.v2.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "internacional_general",
+      "headline": "Cada mercado cambia el costo",
+      "subcopy": "El país, la moneda y las condiciones pueden modificar el costo de tu transferencia.",
+      "cta": "Cotiza tu pago internacional",
+      "angleLabel": "Diferencias por mercado",
+      "product": null,
+      "source": "costos-ahorro.china-asia-e-internacional.v2.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "internacional_general",
+      "headline": "Tu opción habitual no tiene que ser la única",
+      "subcopy": "Agrega a Xending como alternativa para tu siguiente transferencia internacional.",
+      "cta": "Cotiza tu próximo pago",
+      "angleLabel": "Diversificación de proveedores",
+      "product": null,
+      "source": "costos-ahorro.china-asia-e-internacional.v2.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "internacional_general",
+      "headline": "Más cuentas también cuestan tiempo",
+      "subcopy": "Simplifica monedas, pagos y conciliaciones desde una misma solución.",
+      "cta": "Habla con Xending",
+      "angleLabel": "Eficiencia operativa",
+      "product": null,
+      "source": "costos-ahorro.china-asia-e-internacional.v2.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "internacional_general",
+      "headline": "El costo total no cabe en una cifra",
+      "subcopy": "Tipo de cambio, comisión y tiempo forman parte de la operación.",
+      "cta": "Cotiza el costo completo",
+      "angleLabel": "Comparación integral",
+      "product": null,
+      "source": "costos-ahorro.china-asia-e-internacional.v2.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "internacional_general",
+      "headline": "Cotizar antes de pagar también es estrategia",
+      "subcopy": "Evalúa las condiciones de Xending para tu siguiente operación internacional.",
+      "cta": "Cotiza antes de pagar",
+      "angleLabel": "Estrategia financiera",
+      "product": null,
+      "source": "costos-ahorro.china-asia-e-internacional.v2.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "internacional_general",
+      "headline": "El margen no termina en compras",
+      "subcopy": "La forma de pagar también puede influir en la rentabilidad de tu operación.",
+      "cta": "Cotiza con Xending",
+      "angleLabel": "Protección del margen",
+      "product": null,
+      "source": "costos-ahorro.china-asia-e-internacional.v2.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "internacional_general",
+      "headline": "El volumen vuelve importante cada décima",
+      "subcopy": "En pagos frecuentes, pequeñas diferencias pueden acumularse durante el año.",
+      "cta": "Compara tu tipo de cambio",
+      "angleLabel": "Volumen anual",
+      "product": null,
+      "source": "costos-ahorro.china-asia-e-internacional.v2.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "internacional_general",
+      "headline": "La velocidad también tiene valor financiero",
+      "subcopy": "Compara costo y tiempo antes de realizar tu próxima transferencia.",
+      "cta": "Cotiza costo y velocidad",
+      "angleLabel": "Costo y velocidad",
+      "product": null,
+      "source": "costos-ahorro.china-asia-e-internacional.v2.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "internacional_general",
+      "headline": "Pagar al extranjero también se negocia",
+      "subcopy": "Suma otra alternativa para cotizar tus operaciones internacionales.",
+      "cta": "Pide una segunda cotización",
+      "angleLabel": "Capacidad de negociación",
+      "product": null,
+      "source": "costos-ahorro.china-asia-e-internacional.v2.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "internacional_general",
+      "headline": "Una sola opción limita la comparación",
+      "subcopy": "Diversifica tus proveedores de pago sin modificar toda tu operación.",
+      "cta": "Cotiza con Xending",
+      "angleLabel": "Diversificación financiera",
+      "product": null,
+      "source": "costos-ahorro.china-asia-e-internacional.v2.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "internacional_general",
+      "headline": "Tus pagos recurrentes merecen otra mirada",
+      "subcopy": "Compara las condiciones que aplican a tus transferencias más frecuentes.",
+      "cta": "Cotiza tu próximo pago",
+      "angleLabel": "Pagos recurrentes",
+      "product": null,
+      "source": "costos-ahorro.china-asia-e-internacional.v2.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "internacional_general",
+      "headline": "Un 0.5% sí mueve números",
+      "subcopy": "En USD 100,000, una diferencia de 0.5% representa USD 500.",
+      "cta": "Compara antes de pagar",
+      "angleLabel": "Ejemplo numérico ilustrativo",
+      "product": null,
+      "source": "costos-ahorro.china-asia-e-internacional.v2.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "internacional_general",
+      "headline": "El costo anual se forma operación por operación",
+      "subcopy": "Cada cotización puede influir en el resultado acumulado de tus pagos internacionales.",
+      "cta": "Cotiza con Xending",
+      "angleLabel": "Impacto anual",
+      "product": null,
+      "source": "costos-ahorro.china-asia-e-internacional.v2.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "internacional_general",
+      "headline": "Más países no deberían significar más complejidad",
+      "subcopy": "Opera distintas monedas sin multiplicar cuentas ni procesos administrativos.",
+      "cta": "Habla con Xending",
+      "angleLabel": "Simplificación operativa",
+      "product": null,
+      "source": "costos-ahorro.china-asia-e-internacional.v2.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "internacional_general",
+      "headline": "Una buena compra también necesita un buen pago",
+      "subcopy": "Las condiciones de conversión pueden influir en el costo final de la operación.",
+      "cta": "Cotiza antes de pagar",
+      "angleLabel": "Costo total de compra",
+      "product": null,
+      "source": "costos-ahorro.china-asia-e-internacional.v2.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "internacional_general",
+      "headline": "Cada destino cambia la ecuación",
+      "subcopy": "El país, la moneda y el tiempo pueden modificar las condiciones del pago.",
+      "cta": "Cotiza tu pago internacional",
+      "angleLabel": "Diferencias por destino",
+      "product": null,
+      "source": "costos-ahorro.china-asia-e-internacional.v2.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "internacional_general",
+      "headline": "Menos portales. Más control",
+      "subcopy": "Centraliza pagos internacionales y reduce procesos de conciliación.",
+      "cta": "Habla con Xending",
+      "angleLabel": "Control operativo",
+      "product": null,
+      "source": "costos-ahorro.china-asia-e-internacional.v2.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "internacional_general",
+      "headline": "Empieza con tu siguiente pago",
+      "subcopy": "Cotiza y opera con Xending sin modificar toda tu estructura financiera.",
+      "cta": "Cotiza tu próximo pago",
+      "angleLabel": "Adopción sencilla",
+      "product": null,
+      "source": "costos-ahorro.china-asia-e-internacional.v2.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "internacional_general",
+      "headline": "El costo de pagar también importa",
+      "subcopy": "La transferencia y el tipo de cambio forman parte del costo final.",
+      "cta": "Cotiza el costo completo",
+      "angleLabel": "Costo financiero",
+      "product": null,
+      "source": "costos-ahorro.china-asia-e-internacional.v2.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "internacional_general",
+      "headline": "Tu siguiente pago puede ser el punto de comparación",
+      "subcopy": "Cotiza con Xending y evalúa sus condiciones para tu operación.",
+      "cta": "Pide una segunda cotización",
+      "angleLabel": "Prueba comercial",
+      "product": null,
+      "source": "costos-ahorro.china-asia-e-internacional.v2.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "internacional_general",
+      "headline": "Diversifica tus proveedores de pago",
+      "subcopy": "Agrega una alternativa para operar en dólares y otras monedas.",
+      "cta": "Cotiza con Xending",
+      "angleLabel": "Diversificación de proveedores",
+      "product": null,
+      "source": "costos-ahorro.china-asia-e-internacional.v2.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "internacional_general",
+      "headline": "Compara costo, tiempo y moneda",
+      "subcopy": "Evalúa la operación completa antes de realizar tu transferencia internacional.",
+      "cta": "Cotiza costo y velocidad",
+      "angleLabel": "Comparación integral",
+      "product": null,
+      "source": "costos-ahorro.china-asia-e-internacional.v2.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "internacional_general",
+      "headline": "El tipo de cambio merece una segunda mirada",
+      "subcopy": "Una cotización adicional puede darte mayor claridad antes de pagar.",
+      "cta": "Compara tu tipo de cambio",
+      "angleLabel": "Segunda cotización",
+      "product": null,
+      "source": "costos-ahorro.china-asia-e-internacional.v2.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "internacional_general",
+      "headline": "Ahorrar también es simplificar la operación",
+      "subcopy": "Menos cuentas y conciliaciones pueden reducir carga administrativa.",
+      "cta": "Habla con Xending",
+      "angleLabel": "Ahorro operativo",
+      "product": null,
+      "source": "costos-ahorro.china-asia-e-internacional.v2.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "internacional_general",
+      "headline": "Tu operación internacional necesita más de una opción",
+      "subcopy": "Suma a Xending para cotizar pagos en distintos mercados y monedas.",
+      "cta": "Cotiza tu próximo pago",
+      "angleLabel": "Flexibilidad financiera",
+      "product": null,
+      "source": "costos-ahorro.china-asia-e-internacional.v2.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "internacional_general",
+      "headline": "Xending suma una alternativa financiera",
+      "subcopy": "Compara sus condiciones para tu siguiente pago internacional.",
+      "cta": "Cotiza con Xending",
+      "angleLabel": "Posicionamiento de marca",
+      "product": null,
+      "source": "costos-ahorro.china-asia-e-internacional.v2.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "industria",
+      "headline": "Cada autoparte también carga un tipo de cambio",
+      "subcopy": "La conversión de moneda influye en el costo final de tus compras automotrices en Asia.",
+      "cta": "Cotiza tu pago a China",
+      "angleLabel": "Autopartes y costo cambiario",
+      "product": null,
+      "source": "costos-ahorro.industria.v1.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "industria",
+      "headline": "La maquinaria no solo cuesta lo que cotiza la fábrica",
+      "subcopy": "El tipo de cambio y la transferencia también influyen en el costo de tu inversión.",
+      "cta": "Cotiza el costo completo",
+      "angleLabel": "Maquinaria y costo total",
+      "product": null,
+      "source": "costos-ahorro.industria.v1.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "industria",
+      "headline": "Cada electrónico también suma una diferencia cambiaria",
+      "subcopy": "En compras frecuentes, pequeñas variaciones pueden acumular un impacto importante.",
+      "cta": "Compara tu tipo de cambio",
+      "angleLabel": "Electrónicos y ahorro acumulado",
+      "product": null,
+      "source": "costos-ahorro.industria.v1.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "industria",
+      "headline": "El margen textil también se define al pagar",
+      "subcopy": "Una mejor cotización puede ayudarte a cuidar el costo final de tu mercancía.",
+      "cta": "Cotiza con Xending",
+      "angleLabel": "Textiles y protección del margen",
+      "product": null,
+      "source": "costos-ahorro.industria.v1.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "industria",
+      "headline": "El empaque también tiene un costo cambiario",
+      "subcopy": "La conversión de moneda influye en cada caja, envase o material que importas.",
+      "cta": "Cotiza antes de pagar",
+      "angleLabel": "Empaques y costo unitario",
+      "product": null,
+      "source": "costos-ahorro.industria.v1.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "industria",
+      "headline": "El mobiliario tiene precio. El dólar también",
+      "subcopy": "Cotiza el tipo de cambio antes de pagar tus compras de mobiliario en Asia.",
+      "cta": "Cotiza tu próximo pago",
+      "angleLabel": "Mobiliario y costo cambiario",
+      "product": null,
+      "source": "costos-ahorro.industria.v1.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "industria",
+      "headline": "Tus insumos pueden subir antes de llegar a producción",
+      "subcopy": "El tipo de cambio influye en el costo final de los materiales que importas.",
+      "cta": "Cotiza tu pago a China",
+      "angleLabel": "Insumos industriales y costo de producción",
+      "product": null,
+      "source": "costos-ahorro.industria.v1.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "industria",
+      "headline": "Una refacción urgente también necesita buenos números",
+      "subcopy": "Compara costo, tipo de cambio y velocidad antes de realizar el pago.",
+      "cta": "Cotiza costo y velocidad",
+      "angleLabel": "Refacciones, costo y rapidez",
+      "product": null,
+      "source": "costos-ahorro.industria.v1.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "industria",
+      "headline": "Moldes a buen precio. Tipo de cambio competitivo",
+      "subcopy": "Cotiza con Xending antes de pagar moldes, herramientas y componentes en Asia.",
+      "cta": "Cotiza con Xending",
+      "angleLabel": "Moldes y costo cambiario",
+      "product": null,
+      "source": "costos-ahorro.industria.v1.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "industria",
+      "headline": "Tu compra puede venir por contenedor. El ahorro también",
+      "subcopy": "En importaciones de volumen, una pequeña diferencia cambiaria puede multiplicarse.",
+      "cta": "Compara antes de pagar",
+      "angleLabel": "Volumen de importación",
+      "product": null,
+      "source": "costos-ahorro.industria.v1.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "industria",
+      "headline": "Cada componente también impacta el costo final",
+      "subcopy": "El tipo de cambio influye en lo que realmente cuesta integrar tu producto.",
+      "cta": "Cotiza tu pago a China",
+      "angleLabel": "Componentes y costo de producción",
+      "product": null,
+      "source": "costos-ahorro.industria.v1.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "industria",
+      "headline": "Comprar herramientas también exige afinar los números",
+      "subcopy": "Compara las condiciones de pago antes de importar equipo y herramientas desde Asia.",
+      "cta": "Cotiza antes de pagar",
+      "angleLabel": "Herramientas y eficiencia financiera",
+      "product": null,
+      "source": "costos-ahorro.industria.v1.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "industria",
+      "headline": "El costo del calzado no termina en la fábrica",
+      "subcopy": "La conversión de moneda también influye en el margen de cada importación.",
+      "cta": "Cotiza con Xending",
+      "angleLabel": "Calzado y protección del margen",
+      "product": null,
+      "source": "costos-ahorro.industria.v1.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "industria",
+      "headline": "Paneles competitivos necesitan pagos competitivos",
+      "subcopy": "Cotiza el tipo de cambio antes de pagar equipos y componentes solares en China.",
+      "cta": "Cotiza tu pago a China",
+      "angleLabel": "Energía solar y costo de importación",
+      "product": null,
+      "source": "costos-ahorro.industria.v1.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "industria",
+      "headline": "Una buena compra de iluminación también se cuida al pagar",
+      "subcopy": "Las condiciones cambiarias pueden modificar el costo final de lámparas y componentes.",
+      "cta": "Compara tu tipo de cambio",
+      "angleLabel": "Iluminación y costo final",
+      "product": null,
+      "source": "costos-ahorro.industria.v1.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "industria",
+      "headline": "Cada motor también mueve tus costos",
+      "subcopy": "El tipo de cambio influye en el precio final de motores y equipos industriales.",
+      "cta": "Cotiza con Xending",
+      "angleLabel": "Motores y costo industrial",
+      "product": null,
+      "source": "costos-ahorro.industria.v1.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "industria",
+      "headline": "Los cables conectan. El tipo de cambio también",
+      "subcopy": "La conversión de moneda impacta el costo de cableado y componentes eléctricos.",
+      "cta": "Cotiza tu pago a China",
+      "angleLabel": "Material eléctrico y costo cambiario",
+      "product": null,
+      "source": "costos-ahorro.industria.v1.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "industria",
+      "headline": "Una válvula pequeña puede mover grandes volúmenes",
+      "subcopy": "En compras recurrentes, cada diferencia cambiaria puede acumularse.",
+      "cta": "Compara antes de pagar",
+      "angleLabel": "Válvulas y volumen de compra",
+      "product": null,
+      "source": "costos-ahorro.industria.v1.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "industria",
+      "headline": "El costo de una bomba no termina en su precio",
+      "subcopy": "La transferencia y el tipo de cambio también forman parte de la inversión.",
+      "cta": "Cotiza el costo completo",
+      "angleLabel": "Bombas industriales y costo total",
+      "product": null,
+      "source": "costos-ahorro.industria.v1.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "industria",
+      "headline": "Cada rodamiento también gira con el tipo de cambio",
+      "subcopy": "Cotiza antes de pagar componentes para maquinaria y líneas de producción.",
+      "cta": "Cotiza tu próximo pago",
+      "angleLabel": "Rodamientos y componentes industriales",
+      "product": null,
+      "source": "costos-ahorro.industria.v1.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "industria",
+      "headline": "Tus envases también llevan un costo financiero",
+      "subcopy": "La conversión de moneda influye en cada botella, frasco o recipiente importado.",
+      "cta": "Cotiza antes de pagar",
+      "angleLabel": "Envases y costo unitario",
+      "product": null,
+      "source": "costos-ahorro.industria.v1.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "industria",
+      "headline": "El plástico también cambia de precio al convertir",
+      "subcopy": "Cotiza el tipo de cambio para tus compras de piezas y productos plásticos.",
+      "cta": "Cotiza con Xending",
+      "angleLabel": "Plásticos y costo cambiario",
+      "product": null,
+      "source": "costos-ahorro.industria.v1.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "industria",
+      "headline": "Electrodomésticos competitivos necesitan costos competitivos",
+      "subcopy": "El pago internacional también influye en el margen de tu inventario.",
+      "cta": "Cotiza tu pago a China",
+      "angleLabel": "Electrodomésticos y margen comercial",
+      "product": null,
+      "source": "costos-ahorro.industria.v1.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "industria",
+      "headline": "Una cocina equipada también empieza con una cotización",
+      "subcopy": "Compara las condiciones para pagar equipos y utensilios importados.",
+      "cta": "Cotiza antes de pagar",
+      "angleLabel": "Equipo gastronómico y costo de compra",
+      "product": null,
+      "source": "costos-ahorro.industria.v1.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "industria",
+      "headline": "Cada pantalla también refleja el tipo de cambio",
+      "subcopy": "La conversión de moneda puede modificar el costo final de tu inventario.",
+      "cta": "Compara tu tipo de cambio",
+      "angleLabel": "Pantallas y electrónicos",
+      "product": null,
+      "source": "costos-ahorro.industria.v1.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "industria",
+      "headline": "El costo del inventario también se define al pagar",
+      "subcopy": "Cotiza antes de importar productos de consumo desde China y Asia.",
+      "cta": "Cotiza con Xending",
+      "angleLabel": "Inventario y capital de trabajo",
+      "product": null,
+      "source": "costos-ahorro.industria.v1.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "industria",
+      "headline": "Ferretería a buen precio. Pagos bien cotizados",
+      "subcopy": "Compara el costo de pagar herramientas, piezas y materiales en Asia.",
+      "cta": "Cotiza tu próximo pago",
+      "angleLabel": "Ferretería y costo total",
+      "product": null,
+      "source": "costos-ahorro.industria.v1.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "industria",
+      "headline": "Cada batería también acumula diferencias cambiarias",
+      "subcopy": "En compras de volumen, pequeñas variaciones pueden representar un impacto relevante.",
+      "cta": "Compara antes de pagar",
+      "angleLabel": "Baterías y ahorro acumulado",
+      "product": null,
+      "source": "costos-ahorro.industria.v1.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "industria",
+      "headline": "El precio de fábrica es solo el comienzo",
+      "subcopy": "Tipo de cambio, transferencia y tiempo también influyen en el costo de importar.",
+      "cta": "Cotiza el costo completo",
+      "angleLabel": "Costo integral de importación",
+      "product": null,
+      "source": "costos-ahorro.industria.v1.md"
+    },
+    {
+      "branch": "costos-ahorro",
+      "corridor": "industria",
+      "headline": "Lo que importas cambia. El costo de pagar también",
+      "subcopy": "Cotiza las condiciones de Xending para productos, componentes y maquinaria en Asia.",
+      "cta": "Cotiza con Xending",
+      "angleLabel": "Portafolio amplio de importaciones",
+      "product": null,
+      "source": "costos-ahorro.industria.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "china_asia",
+      "headline": "Pagar a China no debería tomar días",
+      "subcopy": "Con Xending, tu pago a proveedores puede procesarse el mismo día.",
+      "cta": "Paga a China hoy",
+      "angleLabel": null,
+      "product": null,
+      "source": "velocidad.china-asia.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "china_asia",
+      "headline": "China está lejos. Tu pago no tiene que tardar",
+      "subcopy": "Envía pagos a proveedores chinos con rapidez, seguimiento y soporte.",
+      "cta": "Cotiza tu pago a China",
+      "angleLabel": null,
+      "product": null,
+      "source": "velocidad.china-asia.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "china_asia",
+      "headline": "El proveedor está listo. Xending también",
+      "subcopy": "Completa pagos a China con velocidad, trazabilidad y acompañamiento.",
+      "cta": "Paga hoy con Xending",
+      "angleLabel": null,
+      "product": null,
+      "source": "velocidad.china-asia.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "china_asia",
+      "headline": "El embarque no siempre puede esperar",
+      "subcopy": "Paga a China el mismo día y mantén tu operación avanzando.",
+      "cta": "Pagos a China, mismo día",
+      "angleLabel": null,
+      "product": null,
+      "source": "velocidad.china-asia.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "china_asia",
+      "headline": "La fábrica confirmó. El pago puede llegar hoy",
+      "subcopy": "Xending agiliza transferencias empresariales hacia China.",
+      "cta": "Paga a China hoy",
+      "angleLabel": null,
+      "product": null,
+      "source": "velocidad.china-asia.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "china_asia",
+      "headline": "De México a China, sin perder días",
+      "subcopy": "Realiza pagos rápidos con seguimiento durante toda la operación.",
+      "cta": "Cotiza tu pago a China",
+      "angleLabel": null,
+      "product": null,
+      "source": "velocidad.china-asia.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "china_asia",
+      "headline": "Un pago rápido mueve lo que sigue",
+      "subcopy": "Agiliza compras, producción y embarques hacia México.",
+      "cta": "Paga sin demoras a tu proveedor",
+      "angleLabel": null,
+      "product": null,
+      "source": "velocidad.china-asia.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "china_asia",
+      "headline": "Tu compra ya avanzó. Que el pago no se quede atrás",
+      "subcopy": "Envía fondos a proveedores chinos con tiempos claros.",
+      "cta": "Paga hoy con Xending",
+      "angleLabel": null,
+      "product": null,
+      "source": "velocidad.china-asia.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "china_asia",
+      "headline": "Paga hoy. Confirma hoy",
+      "subcopy": "Realiza pagos a China dentro del mismo día hábil.",
+      "cta": "Consulta si llega hoy",
+      "angleLabel": null,
+      "product": null,
+      "source": "velocidad.china-asia.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "china_asia",
+      "headline": "Menos espera entre México y China",
+      "subcopy": "Una solución enfocada en pagos empresariales a proveedores asiáticos.",
+      "cta": "Habla con Xending",
+      "angleLabel": null,
+      "product": null,
+      "source": "velocidad.china-asia.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "china_asia",
+      "headline": "China está lejos. La confirmación puede llegar hoy",
+      "subcopy": "Xending te ayuda a pagar con velocidad y seguimiento.",
+      "cta": "Paga a China hoy",
+      "angleLabel": null,
+      "product": null,
+      "source": "velocidad.china-asia.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "china_asia",
+      "headline": "La producción no debería esperar una transferencia",
+      "subcopy": "Agiliza el pago a tu proveedor con una solución especializada en China.",
+      "cta": "Cotiza tu pago a China",
+      "angleLabel": null,
+      "product": null,
+      "source": "velocidad.china-asia.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "china_asia",
+      "headline": "Tu proveedor en China puede recibir hoy",
+      "subcopy": "Procesa el pago antes del horario límite y evita días adicionales.",
+      "cta": "Consulta si llega hoy",
+      "angleLabel": null,
+      "product": null,
+      "source": "velocidad.china-asia.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "china_asia",
+      "headline": "Hoy todavía cuenta en China",
+      "subcopy": "Envía tu pago dentro del mismo día, según el horario aplicable.",
+      "cta": "Pagos a China, mismo día",
+      "angleLabel": null,
+      "product": null,
+      "source": "velocidad.china-asia.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "china_asia",
+      "headline": "El pago también forma parte del embarque",
+      "subcopy": "Agiliza transferencias a proveedores para mantener tus fechas en orden.",
+      "cta": "Paga sin demoras a tu proveedor",
+      "angleLabel": null,
+      "product": null,
+      "source": "velocidad.china-asia.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "china_asia",
+      "headline": "Asia se mueve rápido. Tu pago también puede",
+      "subcopy": "Envía fondos a proveedores asiáticos con mayor agilidad.",
+      "cta": "Paga a Asia hoy",
+      "angleLabel": null,
+      "product": null,
+      "source": "velocidad.china-asia.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "china_asia",
+      "headline": "Tus proveedores en Asia no tienen que esperar días",
+      "subcopy": "Xending facilita pagos rápidos con trazabilidad y acompañamiento.",
+      "cta": "Habla con Xending",
+      "angleLabel": null,
+      "product": null,
+      "source": "velocidad.china-asia.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "china_asia",
+      "headline": "De México a Asia, con mayor velocidad",
+      "subcopy": "Realiza pagos empresariales mediante una red conectada con la región.",
+      "cta": "Cotiza tu pago a Asia",
+      "angleLabel": null,
+      "product": null,
+      "source": "velocidad.china-asia.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "china_asia",
+      "headline": "Una conexión más ágil con tus proveedores en China",
+      "subcopy": "Agiliza pagos internacionales desde una solución diseñada para empresas.",
+      "cta": "Pregúntale a Xending",
+      "angleLabel": null,
+      "product": null,
+      "source": "velocidad.china-asia.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "china_asia",
+      "headline": "Xending, tu puerta a China",
+      "subcopy": "Paga a proveedores chinos con velocidad, claridad y acompañamiento.",
+      "cta": "Paga a China hoy",
+      "angleLabel": null,
+      "product": null,
+      "source": "velocidad.china-asia.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "china_asia",
+      "headline": "China no tiene que sentirse tan lejos",
+      "subcopy": "Paga a proveedores chinos el mismo día con Xending.",
+      "cta": "Pagos a China, mismo día",
+      "angleLabel": null,
+      "product": null,
+      "source": "velocidad.china-asia.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "china_asia",
+      "headline": "Tu próximo pago a China puede llegar hoy",
+      "subcopy": "Menos espera para tu proveedor y mayor continuidad para tu operación.",
+      "cta": "Consulta si llega hoy",
+      "angleLabel": null,
+      "product": null,
+      "source": "velocidad.china-asia.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "china_asia",
+      "headline": "Tu operación no necesita otro día de espera",
+      "subcopy": "Agiliza tus pagos a China con Xending.",
+      "cta": "Paga hoy con Xending",
+      "angleLabel": null,
+      "product": null,
+      "source": "velocidad.china-asia.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "china_asia",
+      "headline": "Cuando el proveedor está listo, el pago importa",
+      "subcopy": "Envía fondos a China con velocidad y seguimiento.",
+      "cta": "Paga sin demoras a tu proveedor",
+      "angleLabel": null,
+      "product": null,
+      "source": "velocidad.china-asia.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "china_asia",
+      "headline": "China avanza hoy. Tu pago también",
+      "subcopy": "Una solución ágil para empresas que importan desde Asia.",
+      "cta": "Paga a China hoy",
+      "angleLabel": null,
+      "product": null,
+      "source": "velocidad.china-asia.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "china_asia",
+      "headline": "Menos días esperando. Más operación avanzando",
+      "subcopy": "Agiliza pagos a proveedores en China y Asia.",
+      "cta": "Habla con Xending",
+      "angleLabel": null,
+      "product": null,
+      "source": "velocidad.china-asia.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "china_asia",
+      "headline": "El pago puede llegar antes de lo que imaginas",
+      "subcopy": "Procesa transferencias a China dentro del mismo día.",
+      "cta": "Consulta si llega hoy",
+      "angleLabel": null,
+      "product": null,
+      "source": "velocidad.china-asia.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "china_asia",
+      "headline": "Pagar a China puede ser más simple y rápido",
+      "subcopy": "Xending acompaña tu transferencia de principio a fin.",
+      "cta": "Pregúntale a Xending",
+      "angleLabel": null,
+      "product": null,
+      "source": "velocidad.china-asia.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "china_asia",
+      "headline": "Tu proveedor no debería esperar varios días",
+      "subcopy": "Envía pagos a China y Asia con seguimiento y soporte.",
+      "cta": "Cotiza tu pago a China",
+      "angleLabel": null,
+      "product": null,
+      "source": "velocidad.china-asia.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "china_asia",
+      "headline": "Tu empresa compra en China. Xending te ayuda a pagar",
+      "subcopy": "Realiza transferencias rápidas sin complicar tu operación.",
+      "cta": "Paga hoy con Xending",
+      "angleLabel": null,
+      "product": null,
+      "source": "velocidad.china-asia.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "internacional_general",
+      "headline": "Tu proveedor está listo. Que el pago también",
+      "subcopy": "Envía fondos internacionales con rapidez, seguimiento y soporte.",
+      "cta": "Paga sin demoras a tu proveedor",
+      "angleLabel": null,
+      "product": null,
+      "source": "velocidad.internacional.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "internacional_general",
+      "headline": "Un pago a tiempo mueve lo que sigue",
+      "subcopy": "Agiliza compras, producción y embarques con Xending.",
+      "cta": "Cotiza tu próximo pago",
+      "angleLabel": null,
+      "product": null,
+      "source": "velocidad.internacional.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "internacional_general",
+      "headline": "Tus pagos no tienen que tomar días",
+      "subcopy": "Envía a distintos países con tiempos claros y seguimiento.",
+      "cta": "Habla con Xending",
+      "angleLabel": null,
+      "product": null,
+      "source": "velocidad.internacional.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "internacional_general",
+      "headline": "Cuando el pago avanza, la operación también",
+      "subcopy": "Mantén en movimiento tus compras y compromisos internacionales.",
+      "cta": "Paga hoy con Xending",
+      "angleLabel": null,
+      "product": null,
+      "source": "velocidad.internacional.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "internacional_general",
+      "headline": "Menos espera entre tu empresa y tu proveedor",
+      "subcopy": "Realiza pagos internacionales con acompañamiento durante la operación.",
+      "cta": "Cotiza tu pago",
+      "angleLabel": null,
+      "product": null,
+      "source": "velocidad.internacional.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "internacional_general",
+      "headline": "La operación no debería detenerse por una transferencia",
+      "subcopy": "Xending facilita pagos internacionales con mayor velocidad y visibilidad.",
+      "cta": "Pregúntale a Xending",
+      "angleLabel": null,
+      "product": null,
+      "source": "velocidad.internacional.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "internacional_general",
+      "headline": "Pagos internacionales al ritmo de tu empresa",
+      "subcopy": "Envía a distintos países y monedas sin complicar la operación.",
+      "cta": "Cotiza tu próximo pago",
+      "angleLabel": null,
+      "product": null,
+      "source": "velocidad.internacional.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "internacional_general",
+      "headline": "El mundo opera rápido. Tus pagos también pueden",
+      "subcopy": "Paga a proveedores internacionales con agilidad y seguimiento.",
+      "cta": "Paga hoy con Xending",
+      "angleLabel": null,
+      "product": null,
+      "source": "velocidad.internacional.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "internacional_general",
+      "headline": "Un día de diferencia puede cambiar la operación",
+      "subcopy": "Reduce tiempos de pago y mantén tus compromisos en marcha.",
+      "cta": "Consulta si llega hoy",
+      "angleLabel": null,
+      "product": null,
+      "source": "velocidad.internacional.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "internacional_general",
+      "headline": "Tu proveedor en Estados Unidos no tiene que esperar",
+      "subcopy": "Envía pagos en dólares con agilidad, seguimiento y soporte.",
+      "cta": "Cotiza tu pago a Estados Unidos",
+      "angleLabel": null,
+      "product": null,
+      "source": "velocidad.internacional.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "internacional_general",
+      "headline": "De México a Estados Unidos, con menos espera",
+      "subcopy": "Paga a proveedores en dólares desde una sola solución.",
+      "cta": "Paga sin demoras a tu proveedor",
+      "angleLabel": null,
+      "product": null,
+      "source": "velocidad.internacional.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "internacional_general",
+      "headline": "Tus compras en Estados Unidos pueden avanzar hoy",
+      "subcopy": "Agiliza pagos en dólares con tiempos claros y seguimiento.",
+      "cta": "Consulta si llega hoy",
+      "angleLabel": null,
+      "product": null,
+      "source": "velocidad.internacional.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "internacional_general",
+      "headline": "La distancia no tiene que sentirse en el pago",
+      "subcopy": "Conecta con proveedores internacionales mediante transferencias ágiles.",
+      "cta": "Cotiza tu pago",
+      "angleLabel": null,
+      "product": null,
+      "source": "velocidad.internacional.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "internacional_general",
+      "headline": "Tu proveedor necesita el pago, no más vueltas",
+      "subcopy": "Envía fondos con claridad y seguimiento de principio a fin.",
+      "cta": "Paga sin demoras a tu proveedor",
+      "angleLabel": null,
+      "product": null,
+      "source": "velocidad.internacional.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "internacional_general",
+      "headline": "Menos tiempo en tránsito. Más continuidad",
+      "subcopy": "Agiliza pagos internacionales para compras, inventario y producción.",
+      "cta": "Habla con Xending",
+      "angleLabel": null,
+      "product": null,
+      "source": "velocidad.internacional.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "internacional_general",
+      "headline": "Una transferencia no debería marcar el ritmo de todo",
+      "subcopy": "Paga a tus proveedores con mayor agilidad y visibilidad.",
+      "cta": "Cotiza tu próximo pago",
+      "angleLabel": null,
+      "product": null,
+      "source": "velocidad.internacional.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "internacional_general",
+      "headline": "Tu pago puede seguir el calendario de tu operación",
+      "subcopy": "Xending te ayuda a pagar según los tiempos que requieren tus compras.",
+      "cta": "Pregúntale a Xending",
+      "angleLabel": null,
+      "product": null,
+      "source": "velocidad.internacional.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "internacional_general",
+      "headline": "El proveedor confirmó. Xending ayuda con lo que sigue",
+      "subcopy": "Procesa pagos internacionales con rapidez y soporte especializado.",
+      "cta": "Paga hoy con Xending",
+      "angleLabel": null,
+      "product": null,
+      "source": "velocidad.internacional.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "internacional_general",
+      "headline": "Más destinos, menos complicaciones",
+      "subcopy": "Centraliza pagos internacionales y da seguimiento desde un mismo lugar.",
+      "cta": "Habla con Xending",
+      "angleLabel": null,
+      "product": null,
+      "source": "velocidad.internacional.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "internacional_general",
+      "headline": "Del pago a la confirmación, con menos espera",
+      "subcopy": "Da seguimiento a tus transferencias internacionales desde una sola solución.",
+      "cta": "Cotiza tu próximo pago",
+      "angleLabel": null,
+      "product": null,
+      "source": "velocidad.internacional.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "internacional_general",
+      "headline": "Tu proveedor no debería esperar de más",
+      "subcopy": "Envía pagos internacionales con velocidad y acompañamiento.",
+      "cta": "Paga sin demoras a tu proveedor",
+      "angleLabel": null,
+      "product": null,
+      "source": "velocidad.internacional.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "internacional_general",
+      "headline": "La compra está confirmada. Falta hacerla avanzar",
+      "subcopy": "Agiliza el pago internacional y mantén tu operación en movimiento.",
+      "cta": "Cotiza tu pago",
+      "angleLabel": null,
+      "product": null,
+      "source": "velocidad.internacional.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "internacional_general",
+      "headline": "Pagar al extranjero puede ser más ágil",
+      "subcopy": "Xending facilita transferencias empresariales a múltiples mercados.",
+      "cta": "Paga hoy con Xending",
+      "angleLabel": null,
+      "product": null,
+      "source": "velocidad.internacional.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "internacional_general",
+      "headline": "Cada mercado tiene sus tiempos. Tu pago necesita responder",
+      "subcopy": "Envía fondos mediante opciones adaptadas al país y la moneda.",
+      "cta": "Pregúntale a Xending",
+      "angleLabel": null,
+      "product": null,
+      "source": "velocidad.internacional.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "internacional_general",
+      "headline": "Tu proveedor puede estar lejos. El seguimiento no",
+      "subcopy": "Consulta el avance de tu transferencia durante la operación.",
+      "cta": "Habla con Xending",
+      "angleLabel": null,
+      "product": null,
+      "source": "velocidad.internacional.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "internacional_general",
+      "headline": "Menos espera para pagar. Más tiempo para operar",
+      "subcopy": "Agiliza pagos a proveedores internacionales sin sumar procesos innecesarios.",
+      "cta": "Cotiza tu próximo pago",
+      "angleLabel": null,
+      "product": null,
+      "source": "velocidad.internacional.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "internacional_general",
+      "headline": "Tu próximo pago internacional puede avanzar hoy",
+      "subcopy": "Consulta los tiempos disponibles para el país y la moneda de destino.",
+      "cta": "Consulta si llega hoy",
+      "angleLabel": null,
+      "product": null,
+      "source": "velocidad.internacional.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "internacional_general",
+      "headline": "Una operación internacional ya tiene suficientes pasos",
+      "subcopy": "Xending simplifica el pago y acompaña el proceso hasta su confirmación.",
+      "cta": "Paga hoy con Xending",
+      "angleLabel": null,
+      "product": null,
+      "source": "velocidad.internacional.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "internacional_general",
+      "headline": "Paga donde compra tu empresa",
+      "subcopy": "Envía fondos a Estados Unidos, Europa, Asia y otros mercados.",
+      "cta": "Cotiza tu pago internacional",
+      "angleLabel": null,
+      "product": null,
+      "source": "velocidad.internacional.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "internacional_general",
+      "headline": "Xending acerca a tu empresa con sus proveedores",
+      "subcopy": "Realiza pagos internacionales con velocidad, claridad y soporte.",
+      "cta": "Paga sin demoras a tu proveedor",
+      "angleLabel": null,
+      "product": null,
+      "source": "velocidad.internacional.v1.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "industria",
+      "headline": "Las autopartes pueden estar listas antes que el pago",
+      "subcopy": "Paga a proveedores en China el mismo día y mantén tu compra en movimiento.",
+      "cta": "Pagos a China, mismo día",
+      "angleLabel": "Autopartes y continuidad de suministro",
+      "product": null,
+      "source": "velocidad.industria.v2.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "industria",
+      "headline": "La maquinaria lista no debería seguir esperando",
+      "subcopy": "Agiliza el pago a fábrica para continuar con liberación, embarque e instalación.",
+      "cta": "Paga sin demoras a tu proveedor",
+      "angleLabel": "Maquinaria y liberación de compra",
+      "product": null,
+      "source": "velocidad.industria.v2.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "industria",
+      "headline": "Los electrónicos se mueven rápido. Tu pago también puede",
+      "subcopy": "Envía fondos a proveedores en Asia con velocidad, seguimiento y soporte.",
+      "cta": "Paga a Asia hoy",
+      "angleLabel": "Electrónicos y velocidad de mercado",
+      "product": null,
+      "source": "velocidad.industria.v2.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "industria",
+      "headline": "Cada temporada textil tiene sus fechas",
+      "subcopy": "Paga a tiempo para mantener producción, embarque e inventario dentro del calendario.",
+      "cta": "Cotiza tu pago a China",
+      "angleLabel": "Textiles y cumplimiento de temporada",
+      "product": null,
+      "source": "velocidad.industria.v2.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "industria",
+      "headline": "El empaque debe llegar antes que el producto",
+      "subcopy": "Agiliza pagos a fabricantes para evitar que el material retrase lo que sigue.",
+      "cta": "Paga hoy con Xending",
+      "angleLabel": "Empaques y continuidad de producción",
+      "product": null,
+      "source": "velocidad.industria.v2.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "industria",
+      "headline": "El mobiliario está terminado. Falta hacerlo avanzar",
+      "subcopy": "Paga a proveedores internacionales con tiempos claros y acompañamiento.",
+      "cta": "Paga sin demoras a tu proveedor",
+      "angleLabel": "Mobiliario y liberación de mercancía",
+      "product": null,
+      "source": "velocidad.industria.v2.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "industria",
+      "headline": "Tus insumos no deberían detener la producción",
+      "subcopy": "Envía pagos a proveedores con la velocidad que necesita tu línea de trabajo.",
+      "cta": "Consulta si llega hoy",
+      "angleLabel": "Insumos industriales y continuidad operativa",
+      "product": null,
+      "source": "velocidad.industria.v2.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "industria",
+      "headline": "Una refacción urgente también necesita un pago rápido",
+      "subcopy": "Xending te ayuda a pagar al proveedor sin sumar días innecesarios.",
+      "cta": "Paga hoy con Xending",
+      "angleLabel": "Refacciones urgentes y tiempo de respuesta",
+      "product": null,
+      "source": "velocidad.industria.v2.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "industria",
+      "headline": "El molde está listo. Que el pago no lo detenga",
+      "subcopy": "Agiliza transferencias a China para continuar con pruebas, producción y embarque.",
+      "cta": "Paga a China hoy",
+      "angleLabel": "Moldes y arranque de producción",
+      "product": null,
+      "source": "velocidad.industria.v2.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "industria",
+      "headline": "Un contenedor completo no debería esperar una transferencia",
+      "subcopy": "Paga a tu proveedor con rapidez y mantén la fecha de salida en movimiento.",
+      "cta": "Paga sin demoras a tu proveedor",
+      "angleLabel": "Volumen de importación y fecha de embarque",
+      "product": null,
+      "source": "velocidad.industria.v2.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "industria",
+      "headline": "Cada componente cuenta cuando la línea está esperando",
+      "subcopy": "Envía pagos internacionales con seguimiento y tiempos claros para tu operación.",
+      "cta": "Habla con Xending",
+      "angleLabel": "Componentes y continuidad de ensamble",
+      "product": null,
+      "source": "velocidad.industria.v2.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "industria",
+      "headline": "Las herramientas listas deben llegar al proyecto",
+      "subcopy": "Agiliza el pago internacional para continuar con producción, instalación o mantenimiento.",
+      "cta": "Cotiza tu próximo pago",
+      "angleLabel": "Herramientas y cumplimiento de proyecto",
+      "product": null,
+      "source": "velocidad.industria.v2.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "industria",
+      "headline": "La temporada de calzado no espera varios días",
+      "subcopy": "Paga a proveedores en Asia con mayor velocidad y visibilidad.",
+      "cta": "Paga a Asia hoy",
+      "angleLabel": "Calzado y temporada comercial",
+      "product": null,
+      "source": "velocidad.industria.v2.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "industria",
+      "headline": "Los paneles están listos. El proyecto también",
+      "subcopy": "Paga equipos y componentes solares en China sin sumar demoras innecesarias.",
+      "cta": "Pagos a China, mismo día",
+      "angleLabel": "Energía solar y calendario de instalación",
+      "product": null,
+      "source": "velocidad.industria.v2.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "industria",
+      "headline": "La iluminación debe llegar antes de inaugurar",
+      "subcopy": "Agiliza pagos a proveedores y mantén la fecha de entrega del proyecto.",
+      "cta": "Paga hoy con Xending",
+      "angleLabel": "Iluminación y cumplimiento de obra",
+      "product": null,
+      "source": "velocidad.industria.v2.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "industria",
+      "headline": "Un motor detenido puede frenar mucho más",
+      "subcopy": "Paga refacciones y equipos industriales con rapidez, seguimiento y soporte.",
+      "cta": "Consulta si llega hoy",
+      "angleLabel": "Motores y continuidad industrial",
+      "product": null,
+      "source": "velocidad.industria.v2.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "industria",
+      "headline": "El cableado no debería retrasar toda la instalación",
+      "subcopy": "Envía pagos a proveedores internacionales con tiempos claros para el proyecto.",
+      "cta": "Cotiza tu pago",
+      "angleLabel": "Material eléctrico y avance de instalación",
+      "product": null,
+      "source": "velocidad.industria.v2.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "industria",
+      "headline": "Una válvula pequeña puede detener una operación grande",
+      "subcopy": "Agiliza el pago al proveedor cuando el tiempo de reposición importa.",
+      "cta": "Paga sin demoras a tu proveedor",
+      "angleLabel": "Válvulas y reposición crítica",
+      "product": null,
+      "source": "velocidad.industria.v2.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "industria",
+      "headline": "La bomba está lista. La operación la necesita",
+      "subcopy": "Paga equipos industriales con mayor velocidad y seguimiento durante el proceso.",
+      "cta": "Paga hoy con Xending",
+      "angleLabel": "Bombas industriales y continuidad operativa",
+      "product": null,
+      "source": "velocidad.industria.v2.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "industria",
+      "headline": "Cada rodamiento cuenta cuando la máquina está detenida",
+      "subcopy": "Envía el pago con rapidez para reducir días de espera innecesarios.",
+      "cta": "Pregúntale a Xending",
+      "angleLabel": "Rodamientos y mantenimiento industrial",
+      "product": null,
+      "source": "velocidad.industria.v2.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "industria",
+      "headline": "Los envases deben llegar antes que la producción termine",
+      "subcopy": "Agiliza pagos a proveedores para mantener empaque, llenado y entrega en tiempo.",
+      "cta": "Cotiza tu próximo pago",
+      "angleLabel": "Envases y continuidad de producción",
+      "product": null,
+      "source": "velocidad.industria.v2.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "industria",
+      "headline": "Las piezas plásticas no deberían frenar el ensamble",
+      "subcopy": "Paga a fabricantes internacionales con velocidad, trazabilidad y acompañamiento.",
+      "cta": "Paga sin demoras a tu proveedor",
+      "angleLabel": "Plásticos y continuidad de ensamble",
+      "product": null,
+      "source": "velocidad.industria.v2.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "industria",
+      "headline": "El inventario de electrodomésticos tiene fechas de venta",
+      "subcopy": "Agiliza pagos a proveedores para mantener compras y entregas dentro del calendario.",
+      "cta": "Paga hoy con Xending",
+      "angleLabel": "Electrodomésticos y disponibilidad de inventario",
+      "product": null,
+      "source": "velocidad.industria.v2.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "industria",
+      "headline": "La cocina debe estar lista antes de abrir",
+      "subcopy": "Paga equipos y utensilios importados sin agregar días innecesarios al proyecto.",
+      "cta": "Cotiza tu pago",
+      "angleLabel": "Equipo gastronómico y fecha de apertura",
+      "product": null,
+      "source": "velocidad.industria.v2.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "industria",
+      "headline": "La tecnología de pantallas cambia rápido",
+      "subcopy": "Agiliza pagos a proveedores para renovar tu inventario al ritmo del mercado.",
+      "cta": "Paga a Asia hoy",
+      "angleLabel": "Pantallas y renovación tecnológica",
+      "product": null,
+      "source": "velocidad.industria.v2.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "industria",
+      "headline": "El inventario no se repone con una transferencia detenida",
+      "subcopy": "Agiliza pagos internacionales para mantener disponibilidad y continuidad de venta.",
+      "cta": "Habla con Xending",
+      "angleLabel": "Inventario y reposición comercial",
+      "product": null,
+      "source": "velocidad.industria.v2.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "industria",
+      "headline": "El pedido de ferretería no debería tomar días",
+      "subcopy": "Agiliza pagos para mantener disponibles herramientas, piezas y materiales.",
+      "cta": "Paga sin demoras a tu proveedor",
+      "angleLabel": "Ferretería y reposición de inventario",
+      "product": null,
+      "source": "velocidad.industria.v2.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "industria",
+      "headline": "La demanda de baterías no espera reposiciones tardías",
+      "subcopy": "Agiliza pagos a fabricantes para mantener disponible tu inventario.",
+      "cta": "Paga hoy con Xending",
+      "angleLabel": "Baterías y reposición comercial",
+      "product": null,
+      "source": "velocidad.industria.v2.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "industria",
+      "headline": "El producto puede estar listo. El pago también",
+      "subcopy": "Xending ayuda a mover pagos internacionales con velocidad, seguimiento y soporte.",
+      "cta": "Paga sin demoras a tu proveedor",
+      "angleLabel": "Importaciones generales y continuidad operativa",
+      "product": null,
+      "source": "velocidad.industria.v2.md"
+    },
+    {
+      "branch": "velocidad",
+      "corridor": "industria",
+      "headline": "Distintos productos. Una misma necesidad: pagar a tiempo",
+      "subcopy": "Agiliza pagos internacionales sin complicar el trabajo de tu empresa.",
+      "cta": "Cotiza tu pago",
+      "angleLabel": "Portafolio amplio y puntualidad",
+      "product": null,
+      "source": "velocidad.industria.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "general",
+      "headline": "Tu factura está en dólares. Tu presupuesto, en pesos",
+      "subcopy": "Administra el riesgo cambiario antes de que llegue la fecha de pago.",
+      "cta": "Protege tu margen",
+      "angleLabel": "Presupuesto MXN vs. obligación USD",
+      "product": "COBERTURA_GENERAL",
+      "source": "coberturas.general.v1.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "general",
+      "headline": "Cotizaste hoy. Pagarás dentro de 60 días",
+      "subcopy": "Planea el impacto cambiario de tu compra antes de realizar el pago.",
+      "cta": "Planea hoy tus costos futuros",
+      "angleLabel": "Tiempo entre cotización y pago",
+      "product": "COBERTURA_GENERAL",
+      "source": "coberturas.general.v1.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "general",
+      "headline": "Tu pago es en 90 días. Tu tipo de cambio puede definirse hoy",
+      "subcopy": "Un forward puede darte mayor certidumbre sobre una obligación futura.",
+      "cta": "Define hoy tu tipo de cambio",
+      "angleLabel": "Certidumbre antes del pago",
+      "product": "FORWARD",
+      "source": "coberturas.general.v1.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "general",
+      "headline": "Tu compra tiene precio. Tu costo final en pesos todavía puede cambiar",
+      "subcopy": "Planea el riesgo cambiario antes de pagar.",
+      "cta": "Define tu costo cambiario",
+      "angleLabel": "Precio acordado vs. costo final en pesos",
+      "product": "COBERTURA_GENERAL",
+      "source": "coberturas.general.v1.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "general",
+      "headline": "Tu margen se calcula hoy. El pago puede llegar meses después",
+      "subcopy": "Una cobertura puede ayudarte a reducir la incertidumbre cambiaria entre ambas fechas.",
+      "cta": "Cuida tu margen",
+      "angleLabel": "Protección del margen",
+      "product": "COBERTURA_GENERAL",
+      "source": "coberturas.general.v1.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "general",
+      "headline": "Define hoy. Paga después",
+      "subcopy": "Con un forward puedes establecer hoy el tipo de cambio aplicable a un pago futuro.",
+      "cta": "Cotiza un forward",
+      "angleLabel": "Simplicidad y beneficio del forward",
+      "product": "FORWARD",
+      "source": "coberturas.general.v1.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "general",
+      "headline": "El tipo de cambio puede cambiar un presupuesto que ya estaba cerrado",
+      "subcopy": "Planea el costo cambiario antes del pago.",
+      "cta": "Protege tus costos",
+      "angleLabel": "Presupuesto cerrado y movimiento cambiario",
+      "product": "COBERTURA_GENERAL",
+      "source": "coberturas.general.v1.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "general",
+      "headline": "El margen que calculaste hoy puede ser distinto cuando pagues",
+      "subcopy": "Reduce la incertidumbre de tus pagos futuros.",
+      "cta": "Protege tu margen",
+      "angleLabel": "Margen calculado vs. fecha de pago",
+      "product": "COBERTURA_GENERAL",
+      "source": "coberturas.general.v1.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "general",
+      "headline": "Tienes 60 días para pagar. También son 60 días de exposición cambiaria",
+      "subcopy": "Un forward puede darte mayor certidumbre antes del pago.",
+      "cta": "Cotiza un forward",
+      "angleLabel": "Plazo de pago y exposición cambiaria",
+      "product": "FORWARD",
+      "source": "coberturas.general.v1.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "general",
+      "headline": "El costo en dólares ya está claro. El costo en pesos todavía no",
+      "subcopy": "Planea hoy la variable cambiaria de tu operación.",
+      "cta": "Define tu costo cambiario",
+      "angleLabel": "Costo USD vs. costo final MXN",
+      "product": "COBERTURA_GENERAL",
+      "source": "coberturas.general.v1.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "general",
+      "headline": "El presupuesto está aprobado. El tipo de cambio sigue abierto",
+      "subcopy": "Planea hoy el costo de tu próximo pago.",
+      "cta": "Planea hoy tus costos futuros",
+      "angleLabel": "Presupuesto aprobado y exposición abierta",
+      "product": "COBERTURA_GENERAL",
+      "source": "coberturas.general.v1.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "general",
+      "headline": "Un pago futuro no tiene que ser una incógnita",
+      "subcopy": "Conoce alternativas para administrar tu exposición cambiaria.",
+      "cta": "Planea tu próximo pago",
+      "angleLabel": "Certidumbre financiera",
+      "product": "COBERTURA_GENERAL",
+      "source": "coberturas.general.v1.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "general",
+      "headline": "El precio del proveedor puede ser fijo. El costo en pesos no siempre",
+      "subcopy": "Una cobertura puede darte mayor visibilidad sobre tu obligación futura.",
+      "cta": "Protege tus costos",
+      "angleLabel": "Precio vs. costo final en pesos",
+      "product": "COBERTURA_GENERAL",
+      "source": "coberturas.general.v1.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "general",
+      "headline": "Tu compra internacional también tiene riesgo cambiario",
+      "subcopy": "Planea la moneda con la misma disciplina con la que planeas el pago.",
+      "cta": "Administra tu riesgo cambiario",
+      "angleLabel": "Gestión financiera de importaciones",
+      "product": "COBERTURA_GENERAL",
+      "source": "coberturas.general.v1.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "general",
+      "headline": "Tu obligación está en dólares. Tu margen se mide en pesos",
+      "subcopy": "Administra la exposición cambiaria antes del pago.",
+      "cta": "Protege tu margen",
+      "angleLabel": "Margen vs. moneda",
+      "product": "COBERTURA_GENERAL",
+      "source": "coberturas.general.v1.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "general",
+      "headline": "Tu pago tiene fecha. Tu tipo de cambio puede definirse desde hoy",
+      "subcopy": "Un forward puede darte mayor certidumbre antes del vencimiento.",
+      "cta": "Define el tipo de cambio de tu próximo pago",
+      "angleLabel": "Fecha de pago y decisión anticipada",
+      "product": "FORWARD",
+      "source": "coberturas.general.v1.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "general",
+      "headline": "El dólar del día de pago no tiene que tomarte por sorpresa",
+      "subcopy": "Evalúa si un forward hace sentido para tu operación.",
+      "cta": "Cotiza un forward",
+      "angleLabel": "Volatilidad en la fecha de pago",
+      "product": "FORWARD",
+      "source": "coberturas.general.v1.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "general",
+      "headline": "Tu pago está programado. Tu cobertura también puede estarlo",
+      "subcopy": "Alinea la gestión cambiaria con la fecha de tu obligación.",
+      "cta": "Define hoy tu tipo de cambio",
+      "angleLabel": "Calendario de pagos",
+      "product": "FORWARD",
+      "source": "coberturas.general.v1.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "general",
+      "headline": "El proveedor da plazo. El mercado no",
+      "subcopy": "Define hoy el tipo de cambio de una obligación futura.",
+      "cta": "Fija hoy tu tipo de cambio",
+      "angleLabel": "Crédito de proveedor vs. mercado",
+      "product": "FORWARD",
+      "source": "coberturas.general.v1.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "general",
+      "headline": "Un pago en 90 días puede costarte más en pesos",
+      "subcopy": "Un forward puede ayudarte a definir hoy el tipo de cambio de esa obligación.",
+      "cta": "Cotiza un forward",
+      "angleLabel": "Costo futuro y exposición cambiaria",
+      "product": "FORWARD",
+      "source": "coberturas.general.v1.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "general",
+      "headline": "Esperar al día del pago también es una decisión cambiaria",
+      "subcopy": "Un forward puede darte mayor certidumbre antes del vencimiento.",
+      "cta": "Define hoy. Paga después.",
+      "angleLabel": "Decisión cambiaria y anticipación",
+      "product": "FORWARD",
+      "source": "coberturas.general.v1.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "general",
+      "headline": "Tu operación ya está acordada. Tu tipo de cambio aún puede definirse",
+      "subcopy": "Evalúa una alternativa para dar mayor certidumbre a tu obligación futura.",
+      "cta": "Define hoy tu tipo de cambio",
+      "angleLabel": "Operación acordada y moneda pendiente",
+      "product": "FORWARD",
+      "source": "coberturas.general.v1.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "general",
+      "headline": "Una fecha futura puede tener un tipo de cambio definido hoy",
+      "subcopy": "Un forward puede ayudarte a planear mejor tus costos.",
+      "cta": "Planea hoy lo que pagarás después",
+      "angleLabel": "Planeación de costos futuros",
+      "product": "FORWARD",
+      "source": "coberturas.general.v1.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "general",
+      "headline": "Tu flujo de efectivo necesita visibilidad, no sorpresas cambiarias",
+      "subcopy": "Conoce una alternativa para planear el costo de un pago futuro.",
+      "cta": "Conoce hoy tu costo cambiario",
+      "angleLabel": "Tesorería y flujo de efectivo",
+      "product": "FORWARD",
+      "source": "coberturas.general.v1.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "general",
+      "headline": "El tipo de cambio puede comerse parte de tu presupuesto",
+      "subcopy": "Administra la exposición cambiaria entre la planeación y la fecha de pago.",
+      "cta": "Planea hoy tus costos futuros",
+      "angleLabel": "Presupuesto e impacto cambiario",
+      "product": "COBERTURA_GENERAL",
+      "source": "coberturas.general.v1.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "general",
+      "headline": "Un movimiento del dólar puede cambiar un costo que ya habías planeado",
+      "subcopy": "Administra el riesgo cambiario antes de realizar el pago.",
+      "cta": "Protege tus costos",
+      "angleLabel": "Costo planeado y movimiento del dólar",
+      "product": "COBERTURA_GENERAL",
+      "source": "coberturas.general.v1.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "general",
+      "headline": "El tipo de cambio puede convertirse en enemigo de tu margen",
+      "subcopy": "Administra la exposición cambiaria antes de que impacte tus costos.",
+      "cta": "Protege tu margen",
+      "angleLabel": "Margen y riesgo cambiario",
+      "product": "COBERTURA_GENERAL",
+      "source": "coberturas.general.v1.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "general",
+      "headline": "Varios pagos futuros significan varios momentos de exposición cambiaria",
+      "subcopy": "Planea tu calendario antes de cada vencimiento.",
+      "cta": "Revisa tu exposición cambiaria",
+      "angleLabel": "Pagos recurrentes y calendario cambiario",
+      "product": "COBERTURA_GENERAL",
+      "source": "coberturas.general.v1.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "general",
+      "headline": "El día de pago no tiene por qué decidir tu tipo de cambio",
+      "subcopy": "Un forward puede permitirte definirlo con anticipación.",
+      "cta": "Define hoy tu tipo de cambio",
+      "angleLabel": "Tipo de cambio y decisión anticipada",
+      "product": "FORWARD",
+      "source": "coberturas.general.v1.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "general",
+      "headline": "El mercado cambia todos los días. Tu planeación no debería hacerlo",
+      "subcopy": "Administra la exposición cambiaria de tus obligaciones futuras.",
+      "cta": "Da certidumbre a tus costos",
+      "angleLabel": "Disciplina financiera vs. mercado",
+      "product": "COBERTURA_GENERAL",
+      "source": "coberturas.general.v1.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "headline": "El tipo de cambio puede comerse el margen de cada prenda",
+      "subcopy": "Protege el costo de tus insumos.",
+      "cta": "Protege tu margen",
+      "angleLabel": "Textiles, insumos y margen",
+      "product": "COBERTURA_GENERAL",
+      "source": "coberturas.industria.v1.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "headline": "Compraste tela con margen. El tipo de cambio puede reducirlo",
+      "subcopy": "Planea el costo antes de pagar.",
+      "cta": "Cuida tu margen",
+      "angleLabel": "Textiles, tela y margen",
+      "product": "COBERTURA_GENERAL",
+      "source": "coberturas.industria.v1.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "headline": "Una variación en el dólar puede cambiar el margen de toda la colección",
+      "subcopy": "Planea el costo de tus compras.",
+      "cta": "Cuida tu margen",
+      "angleLabel": "Textiles, colección y margen",
+      "product": "COBERTURA_GENERAL",
+      "source": "coberturas.industria.v1.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "headline": "Los paneles generan ahorros. Tu cobertura genera certidumbre",
+      "subcopy": "Planea el costo cambiario del proyecto.",
+      "cta": "Define tu costo cambiario",
+      "angleLabel": "Energía solar, certidumbre y proyecto",
+      "product": "COBERTURA_GENERAL",
+      "source": "coberturas.industria.v1.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "headline": "La tecnología cambia rápido. Tu margen también puede hacerlo",
+      "subcopy": "Planea el costo de tus compras.",
+      "cta": "Cuida tu margen",
+      "angleLabel": "Electrónicos, inventario y margen",
+      "product": "COBERTURA_GENERAL",
+      "source": "coberturas.industria.v1.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "headline": "Un dólar distinto puede cambiar el margen de todo un lote",
+      "subcopy": "Planea el costo antes de importar.",
+      "cta": "Protege tu margen",
+      "angleLabel": "Electrónicos, lote y margen",
+      "product": "COBERTURA_GENERAL",
+      "source": "coberturas.industria.v1.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "headline": "Tres meses pueden cambiar el costo de una máquina",
+      "subcopy": "Planea el tipo de cambio desde hoy.",
+      "cta": "Protege tus costos",
+      "angleLabel": "Maquinaria, tiempo y costo",
+      "product": "COBERTURA_GENERAL",
+      "source": "coberturas.industria.v1.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "headline": "La máquina que compras hoy puede costarte más en tres meses",
+      "subcopy": "Administra el riesgo antes del pago.",
+      "cta": "Planea hoy tus costos futuros",
+      "angleLabel": "Maquinaria, compra y pago futuro",
+      "product": "COBERTURA_GENERAL",
+      "source": "coberturas.industria.v1.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "headline": "La autoparte tiene precio. El dólar todavía puede moverse",
+      "subcopy": "Da mayor certidumbre a tu próximo pago.",
+      "cta": "Protege tus costos",
+      "angleLabel": "Autopartes y costo futuro",
+      "product": "COBERTURA_GENERAL",
+      "source": "coberturas.industria.v1.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "headline": "El margen de cada autoparte también depende del dólar que pagues",
+      "subcopy": "Planea el costo antes del pago.",
+      "cta": "Protege tu margen",
+      "angleLabel": "Autopartes y margen",
+      "product": "COBERTURA_GENERAL",
+      "source": "coberturas.industria.v1.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "headline": "La pieza ya tiene precio. El tipo de cambio todavía no",
+      "subcopy": "Define hoy las condiciones de tu pago.",
+      "cta": "Cotiza un forward",
+      "angleLabel": "Autopartes, precio y forward",
+      "product": "FORWARD",
+      "source": "coberturas.industria.v1.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "headline": "Centavos por empaque se convierten en miles por volumen",
+      "subcopy": "Administra el impacto cambiario.",
+      "cta": "Protege tus costos",
+      "angleLabel": "Empaques, volumen y costo unitario",
+      "product": "COBERTURA_GENERAL",
+      "source": "coberturas.industria.v1.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "headline": "Un movimiento cambiario puede mover todo tu presupuesto de equipamiento",
+      "subcopy": "Planea hoy el costo de compra.",
+      "cta": "Planea tus costos",
+      "angleLabel": "Equipo médico y presupuesto",
+      "product": "COBERTURA_GENERAL",
+      "source": "coberturas.industria.v1.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "headline": "Cotizaste la instalación en pesos. El equipo se paga en dólares",
+      "subcopy": "Protege el margen antes de comprar.",
+      "cta": "Protege tu margen",
+      "angleLabel": "HVAC, proyecto y moneda",
+      "product": "COBERTURA_GENERAL",
+      "source": "coberturas.industria.v1.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "headline": "El tipo de cambio puede apagar parte del margen de tu proyecto",
+      "subcopy": "Protege el costo de tus luminarias.",
+      "cta": "Protege tu margen",
+      "angleLabel": "Iluminación, proyecto y margen",
+      "product": "COBERTURA_GENERAL",
+      "source": "coberturas.industria.v1.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "headline": "El tipo de cambio también entra en tu costo de producción",
+      "subcopy": "Adminístralo antes de comprar.",
+      "cta": "Protege tus costos",
+      "angleLabel": "Insumos industriales y costo de producción",
+      "product": "COBERTURA_GENERAL",
+      "source": "coberturas.industria.v1.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "headline": "Un pedido grande de herramientas también amplifica el riesgo cambiario",
+      "subcopy": "Planea el costo de tu compra.",
+      "cta": "Define tu costo cambiario",
+      "angleLabel": "Herramientas, volumen y riesgo cambiario",
+      "product": "COBERTURA_GENERAL",
+      "source": "coberturas.industria.v1.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "headline": "El proyecto puede durar meses. El tipo de cambio puede mover el presupuesto",
+      "subcopy": "Planea el costo de tus importaciones.",
+      "cta": "Protege tus costos",
+      "angleLabel": "Construcción, proyecto largo y presupuesto",
+      "product": "COBERTURA_GENERAL",
+      "source": "coberturas.industria.v1.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "headline": "El proyecto dura meses. Tu tipo de cambio puede definirse antes",
+      "subcopy": "Da certidumbre al pago del equipo.",
+      "cta": "Cotiza un forward",
+      "angleLabel": "Energía solar, proyecto y forward",
+      "product": "FORWARD",
+      "source": "coberturas.industria.v1.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "headline": "El mueble tiene precio de fábrica. Tu costo en pesos todavía no",
+      "subcopy": "Planea el tipo de cambio antes del pago.",
+      "cta": "Define tu costo cambiario",
+      "angleLabel": "Mobiliario, precio de fábrica y costo MXN",
+      "product": "COBERTURA_GENERAL",
+      "source": "coberturas.industria.v1.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "headline": "Una variación en el dólar puede cambiar el margen de toda la temporada",
+      "subcopy": "Planea el costo antes de importar.",
+      "cta": "Cuida tu margen",
+      "angleLabel": "Calzado, temporada y margen",
+      "product": "COBERTURA_GENERAL",
+      "source": "coberturas.industria.v1.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "headline": "El tractor se entrega después. Su tipo de cambio puede definirse hoy",
+      "subcopy": "Da certidumbre a tu pago futuro.",
+      "cta": "Cotiza un forward",
+      "angleLabel": "Equipo agrícola, entrega futura y forward",
+      "product": "FORWARD",
+      "source": "coberturas.industria.v1.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "headline": "El tipo de cambio también entra en el costo de cada pieza",
+      "subcopy": "Planea el costo de tu materia prima.",
+      "cta": "Protege tus costos",
+      "angleLabel": "Plásticos, resinas y costo unitario",
+      "product": "COBERTURA_GENERAL",
+      "source": "coberturas.industria.v1.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "headline": "Renovar servidores también puede mover tu presupuesto con el dólar",
+      "subcopy": "Planea el costo antes de comprar.",
+      "cta": "Protege tus costos",
+      "angleLabel": "Tecnología, infraestructura y presupuesto",
+      "product": "COBERTURA_GENERAL",
+      "source": "coberturas.industria.v1.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "headline": "El equipo está en dólares. Tu presupuesto de laboratorio, en pesos",
+      "subcopy": "Planea el costo antes del pago.",
+      "cta": "Planea tus costos",
+      "angleLabel": "Laboratorio, presupuesto MXN vs. obligación USD",
+      "product": "COBERTURA_GENERAL",
+      "source": "coberturas.industria.v1.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "headline": "Un dólar distinto puede cambiar el margen de todo un contenedor",
+      "subcopy": "Planea el costo antes de importar.",
+      "cta": "Protege tu margen",
+      "angleLabel": "Alimentos importados, contenedor y margen",
+      "product": "COBERTURA_GENERAL",
+      "source": "coberturas.industria.v1.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "headline": "Un motor más caro puede mover el costo de toda la línea",
+      "subcopy": "Administra el riesgo antes de comprar.",
+      "cta": "Protege tus costos",
+      "angleLabel": "Motores, línea de producción y costo",
+      "product": "COBERTURA_GENERAL",
+      "source": "coberturas.industria.v1.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "headline": "Abrir el hotel toma meses. El equipo importado sigue expuesto al dólar",
+      "subcopy": "Planea el costo desde hoy.",
+      "cta": "Planea hoy tus costos futuros",
+      "angleLabel": "Hotelería, equipamiento y proyecto largo",
+      "product": "COBERTURA_GENERAL",
+      "source": "coberturas.industria.v1.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "headline": "Cada cámara importada también puede mover el margen de la instalación",
+      "subcopy": "Planea el costo antes del pago.",
+      "cta": "Protege tu margen",
+      "angleLabel": "Seguridad electrónica, instalación y margen",
+      "product": "COBERTURA_GENERAL",
+      "source": "coberturas.industria.v1.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "headline": "La temporada se vende después. El tipo de cambio puede definirse antes",
+      "subcopy": "Da certidumbre al costo de tu pedido.",
+      "cta": "Define hoy tu tipo de cambio",
+      "angleLabel": "Calzado, temporada y forward",
+      "product": "FORWARD",
+      "source": "coberturas.industria.v1.md"
+    }
+  ]
+}

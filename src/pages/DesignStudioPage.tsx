@@ -13,7 +13,7 @@
  * Requirements: 1.1, 1.2, 2.1, 13.1, 13.2, 13.3, 13.4, 13.5
  */
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Loader2, Sparkles, Save } from 'lucide-react';
 
@@ -54,6 +54,14 @@ import { useGenerateIdeas } from '@/hooks/useGenerateIdeas';
 import { useAllIndustryVerticals } from '@/hooks/useIndustryVerticals';
 import { useCopyBank, useSaveBankCopies, useUpdateBankMeta, useUpdateBankCopy, type CopyBankItem } from '@/hooks/useDesignCopyBank';
 import { useDeleteGeneratedIdea } from '@/hooks/useGeneratedIdeas';
+import {
+  useCopyBankV2,
+  useMarkCopyUsed,
+  useUpdateCopyBankImageMeta,
+  useUpdateCopyBankText,
+} from '@/hooks/useCopyBankV2';
+import { CopyBankV2Panel } from '@/components/design-studio/CopyBankV2Panel';
+import { resolveBranchForKitSlug, type CopyBankRow } from '@/types/copy-bank';
 
 import { validateBrandPalette } from '@/utils/design-studio/brandPaletteValidator';
 import { convertToTemplate } from '@/utils/design-studio/templateConverter';
@@ -62,7 +70,9 @@ import { supabase } from '@/integrations/supabase/client';
 
 import {
   DESIGN_STUDIO_IMAGE_PROMPT_REVISION,
+  DESIGN_STUDIO_SOURCE,
   type BrandPalette,
+  type CarouselMeta,
   type PlatformFormat,
 } from '@/types/design-studio';
 import type { SavedMockup } from '@/hooks/useDesignMockups';
@@ -140,6 +150,18 @@ export default function DesignStudioPage() {
   // Free-text guidance that steers the copy generation (Stage A feedback loop).
   const [copyGuidance, setCopyGuidance] = useState('');
 
+  // --- Copy bank v2 (copy_bank_items) ---
+  // The primary source: 180 pre-approved copies seeded at rollout, plus whatever
+  // generate-copy-v2 proposes later. The v1 bank below stays for existing
+  // sessions and for the 4-at-a-time generator.
+  const bankV2 = useCopyBankV2();
+  const markCopyUsed = useMarkCopyUsed();
+  const updateBankV2Text = useUpdateCopyBankText();
+  const updateBankV2ImageMeta = useUpdateCopyBankImageMeta();
+  // Which bank the active candidate came from, so Stage B persists the image
+  // prompt to the right table.
+  const [activeSource, setActiveSource] = useState<'v1' | 'v2'>('v2');
+
   // --- Local UI state ---
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
@@ -150,6 +172,81 @@ export default function DesignStudioPage() {
   // `previousIdeas` to generate-ideas — gives immediate variety even before
   // anything is persisted to content_library.
   const previousHeadlinesRef = useRef<string[]>([]);
+
+  // --- Carousel subject -----------------------------------------------------
+  // The carousel reads the v1 CopyBankItem shape. For a v2 row we adapt it, and
+  // pass a writer that targets copy_bank_items.image_meta — the default writer
+  // targets generated_ideas, where a v2 id does not exist, so the carousel would
+  // be silently discarded.
+  const activeV2Row = useMemo(
+    () => bankV2.rows.find((r) => r.id === store.activeCandidateId) ?? null,
+    [bankV2.rows, store.activeCandidateId],
+  );
+
+  /**
+   * Commercial branch of the ACTIVE COPY, which is not necessarily the one in
+   * the UI selector. Downstream agents keyed by branch_id — the carousel script
+   * above all — must follow the copy, or a costos copy generates velocidad
+   * narrative.
+   */
+  const carouselBranchId = useMemo(() => {
+    if (activeSource !== 'v2' || !activeV2Row) return selectedBranch?.id ?? null;
+    return (
+      resolveBranchForKitSlug(branches, activeV2Row.branch_slug)?.id ??
+      selectedBranch?.id ??
+      null
+    );
+  }, [activeSource, activeV2Row, branches, selectedBranch?.id]);
+
+  const activeCarouselItem = useMemo<CopyBankItem | null>(() => {
+    if (activeSource === 'v1') {
+      return copyBank.items.find((it) => it.row.id === store.activeCandidateId) ?? null;
+    }
+    if (!activeV2Row) return null;
+    const meta = activeV2Row.image_meta ?? {};
+    return {
+      row: {
+        id: activeV2Row.id,
+        business_id: activeV2Row.business_id,
+        branch_id: carouselBranchId,
+        vertical_id: null,
+        moment_id: null,
+        channel: null,
+        angle: activeV2Row.angle_tag,
+        headline: activeV2Row.headline,
+        subcopy: activeV2Row.subcopy,
+        cta: activeV2Row.cta,
+        image_suggestion: null,
+        status: activeV2Row.status,
+        created_at: activeV2Row.created_at,
+      },
+      meta: {
+        source: DESIGN_STUDIO_SOURCE,
+        angleName: activeV2Row.angle_label ?? activeV2Row.angle_tag,
+        industryName: activeV2Row.industry,
+        imageMode: meta.imageMode ?? 'single',
+        imageType: meta.imageType,
+        imagePrompt: meta.imagePrompt,
+        imagePromptRevision: meta.imagePromptRevision,
+        masterImagePromptVersion: meta.masterImagePromptVersion,
+        imageBackgroundStyle: meta.imageBackgroundStyle,
+        corridorOverride: meta.corridorOverride,
+        corridorAnalysis: meta.corridorAnalysis,
+        carousel: meta.carousel,
+      },
+    } as CopyBankItem;
+  }, [activeSource, activeV2Row, copyBank.items, store.activeCandidateId, carouselBranchId]);
+
+  const carouselPersistMeta = useMemo(() => {
+    if (activeSource !== 'v2' || !activeV2Row) return undefined;
+    return async (patch: { imageMode: 'carousel'; carousel: CarouselMeta }) => {
+      await updateBankV2ImageMeta.mutateAsync({
+        id: activeV2Row.id,
+        current: activeV2Row.image_meta,
+        patch,
+      });
+    };
+  }, [activeSource, activeV2Row, updateBankV2ImageMeta]);
 
   // --- Derived state ---
   const isAnyLoading = store.isGeneratingMockups || store.isGeneratingHtml || store.isSaving;
@@ -352,6 +449,7 @@ export default function DesignStudioPage() {
   const handleSelectCandidate = useCallback((item: CopyBankItem) => {
     const promptIsCurrent = item.meta.imagePromptRevision === DESIGN_STUDIO_IMAGE_PROMPT_REVISION;
 
+    setActiveSource('v1');
     store.invalidateGeneratedVisuals();
     delete (window as any).__designStudioImagePrompts;
     store.setActiveCandidate(item.row.id, {
@@ -362,6 +460,40 @@ export default function DesignStudioPage() {
     store.setPieceImageType(item.meta.imageType ?? 'foto');
     store.setPieceImagePromptText(promptIsCurrent ? (item.meta.imagePrompt ?? '') : '');
   }, [store]);
+
+  // Same contract as handleSelectCandidate, for rows coming from copy_bank_items.
+  // Stage B reads store.activeCandidateId and knows nothing about the source, so
+  // the whole image/platform/carousel flow works unchanged.
+  const handleSelectBankV2 = useCallback((row: CopyBankRow) => {
+    const meta = row.image_meta ?? {};
+    const promptIsCurrent = meta.imagePromptRevision === DESIGN_STUDIO_IMAGE_PROMPT_REVISION;
+
+    setActiveSource('v2');
+    store.invalidateGeneratedVisuals();
+    delete (window as any).__designStudioImagePrompts;
+    store.setActiveCandidate(row.id, {
+      headline: row.headline,
+      body: row.subcopy ?? '',
+      cta: row.cta ?? '',
+    });
+    store.setPieceImageType(meta.imageType ?? 'foto');
+    store.setPieceImagePromptText(promptIsCurrent ? (meta.imagePrompt ?? '') : '');
+  }, [store]);
+
+  const handleToggleBankV2Used = useCallback((row: CopyBankRow) => {
+    const nextUsed = !row.used_at;
+    markCopyUsed.mutate(
+      { id: row.id, used: nextUsed },
+      {
+        onSuccess: () =>
+          toast({
+            title: nextUsed ? 'Marcado como usado' : 'Disponible otra vez',
+            description: nextUsed ? row.headline : undefined,
+          }),
+        onError: () => toast({ title: 'No se pudo actualizar', variant: 'destructive' }),
+      },
+    );
+  }, [markCopyUsed, toast]);
 
   // Rate a bank copy (toggle). 'liked' steers new batches to imitate it;
   // 'disliked' avoids it. Persisted in piece_v2 meta.
@@ -393,6 +525,26 @@ export default function DesignStudioPage() {
     if (!store.activeCandidateId || !store.selections.pieceCopy?.headline?.trim()) return;
     const copy = store.selections.pieceCopy;
     const activeId = store.activeCandidateId;
+
+    // v2 rows have no rating: an edit is just an edit. The v1 path below also
+    // auto-likes the row so it steers the next generated batch.
+    if (activeSource === 'v2') {
+      updateBankV2Text.mutate(
+        {
+          id: activeId,
+          headline: copy.headline.trim(),
+          subcopy: copy.body ?? '',
+          cta: copy.cta ?? '',
+        },
+        {
+          onSuccess: () =>
+            toast({ title: 'Copy guardado', description: 'Ya puedes generar la imagen.' }),
+          onError: () => toast({ title: 'Error al guardar copy', variant: 'destructive' }),
+        },
+      );
+      return;
+    }
+
     const active = copyBank.items.find((it) => it.row.id === activeId);
     updateBankCopy.mutate(
       {
@@ -417,7 +569,7 @@ export default function DesignStudioPage() {
         onError: () => toast({ title: 'Error al guardar copy', variant: 'destructive' }),
       },
     );
-  }, [store.activeCandidateId, store.selections.pieceCopy, copyBank.items, updateBankCopy, updateBankMeta, toast]);
+  }, [store.activeCandidateId, store.selections.pieceCopy, copyBank.items, updateBankCopy, updateBankMeta, toast, activeSource, updateBankV2Text]);
 
   // STAGE B — generate the image prompt for the ACTIVE candidate, honoring the
   // visual selections chosen now (type, background/color, platform aspect).
@@ -425,7 +577,24 @@ export default function DesignStudioPage() {
   // The prompt is saved onto the candidate's bank row so it persists.
   const handleGenerateImagePrompt = useCallback(async () => {
     if (!activeBusinessId || !selectedBranch) return;
-    const active = copyBank.items.find((it) => it.row.id === store.activeCandidateId);
+
+    // Normalize the active piece across both banks so only the persist step
+    // below has to care where it came from.
+    const activeV1 = copyBank.items.find((it) => it.row.id === store.activeCandidateId);
+    const activeV2 = bankV2.rows.find((r) => r.id === store.activeCandidateId);
+    const active = activeSource === 'v2'
+      ? (activeV2 && {
+          id: activeV2.id,
+          headline: activeV2.headline,
+          subcopy: activeV2.subcopy,
+          verticalId: undefined as string | undefined,
+        })
+      : (activeV1 && {
+          id: activeV1.row.id,
+          headline: activeV1.row.headline,
+          subcopy: activeV1.row.subcopy ?? '',
+          verticalId: activeV1.row.vertical_id ?? undefined,
+        });
     if (!active) return;
 
     store.invalidateGeneratedVisuals();
@@ -433,8 +602,8 @@ export default function DesignStudioPage() {
 
     const { selections } = store;
     // Prefer the edited copy in the editor; fall back to the saved row.
-    const headline = selections.pieceCopy?.headline?.trim() || active.row.headline;
-    const body = selections.pieceCopy?.body ?? active.row.subcopy ?? '';
+    const headline = selections.pieceCopy?.headline?.trim() || active.headline;
+    const body = selections.pieceCopy?.body ?? active.subcopy ?? '';
     const selectedType = selections.pieceImagePrompt?.type ?? 'foto';
     const promptSelection = resolveMasterImagePromptSelection(selections.background);
 
@@ -446,7 +615,7 @@ export default function DesignStudioPage() {
           brand: activeBusiness?.slug === 'xending-capital' ? 'xending_capital' : 'xending',
           business_id: activeBusinessId,
           branch_id: selectedBranch.id,
-          vertical_id: active.row.vertical_id ?? undefined,
+          vertical_id: active.verticalId,
           mode: 'prompts',
           headline,
           body,
@@ -499,21 +668,31 @@ export default function DesignStudioPage() {
       if (promptText) {
         const finalPrompt = appendNoLogoDirective(promptText);
         store.setPieceImagePromptText(finalPrompt);
-        // Persist onto the candidate's bank row.
-        await updateBankMeta.mutateAsync({
-          id: active.row.id,
-          currentMeta: active.meta,
-          meta: {
-            imageType: selectedType,
-            imagePrompt: finalPrompt,
-            imagePromptRevision: DESIGN_STUDIO_IMAGE_PROMPT_REVISION,
-            imageMode: 'single',
-            masterImagePromptVersion: promptSelection.masterPromptVersion,
-            imageBackgroundStyle: promptSelection.backgroundStyle,
-            corridorOverride: selections.corridorOverride,
-            corridorAnalysis: imageData.promptMeta?.corridor ?? undefined,
-          },
-        });
+
+        // Persist onto the candidate's row, in whichever bank it came from.
+        const sharedMeta = {
+          imageType: selectedType,
+          imagePrompt: finalPrompt,
+          imagePromptRevision: DESIGN_STUDIO_IMAGE_PROMPT_REVISION,
+          masterImagePromptVersion: promptSelection.masterPromptVersion,
+          imageBackgroundStyle: promptSelection.backgroundStyle,
+          corridorOverride: selections.corridorOverride,
+          corridorAnalysis: imageData.promptMeta?.corridor ?? undefined,
+        };
+
+        if (activeSource === 'v2' && activeV2) {
+          await updateBankV2ImageMeta.mutateAsync({
+            id: activeV2.id,
+            current: activeV2.image_meta,
+            patch: sharedMeta,
+          });
+        } else if (activeV1) {
+          await updateBankMeta.mutateAsync({
+            id: activeV1.row.id,
+            currentMeta: activeV1.meta,
+            meta: { ...sharedMeta, imageMode: 'single' },
+          });
+        }
       }
 
       toast({ title: 'Prompt de imagen listo', description: 'Revisa/edita y genera la imagen.' });
@@ -523,7 +702,7 @@ export default function DesignStudioPage() {
     } finally {
       setIsGeneratingImagePrompt(false);
     }
-  }, [activeBusinessId, selectedBranch, copyBank.items, store, activeBusiness, businessConfig, updateBankMeta, toast]);
+  }, [activeBusinessId, selectedBranch, copyBank.items, bankV2.rows, activeSource, store, activeBusiness, businessConfig, updateBankMeta, updateBankV2ImageMeta, toast]);
 
   const handleGenerateMockups = useCallback(async () => {
     if (!store.brandPalette || !activeBusinessId) return;
@@ -987,14 +1166,35 @@ export default function DesignStudioPage() {
                     )}
                   </Button>
 
-                  <CopyBankPanel
-                    items={copyBank.items}
-                    activeId={store.activeCandidateId}
-                    isLoading={copyBank.isLoading}
-                    onSelectActive={handleSelectCandidate}
-                    onDelete={handleDeleteCandidate}
-                    onRate={handleRateCandidate}
-                  />
+                  {/* Banco v2: los 180 copys aprobados + lo que proponga el
+                      agente. Es la fuente primaria — palomea uno y pasas a la
+                      Etapa B sin llamar al modelo de copy. */}
+                  <div className="border-t border-border pt-5">
+                    <CopyBankV2Panel
+                      rows={bankV2.rows}
+                      isLoading={bankV2.isLoading}
+                      activeId={activeSource === 'v2' ? store.activeCandidateId : null}
+                      onSelect={handleSelectBankV2}
+                      onToggleUsed={handleToggleBankV2Used}
+                      isTogglingUsed={markCopyUsed.isPending}
+                      emptyHint="Corre las migraciones de copy_bank_v2 para cargar los 180 copys aprobados."
+                    />
+                  </div>
+
+                  {/* Banco v1: las tandas de 4 del generador anterior. Se
+                      mantiene para sesiones en curso. */}
+                  {copyBank.items.length > 0 && (
+                    <div className="border-t border-border pt-5">
+                      <CopyBankPanel
+                        items={copyBank.items}
+                        activeId={activeSource === 'v1' ? store.activeCandidateId : null}
+                        isLoading={copyBank.isLoading}
+                        onSelectActive={handleSelectCandidate}
+                        onDelete={handleDeleteCandidate}
+                        onRate={handleRateCandidate}
+                      />
+                    </div>
+                  )}
                 </section>
 
                 {/* ---------- ETAPA B — IMAGEN Y PLATAFORMA ---------- */}
@@ -1132,10 +1332,9 @@ export default function DesignStudioPage() {
                       subtitle="Desglosa el copy activo en 4 slides encadenados"
                     />
                     <CarouselPanel
-                      bankItem={
-                        copyBank.items.find((it) => it.row.id === store.activeCandidateId) ?? null
-                      }
-                      branchId={selectedBranch?.id ?? null}
+                      bankItem={activeCarouselItem}
+                      persistMeta={carouselPersistMeta}
+                      branchId={carouselBranchId}
                       background={store.selections.background}
                       imageType={store.selections.pieceImagePrompt?.type ?? 'foto'}
                       brandSlug={activeBusiness?.slug}

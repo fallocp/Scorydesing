@@ -26,3 +26,6 @@ supabase/.temp/
 
 # Imágenes de referencia local (solo para revisar, no se versionan)
 Xending26/
+
+# Prompts compuestos (derivados de masterCopyPrompt_v2 + copy-kits)
+docs/prompts/_generated/

@@ -33,7 +33,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils';
 
-import { useCarouselQueue, type CarouselSlotRuntime } from '@/hooks/useCarouselQueue';
+import {
+  useCarouselQueue,
+  type CarouselSlotRuntime,
+  type UseCarouselQueueParams,
+} from '@/hooks/useCarouselQueue';
 import type { CopyBankItem } from '@/hooks/useDesignCopyBank';
 import {
   CAROUSEL_DIMENSIONS,
@@ -60,6 +64,8 @@ interface CarouselPanelProps {
   brandSlug: string | undefined;
   /** Logo and legal text composited on the slides that carry them. */
   branding: CarouselBranding;
+  /** Overrides where the carousel state is written. See UseCarouselQueueParams. */
+  persistMeta?: UseCarouselQueueParams['persistMeta'];
   disabled?: boolean;
 }
 
@@ -75,6 +81,7 @@ export function CarouselPanel({
   imageType,
   brandSlug,
   branding,
+  persistMeta,
   disabled = false,
 }: CarouselPanelProps) {
   const { toast } = useToast();
@@ -88,6 +95,7 @@ export function CarouselPanel({
     background,
     imageType,
     brandSlug,
+    persistMeta,
   });
 
   const {

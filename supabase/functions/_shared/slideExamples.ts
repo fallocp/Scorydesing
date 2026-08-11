@@ -39,7 +39,7 @@ export function buildSlideExamples(fontsUrl: string, iconPlaceholder: string, he
     .icon-slot { width: 190px; height: 190px; align-self: center; margin: 6px 0 10px; }
     .stat-icon { width: 100%; height: 100%; object-fit: contain; }
     .card-line { width: 52px; height: 3px; background: var(--coral); border-radius: 999px; margin: 30px 0 20px; }
-    .card h3 { font-family: 'Fraunces', serif; font-weight: 600; font-size: 30px; line-height: 1.18; color: var(--navy-title); }
+    .card h3 { font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 30px; line-height: 1.18; color: var(--navy-title); }
     .card-sub { font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 18px; line-height: 1.4; color: var(--navy-title); margin-top: 20px; }
     .card-body { font-family: 'Poppins', sans-serif; font-weight: 400; font-size: 16px; line-height: 1.6; color: var(--gray); margin-top: 12px; }
     .card-body .hl { color: var(--mint); font-weight: 600; }
@@ -114,7 +114,7 @@ export function buildSlideExamples(fontsUrl: string, iconPlaceholder: string, he
     .eyebrow-row { display: flex; align-items: center; gap: 14px; }
     .eyebrow-line { width: 44px; height: 3px; background: var(--coral); border-radius: 999px; }
     .eyebrow { color: var(--coral); font-weight: 600; font-size: 15px; letter-spacing: 3px; text-transform: uppercase; }
-    h1 { font-family: 'Fraunces', serif; font-weight: 600; font-size: 84px; line-height: 1.02; color: var(--navy-title); margin-top: 24px; letter-spacing: -1px; }
+    h1 { font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 84px; line-height: 1.02; color: var(--navy-title); margin-top: 24px; letter-spacing: -1px; }
     h1 .accent { display: block; font-style: italic; background: linear-gradient(135deg, #FF7A4A, #FF9468); -webkit-background-clip: text; background-clip: text; color: transparent; }
     .accent-line { width: 60px; height: 4px; background: var(--coral); border-radius: 999px; margin: 32px 0 28px; }
     .subtitle { font-family: 'Poppins', sans-serif; font-weight: 400; font-size: 22px; line-height: 1.6; color: #1a2a62; max-width: 540px; }
@@ -200,7 +200,7 @@ export function buildSlideExamples(fontsUrl: string, iconPlaceholder: string, he
       display: flex; flex-direction: column; align-items: center; padding: 90px 120px 80px;
     }
     .header { text-align: center; }
-    h1 { font-family: 'Fraunces', serif; font-weight: 600; font-size: 104px; line-height: 1; color: var(--navy-title); letter-spacing: -1px; }
+    h1 { font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 104px; line-height: 1; color: var(--navy-title); letter-spacing: -1px; }
     h1 .accent { font-style: italic; font-weight: 600; background: linear-gradient(135deg, #FF7A4A, #FF9468); -webkit-background-clip: text; background-clip: text; color: transparent; }
     .title-line { width: 72px; height: 4px; background: var(--coral); border-radius: 999px; margin: 28px auto 30px; }
     .subtitle { font-family: 'Poppins', sans-serif; font-weight: 500; font-size: 30px; line-height: 1.5; color: #1a2a62; max-width: 900px; margin: 0 auto; }
@@ -210,7 +210,7 @@ export function buildSlideExamples(fontsUrl: string, iconPlaceholder: string, he
     .icon-slot { width: 300px; height: 300px; display: flex; align-items: center; justify-content: center; }
     .stat-icon { width: 100%; height: 100%; object-fit: contain; }
     .stat-line { width: 60px; height: 4px; background: var(--coral); border-radius: 999px; margin: 30px 0 22px; }
-    .number { font-family: 'Fraunces', serif; font-weight: 600; font-size: 88px; line-height: 1; color: var(--navy-title); }
+    .number { font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 88px; line-height: 1; color: var(--navy-title); }
     .number.same-day { font-style: italic; font-weight: 500; font-size: 72px; }
     .label { font-family: 'Poppins', sans-serif; font-weight: 500; font-size: 24px; line-height: 1.4; color: var(--gray); margin-top: 16px; }
   </style>
@@ -284,7 +284,7 @@ export function buildSlideExamples(fontsUrl: string, iconPlaceholder: string, he
     .eyebrow-row { display: flex; align-items: center; gap: 14px; }
     .eyebrow-line { width: 44px; height: 3px; background: var(--coral); border-radius: 999px; }
     .eyebrow { color: var(--coral); font-weight: 600; font-size: 15px; letter-spacing: 3px; text-transform: uppercase; }
-    h1 { font-family: 'Fraunces', serif; font-weight: 600; font-size: 76px; line-height: 1.05; color: var(--navy-title); margin-top: 24px; letter-spacing: -1px; }
+    h1 { font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 76px; line-height: 1.05; color: var(--navy-title); margin-top: 24px; letter-spacing: -1px; }
     h1 .accent { font-style: italic; background: linear-gradient(135deg, #FF7A4A, #FF9468); -webkit-background-clip: text; background-clip: text; color: transparent; }
     .subtitle { font-family: 'Poppins', sans-serif; font-weight: 500; font-size: 22px; line-height: 1.55; color: #1a2a62; margin-top: 26px; max-width: 560px; }
     .hero {
@@ -300,7 +300,7 @@ export function buildSlideExamples(fontsUrl: string, iconPlaceholder: string, he
     .icon-slot { width: 190px; height: 190px; align-self: center; margin: 6px 0 10px; }
     .stat-icon { width: 100%; height: 100%; object-fit: contain; }
     .card-line { width: 52px; height: 3px; background: var(--coral); border-radius: 999px; margin: 30px 0 20px; }
-    .card h3 { font-family: 'Fraunces', serif; font-weight: 600; font-size: 30px; line-height: 1.18; color: var(--navy-title); }
+    .card h3 { font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 30px; line-height: 1.18; color: var(--navy-title); }
     .card-sub { font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 18px; line-height: 1.4; color: var(--navy-title); margin-top: 20px; }
     .card-body { font-family: 'Poppins', sans-serif; font-weight: 400; font-size: 16px; line-height: 1.6; color: var(--gray); margin-top: 12px; }
     .card-body .hl { color: var(--mint); font-weight: 600; }
@@ -383,7 +383,7 @@ export function buildSlideExamples(fontsUrl: string, iconPlaceholder: string, he
     .eyebrow-row { display: flex; align-items: center; gap: 14px; }
     .eyebrow-line { width: 44px; height: 3px; background: var(--coral); border-radius: 999px; }
     .eyebrow { color: var(--coral); font-weight: 600; font-size: 15px; letter-spacing: 4px; text-transform: uppercase; }
-    h1 { font-family: 'Fraunces', serif; font-weight: 600; font-size: 68px; line-height: 1.0; color: var(--navy-title); letter-spacing: -1px; margin-top: 16px; }
+    h1 { font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 68px; line-height: 1.0; color: var(--navy-title); letter-spacing: -1px; margin-top: 16px; }
     h1 .accent { font-style: italic; background: linear-gradient(135deg, #FF7A4A, #FF9468); -webkit-background-clip: text; background-clip: text; color: transparent; }
     .subtitle { font-weight: 400; font-size: 20px; line-height: 1.55; color: #1a2a62; max-width: 560px; margin-top: 18px; }
 
@@ -401,7 +401,7 @@ export function buildSlideExamples(fontsUrl: string, iconPlaceholder: string, he
     .split-icon { flex: none; width: 150px; height: 150px; display: flex; align-items: center; justify-content: center; }
     .split-icon img { width: 100%; height: 100%; object-fit: contain; }
     .split-body { flex: 1; min-width: 0; }
-    .split-card h3 { font-family: 'Fraunces', serif; font-weight: 600; font-size: 28px; line-height: 1.1; color: var(--navy-title); }
+    .split-card h3 { font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 28px; line-height: 1.1; color: var(--navy-title); }
     .split-tagline { font-weight: 600; font-size: 15px; margin-top: 4px; }
     .split-tagline.tq { color: var(--mint); }
     .split-tagline.cr { color: var(--coral); }
@@ -422,7 +422,7 @@ export function buildSlideExamples(fontsUrl: string, iconPlaceholder: string, he
     /* Banda de cierre (pill con borde degradado) */
     .closing { position: relative; border-radius: 999px; padding: 18px 32px; text-align: center; background: #fff; }
     .closing::before { content: ''; position: absolute; inset: 0; border-radius: 999px; padding: 1.5px; background: linear-gradient(90deg, var(--mint), var(--coral)); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none; }
-    .closing-text { font-family: 'Fraunces', serif; font-weight: 500; font-size: 26px; color: var(--navy-title); }
+    .closing-text { font-family: 'Montserrat', sans-serif; font-weight: 600; font-size: 26px; color: var(--navy-title); }
     .closing-text .tq { color: var(--mint); font-style: italic; }
     .closing-text .cr { color: var(--coral); font-style: italic; }
 

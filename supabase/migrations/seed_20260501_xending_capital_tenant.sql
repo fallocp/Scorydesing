@@ -23,7 +23,7 @@ INSERT INTO public.business_tenants (
   '#FF7A4A',
   '#2ED4C7',
   '#1A2332',
-  '{"display": "Fraunces", "body": "Inter", "mono": "JetBrains Mono"}'::jsonb,
+  '{"display": "Montserrat", "body": "Poppins", "mono": "JetBrains Mono"}'::jsonb,
   'Xending Capital es una marca operada por Xending Technologies S.A.P.I. de C.V. Los servicios de financiamiento son proporcionados a través de socios regulados y están sujetos a aprobación crediticia. Las condiciones mostradas son indicativas y pueden variar según el perfil del solicitante.',
   'Sujeto a aprobación. Condiciones aplican.',
   '{
@@ -316,8 +316,8 @@ Xending Capital ofrece financiamiento empresarial diseñado para los ciclos real
 - Blanco: #FFFFFF (espacios limpios)
 
 ## Tipografía
-- Headlines: Fraunces (serif, bold, impactante)
-- Body: Inter (sans-serif, legible, profesional)
+- Headlines: Montserrat (sans-serif geométrica, bold/extrabold, impactante)
+- Body: Poppins (sans-serif geométrica, legible, profesional). Notas legales: Fraunces
 - Datos/código: JetBrains Mono (monospace, técnico)
 
 ## Audiencia Principal

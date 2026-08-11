@@ -217,11 +217,71 @@ function parseScript(content: string): { visualMotif?: string; slides?: unknown[
   }
 }
 
-/** Trim a string to a word budget without cutting mid-word. */
+/**
+ * Function words that must never be the last word of a clamped line. Cutting on
+ * one of these produces broken Spanish that still renders into the image:
+ * "Tres días de espera pueden frenar embarque, liberar tarde la mercancía y
+ * tensar al" was a real slide, clamped at exactly 14 words.
+ */
+const DANGLING_WORDS = new Set([
+  "y", "e", "o", "u", "ni", "que", "de", "del", "al", "a", "en", "con", "por",
+  "para", "sin", "sobre", "entre", "hasta", "desde", "ante", "tras", "como",
+  "el", "la", "los", "las", "un", "una", "unos", "unas", "lo", "su", "sus",
+  "tu", "tus", "mi", "mis", "se", "le", "les", "pero", "aunque", "si", "porque",
+  "cuando", "mientras", "donde", "cuyo", "cuya",
+]);
+
+/**
+ * Words that open a clause. When one of these ends up near the tail, the cut
+ * left its clause unfinished even if the very last word is a content word.
+ */
+const COORDINATING_WORDS = new Set([
+  "y", "e", "o", "u", "ni", "pero", "aunque", "porque", "mientras", "que",
+  "como", "si", "donde",
+]);
+
+/** Below this the line stops carrying a message, so the blunt cut wins. */
+const MIN_CLAMPED_WORDS = 4;
+
+/**
+ * Trim a string to a word budget, ending on a coherent clause.
+ *
+ * Clamping is a safety net, not the primary control: the prompt already states
+ * the word budget. When the model overshoots anyway, cutting bluntly at N words
+ * is worse than a slightly shorter line, because the result gets rendered
+ * verbatim into the image. So after the cut we walk back over trailing
+ * punctuation and dangling function words.
+ *
+ * If walking back would leave fewer than 4 words there is nothing salvageable,
+ * so the blunt cut is returned and the caller's own length checks apply.
+ */
 function clampWords(text: string, maxWords: number): string {
   const words = text.trim().split(/\s+/).filter(Boolean);
-  if (words.length <= maxWords) return words.join(' ');
-  return words.slice(0, maxWords).join(' ');
+  if (words.length <= maxWords) return words.join(" ");
+
+  const cut = words.slice(0, maxWords);
+  const bare = (w: string) => w.replace(/[.,;:]+$/, "").toLowerCase();
+
+  // Pass 1: drop trailing function words and clause-opening punctuation.
+  while (cut.length > MIN_CLAMPED_WORDS) {
+    const last = cut[cut.length - 1];
+    if (!DANGLING_WORDS.has(bare(last)) && !/[,;:]$/.test(last)) break;
+    cut.pop();
+  }
+
+  // Pass 2: a conjunction plus a single word is still a fragment. "…la mercancía
+  // y tensar" survives pass 1 because "tensar" is a content word, so drop back
+  // to before the conjunction that opened the incomplete clause.
+  for (let k = cut.length - 1; k >= Math.max(MIN_CLAMPED_WORDS, cut.length - 2); k--) {
+    if (COORDINATING_WORDS.has(bare(cut[k]))) {
+      cut.length = k;
+      break;
+    }
+  }
+
+  if (cut.length < MIN_CLAMPED_WORDS) return words.slice(0, maxWords).join(" ");
+
+  return cut.join(" ").replace(/[,;:]+$/, "");
 }
 
 // ---------------------------------------------------------------------------

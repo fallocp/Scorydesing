@@ -14,6 +14,23 @@ import { supabase } from '@/integrations/supabase/client';
 import { getTemplateById } from '@/constants/designTemplates';
 
 // ---------------------------------------------------------------------------
+// Brand typography
+// ---------------------------------------------------------------------------
+
+/**
+ * Stylesheet for the four brand families, per XENDING_VISUAL_SYSTEM_v1.md §4:
+ * Montserrat for titles, Poppins for piece text, Fraunces for the legal note and
+ * JetBrains Mono for figures.
+ *
+ * Declaring the families in `:root` is not enough — without this request the
+ * browser falls straight through to the Arial/Georgia fallbacks, which is how
+ * pieces ended up rendering in Georgia while the CSS claimed a serif display
+ * face. Every generated document has to carry it.
+ */
+const BRAND_FONTS_LINK =
+  '<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Poppins:wght@400;500;600;700&family=Fraunces:wght@400;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">';
+
+// ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
@@ -354,14 +371,16 @@ function buildFullDocument(p: BuildParams): string {
 <html lang="es" style="width:${dimensions.width}px;height:${dimensions.height}px;margin:0;padding:0;">
 <head>
 <meta charset="UTF-8" />
+${BRAND_FONTS_LINK}
 <style>
 :root {
   --color-turquoise: #2ED4C7;
   --color-coral: #FF7A4A;
   --color-navy: #0F1419;
-  --font-display: 'Fraunces', Georgia, serif;
-  --font-body: 'Inter', Arial, sans-serif;
+  --font-display: 'Montserrat', Arial, sans-serif;
+  --font-body: 'Poppins', Arial, sans-serif;
   --font-numbers: 'JetBrains Mono', 'Courier New', monospace;
+  --font-legal: 'Fraunces', Georgia, serif;
 }
 html, body {
   width: ${dimensions.width}px;
@@ -508,7 +527,7 @@ body::after {
 }
 .disclaimer {
   margin-top: auto;
-  font-family: var(--font-body);
+  font-family: var(--font-legal);
   font-size: 12px;
   line-height: 1.3;
   color: rgba(255,255,255,0.5);
@@ -672,6 +691,12 @@ function ensureDimensions(
  * Injects them before </head> if not already found.
  */
 function ensureVisualSystem(html: string): string {
+  // Font loading is checked separately from the colour vars: a template may
+  // define the palette inline and still never request the webfonts.
+  if (!/fonts\.googleapis\.com/i.test(html) && /<\/head>/i.test(html)) {
+    html = html.replace(/<\/head>/i, `${BRAND_FONTS_LINK}\n</head>`);
+  }
+
   const hasColorVars = /--color-turquoise/i.test(html);
 
   if (!hasColorVars && /<\/head>/i.test(html)) {
@@ -680,9 +705,10 @@ function ensureVisualSystem(html: string): string {
   --color-turquoise: #2ED4C7;
   --color-coral: #FF7A4A;
   --color-navy: #0F1419;
-  --font-display: 'Fraunces', Georgia, serif;
-  --font-body: 'Inter', Arial, sans-serif;
+  --font-display: 'Montserrat', Arial, sans-serif;
+  --font-body: 'Poppins', Arial, sans-serif;
   --font-numbers: 'JetBrains Mono', 'Courier New', monospace;
+  --font-legal: 'Fraunces', Georgia, serif;
 }
 </style>`;
     html = html.replace(/<\/head>/i, `${visualSystemStyle}\n</head>`);

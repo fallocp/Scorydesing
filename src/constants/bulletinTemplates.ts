@@ -8,7 +8,7 @@ import type { DesignTemplate } from '@/constants/designTemplates';
 
 const LOGO_URL = 'https://gdfhytvjnzdovjfovqfv.supabase.co/storage/v1/object/sign/Brand/Xending%20bola%20logoabril26.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV8zNDdhNjgwZi1hZGU3LTQ3OGYtYjdkNy1kMGY5YzJjMDc4NDEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJCcmFuZC9YZW5kaW5nIGJvbGEgbG9nb2FicmlsMjYucG5nIiwiaWF0IjoxNzc3MTU1Nzg2LCJleHAiOjE4MDg2OTE3ODZ9.8ZrGD1_TGdtzJn5lSP3X3pvlqvFV-mfgwxLySRQUO3U';
 
-const FONTS = 'https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap';
+const FONTS = 'https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Poppins:wght@400;500;600;700&family=Fraunces:wght@400;600&family=JetBrains+Mono:wght@400;500;600&display=swap';
 
 const GRAIN = `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`;
 
@@ -23,7 +23,7 @@ const BASE_CSS = `
       -webkit-background-clip: text; background-clip: text; color: transparent; }
     .accent-tq { font-style: italic; background: linear-gradient(135deg, #2ED4C7, #1FB8AC);
       -webkit-background-clip: text; background-clip: text; color: transparent; }
-    .disclaimer { font-family: 'Inter', sans-serif; font-size: 14px; margin-top: 16px; }
+    .disclaimer { font-family: 'Fraunces', serif; font-size: 14px; margin-top: 16px; }
 `;
 
 // ─── Bulletin layout (card fills story, content centered) ───
@@ -38,22 +38,22 @@ const BULLETIN_LAYOUT = `
       margin-bottom: 16px; flex-shrink: 0; position: relative; z-index: 2; }
     .logo-left { display: flex; align-items: center; gap: 20px; }
     .logo { width: 80px; height: 80px; object-fit: contain; }
-    .wordmark { font-family: 'Inter', sans-serif; font-weight: 700; font-size: 42px; }
+    .wordmark { font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 42px; }
     .bulletin-category { display: inline-flex; align-items: center; gap: 10px;
       padding: 10px 22px; border-radius: 100px;
       background: rgba(255,122,74,0.12); border: 1px solid rgba(255,122,74,0.25);
-      font-family: 'Inter', sans-serif; font-weight: 600; font-size: 16px;
+      font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 16px;
       color: #FF7A4A; text-transform: uppercase; letter-spacing: 1.5px; }
     .cat-dot { width: 8px; height: 8px; border-radius: 50%; background: #FF7A4A;
       animation: pulse 2s infinite; }
-    .bulletin-label { font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600;
+    .bulletin-label { font-family: 'Poppins', sans-serif; font-size: 13px; font-weight: 600;
       text-transform: uppercase; letter-spacing: 3px; opacity: 0.3; flex-shrink: 0;
       position: relative; z-index: 2; }
     .bulletin-content { flex: 1; display: flex; flex-direction: column;
       justify-content: center; align-items: center; text-align: center;
       position: relative; z-index: 2; }
     .bulletin-data { margin-bottom: 24px; }
-    .bulletin-data-label { font-family: 'Inter', sans-serif; font-size: 20px; font-weight: 600;
+    .bulletin-data-label { font-family: 'Poppins', sans-serif; font-size: 20px; font-weight: 600;
       text-transform: uppercase; letter-spacing: 3px; margin-bottom: 12px; }
     .bulletin-data-value { font-family: 'JetBrains Mono', monospace; font-weight: 700;
       font-size: 88px; line-height: 1.1;
@@ -61,11 +61,11 @@ const BULLETIN_LAYOUT = `
       -webkit-background-clip: text; background-clip: text; color: transparent; }
     .accent-bar { height: 3px; width: 120px; margin: 16px auto 24px;
       background: linear-gradient(90deg, #FF7A4A, #2ED4C7); }
-    .headline { font-family: 'Fraunces', serif; font-weight: 700; font-size: 64px;
+    .headline { font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 64px;
       line-height: 1.1; margin-bottom: 24px; max-width: 850px; }
-    .subcopy { font-family: 'Inter', sans-serif; font-size: 28px; line-height: 1.5;
+    .subcopy { font-family: 'Poppins', sans-serif; font-size: 28px; line-height: 1.5;
       margin-bottom: 24px; max-width: 800px; }
-    .bulletin-source { font-family: 'Inter', sans-serif; font-size: 16px;
+    .bulletin-source { font-family: 'Poppins', sans-serif; font-size: 16px;
       font-weight: 500; text-transform: uppercase; letter-spacing: 2px; }
     .footer { position: absolute; bottom: 30px; left: 70px; right: 70px; text-align: center; }
 `;
@@ -311,7 +311,7 @@ const V2_LAYOUT = `
       -webkit-background-clip: text; background-clip: text; color: transparent; }
     .accent-tq { font-style: italic; background: linear-gradient(135deg, #2ED4C7, #1FB8AC);
       -webkit-background-clip: text; background-clip: text; color: transparent; }
-    .disclaimer { font-family: 'Inter', sans-serif; font-size: 14px; }
+    .disclaimer { font-family: 'Fraunces', serif; font-size: 14px; }
 
     .card { position: absolute; top: 80px; left: 50px; right: 50px; bottom: 100px;
       border-radius: 44px; padding: 50px 60px 50px;
@@ -324,12 +324,12 @@ const V2_LAYOUT = `
       margin-bottom: 0; flex-shrink: 0; position: relative; z-index: 2; }
     .logo-left { display: flex; align-items: center; gap: 20px; }
     .logo { width: 70px; height: 70px; object-fit: contain; }
-    .wordmark { font-family: 'Inter', sans-serif; font-weight: 700; font-size: 38px; }
+    .wordmark { font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 38px; }
 
     .bulletin-category { display: inline-flex; align-items: center; gap: 10px;
       padding: 10px 22px; border-radius: 100px;
       background: rgba(255,122,74,0.12); border: 1px solid rgba(255,122,74,0.25);
-      font-family: 'Inter', sans-serif; font-weight: 600; font-size: 15px;
+      font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 15px;
       color: #FF7A4A; text-transform: uppercase; letter-spacing: 1.5px; }
     .cat-dot { width: 8px; height: 8px; border-radius: 50%; background: #FF7A4A;
       animation: pulse 2s infinite; }
@@ -343,7 +343,7 @@ const V2_LAYOUT = `
       position: relative; z-index: 2; padding: 0 10px; }
 
     .bulletin-data { margin-bottom: 28px; }
-    .bulletin-data-label { font-family: 'Inter', sans-serif; font-size: 18px; font-weight: 600;
+    .bulletin-data-label { font-family: 'Poppins', sans-serif; font-size: 18px; font-weight: 600;
       text-transform: uppercase; letter-spacing: 4px; margin-bottom: 14px; opacity: 0.5; }
     .bulletin-data-value { font-family: 'JetBrains Mono', monospace; font-weight: 700;
       font-size: 110px; line-height: 1.0;
@@ -353,14 +353,14 @@ const V2_LAYOUT = `
     .accent-bar { height: 3px; width: 100px; margin: 0 auto 28px;
       background: linear-gradient(90deg, #FF7A4A, #2ED4C7); }
 
-    .headline { font-family: 'Fraunces', serif; font-weight: 700; font-size: 60px;
+    .headline { font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 60px;
       line-height: 1.1; margin-bottom: 20px; max-width: 850px; }
-    .subcopy { font-family: 'Inter', sans-serif; font-size: 26px; line-height: 1.4;
+    .subcopy { font-family: 'Poppins', sans-serif; font-size: 26px; line-height: 1.4;
       margin-bottom: 0; max-width: 800px; }
 
     .source-pill { display: inline-flex; align-items: center; gap: 12px;
       padding: 14px 28px; border-radius: 100px;
-      font-family: 'Inter', sans-serif; font-weight: 600; font-size: 15px;
+      font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 15px;
       text-transform: uppercase; letter-spacing: 2px;
       position: relative; z-index: 2; flex-shrink: 0; margin-top: auto; }
     .source-dot { width: 8px; height: 8px; border-radius: 50%;
