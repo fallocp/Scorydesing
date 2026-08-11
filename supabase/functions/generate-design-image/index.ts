@@ -914,6 +914,37 @@ function assembleCarouselSlidePrompt(params: {
   if (slide.body?.trim()) textLines.push(`- Body: "${slide.body.trim()}"`);
   if (slide.cta?.trim()) textLines.push(`- CTA: "${slide.cta.trim()}"`);
 
+  /**
+   * How the baked text is laid out.
+   *
+   * The script agent may hand over a slide whose only text is one line — the shape
+   * the approved copy bank uses. Left unsaid, the image model falls back to the
+   * headline/body hierarchy it knows and re-creates the split typographically:
+   * first sentence large, payoff small. That is the exact failure the one-line
+   * copy shape exists to prevent, so it has to be named here too, not only in the
+   * copy prompt.
+   */
+  const isSingleLine = !slide.body?.trim() && !slide.cta?.trim();
+  const layoutRules: string[] = [];
+
+  if (isSingleLine) {
+    layoutRules.push(
+      'SINGLE-LINE SLIDE: this line is the whole slide and its focal element. Set it large, in one clear open area, wrapped over 2 or 3 lines if it needs the room. Every wrapped line keeps the SAME size and weight — this is one statement, not a title with a subtitle.',
+    );
+    // An internal period means the copy is a two-clause contrast. The payoff is
+    // the second clause, and shrinking it throws away the whole mechanism.
+    if (/\.\s+\S/.test(slide.headline)) {
+      layoutRules.push(
+        'This line is two sentences separated by a period. Both get identical size, weight and colour: the second one is the payoff and must never render smaller, lighter or as a caption under the first.',
+      );
+    }
+  }
+  if (/^cta$/i.test(slide.role)) {
+    layoutRules.push(
+      'CLOSING SLIDE: it carries the call to action and nothing else. Quietest scene of the set, maximum negative space, no competing detail around the text.',
+    );
+  }
+
   return [
     `CAROUSEL SLIDE ${slide.index + 1} OF ${totalSlides} — narrative role "${slide.role}". This image is one piece of a series. The DESIGN SPEC below is identical across every slide on purpose: keep the same visual family, the same recurring subject, the same camera treatment and the same palette. Only the narrative beat changes.`,
     visualMotif.trim()
@@ -921,6 +952,7 @@ function assembleCarouselSlidePrompt(params: {
       : '',
     `DESIGN SPEC (shared by the whole set):\n${designBlock.trim()}`,
     `SCENE FOR THIS SLIDE:\n${sceneBlock.trim()}`,
+    layoutRules.length > 0 ? `TEXT LAYOUT:\n${layoutRules.join('\n')}` : '',
     `TEXT TO RENDER IN THE IMAGE (exact and authoritative):\n${textLines.join('\n')}\nRender ONLY this text, spelled exactly as written, in Spanish, without translating it and without adding words, labels, numbers, captions, stage titles, legends or invented UI text.\n${BRAND_TYPOGRAPHY}\nHeadline in navy #0F1419; at most one short phrase in an accent color. No paragraph blocks, no bullet lists.`,
     'NO BRANDING: do not render any logo, wordmark, brand name (including "Xending"), symbol, watermark or readable signage anywhere. Do not write any legal disclaimer, terms or fine print.',
     reservedSpaceBlock(params.slide.brandElements ?? []),

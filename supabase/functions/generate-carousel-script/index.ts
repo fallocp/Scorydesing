@@ -24,6 +24,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.53.0";
 import { callOpenAI } from '../_shared/callOpenAI.ts';
 import { fetchBusinessContext } from '../_shared/fetchBusinessContext.ts';
 import { buildBranchContextBlock } from '../_shared/buildBranchContextBlock.ts';
+import { CAROUSEL_MECHANICS_EXAMPLES } from '../_shared/carouselExamples.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -36,7 +37,7 @@ const corsHeaders = {
 
 /** One slide the caller wants, described by its narrative job. */
 interface CarouselSlideSpec {
-  /** Persisted role key, e.g. 'hook' | 'problem' | 'example' | 'solution'. */
+  /** Persisted role key, e.g. 'tension' | 'shift' | 'risk' | 'solution' | 'cta'. */
   role: string;
   /** What this slide has to accomplish, in Spanish. Comes from the preset. */
   brief: string;
@@ -52,6 +53,12 @@ interface GenerateCarouselScriptRequest {
   seedCopy: { headline: string; body?: string; cta?: string };
   /** Slides in reading order. Length = number of slides. */
   slides: CarouselSlideSpec[];
+  /**
+   * Every slide carries one line and nothing else — the shape the approved bank
+   * uses. Comes from the preset, so the agent never has to guess whether a second
+   * text level belongs on the slide.
+   */
+  singleLine?: boolean;
   angleName?: string | null;
   industryName?: string | null;
   /** Medium chosen for the WHOLE set — mixing mediums breaks the set. */
@@ -92,8 +99,32 @@ function jsonResponse(body: unknown, status = 200): Response {
  * limits are the reason the copy is written here and not reused verbatim from
  * the seed body.
  */
+
+/**
+ * A slide whose only text is one line. The approved bank runs 9 to 13 words on
+ * these, so a 7-word ceiling was not a safety net — it was the reason the agent
+ * kept splitting a two-clause opening into headline + body and killing the
+ * contrast.
+ */
+const MAX_LINE_WORDS = 14;
+/** Headline of a slide that ALSO carries a body: the two share the frame. */
 const MAX_HEADLINE_WORDS = 7;
 const MAX_BODY_WORDS = 14;
+/** The closing slide is just the call to action. */
+const MAX_CTA_LINE_WORDS = 5;
+
+/**
+ * Word budget for the headline of one slide.
+ *
+ * The opening slide always gets the full line budget, `singleLine` or not: it
+ * carries the seed headline whole, and the seed headline is routinely 13 words
+ * ("El costo en dólares ya está claro. El costo en pesos todavía no").
+ */
+function headlineBudget(index: number, role: string, singleLine: boolean): number {
+  if (/^cta$/i.test(role)) return MAX_CTA_LINE_WORDS;
+  if (index === 0 || singleLine) return MAX_LINE_WORDS;
+  return MAX_HEADLINE_WORDS;
+}
 
 const MEDIUM_LABELS: Record<string, string> = {
   foto: 'fotografía editorial real',
@@ -110,11 +141,12 @@ function buildSystemPrompt(params: {
   angleName?: string | null;
   imageType?: string;
   slides: CarouselSlideSpec[];
+  singleLine: boolean;
   guidance?: string;
 }): string {
   const {
     brandName, compliance, branchContext, verticalKeywords,
-    industryName, angleName, imageType, slides, guidance,
+    industryName, angleName, imageType, slides, singleLine, guidance,
   } = params;
 
   const slideCount = slides.length;
@@ -124,7 +156,8 @@ function buildSystemPrompt(params: {
       const brand = (s.brandElements ?? []).length > 0
         ? ` [Este slide lleva ${s.brandElements!.join(' y ')} montados encima después, así que su copy debe ser aún más breve.]`
         : '';
-      return `Slide ${i + 1} — rol "${s.role}": ${s.brief}${brand}`;
+      const budget = ` (máximo ${headlineBudget(i, s.role, singleLine)} palabras)`;
+      return `Slide ${i + 1} — rol "${s.role}"${budget}: ${s.brief}${brand}`;
     })
     .join('\n');
 
@@ -140,10 +173,29 @@ function buildSystemPrompt(params: {
     complianceLines.push(`TOPES MÁXIMOS (nunca los excedas):\n${maxEntries.map(([k, v]) => `- ${k}: ${v}`).join('\n')}`);
   }
 
-  const cta = slides.filter((s) => /solution|close|cta/i.test(s.role));
-  const ctaRule = cta.length > 0
-    ? `El CTA va SOLO en el slide de rol "${cta[cta.length - 1].role}". En los demás, deja "cta" vacío.`
-    : 'Ningún slide lleva CTA. Deja "cta" vacío en todos.';
+  /**
+   * Where the call to action lives.
+   *
+   * A preset that ends on a dedicated "cta" slide puts it in that slide's
+   * `headline`, not in the `cta` field: the field would bake a second line into an
+   * image whose whole job is to show one. Presets that close on a solution slide
+   * keep the old behaviour and fill `cta` there.
+   */
+  const ctaSlideIndex = slides.findIndex((s) => /^cta$/i.test(s.role));
+  const closing = slides.filter((s) => /solution|close/i.test(s.role));
+  const ctaRule = ctaSlideIndex >= 0
+    ? `El slide ${ctaSlideIndex + 1} es el CTA y es lo ÚNICO imperativo del carrusel: escríbelo en su "headline", deja su "body" vacío, y deja el campo "cta" vacío en TODOS los slides.`
+    : closing.length > 0
+      ? `El CTA va SOLO en el slide de rol "${closing[closing.length - 1].role}". En los demás, deja "cta" vacío.`
+      : 'Ningún slide lleva CTA. Deja "cta" vacío en todos.';
+
+  const lengthRules = singleLine
+    ? `- Cada slide lleva UNA sola línea, en "headline". Deja "body" vacío en todos los slides.
+- El presupuesto de palabras de cada slide está arriba, junto a su rol. Respétalo slide por slide.
+- Sin punto final en la línea, salvo cuando son dos oraciones en contraste: ahí el punto interno sí va ("Tu factura está en dólares. Tu presupuesto, en pesos.").`
+    : `- headline: respeta el máximo indicado junto a cada rol. Sin punto final.
+- body: máximo ${MAX_BODY_WORDS} palabras. Una frase. Si el headline ya dice la idea completa, déjalo vacío en lugar de repetirla.
+- cta: máximo 4 palabras.`;
 
   return `Eres estratega de contenido para ${brandName}, fintech B2B. Escribes carruseles para Instagram y LinkedIn dirigidos a empresas.
 
@@ -155,21 +207,25 @@ ${roleLines}
 
 ## REGLAS DE NARRATIVA
 
-1. El slide 1 arranca del headline semilla, casi tal cual. Ese texto ya lo aprobó el usuario: respétalo, no lo "mejores".
-2. Cada slide AVANZA la historia. Prohibido reformular el mismo mensaje ${slideCount} veces con otras palabras — si los slides son intercambiables, el guion está mal.
-3. Una sola idea por slide. El que intenta decir dos cosas no dice ninguna.
-4. ${ctaRule}
-5. Nada de relleno tipo "en el mundo actual", "hoy más que nunca", "la transformación digital".
+1. El slide 1 lleva el headline semilla COMPLETO, casi tal cual. Ese texto ya lo aprobó el usuario: respétalo, no lo "mejores". Si son dos oraciones en contraste, van las dos en la misma línea — partir la antítesis entre dos niveles de texto mata el gancho.
+2. Los ${slideCount} slides se leen como UNA sola oración cortada en ${slideCount}. Cada slide continúa el anterior y lo retoma ("Eso puede…", "Ese movimiento…", "Y con él…").
+3. Una sola idea por slide, dicha UNA sola vez. Si dos slides son intercambiables, o si dentro de un slide el segundo texto repite el primero, el guion está mal.
+4. El riesgo va en CONDICIONAL: "puede cambiar", "puede moverse", "puede modificar", "puede acumularse". Prohibido afirmar el daño ("se pierde margen", "altera tu costo", "te cuesta") y prohibido el tono de amenaza ("sin avisar", "cuando ya es tarde").
+5. La solución tiene como sujeto al producto, no al cliente: "puede ayudar a definir…", "ayuda a administrar…". Prohibido ordenarle al lector que planee, fije, revise, organice o compare. Eso vive únicamente en el CTA.
+6. Cifras: no las necesitas. Un monto suelto ("USD 100,000") no es un ejemplo. Si de verdad usas un número, va la operación completa y etiquetada como ilustrativa; si no puedes, no pongas número.
+7. Solo claims que autorice el contexto de la rama. No inventes atributos de producto (precio, accesibilidad, mínimos, cobertura) ni descalifiques al mercado o a un tercero.
+8. ${ctaRule}
+9. Nada de relleno tipo "en el mundo actual", "hoy más que nunca", "la transformación digital".
 
 ## REGLAS DE LONGITUD (críticas)
 
 El texto se hornea DENTRO de la imagen, y los modelos de imagen escriben mal las cadenas largas. Por eso:
 
-- headline: máximo ${MAX_HEADLINE_WORDS} palabras. Sin punto final.
-- body: máximo ${MAX_BODY_WORDS} palabras. Una frase.
-- cta: máximo 4 palabras.
+${lengthRules}
 
 Pasarte de ahí rompe la pieza. Si no cabe la idea, recórtala, no la comprimas con abreviaturas.
+
+${CAROUSEL_MECHANICS_EXAMPLES}
 
 ## imageIntent
 
@@ -180,7 +236,8 @@ Bien: "un pallet detenido en el andén mientras el reloj avanza — la mercancí
 
 ## visualMotif
 
-Un sujeto u objeto concreto y ÚNICO que aparece en los ${slideCount} slides y evoluciona con la historia, para que el set se lea como una serie y no como ${slideCount} piezas sueltas. Descríbelo en una frase.${imageType ? `\nEl medio visual del set es ${MEDIUM_LABELS[imageType] ?? imageType}, así que el motivo tiene que ser representable en ese medio.` : ''}
+Un sujeto u objeto concreto y ÚNICO que aparece en los ${slideCount} slides y evoluciona con la historia, para que el set se lea como una serie y no como ${slideCount} piezas sueltas. Descríbelo en una frase.
+Lo que evoluciona es su ESTADO, no el encuadre: el mismo objeto en la misma pose ${slideCount} veces se lee como una pieza repetida, no como una serie.${imageType ? `\nEl medio visual del set es ${MEDIUM_LABELS[imageType] ?? imageType}, así que el motivo tiene que ser representable en ese medio.` : ''}
 
 ${complianceLines.length > 0 ? `## CUMPLIMIENTO (no negociable)\n\n${complianceLines.join('\n\n')}\n` : ''}
 ${branchContext}
@@ -194,7 +251,7 @@ Responde SOLO JSON válido, sin fences ni texto alrededor:
 {
   "visualMotif": "",
   "slides": [
-    { "role": "${slides[0]?.role ?? 'hook'}", "headline": "", "body": "", "cta": "", "imageIntent": "" }
+    { "role": "${slides[0]?.role ?? 'tension'}", "headline": "", "body": "", "cta": "", "imageIntent": "" }
   ]
 }
 
@@ -398,6 +455,7 @@ serve(async (req) => {
       angleName: body.angleName,
       imageType: body.imageType,
       slides: body.slides,
+      singleLine: body.singleLine === true,
       guidance: body.guidance,
     });
 
@@ -435,6 +493,10 @@ serve(async (req) => {
 
     // --- 6. Normalize: the roles and the slide count come from the caller, not
     // from the model, so a hallucinated extra slide cannot corrupt the set. ---
+    const singleLine = body.singleLine === true;
+    /** A preset with its own CTA slide keeps the call to action in that headline. */
+    const hasCtaSlide = body.slides.some((s) => /^cta$/i.test(s.role));
+
     const slides: ScriptSlide[] = body.slides.map((spec, i) => {
       const raw = (parsed.slides![i] ?? {}) as Record<string, unknown>;
       const headline = typeof raw.headline === 'string' ? raw.headline : '';
@@ -443,9 +505,13 @@ serve(async (req) => {
 
       return {
         role: spec.role,
-        headline: clampWords(headline, MAX_HEADLINE_WORDS),
-        body: clampWords(bodyText, MAX_BODY_WORDS),
-        cta: ctaText ? clampWords(ctaText, 4) : undefined,
+        headline: clampWords(headline, headlineBudget(i, spec.role, singleLine)),
+        // On a one-line preset the body is not the model's call: a stray second
+        // line would be baked into an image laid out for a single one. Same for
+        // the CTA field when the preset already has a CTA slide — the text lives
+        // in that slide's headline, and keeping both renders it twice.
+        body: singleLine ? '' : clampWords(bodyText, MAX_BODY_WORDS),
+        cta: ctaText && !hasCtaSlide ? clampWords(ctaText, 4) : undefined,
         imageIntent: typeof raw.imageIntent === 'string' ? raw.imageIntent.trim() : '',
       };
     });

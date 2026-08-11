@@ -1,13 +1,13 @@
 /**
  * CarouselPanel — Stage C of the Design Studio flow.
  *
- * Turns the approved bank copy into a 4-slide carousel. The order of the steps
+ * Turns the approved bank copy into a carousel. The order of the steps
  * is not cosmetic: the text is baked into each image, so the copy has to be
  * final before the prompts are built, and the prompts have to exist before
  * anything is rendered. Each step unlocks the next.
  *
  * Slides render one at a time. A slide that comes out wrong is regenerated on
- * its own, without touching the other three.
+ * its own, without touching the rest of the set.
  */
 
 import { useState } from 'react';
@@ -44,6 +44,7 @@ import {
   CAROUSEL_PRESETS,
   CAROUSEL_ROLE_LABELS,
   DEFAULT_CAROUSEL_PRESET_SLUG,
+  getCarouselPreset,
   type CarouselBrandElement,
   type DesignImageType,
 } from '@/types/design-studio';
@@ -110,6 +111,13 @@ export function CarouselPanel({
   } = queue;
 
   const busy = disabled || isBusy;
+  /**
+   * Shape of the carousel on screen. Read from the persisted slug, not from the
+   * selector, so a carousel loaded from the bank keeps the shape it was written
+   * with instead of the one currently picked.
+   */
+  const activePreset = getCarouselPreset(queue.presetSlug ?? presetSlug);
+  const isSingleLine = activePreset.singleLine === true;
   const allCopyReady = slots.length > 0 && slots.every((s) => s.slideCopy.headline.trim());
   const allDone = slots.length > 0 && doneCount === slots.length;
   const exportableSlides = slots.filter((s) => s.imageUrl);
@@ -134,7 +142,7 @@ export function CarouselPanel({
     if (ok) {
       toast({
         title: 'Prompts listos',
-        description: 'Cada slide tiene su prompt completo. Genera de uno en uno o los 4 seguidos.',
+        description: `Cada slide tiene su prompt completo. Genera de uno en uno o los ${slots.length} seguidos.`,
       });
     }
   };
@@ -232,6 +240,9 @@ export function CarouselPanel({
                   </button>
                 ))}
               </div>
+              <p className="text-[11px] text-muted-foreground">
+                {getCarouselPreset(presetSlug).description}
+              </p>
             </div>
           ) : (
             <p className="text-xs text-muted-foreground">
@@ -287,6 +298,7 @@ export function CarouselPanel({
               slot={slot}
               total={slots.length}
               disabled={busy}
+              singleLine={isSingleLine}
               onChange={(field, value) => queue.updateSlideCopy(slot.index, field, value)}
             />
           ))}
@@ -456,11 +468,14 @@ function SlotCopyEditor({
   slot,
   total,
   disabled,
+  singleLine,
   onChange,
 }: {
   slot: CarouselSlotRuntime;
   total: number;
   disabled: boolean;
+  /** One line per slide: the body field is not part of this shape. */
+  singleLine: boolean;
   onChange: (field: 'headline' | 'body' | 'cta', value: string) => void;
 }) {
   return (
@@ -471,17 +486,21 @@ function SlotCopyEditor({
           value={slot.slideCopy.headline}
           onChange={(e) => onChange('headline', e.target.value)}
           disabled={disabled}
-          placeholder="Headline del slide"
+          placeholder={singleLine ? 'La línea de este slide' : 'Headline del slide'}
           className="text-sm font-semibold"
         />
-        <Textarea
-          rows={2}
-          value={slot.slideCopy.body ?? ''}
-          onChange={(e) => onChange('body', e.target.value)}
-          disabled={disabled}
-          placeholder="Body (una frase)"
-          className="resize-none text-sm"
-        />
+        {/* Hidden on one-line presets: the slide is laid out for a single line, so
+            offering a second field invites text the image has no room for. */}
+        {!singleLine && (
+          <Textarea
+            rows={2}
+            value={slot.slideCopy.body ?? ''}
+            onChange={(e) => onChange('body', e.target.value)}
+            disabled={disabled}
+            placeholder="Body (una frase)"
+            className="resize-none text-sm"
+          />
+        )}
         {/* CTA only where the script placed one — usually the closing slide. */}
         {(slot.slideCopy.cta ?? '') !== '' && (
           <Input

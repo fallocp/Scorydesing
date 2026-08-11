@@ -231,6 +231,9 @@ export function useCarouselQueue({
                 brief: CAROUSEL_ROLE_BRIEFS[role],
                 brandElements: brandElementsForRole(preset, role),
               })),
+              // The shape belongs to the preset, not to the agent: it decides
+              // whether a slide may carry a second text level at all.
+              singleLine: preset.singleLine === true,
               angleName: bankItem.meta.angleName,
               industryName: bankItem.meta.industryName,
               imageType,

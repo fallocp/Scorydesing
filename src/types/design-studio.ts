@@ -125,8 +125,23 @@ export type CopyBankImageMode = 'single' | 'carousel';
 /**
  * Narrative function of a slide. Values stay in English because they are
  * persisted in `piece_v2`; the UI labels them in Spanish.
+ *
+ * Two families live here on purpose:
+ * - `tension | shift | risk | solution | cta` — the five beats the approved copy
+ *   bank actually uses (`docs/prompts/copy-banks/_contexto-maestro.*`, §26).
+ * - `hook | problem | example` — the original four-slide shape. Kept because
+ *   carousels already saved in `piece_v2` carry these roles and have to keep
+ *   rendering after a reload.
  */
-export type CarouselSlideRole = 'hook' | 'problem' | 'example' | 'solution';
+export type CarouselSlideRole =
+  | 'tension'
+  | 'shift'
+  | 'risk'
+  | 'solution'
+  | 'cta'
+  | 'hook'
+  | 'problem'
+  | 'example';
 
 /** Render lifecycle for a slide (drives the per-slot queue UI). */
 export type CarouselSlotStatus =
@@ -139,7 +154,14 @@ export type CarouselSlotStatus =
 /** Brand elements composited on a slide AFTER its image is generated. */
 export type CarouselBrandElement = 'logo' | 'disclaimer';
 
-/** Copy rendered on a single slide. `cta` normally lives on the closing slide. */
+/**
+ * Copy rendered on a single slide.
+ *
+ * `headline` is the only guaranteed field: it holds the line the slide is about.
+ * On a `singleLine` preset it is the WHOLE slide — including the closing slide,
+ * whose headline is the call to action itself. `cta` therefore only carries text
+ * on presets that end with a solution slide instead of a dedicated CTA slide.
+ */
 export interface CarouselSlideCopy {
   headline: string;
   body?: string;
@@ -237,37 +259,78 @@ export interface CarouselPreset {
    * last one: a legal note has to sit next to the number it qualifies.
    */
   brandPlacement: Partial<Record<CarouselBrandElement, CarouselSlideRole>>;
+  /**
+   * Every slide carries ONE line and nothing else — no headline/body split.
+   *
+   * This is how the approved bank writes carousels: the slides read as a single
+   * sentence cut into pieces, so a second text level on the same slide is not
+   * hierarchy, it is the same idea said twice. It also buys the opening slide the
+   * room to keep a two-clause contrast intact instead of splitting it across two
+   * type sizes, which is what broke the first version of this flow.
+   */
+  singleLine?: boolean;
 }
 
 export const CAROUSEL_ROLE_LABELS: Record<CarouselSlideRole, string> = {
+  tension: 'Tensión',
+  shift: 'Qué cambia',
+  risk: 'Qué riesgo',
+  solution: 'Solución',
+  cta: 'CTA',
   hook: 'Gancho',
   problem: 'Problema',
   example: 'Ejemplo',
-  solution: 'Solución',
 };
 
-/** Short brief given to the script agent for each role. */
+/**
+ * Short brief given to the script agent for each role.
+ *
+ * These are transcribed from what the 10 approved carousels actually do, not from
+ * a generic content-marketing arc. Two of them used to fight the copy bank and
+ * are worded defensively now: the opening slide kept getting split in half, and
+ * the third slide kept inventing a bare figure because its brief asked for
+ * "numbers".
+ */
 export const CAROUSEL_ROLE_BRIEFS: Record<CarouselSlideRole, string> = {
-  hook: 'Detiene el scroll. Parte del headline del copy semilla, casi tal cual.',
+  tension:
+    'La tensión, completa, en una sola línea. Es el headline semilla íntegro: si son dos oraciones en contraste, van las dos. Prohibido partirlo en dos niveles de texto.',
+  shift:
+    'Qué puede cambiar entre hoy y el momento del pago. Una frase, en condicional.',
+  risk:
+    'Qué riesgo genera ese cambio para la empresa. Continúa la frase anterior ("ese movimiento…", "y con él…"). Sin cifras inventadas.',
+  solution:
+    'Cómo ayuda la solución. El sujeto es el producto, no el cliente: "puede ayudar a…". Sin imperativos y sin claims que no estén autorizados.',
+  cta: 'Solo el CTA, escrito en el campo headline. Nada más en el slide.',
+  hook: 'Detiene el scroll. Es el headline del copy semilla completo, casi tal cual.',
   problem: 'El costo concreto de no resolverlo. Nada abstracto.',
-  example: 'El caso tangible: números, corredor, industria.',
-  solution: 'Cómo se resuelve, y cierra con el CTA.',
+  example:
+    'El riesgo concreto que eso genera. Un monto suelto no es un ejemplo: si usas una cifra, va la operación completa y etiquetada como ilustrativa.',
 };
 
 export const CAROUSEL_PRESETS: CarouselPreset[] = [
   {
+    slug: 'tension-shift-risk-solution-cta',
+    name: 'Tensión → Qué cambia → Riesgo → Solución → CTA',
+    description:
+      'Los cinco tiempos del banco de copys aprobado: una sola línea por slide y el CTA solo al cierre.',
+    roles: ['tension', 'shift', 'risk', 'solution', 'cta'],
+    // Logo on the cover: it is the only slide everyone sees in the feed.
+    // Disclaimer on the solution, the one slide that makes a product claim —
+    // this shape carries no figures, so there is nothing to qualify earlier.
+    brandPlacement: { logo: 'tension', disclaimer: 'solution' },
+    singleLine: true,
+  },
+  {
     slug: 'hook-problem-example-solution',
     name: 'Gancho → Problema → Ejemplo → Solución',
     description:
-      'Arco de 4 slides para explicar un tema y aterrizarlo con un caso concreto.',
+      'Arco de 4 slides con headline y body por slide. Cierra con el CTA en el último.',
     roles: ['hook', 'problem', 'example', 'solution'],
-    // Logo on the cover: it is the only slide everyone sees in the feed.
-    // Disclaimer on the example, which is where the hard numbers live.
     brandPlacement: { logo: 'hook', disclaimer: 'example' },
   },
 ];
 
-export const DEFAULT_CAROUSEL_PRESET_SLUG = 'hook-problem-example-solution';
+export const DEFAULT_CAROUSEL_PRESET_SLUG = 'tension-shift-risk-solution-cta';
 
 export function getCarouselPreset(slug: string): CarouselPreset {
   return (

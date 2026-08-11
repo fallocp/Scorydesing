@@ -1321,7 +1321,7 @@ export default function DesignStudioPage() {
                 )}
 
                 {/* ---------- ETAPA C — CARRUSEL ---------- */}
-                {/* Derives a 4-slide set from the same active copy. Independent
+                {/* Derives a chained slide set from the same active copy. Independent
                     of Stage B: the single image and the carousel are two
                     different outputs of one approved copy. */}
                 {store.activeCandidateId && (
@@ -1329,7 +1329,7 @@ export default function DesignStudioPage() {
                     <StageHeader
                       number={3}
                       title="Carrusel (opcional)"
-                      subtitle="Desglosa el copy activo en 4 slides encadenados"
+                      subtitle="Desglosa el copy activo en slides encadenados"
                     />
                     <CarouselPanel
                       bankItem={activeCarouselItem}
