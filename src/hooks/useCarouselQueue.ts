@@ -113,6 +113,10 @@ export function useCarouselQueue({
   const [presetSlug, setPresetSlug] = useState<string | null>(null);
   const [isScripting, setIsScripting] = useState(false);
   const [isBuildingPrompts, setIsBuildingPrompts] = useState(false);
+  /** Fetching the visual spec from the single-image path. */
+  const [isBuildingAnchor, setIsBuildingAnchor] = useState(false);
+  /** Slide whose prompt is being written, or null. One request at a time. */
+  const [promptingIndex, setPromptingIndex] = useState<number | null>(null);
   /** Index currently rendering, or null. Only one image at a time. */
   const [renderingIndex, setRenderingIndex] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -162,6 +166,7 @@ export function useCarouselQueue({
       })),
     );
     setVisualAnchor(carousel.visualAnchor);
+    setVisualMotif(carousel.visualMotif ?? '');
     setGroupId(carousel.groupId);
     setPresetSlug(carousel.presetSlug);
     setError(null);
@@ -172,6 +177,7 @@ export function useCarouselQueue({
     async (next: {
       slots: CarouselSlotRuntime[];
       visualAnchor?: string;
+      visualMotif?: string;
       groupId?: string;
       presetSlug?: string;
       imageType?: DesignImageType;
@@ -181,6 +187,7 @@ export function useCarouselQueue({
       const meta: CarouselMeta = {
         presetSlug: next.presetSlug ?? presetSlug ?? '',
         visualAnchor: next.visualAnchor ?? visualAnchor,
+        visualMotif: next.visualMotif ?? visualMotif,
         groupId: next.groupId ?? groupId ?? crypto.randomUUID(),
         imageType: next.imageType ?? imageType,
         slots: toPersisted(next.slots),
@@ -266,8 +273,10 @@ export function useCarouselQueue({
           };
         });
 
+        const scriptedMotif = typeof data.visualMotif === 'string' ? data.visualMotif : '';
+
         applySlots(nextSlots);
-        setVisualMotif(typeof data.visualMotif === 'string' ? data.visualMotif : '');
+        setVisualMotif(scriptedMotif);
         setGroupId(newGroupId);
         setPresetSlug(params.presetSlug);
         setVisualAnchor('');
@@ -275,6 +284,9 @@ export function useCarouselQueue({
         await persist({
           slots: nextSlots,
           visualAnchor: '',
+          // Passed explicitly: the state setter above has not landed yet, so the
+          // value in `persist`'s closure is still the previous motif.
+          visualMotif: scriptedMotif,
           groupId: newGroupId,
           presetSlug: params.presetSlug,
         });
@@ -316,10 +328,157 @@ export function useCarouselQueue({
     [applySlots],
   );
 
+  /**
+   * What this slide's image must communicate.
+   *
+   * Editable for the same reason the copy is: the agent decides it, and if it
+   * picks the wrong idea the only alternative used to be regenerating the whole
+   * script. Changing it invalidates the prompt, because the prompt carries the
+   * scene that was built from this text.
+   */
+  const updateSlideImageIntent = useCallback(
+    (index: number, value: string) => {
+      applySlots(
+        slotsRef.current.map((s) =>
+          s.index === index
+            ? { ...s, imageIntent: value, prompt: '', status: 'idle' as CarouselSlotStatus }
+            : s,
+        ),
+      );
+    },
+    [applySlots],
+  );
+
+  /**
+   * The recurring subject of the set.
+   *
+   * Shared by every slide, so editing it invalidates ALL the prompts — each one
+   * names the motif and a set built under two different motifs stops reading as a
+   * series.
+   */
+  const updateVisualMotif = useCallback(
+    (value: string) => {
+      setVisualMotif(value);
+      applySlots(
+        slotsRef.current.map((s) => ({
+          ...s,
+          prompt: '',
+          status: 'idle' as CarouselSlotStatus,
+        })),
+      );
+    },
+    [applySlots],
+  );
+
   const saveSlideCopy = useCallback(async () => {
     if (slotsRef.current.length === 0) return;
-    await persist({ slots: slotsRef.current });
-  }, [persist]);
+    await persist({ slots: slotsRef.current, visualMotif });
+  }, [persist, visualMotif]);
+
+  // -------------------------------------------------------------------------
+  // 2.5 Visual anchor: borrow the single-image flow's own prompt
+  // -------------------------------------------------------------------------
+
+  /**
+   * Bring in the visual spec from the single-image path.
+   *
+   * The two paths share the same master image prompt as their system message but
+   * NOT their output contract: the single flow asks the model for the finished
+   * `prompt_final`, while the carousel used to ask for a `designBlock` — a summary
+   * the model writes about its own instructions. Anything the master prompt would
+   * have injected that the summary skipped was simply lost, which is why the slides
+   * came out looking less like the brand than the individual pieces.
+   *
+   * So instead of asking for a summary, this runs the real single-image call and
+   * keeps the prompt it produces for the chosen medium. The set then inherits an
+   * actual, master-faithful prompt, and the user can read and edit it — the old
+   * anchor was generated, stored and never shown.
+   */
+  const buildVisualAnchor = useCallback(async () => {
+    if (!bankItem || !activeBusinessId) return false;
+
+    const promptSelection = resolveMasterImagePromptSelection(background);
+    const variant = imageTypeToPromptVariant(imageType);
+
+    setIsBuildingAnchor(true);
+    setError(null);
+
+    try {
+      const { data, error: fnError } = await supabase.functions.invoke('generate-design-image', {
+        body: {
+          // The single-image contract, narrowed to the medium this set uses: the
+          // anchor only reads one variant, and asking for the other two is what
+          // made the response run long enough to come back incomplete.
+          mode: 'prompts',
+          promptVariant: variant,
+          // Sistema visual sin escena: este texto se inserta en los N slides, así
+          // que cualquier objeto que traiga se repetiría en todos.
+          promptScope: 'style_only',
+          userRequest: bankItem.row.headline,
+          brand: brandSlug === 'xending-capital' ? 'xending_capital' : 'xending',
+          business_id: activeBusinessId,
+          branch_id: branchId,
+          vertical_id: bankItem.row.vertical_id ?? undefined,
+          headline: bankItem.row.headline,
+          body: bankItem.row.subcopy ?? '',
+          cta: bankItem.row.cta ?? '',
+          imageIntent: visualMotif || bankItem.row.headline,
+          angle: bankItem.meta.angleName ?? 'general',
+          backgroundStyle: promptSelection.backgroundStyle,
+          masterPromptVersion: promptSelection.masterPromptVersion,
+          corridorMode: bankItem.meta.corridorOverride?.mode ?? 'auto',
+          corridorFlowType: bankItem.meta.corridorOverride?.flowType ?? 'auto',
+          aspectRatio: CAROUSEL_ASPECT_RATIO,
+          imageSize: IMAGE_SIZE,
+        },
+      });
+
+      const promptFinal: string | undefined = data?.prompts?.[variant]?.prompt_final;
+      if (fnError || !promptFinal?.trim()) {
+        throw new Error(
+          data?.message ?? fnError?.message ?? 'No se obtuvo el estilo de la imagen individual',
+        );
+      }
+
+      // Every slide prompt quotes the anchor, so a new anchor makes the existing
+      // prompts stale: they still carry the previous visual system.
+      const nextSlots = slotsRef.current.map((s) => ({
+        ...s,
+        prompt: '',
+        status: 'idle' as CarouselSlotStatus,
+        error: undefined,
+      }));
+
+      applySlots(nextSlots);
+      setVisualAnchor(promptFinal.trim());
+      await persist({ slots: nextSlots, visualAnchor: promptFinal.trim(), visualMotif });
+
+      return true;
+    } catch (err) {
+      setError(errorMessage(err, 'Error trayendo el estilo de la imagen individual'));
+      return false;
+    } finally {
+      setIsBuildingAnchor(false);
+    }
+  }, [
+    bankItem, activeBusinessId, branchId, background, imageType, brandSlug,
+    visualMotif, persist, applySlots,
+  ]);
+
+  /** Manual edits to the anchor invalidate every prompt built from it. */
+  const updateVisualAnchor = useCallback(
+    (value: string) => {
+      setVisualAnchor(value);
+      applySlots(
+        slotsRef.current.map((s) => ({
+          ...s,
+          prompt: '',
+          status: 'idle' as CarouselSlotStatus,
+        })),
+      );
+    },
+    [applySlots],
+  );
 
   // -------------------------------------------------------------------------
   // 3. Prompts: one self-contained prompt per slide, single call
@@ -339,62 +498,107 @@ export function useCarouselQueue({
     setIsBuildingPrompts(true);
     setError(null);
 
-    try {
-      const { data, error: fnError } = await supabase.functions.invoke('generate-design-image', {
-        body: {
-          // Required by the function's shared validation.
-          userRequest: bankItem.row.headline,
-          brand: brandSlug === 'xending-capital' ? 'xending_capital' : 'xending',
-          business_id: activeBusinessId,
-          branch_id: branchId,
-          vertical_id: bankItem.row.vertical_id ?? undefined,
-          mode: 'carousel_prompts',
-          imageType: imageTypeToPromptVariant(imageType),
-          visualMotif,
-          carouselSlides: current.map((s) => ({
-            index: s.index,
-            role: s.role,
-            headline: s.slideCopy.headline,
-            body: s.slideCopy.body,
-            cta: s.slideCopy.cta,
-            imageIntent: s.imageIntent || s.slideCopy.headline,
-            brandElements: s.brandElements,
-          })),
-          // Seed-level context for the interpolated master prompt.
-          headline: bankItem.row.headline,
-          body: bankItem.row.subcopy ?? '',
-          imageIntent: visualMotif || bankItem.row.headline,
-          angle: bankItem.meta.angleName ?? 'general',
-          backgroundStyle: promptSelection.backgroundStyle,
-          masterPromptVersion: promptSelection.masterPromptVersion,
-          corridorMode: bankItem.meta.corridorOverride?.mode ?? 'auto',
-          corridorFlowType: bankItem.meta.corridorOverride?.flowType ?? 'auto',
-          aspectRatio: CAROUSEL_ASPECT_RATIO,
-          imageSize: IMAGE_SIZE,
-        },
-      });
-
-      const built = data?.carousel?.slides;
-      if (fnError || !Array.isArray(built)) {
-        throw new Error(data?.message ?? fnError?.message ?? 'No se generaron los prompts');
-      }
-
-      const promptByIndex = new Map<number, string>(
-        built.map((s: { index: number; promptFinal: string }) => [s.index, s.promptFinal]),
-      );
-
-      const nextSlots = current.map((s) => ({
+    /**
+     * Start from a clean slate.
+     *
+     * Every slide of a set has to carry the SAME design block, and each build
+     * produces a fresh one. Leaving the old prompts in place would let a build
+     * that fails halfway leave the set straddling two visual specs, which is
+     * invisible until the images come out looking unrelated.
+     */
+    applySlots(
+      slotsRef.current.map((s) => ({
         ...s,
-        prompt: promptByIndex.get(s.index) ?? s.prompt,
+        prompt: '',
         status: 'idle' as CarouselSlotStatus,
         error: undefined,
-      }));
+      })),
+    );
 
-      const anchor = typeof data.carousel.designBlock === 'string' ? data.carousel.designBlock : '';
+    // Shared context. Identical in every call so the slides stay in one family.
+    const baseBody = {
+      // Required by the function's shared validation.
+      userRequest: bankItem.row.headline,
+      brand: brandSlug === 'xending-capital' ? 'xending_capital' : 'xending',
+      business_id: activeBusinessId,
+      branch_id: branchId,
+      vertical_id: bankItem.row.vertical_id ?? undefined,
+      mode: 'carousel_prompts',
+      imageType: imageTypeToPromptVariant(imageType),
+      visualMotif,
+      carouselTotalSlides: current.length,
+      // Seed-level context for the interpolated master prompt.
+      headline: bankItem.row.headline,
+      body: bankItem.row.subcopy ?? '',
+      imageIntent: visualMotif || bankItem.row.headline,
+      angle: bankItem.meta.angleName ?? 'general',
+      backgroundStyle: promptSelection.backgroundStyle,
+      masterPromptVersion: promptSelection.masterPromptVersion,
+      corridorMode: bankItem.meta.corridorOverride?.mode ?? 'auto',
+      corridorFlowType: bankItem.meta.corridorOverride?.flowType ?? 'auto',
+      aspectRatio: CAROUSEL_ASPECT_RATIO,
+      imageSize: IMAGE_SIZE,
+    };
 
-      applySlots(nextSlots);
+    /**
+     * One request per slide, in reading order.
+     *
+     * Asking for the design spec plus every scene in a single response is what
+     * made a 5-slide set time out at the platform's 110s ceiling, and it made one
+     * slow response cost the whole set.
+     *
+     * Starting from an existing anchor (see `buildVisualAnchor`) means NO call has
+     * to write a design block: every slide only writes its own scene, and the whole
+     * set inherits the single-image flow's visual system verbatim. Without one, the
+     * first call still produces a block so the flow keeps working on its own.
+     */
+    let anchor = visualAnchor.trim();
+
+    try {
+      for (const slot of current) {
+        setPromptingIndex(slot.index);
+
+        const { data, error: fnError } = await supabase.functions.invoke('generate-design-image', {
+          body: {
+            ...baseBody,
+            carouselDesignBlock: anchor || undefined,
+            carouselSlides: [{
+              index: slot.index,
+              role: slot.role,
+              headline: slot.slideCopy.headline,
+              body: slot.slideCopy.body,
+              cta: slot.slideCopy.cta,
+              imageIntent: slot.imageIntent || slot.slideCopy.headline,
+              brandElements: slot.brandElements,
+            }],
+          },
+        });
+
+        const built = data?.carousel?.slides?.[0];
+        if (fnError || !built?.promptFinal) {
+          throw new Error(
+            data?.message ?? fnError?.message
+            ?? `No se generó el prompt del slide ${slot.index + 1}`,
+          );
+        }
+
+        if (!anchor && typeof data.carousel.designBlock === 'string') {
+          anchor = data.carousel.designBlock;
+        }
+
+        // Write as they land: the user watches the set build, and a failure
+        // partway leaves the finished prompts visible instead of discarding them.
+        applySlots(
+          slotsRef.current.map((s) =>
+            s.index === slot.index
+              ? { ...s, prompt: built.promptFinal, status: 'idle' as CarouselSlotStatus, error: undefined }
+              : s,
+          ),
+        );
+      }
+
       setVisualAnchor(anchor);
-      await persist({ slots: nextSlots, visualAnchor: anchor });
+      await persist({ slots: slotsRef.current, visualAnchor: anchor, visualMotif });
 
       return true;
     } catch (err) {
@@ -402,8 +606,12 @@ export function useCarouselQueue({
       return false;
     } finally {
       setIsBuildingPrompts(false);
+      setPromptingIndex(null);
     }
-  }, [bankItem, activeBusinessId, branchId, background, imageType, visualMotif, brandSlug, persist, applySlots]);
+  }, [
+    bankItem, activeBusinessId, branchId, background, imageType, visualMotif,
+    visualAnchor, brandSlug, persist, applySlots,
+  ]);
 
   const updateSlotPrompt = useCallback(
     (index: number, prompt: string) => {
@@ -455,7 +663,18 @@ export function useCarouselQueue({
             angle: bankItem.meta.angleName ?? 'general',
             aspectRatio: CAROUSEL_ASPECT_RATIO,
             imageSize: IMAGE_SIZE,
-            imageQuality: 'high',
+            /**
+             * Same quality every other image flow uses (it is the function's
+             * default; the carousel was the only caller asking for 'high').
+             *
+             * 'high' at 1024² did not come back inside the 110s the function
+             * allows itself before the platform gateway kills the request, so
+             * every slide failed with a timeout. A carousel is the flow that can
+             * least afford it: five renders in a row means five chances to hit
+             * the ceiling. Going back to 'high' needs the render to stop being a
+             * synchronous request, not a longer timeout.
+             */
+            imageQuality: 'medium',
           },
         });
 
@@ -470,6 +689,9 @@ export function useCarouselQueue({
           promptUsed: slot.prompt,
           carouselGroupId: effectiveGroupId,
           carouselIndex: index,
+          // Links the catalogue entry the function just created to this mockup, so
+          // deleting the slide also removes it from the asset library.
+          imageLibraryId: data?.imageLibraryId ?? null,
         });
 
         // Persist the pointer, keep the pixels in memory. Read from the ref so a
@@ -559,6 +781,8 @@ export function useCarouselQueue({
     // Flags
     isScripting,
     isBuildingPrompts,
+    isBuildingAnchor,
+    promptingIndex,
     renderingIndex,
     isBusy: isScripting || isBuildingPrompts || renderingIndex !== null,
     hasPrompts,
@@ -567,7 +791,11 @@ export function useCarouselQueue({
     // Actions
     createScript,
     updateSlideCopy,
+    updateSlideImageIntent,
+    updateVisualMotif,
     saveSlideCopy,
+    buildVisualAnchor,
+    updateVisualAnchor,
     buildPrompts,
     updateSlotPrompt,
     generateSlot,

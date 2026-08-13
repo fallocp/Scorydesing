@@ -18,6 +18,7 @@ import {
   FileText,
   Images,
   Loader2,
+  Palette,
   RefreshCw,
   Save,
   Sparkles,
@@ -58,10 +59,18 @@ interface CarouselPanelProps {
   /** The approved bank copy this carousel derives from. */
   bankItem: CopyBankItem | null;
   branchId: string | null;
-  /** Visible "Fondo" choice — same mapping the single-image flow uses. */
+  /**
+   * "Fondo" chosen in Stage B, used as the starting point. The carousel owns its
+   * own choice from there: inheriting it silently meant a set could be rendered
+   * under the plainest background without the panel ever showing which one.
+   */
   background: string | null;
-  /** Medium for the whole set. */
-  imageType: DesignImageType;
+  /**
+   * Medium chosen in Stage B, if any. Only a default — the carousel picks its own
+   * below, because this is the setting that decides whether the slides carry the
+   * Xending visual system or come out as plain photography.
+   */
+  imageType: DesignImageType | null;
   brandSlug: string | undefined;
   /** Logo and legal text composited on the slides that carry them. */
   branding: CarouselBranding;
@@ -74,6 +83,37 @@ const BRAND_ELEMENT_LABELS: Record<CarouselBrandElement, string> = {
   logo: 'logo',
   disclaimer: 'disclaimer',
 };
+
+/**
+ * Media the set can be rendered in, with what each one actually does to the look.
+ * The hint matters: `foto` reads like the safe default and is the one that drops
+ * the visual system.
+ */
+const CAROUSEL_IMAGE_TYPES: { value: DesignImageType; label: string; hint: string }[] = [
+  {
+    value: 'infografia',
+    label: 'Infografía 3D',
+    hint: 'Iconografía 3D Xending, acentos turquesa y coral. Es el que trae el sistema visual completo.',
+  },
+  {
+    value: 'foto',
+    label: 'Fotografía',
+    hint: 'Excepción fotográfica natural: foto real, con el sistema visual relajado a propósito.',
+  },
+  {
+    value: 'financiero',
+    label: 'Financiero',
+    hint: 'Visualización financiera: dashboards, gráficas y ruta de la operación.',
+  },
+];
+
+/** Same "Fondo" options the single-image selector offers, so ambos coinciden. */
+const CAROUSEL_BACKGROUNDS: { value: string; label: string }[] = [
+  { value: 'white-xending-v2', label: 'Blanco Xending V2' },
+  { value: 'white-2', label: 'Blanco 2.0' },
+  { value: 'white-classic', label: 'Blanco V1' },
+  { value: 'dark-navy', label: 'Navy' },
+];
 
 export function CarouselPanel({
   bankItem,
@@ -90,11 +130,27 @@ export function CarouselPanel({
   const [guidance, setGuidance] = useState('');
   const [isExporting, setIsExporting] = useState<'png' | 'pdf' | null>(null);
 
+  /**
+   * Medium for the whole set.
+   *
+   * Defaults to `infografia`, not to the Stage B value: `foto` routes the prompt
+   * through the master prompt's "excepción fotográfica natural", which relaxes the
+   * visual system on purpose and produced sets that looked like stock product
+   * photography. `infografia` is the register that carries the Xending look.
+   */
+  const [setImageType, setSetImageType] = useState<DesignImageType>(
+    imageType ?? 'infografia',
+  );
+  /** Background for the whole set, seeded from Stage B. */
+  const [setBackground, setSetBackground] = useState<string>(
+    background ?? 'white-xending-v2',
+  );
+
   const queue = useCarouselQueue({
     bankItem,
     branchId,
-    background,
-    imageType,
+    background: setBackground,
+    imageType: setImageType,
     brandSlug,
     persistMeta,
   });
@@ -103,6 +159,8 @@ export function CarouselPanel({
     slots,
     isScripting,
     isBuildingPrompts,
+    isBuildingAnchor,
+    promptingIndex,
     renderingIndex,
     isBusy,
     hasPrompts,
@@ -124,17 +182,38 @@ export function CarouselPanel({
 
   const handleCreateScript = async () => {
     const ok = await queue.createScript({ presetSlug, guidance });
-    if (ok) {
-      toast({
-        title: 'Guion listo',
-        description: 'Revisa y ajusta el copy de cada slide antes de generar los prompts.',
-      });
-    }
+    if (!ok) return;
+
+    /**
+     * The visual spec is not something the user should have to go fetch.
+     *
+     * It used to be a button, and skipping it silently produced a set whose visual
+     * system was a summary the model wrote about itself instead of the real one from
+     * the single-image path. Since there is only one right answer here, it resolves
+     * with the script. The button stays as "volver a traer" for when the medium or
+     * the background changes.
+     */
+    await queue.buildVisualAnchor();
+
+    toast({
+      title: 'Guion listo',
+      description: 'Revisa y ajusta el copy de cada slide antes de generar los prompts.',
+    });
   };
 
   const handleSaveCopy = async () => {
     await queue.saveSlideCopy();
     toast({ title: 'Copys guardados' });
+  };
+
+  const handleBuildAnchor = async () => {
+    const ok = await queue.buildVisualAnchor();
+    if (ok) {
+      toast({
+        title: 'Estilo traído',
+        description: 'Los slides van a heredar el sistema visual de la imagen individual.',
+      });
+    }
   };
 
   const handleBuildPrompts = async () => {
@@ -250,6 +329,47 @@ export function CarouselPanel({
             </p>
           )}
 
+          {/* Medio y fondo del set. Antes se heredaban en silencio de la Etapa B
+              y un default de 'foto' dejaba los slides sin el sistema visual. */}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Estilo visual del set
+              </Label>
+              <div className="flex flex-wrap gap-2">
+                {CAROUSEL_IMAGE_TYPES.map((opt) => (
+                  <OptionChip
+                    key={opt.value}
+                    label={opt.label}
+                    active={setImageType === opt.value}
+                    disabled={busy}
+                    onClick={() => setSetImageType(opt.value)}
+                  />
+                ))}
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                {CAROUSEL_IMAGE_TYPES.find((o) => o.value === setImageType)?.hint}
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Fondo
+              </Label>
+              <div className="flex flex-wrap gap-2">
+                {CAROUSEL_BACKGROUNDS.map((opt) => (
+                  <OptionChip
+                    key={opt.value}
+                    label={opt.label}
+                    active={setBackground === opt.value}
+                    disabled={busy}
+                    onClick={() => setSetBackground(opt.value)}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+
           <div className="space-y-1.5">
             <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Guía del carrusel (opcional)
@@ -292,6 +412,28 @@ export function CarouselPanel({
             </span>
           </div>
 
+          {/* Motivo recurrente del set. Es lo que hila los slides, y también lo
+              que hace que los N se sientan la misma imagen si está mal elegido.
+              Editarlo invalida los prompts porque todos lo nombran. */}
+          <div className="space-y-1.5 rounded-md border border-border/70 bg-background p-3">
+            <div className="flex items-center justify-between gap-2">
+              <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Motivo visual del set
+              </Label>
+              <span className="text-[10px] text-muted-foreground">
+                Es el hilo entre slides, no el protagonista de los {slots.length}
+              </span>
+            </div>
+            <Textarea
+              rows={2}
+              value={queue.visualMotif}
+              onChange={(e) => queue.updateVisualMotif(e.target.value)}
+              disabled={busy}
+              placeholder="El objeto o sujeto concreto que reaparece a lo largo del set"
+              className="resize-none text-sm"
+            />
+          </div>
+
           {slots.map((slot) => (
             <SlotCopyEditor
               key={slot.id}
@@ -300,8 +442,62 @@ export function CarouselPanel({
               disabled={busy}
               singleLine={isSingleLine}
               onChange={(field, value) => queue.updateSlideCopy(slot.index, field, value)}
+              onImageIntentChange={(value) => queue.updateSlideImageIntent(slot.index, value)}
             />
           ))}
+
+          {/* Ancla visual: el prompt del flujo individual, reutilizado tal cual.
+              Antes el sistema visual lo resumía el modelo en un designBlock y lo
+              que el resumen omitía se perdía; esto lo trae del camino que ya
+              produce las piezas que funcionan. */}
+          <div className="space-y-2 rounded-md border border-[#2ED4C7]/40 bg-[#2ED4C7]/5 p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Estilo visual del set
+              </Label>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleBuildAnchor}
+                disabled={busy}
+              >
+                {isBuildingAnchor ? (
+                  <>
+                    <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                    Trayendo el estilo...
+                  </>
+                ) : (
+                  <>
+                    <Palette className="mr-2 h-3.5 w-3.5" />
+                    {queue.visualAnchor ? 'Volver a traer el estilo' : 'Traer el estilo'}
+                  </>
+                )}
+              </Button>
+            </div>
+
+            {queue.visualAnchor ? (
+              <>
+                <Textarea
+                  rows={5}
+                  value={queue.visualAnchor}
+                  onChange={(e) => queue.updateVisualAnchor(e.target.value)}
+                  disabled={busy}
+                  className="resize-y font-mono text-[11px] leading-relaxed"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Se inserta idéntico en los {slots.length} slides. Su escena se ignora — cada
+                  slide aporta la suya.
+                </p>
+              </>
+            ) : (
+              <p className="text-[11px] text-muted-foreground">
+                Se trae solo al generar el guion: los {slots.length} slides heredan el medio, la
+                cámara, la luz y la paleta del flujo de imagen individual. Usa el botón solo si
+                cambiaste el estilo o el fondo.
+              </p>
+            )}
+          </div>
 
           <div className="flex flex-wrap gap-2">
             <Button
@@ -324,7 +520,8 @@ export function CarouselPanel({
               {isBuildingPrompts ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Generando los {slots.length} prompts...
+                  {/* One request per slide, so the progress is real. */}
+                  Prompt {(promptingIndex ?? 0) + 1} de {slots.length}...
                 </>
               ) : (
                 <>
@@ -445,6 +642,37 @@ export function CarouselPanel({
 // Subcomponents
 // ---------------------------------------------------------------------------
 
+function OptionChip({
+  label,
+  active,
+  disabled,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-pressed={active}
+      className={cn(
+        'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        'disabled:cursor-not-allowed disabled:opacity-50',
+        active
+          ? 'border-primary bg-primary text-primary-foreground'
+          : 'border-input bg-background hover:bg-accent',
+      )}
+    >
+      {label}
+    </button>
+  );
+}
+
 function SlotHeader({ slot, total }: { slot: CarouselSlotRuntime; total: number }) {
   return (
     <div className="flex items-center gap-2">
@@ -470,6 +698,7 @@ function SlotCopyEditor({
   disabled,
   singleLine,
   onChange,
+  onImageIntentChange,
 }: {
   slot: CarouselSlotRuntime;
   total: number;
@@ -477,6 +706,7 @@ function SlotCopyEditor({
   /** One line per slide: the body field is not part of this shape. */
   singleLine: boolean;
   onChange: (field: 'headline' | 'body' | 'cta', value: string) => void;
+  onImageIntentChange: (value: string) => void;
 }) {
   return (
     <Card className="border-border/70">
@@ -511,11 +741,21 @@ function SlotCopyEditor({
             className="text-sm"
           />
         )}
-        {slot.imageIntent && (
-          <p className="text-[11px] italic text-muted-foreground">
-            Imagen: {slot.imageIntent}
-          </p>
-        )}
+        {/* Editable: es lo que define la escena de este slide. Antes solo se podía
+            leer, así que corregir una idea mala obligaba a rehacer el guion. */}
+        <div className="space-y-1">
+          <Label className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+            Qué debe comunicar la imagen
+          </Label>
+          <Textarea
+            rows={2}
+            value={slot.imageIntent}
+            onChange={(e) => onImageIntentChange(e.target.value)}
+            disabled={disabled}
+            placeholder="La escena concreta de este slide"
+            className="resize-none text-xs italic"
+          />
+        </div>
       </CardContent>
     </Card>
   );

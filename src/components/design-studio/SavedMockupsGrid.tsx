@@ -15,13 +15,27 @@ import {
   Instagram,
   Facebook,
   Linkedin,
+  Loader2,
   RectangleHorizontal,
   Stamp,
+  Trash2,
   type LucideIcon,
 } from 'lucide-react'
 import { useState } from 'react'
 import type { SavedMockup } from '@/hooks/useDesignMockups'
+import { useDeleteMockup } from '@/hooks/useDesignMockups'
 import { useLikeMockup, useDislikeMockup, useRecentFeedback } from '@/hooks/useDesignFeedback'
+import { useToast } from '@/components/ui/use-toast'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { MockupIterationChat } from './MockupIterationChat'
 import { MockupSlideViewer, type MockupSlideItem } from './MockupSlideViewer'
 import { BrandLayerDialog } from './BrandLayerDialog'
@@ -61,6 +75,11 @@ interface SavedMockupsGridProps {
   onIterateFrom?: (mockup: SavedMockup, feedback: string) => void
   selectedId: string | null
   isGenerating?: boolean
+  /**
+   * Called when the selected mockup is deleted, so the caller can drop whatever
+   * it loaded from it. Optional: a caller that keeps no state can ignore it.
+   */
+  onClearSelection?: () => void
 }
 
 export function SavedMockupsGrid({
@@ -70,13 +89,39 @@ export function SavedMockupsGrid({
   onIterateFrom,
   selectedId,
   isGenerating = false,
+  onClearSelection,
 }: SavedMockupsGridProps) {
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
   const [iteratingMockup, setIteratingMockup] = useState<SavedMockup | null>(null)
   const [brandingMockup, setBrandingMockup] = useState<SavedMockup | null>(null)
+  /** Mockup pending deletion. Deleting is irreversible, so it goes through a confirm. */
+  const [deletingMockup, setDeletingMockup] = useState<SavedMockup | null>(null)
   const { data: feedbackMap } = useRecentFeedback()
   const likeMutation = useLikeMockup()
   const dislikeMutation = useDislikeMockup()
+  const deleteMutation = useDeleteMockup()
+  const { toast } = useToast()
+
+  const confirmDelete = async () => {
+    if (!deletingMockup) return
+    const target = deletingMockup
+    setDeletingMockup(null)
+
+    try {
+      await deleteMutation.mutateAsync({ id: target.id })
+      // Clearing the selection matters: the store still holds this image loaded
+      // for HTML conversion, and leaving it selected points the flow at a mockup
+      // that no longer exists.
+      if (selectedId === target.id) onClearSelection?.()
+      toast({ title: 'Mockup borrado' })
+    } catch (err) {
+      toast({
+        title: 'No se pudo borrar',
+        description: err instanceof Error ? err.message : 'Error desconocido',
+        variant: 'destructive',
+      })
+    }
+  }
 
   const likeMockup = (mockup: SavedMockup) => {
     likeMutation.mutate({
@@ -130,6 +175,39 @@ export function SavedMockupsGrid({
 
   return (
     <>
+      {/* Confirmación de borrado: quita la fila y el archivo de Storage, sin vuelta atrás */}
+      <AlertDialog
+        open={deletingMockup !== null}
+        onOpenChange={(open) => !open && setDeletingMockup(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Borrar este mockup?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Se elimina el registro y también la imagen del almacenamiento. No se puede
+              recuperar. Si el mockup es parte de un carrusel, ese slide se queda sin imagen y
+              hay que volver a generarlo.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {deletingMockup && (
+            <img
+              src={deletingMockup.image_url}
+              alt=""
+              className="max-h-48 w-full rounded-md object-contain bg-muted/40"
+            />
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Borrar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Slide viewer — navigate the whole list with ← / → */}
       {expandedIndex !== null && (
         <MockupSlideViewer
@@ -195,6 +273,17 @@ export function SavedMockupsGrid({
                   disabled={dislikeMutation.isPending}
                 >
                   <ThumbsDown className="h-5 w-5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setExpandedIndex(null)
+                    setDeletingMockup(mockup)
+                  }}
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-destructive"
+                  title="Borrar mockup"
+                >
+                  <Trash2 className="h-5 w-5" />
                 </button>
               </>
             )
@@ -286,6 +375,22 @@ export function SavedMockupsGrid({
                   >
                     <Download className="h-4 w-4" />
                   </a>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setDeletingMockup(mockup)
+                    }}
+                    disabled={deleteMutation.isPending}
+                    className="h-9 w-9 flex items-center justify-center rounded-full bg-black/60 text-white transition hover:bg-destructive disabled:opacity-50"
+                    title="Borrar mockup"
+                  >
+                    {deleteMutation.isPending && deleteMutation.variables?.id === mockup.id ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-4 w-4" />
+                    )}
+                  </button>
                 </div>
 
                 {/* Bottom right: Like/Dislike + Iterate */}

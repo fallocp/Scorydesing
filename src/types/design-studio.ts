@@ -232,6 +232,14 @@ export interface CarouselMeta {
    * single slide can be rebuilt from scratch and still match the set.
    */
   visualAnchor: string;
+  /**
+   * Recurring subject that threads the slides together.
+   *
+   * Persisted because the user can edit it and because `buildPrompts` sends it on
+   * every call: without it here, reloading the page dropped the motif and the
+   * rebuilt set lost the thread that made it read as a series.
+   */
+  visualMotif?: string;
   /** Ties the rendered images together (`design_mockups.carousel_group_id`). */
   groupId: string;
   /** Medium picked for the whole set — mixing mediums breaks the set. */
@@ -315,9 +323,9 @@ export const CAROUSEL_PRESETS: CarouselPreset[] = [
       'Los cinco tiempos del banco de copys aprobado: una sola línea por slide y el CTA solo al cierre.',
     roles: ['tension', 'shift', 'risk', 'solution', 'cta'],
     // Logo on the cover: it is the only slide everyone sees in the feed.
-    // Disclaimer on the solution, the one slide that makes a product claim —
-    // this shape carries no figures, so there is nothing to qualify earlier.
-    brandPlacement: { logo: 'tension', disclaimer: 'solution' },
+    // No disclaimer: the legal note is composited outside this flow when the piece
+    // is published, so reserving space for one here would leave an empty strip.
+    brandPlacement: { logo: 'tension' },
     singleLine: true,
   },
   {
@@ -326,7 +334,7 @@ export const CAROUSEL_PRESETS: CarouselPreset[] = [
     description:
       'Arco de 4 slides con headline y body por slide. Cierra con el CTA en el último.',
     roles: ['hook', 'problem', 'example', 'solution'],
-    brandPlacement: { logo: 'hook', disclaimer: 'example' },
+    brandPlacement: { logo: 'hook' },
   },
 ];
 

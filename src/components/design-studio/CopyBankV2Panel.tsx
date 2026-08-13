@@ -13,11 +13,15 @@
 import { useMemo, useState } from 'react';
 import {
   Check,
+  ChevronLeft,
+  ChevronRight,
   CircleCheck,
+  Images,
   Loader2,
   RotateCcw,
   Search,
   Sparkles,
+  Wand2,
   X,
 } from 'lucide-react';
 
@@ -29,11 +33,17 @@ import { cn } from '@/lib/utils';
 
 import {
   angleLabelOf,
+  applyCopyBankFilters,
   branchLabel,
+  copyBankProgress,
+  COPY_BANK_TAB_LABELS,
+  COPY_BANK_TAB_ORDER,
   corridorLabel,
   DEFAULT_COPY_BANK_FILTERS,
+  matchesCopyBankTab,
   type CopyBankFilters,
   type CopyBankRow,
+  type CopyBankTab,
 } from '@/types/copy-bank';
 import { useCopyBankView } from '@/hooks/useCopyBankV2';
 
@@ -44,18 +54,37 @@ interface CopyBankV2PanelProps {
   onSelect: (row: CopyBankRow) => void;
   onToggleUsed: (row: CopyBankRow) => void;
   isTogglingUsed?: boolean;
+  /**
+   * Approve or reject an agent proposal. Only reachable from the "Propuestas"
+   * tab: the seeded library arrived pre-approved, so there is nothing to decide
+   * about it and offering the choice there would only invite mistakes.
+   */
+  onReview?: (row: CopyBankRow, status: 'approved' | 'rejected') => void;
+  isReviewing?: boolean;
   /** Shown as an empty-state hint when the bank has no rows at all. */
   emptyHint?: string;
 }
 
 /**
- * How many cards to show before the "ver más" button.
+ * Cards per page.
  *
- * Kept small on purpose: the bank is in the hundreds, and the panel is a
- * reading surface, not a grid to skim. Ten cards fit without scrolling past
- * the filters, so narrowing down beats scrolling down.
+ * Fixed pages rather than an accumulating "ver más": the bank is in the hundreds,
+ * and appending ten more cards per click grew the panel into an endless vertical
+ * scroll. A page keeps the panel the same height no matter how deep you go.
  */
 const PAGE_SIZE = 10;
+
+/**
+ * Baseline for the chip filters inside a tab.
+ *
+ * `usage` is forced to 'all' because the tabs now own that axis — leaving the
+ * default 'available' would silently hide the used copies inside the "Usados"
+ * tab, which is empty by definition then.
+ */
+const PANEL_BASE_FILTERS: CopyBankFilters = {
+  ...DEFAULT_COPY_BANK_FILTERS,
+  usage: 'all',
+};
 
 export function CopyBankV2Panel({
   rows,
@@ -64,16 +93,53 @@ export function CopyBankV2Panel({
   onSelect,
   onToggleUsed,
   isTogglingUsed = false,
+  onReview,
+  isReviewing = false,
   emptyHint,
 }: CopyBankV2PanelProps) {
-  const [filters, setFilters] = useState<CopyBankFilters>(DEFAULT_COPY_BANK_FILTERS);
-  const [limit, setLimit] = useState(PAGE_SIZE);
+  const [filters, setFilters] = useState<CopyBankFilters>(PANEL_BASE_FILTERS);
+  const [tab, setTab] = useState<CopyBankTab>('bank');
+  const [page, setPage] = useState(0);
 
-  const { visible, counts, usage } = useCopyBankView(rows, filters);
+  // The tab narrows the population; the chips narrow within it.
+  const tabRows = useMemo(
+    () => rows.filter((r) => matchesCopyBankTab(r, tab)),
+    [rows, tab],
+  );
+
+  const { visible, counts } = useCopyBankView(tabRows, filters);
+
+  /**
+   * Tab counts are computed over the rows that pass the CHIP filters, so they
+   * answer "how many would I see if I clicked this tab right now" instead of a
+   * global number that contradicts the list.
+   */
+  const tabCounts = useMemo(() => {
+    const scoped = applyCopyBankFilters(rows, filters);
+    return COPY_BANK_TAB_ORDER.reduce(
+      (acc, t) => {
+        acc[t] = scoped.filter((r) => matchesCopyBankTab(r, t)).length;
+        return acc;
+      },
+      {} as Record<CopyBankTab, number>,
+    );
+  }, [rows, filters]);
+
+  /** Usage progress is a property of the whole bank, not of the visible tab. */
+  const bankUsage = useMemo(() => {
+    const total = rows.filter((r) => r.status !== 'proposed').length;
+    const used = rows.filter((r) => r.status !== 'proposed' && r.used_at).length;
+    return { total, used, available: total - used };
+  }, [rows]);
 
   const patch = (p: Partial<CopyBankFilters>) => {
     setFilters((f) => ({ ...f, ...p }));
-    setLimit(PAGE_SIZE);
+    setPage(0);
+  };
+
+  const selectTab = (next: CopyBankTab) => {
+    setTab(next);
+    setPage(0);
   };
 
   const isFiltered = useMemo(
@@ -82,8 +148,7 @@ export function CopyBankV2Panel({
       filters.corridor !== null ||
       filters.angleTag !== null ||
       filters.industry !== null ||
-      filters.search !== '' ||
-      filters.usage !== DEFAULT_COPY_BANK_FILTERS.usage,
+      filters.search !== '',
     [filters],
   );
 
@@ -110,7 +175,9 @@ export function CopyBankV2Panel({
     );
   }
 
-  const shown = visible.slice(0, limit);
+  const pageCount = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount - 1);
+  const shown = visible.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
 
   return (
     <div className="space-y-4">
@@ -119,11 +186,11 @@ export function CopyBankV2Panel({
         <h3 className="text-sm font-semibold text-foreground">
           Banco de copys
           <span className="ml-2 font-normal text-muted-foreground">
-            {visible.length} de {rows.length}
+            {visible.length} en {COPY_BANK_TAB_LABELS[tab].toLowerCase()}
           </span>
         </h3>
         <p className="text-xs text-muted-foreground">
-          {usage.available} sin usar · {usage.used} usados
+          {bankUsage.available} sin usar · {bankUsage.used} usados
         </p>
       </div>
 
@@ -131,16 +198,61 @@ export function CopyBankV2Panel({
       <div
         className="h-1.5 w-full overflow-hidden rounded-full bg-muted"
         role="progressbar"
-        aria-valuenow={usage.used}
+        aria-valuenow={bankUsage.used}
         aria-valuemin={0}
-        aria-valuemax={usage.total}
-        aria-label={`${usage.used} de ${usage.total} copys usados`}
+        aria-valuemax={bankUsage.total}
+        aria-label={`${bankUsage.used} de ${bankUsage.total} copys usados`}
       >
         <div
           className="h-full rounded-full bg-[#2ED4C7] transition-all"
-          style={{ width: usage.total > 0 ? `${(usage.used / usage.total) * 100}%` : '0%' }}
+          style={{
+            width: bankUsage.total > 0 ? `${(bankUsage.used / bankUsage.total) * 100}%` : '0%',
+          }}
         />
       </div>
+
+      {/* Pestañas: aprobación, trabajo y publicación son ejes distintos */}
+      <div
+        role="tablist"
+        aria-label="Vistas del banco de copys"
+        className="flex flex-wrap items-center gap-1 border-b border-border"
+      >
+        {COPY_BANK_TAB_ORDER.map((t) => {
+          const active = t === tab;
+          return (
+            <button
+              key={t}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => selectTab(t)}
+              className={cn(
+                '-mb-px border-b-2 px-3 py-2 text-xs font-medium transition-colors',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                active
+                  ? 'border-[#FF7A4A] text-foreground'
+                  : 'border-transparent text-muted-foreground hover:text-foreground',
+              )}
+            >
+              {COPY_BANK_TAB_LABELS[t]}
+              <span
+                className={cn(
+                  'ml-1.5 rounded-full px-1.5 py-0.5 text-[10px]',
+                  active ? 'bg-[#FF7A4A]/15 text-foreground' : 'bg-muted text-muted-foreground',
+                )}
+              >
+                {tabCounts[t]}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {tab === 'proposed' && tabCounts.proposed > 0 && (
+        <p className="text-xs text-amber-700">
+          Copys recién generados. Apruébalos para que pasen al banco, o descártalos.
+        </p>
+      )}
 
       {/* Filtros */}
       <div className="space-y-2.5 rounded-lg border border-border/60 bg-muted/20 p-3">
@@ -161,8 +273,8 @@ export function CopyBankV2Panel({
               variant="ghost"
               size="sm"
               onClick={() => {
-                setFilters(DEFAULT_COPY_BANK_FILTERS);
-                setLimit(PAGE_SIZE);
+                setFilters(PANEL_BASE_FILTERS);
+                setPage(0);
               }}
             >
               <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
@@ -170,18 +282,6 @@ export function CopyBankV2Panel({
             </Button>
           )}
         </div>
-
-        <ChipRow
-          label="Estado"
-          options={[
-            { value: 'available', label: `Sin usar (${usage.available})` },
-            { value: 'used', label: `Usados (${usage.used})` },
-            { value: 'all', label: `Todos (${usage.total})` },
-          ]}
-          selected={filters.usage}
-          onSelect={(v) => patch({ usage: v as CopyBankFilters['usage'] })}
-          allowClear={false}
-        />
 
         {counts.branches.length > 1 && (
           <ChipRow
@@ -250,22 +350,38 @@ export function CopyBankV2Panel({
                 onSelect={() => onSelect(row)}
                 onToggleUsed={() => onToggleUsed(row)}
                 isTogglingUsed={isTogglingUsed}
+                onReview={onReview}
+                isReviewing={isReviewing}
               />
             ))}
           </div>
 
-          {visible.length > shown.length && (
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full"
-              onClick={() => setLimit((l) => l + PAGE_SIZE)}
-            >
-              Ver {Math.min(PAGE_SIZE, visible.length - shown.length)} más
-              <span className="ml-1.5 text-muted-foreground">
-                ({visible.length - shown.length} restantes)
+          {pageCount > 1 && (
+            <div className="flex items-center justify-between gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(safePage - 1)}
+                disabled={safePage === 0}
+              >
+                <ChevronLeft className="mr-1 h-3.5 w-3.5" />
+                Anterior
+              </Button>
+              <span className="text-xs text-muted-foreground">
+                Página {safePage + 1} de {pageCount}
               </span>
-            </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(safePage + 1)}
+                disabled={safePage >= pageCount - 1}
+              >
+                Siguiente
+                <ChevronRight className="ml-1 h-3.5 w-3.5" />
+              </Button>
+            </div>
           )}
         </>
       )}
@@ -283,15 +399,19 @@ function CopyCard({
   onSelect,
   onToggleUsed,
   isTogglingUsed,
+  onReview,
+  isReviewing,
 }: {
   row: CopyBankRow;
   isActive: boolean;
   onSelect: () => void;
   onToggleUsed: () => void;
   isTogglingUsed: boolean;
+  onReview?: (row: CopyBankRow, status: 'approved' | 'rejected') => void;
+  isReviewing: boolean;
 }) {
   const isUsed = !!row.used_at;
-  const hasImagePrompt = !!row.image_meta?.imagePrompt;
+  const progress = copyBankProgress(row);
 
   return (
     <Card
@@ -299,16 +419,19 @@ function CopyCard({
       className={cn(
         'cursor-pointer transition-all',
         isActive
-          ? 'border-2 border-[#FF7A4A] bg-[#FF7A4A]/5 shadow-md'
+          ? 'border-2 border-[#FF7A4A] bg-[#FF7A4A]/10 shadow-md ring-2 ring-[#FF7A4A]/20'
           : 'border border-border hover:border-muted-foreground/30 hover:shadow-sm',
+        // A copy in progress stays legible: it is the one you are most likely to
+        // come back to. Only the published ones fade.
         isUsed && !isActive && 'opacity-60',
+        !isActive && progress.started && 'border-[#FF7A4A]/40',
       )}
     >
       <CardContent className="space-y-2.5 p-4">
         <div className="flex items-start justify-between gap-2">
           <div className="flex flex-wrap items-center gap-1.5">
             {isActive && (
-              <Badge className="bg-[#FF7A4A] text-xs text-white">✓ Activo</Badge>
+              <Badge className="bg-[#FF7A4A] text-xs text-white">✓ Trabajando</Badge>
             )}
             {isUsed && (
               <Badge variant="outline" className="text-[10px] font-normal text-muted-foreground">
@@ -318,6 +441,25 @@ function CopyCard({
             {row.status === 'proposed' && (
               <Badge className="bg-amber-100 text-[10px] font-normal text-amber-800">
                 Por revisar
+              </Badge>
+            )}
+            {/* Work state, read off image_meta: what already exists for this copy. */}
+            {progress.hasImagePrompt && (
+              <Badge
+                variant="outline"
+                className="gap-1 border-[#2ED4C7]/50 text-[10px] font-normal text-foreground"
+              >
+                <Wand2 className="h-3 w-3" />
+                Prompt listo
+              </Badge>
+            )}
+            {progress.carouselTotal > 0 && (
+              <Badge
+                variant="outline"
+                className="gap-1 border-[#2ED4C7]/50 text-[10px] font-normal text-foreground"
+              >
+                <Images className="h-3 w-3" />
+                Carrusel {progress.carouselDone}/{progress.carouselTotal}
               </Badge>
             )}
           </div>
@@ -353,13 +495,41 @@ function CopyCard({
         <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
           <span>{angleLabelOf(row)}</span>
           {row.industry && <span>· {row.industry.replace(/_/g, ' ')}</span>}
-          {hasImagePrompt && <span>· prompt de imagen listo</span>}
         </div>
 
         {row.needs_legal_note && row.legal_note && (
           <p className="border-l-2 border-amber-300 pl-2 text-[10px] italic leading-snug text-amber-700">
             {row.legal_note}
           </p>
+        )}
+
+        {/* Triage of a proposal: decide before it becomes part of the library. */}
+        {row.status === 'proposed' && onReview && (
+          <div
+            className="flex items-center gap-1.5 border-t pt-2"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={isReviewing}
+              onClick={() => onReview(row, 'approved')}
+              className="border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+            >
+              <CircleCheck className="mr-1 h-3.5 w-3.5" />
+              Aprobar
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={isReviewing}
+              onClick={() => onReview(row, 'rejected')}
+              className="text-muted-foreground hover:text-destructive"
+            >
+              <X className="mr-1 h-3.5 w-3.5" />
+              Descartar
+            </Button>
+          </div>
         )}
 
         <div
@@ -373,7 +543,7 @@ function CopyCard({
             className={cn(isActive && 'bg-[#FF7A4A] hover:bg-[#E85A2C]')}
           >
             <Check className="mr-1 h-3 w-3" />
-            {isActive ? 'Activo' : 'Usar este'}
+            {isActive ? 'Trabajando' : 'Usar este'}
           </Button>
 
           <Button

@@ -13,8 +13,10 @@ import {
   angleLabelOf,
   applyCopyBankFilters,
   branchLabel,
+  copyBankProgress,
   corridorLabel,
   DEFAULT_COPY_BANK_FILTERS,
+  matchesCopyBankTab,
   resolveBranchForKitSlug,
   tallyBy,
   type CopyBankRow,
@@ -215,5 +217,93 @@ describe('resolveBranchForKitSlug', () => {
     // velocidad porque el selector de UI estaba en otra rama.
     expect(resolveBranchForKitSlug(branches, 'costos-ahorro')?.name).not.toMatch(/velocidad/i);
     expect(resolveBranchForKitSlug(branches, 'velocidad')?.name).not.toMatch(/ahorro/i);
+  });
+});
+
+describe('copyBankProgress', () => {
+  it('sin image_meta no hay nada empezado', () => {
+    const p = copyBankProgress(row({ image_meta: null }));
+    expect(p).toMatchObject({ hasImagePrompt: false, carouselTotal: 0, carouselDone: 0, started: false });
+  });
+
+  it('un prompt de imagen ya cuenta como empezado', () => {
+    const p = copyBankProgress(row({ image_meta: { imagePrompt: 'editorial photo of...' } }));
+    expect(p.hasImagePrompt).toBe(true);
+    expect(p.started).toBe(true);
+  });
+
+  it('un prompt en blanco no cuenta', () => {
+    const p = copyBankProgress(row({ image_meta: { imagePrompt: '   ' } }));
+    expect(p.hasImagePrompt).toBe(false);
+    expect(p.started).toBe(false);
+  });
+
+  it('cuenta los slides del carrusel que ya tienen imagen', () => {
+    const slot = (i: number, imageUrl?: string) => ({
+      id: `s${i}`,
+      index: i,
+      role: 'tension' as const,
+      slideCopy: { headline: `H${i}` },
+      imageIntent: '',
+      prompt: 'p',
+      brandElements: [],
+      status: 'idle' as const,
+      imageUrl,
+    });
+
+    const p = copyBankProgress(
+      row({
+        image_meta: {
+          carousel: {
+            presetSlug: 'tension-shift-risk-solution-cta',
+            visualAnchor: '',
+            groupId: 'g',
+            imageType: 'foto',
+            createdAt: new Date().toISOString(),
+            slots: [slot(0, 'https://x/0.png'), slot(1, 'https://x/1.png'), slot(2), slot(3), slot(4)],
+          },
+        },
+      }),
+    );
+
+    expect(p.carouselTotal).toBe(5);
+    expect(p.carouselDone).toBe(2);
+    // Un carrusel a medias sigue siendo trabajo empezado.
+    expect(p.started).toBe(true);
+  });
+});
+
+describe('matchesCopyBankTab', () => {
+  const proposal = row({ status: 'proposed' });
+  const fresh = row({ status: 'seed' });
+  const started = row({ status: 'approved', image_meta: { imagePrompt: 'algo' } });
+  const published = row({ status: 'approved', used_at: new Date().toISOString() });
+
+  it('las propuestas del agente solo viven en su pestaña', () => {
+    expect(matchesCopyBankTab(proposal, 'proposed')).toBe(true);
+    expect(matchesCopyBankTab(proposal, 'bank')).toBe(false);
+    expect(matchesCopyBankTab(proposal, 'working')).toBe(false);
+    expect(matchesCopyBankTab(proposal, 'used')).toBe(false);
+  });
+
+  it('el banco son los aprobados sin usar', () => {
+    expect(matchesCopyBankTab(fresh, 'bank')).toBe(true);
+    expect(matchesCopyBankTab(published, 'bank')).toBe(false);
+  });
+
+  it('un copy en proceso NO se sale del banco', () => {
+    // La regla que pidió el usuario: marcar algo como en proceso no puede
+    // hacerlo desaparecer de la biblioteca que estás hojeando.
+    expect(matchesCopyBankTab(started, 'working')).toBe(true);
+    expect(matchesCopyBankTab(started, 'bank')).toBe(true);
+  });
+
+  it('sin prompt ni carrusel no está en proceso', () => {
+    expect(matchesCopyBankTab(fresh, 'working')).toBe(false);
+  });
+
+  it('los usados salen del banco y de en proceso', () => {
+    expect(matchesCopyBankTab(published, 'used')).toBe(true);
+    expect(matchesCopyBankTab(published, 'working')).toBe(false);
   });
 });

@@ -57,6 +57,7 @@ import { useDeleteGeneratedIdea } from '@/hooks/useGeneratedIdeas';
 import {
   useCopyBankV2,
   useMarkCopyUsed,
+  useReviewCopyBankItem,
   useUpdateCopyBankImageMeta,
   useUpdateCopyBankText,
 } from '@/hooks/useCopyBankV2';
@@ -156,6 +157,7 @@ export default function DesignStudioPage() {
   // sessions and for the 4-at-a-time generator.
   const bankV2 = useCopyBankV2();
   const markCopyUsed = useMarkCopyUsed();
+  const reviewCopy = useReviewCopyBankItem();
   const updateBankV2Text = useUpdateCopyBankText();
   const updateBankV2ImageMeta = useUpdateCopyBankImageMeta();
   // Which bank the active candidate came from, so Stage B persists the image
@@ -494,6 +496,25 @@ export default function DesignStudioPage() {
       },
     );
   }, [markCopyUsed, toast]);
+
+  /**
+   * Approve or reject a copy the agent proposed. Approving is what moves it into
+   * the library; the seeded copies never pass through here because they arrived
+   * approved.
+   */
+  const handleReviewBankV2 = useCallback((row: CopyBankRow, status: 'approved' | 'rejected') => {
+    reviewCopy.mutate(
+      { id: row.id, status },
+      {
+        onSuccess: () =>
+          toast({
+            title: status === 'approved' ? 'Aprobado y agregado al banco' : 'Propuesta descartada',
+            description: row.headline,
+          }),
+        onError: () => toast({ title: 'No se pudo actualizar', variant: 'destructive' }),
+      },
+    );
+  }, [reviewCopy, toast]);
 
   // Rate a bank copy (toggle). 'liked' steers new batches to imitate it;
   // 'disliked' avoids it. Persisted in piece_v2 meta.
@@ -1177,6 +1198,8 @@ export default function DesignStudioPage() {
                       onSelect={handleSelectBankV2}
                       onToggleUsed={handleToggleBankV2Used}
                       isTogglingUsed={markCopyUsed.isPending}
+                      onReview={handleReviewBankV2}
+                      isReviewing={reviewCopy.isPending}
                       emptyHint="Corre las migraciones de copy_bank_v2 para cargar los 180 copys aprobados."
                     />
                   </div>
@@ -1336,7 +1359,8 @@ export default function DesignStudioPage() {
                       persistMeta={carouselPersistMeta}
                       branchId={carouselBranchId}
                       background={store.selections.background}
-                      imageType={store.selections.pieceImagePrompt?.type ?? 'foto'}
+                      // Solo semilla: el panel del carrusel elige su propio medio.
+                      imageType={store.selections.pieceImagePrompt?.type ?? null}
                       brandSlug={activeBusiness?.slug}
                       branding={{
                         logoUrl: businessConfig?.logo_url ?? null,
@@ -1500,6 +1524,12 @@ export default function DesignStudioPage() {
           isLoading={isLoadingSaved}
           isGenerating={store.isGeneratingMockups}
           selectedId={selectedSavedId}
+          // Al borrar el seleccionado, el store sigue con esa imagen cargada para
+          // la conversión a HTML: hay que soltarla o el flujo apunta a algo que ya no existe.
+          onClearSelection={() => {
+            setSelectedSavedId(null);
+            store.setMockups([]);
+          }}
           onSelect={(mockup: SavedMockup) => {
             setSelectedSavedId(mockup.id);
             // Load into store for HTML conversion

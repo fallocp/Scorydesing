@@ -25,6 +25,8 @@ import { callOpenAI } from '../_shared/callOpenAI.ts';
 import { fetchBusinessContext } from '../_shared/fetchBusinessContext.ts';
 import { buildBranchContextBlock } from '../_shared/buildBranchContextBlock.ts';
 import { CAROUSEL_MECHANICS_EXAMPLES } from '../_shared/carouselExamples.ts';
+import { getCopyKit } from '../_shared/copyKitRegistry.ts';
+import { parseModelJson } from '../_shared/parseModelJson.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -126,6 +128,56 @@ function headlineBudget(index: number, role: string, singleLine: boolean): numbe
   return MAX_HEADLINE_WORDS;
 }
 
+/**
+ * Turn the branch copy kit into hard prohibitions for the script.
+ *
+ * Only the compliance-shaped parts of the kit are lifted — banned phrases,
+ * saturated openings and the hard business rules. The rest of the kit (angles,
+ * quotas, corridors) governs how a BATCH of copy is composed and has no meaning
+ * for a carousel derived from one already-approved copy.
+ *
+ * The bans apply to `imageIntent` too. A banned angle does not stop being banned
+ * because it is drawn instead of written: "lo oculto queda expuesto" carries the
+ * accusation with no words at all.
+ */
+function buildEditorialBansBlock(kit: Record<string, unknown>): string {
+  const asList = (v: unknown): string[] =>
+    Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && !!x.trim()) : [];
+
+  const phrases = asList(kit.banned_phrases);
+  const openings = asList(kit.banned_openings);
+  const rules = asList(kit.hard_business_rules);
+
+  if (phrases.length === 0 && openings.length === 0 && rules.length === 0) return '';
+
+  const parts: string[] = ['## PROHIBICIONES EDITORIALES DE LA RAMA (no negociable)'];
+
+  parts.push(
+    'Estas reglas MANDAN sobre el contexto de rama de más abajo. Si ese contexto sugiere un ángulo que aquí está prohibido, el ángulo NO se usa — ni en el texto ni en el imageIntent.',
+  );
+
+  if (phrases.length > 0) {
+    parts.push(
+      `FRASES Y ÁNGULOS PROHIBIDOS. No las escribas, no las parafrasees y no construyas la escena de la imagen sobre ellas:\n${phrases.map((p) => `- "${p}"`).join('\n')}`,
+    );
+    parts.push(
+      'Esto incluye sus equivalentes: "el precio real no está a simple vista", "lo oculto queda expuesto", "lo que de verdad pagas" son la misma idea prohibida con otras palabras.',
+    );
+  }
+
+  if (openings.length > 0) {
+    parts.push(
+      `ARRANQUES SATURADOS. Ningún headline de slide empieza así:\n${openings.map((o) => `- "${o}"`).join('\n')}`,
+    );
+  }
+
+  if (rules.length > 0) {
+    parts.push(`REGLAS DE NEGOCIO DURAS:\n${rules.map((r) => `- ${r}`).join('\n')}`);
+  }
+
+  return parts.join('\n\n');
+}
+
 const MEDIUM_LABELS: Record<string, string> = {
   foto: 'fotografía editorial real',
   infografia: 'infografía con iconografía 3D',
@@ -142,11 +194,12 @@ function buildSystemPrompt(params: {
   imageType?: string;
   slides: CarouselSlideSpec[];
   singleLine: boolean;
+  editorialBans: string;
   guidance?: string;
 }): string {
   const {
     brandName, compliance, branchContext, verticalKeywords,
-    industryName, angleName, imageType, slides, singleLine, guidance,
+    industryName, angleName, imageType, slides, singleLine, editorialBans, guidance,
   } = params;
 
   const slideCount = slides.length;
@@ -229,17 +282,52 @@ ${CAROUSEL_MECHANICS_EXAMPLES}
 
 ## imageIntent
 
-Por cada slide describe QUÉ DEBE COMUNICAR su imagen, no cómo se ve técnicamente (de eso se encarga otro agente). Concreto y distinto en cada slide: el estado físico o la escena que hace sentir ese momento de la historia.
+Por cada slide describe QUÉ DEBE COMUNICAR su imagen, no cómo se ve técnicamente (de eso se encarga otro agente).
+
+PRINCIPIO: la imagen TRADUCE la frase de su slide, no la acompaña. Igual que en las piezas individuales, la historia se cuenta en imágenes y el texto solo la nombra. Pregúntate qué se vería si esa frase pasara en la vida real, y describe eso. Si la imagen funcionaría igual con la frase de otro slide, está mal: significa que ilustra el tema y no dice lo que dice ESA línea.
+
+REGLA DURA: tiene que ser FOTOGRAFIABLE. Objetos físicos y su estado, en un solo cuadro. Si para entenderlo hace falta saber algo que no está a la vista, no sirve.
+
+Prohibido describir abstracciones. Estas ya salieron y ninguna se puede fotografiar: "el valor final todavía sin definirse", "la operación aún abierta", "su precio real no está a simple vista", "lo oculto queda expuesto", "el costo todavía no está claro". Una cámara no capta "sin definirse". Cuando la intención es abstracta, el agente de imagen se defiende con utilería genérica —calculadora, portapapeles, tabla— y los ${slideCount} slides terminan siendo el mismo bodegón.
+
+Cada slide necesita UN objeto concreto que cargue la idea de SU línea.
+
+REGLA LIGADA AL MOTIVO: el imageIntent del primer y del último slide sí puede nombrar el objeto recurrente, porque ahí es el protagonista. En los slides de en medio, el imageIntent NO lo nombra: nombra el objeto propio de esa línea. Si escribes "el mismo motor junto a…" en un slide de en medio, ese slide va a salir igual que los demás — el agente de imagen construye la escena a partir de este texto, así que lo que nombras aquí es lo que se renderiza.
+
+SUPERFICIES donde puede vivir el dato, porque el dato tiene que estar en un objeto de la escena y no flotando sobre ella: una cotización u orden de compra impresa con su total visible; dos hojas de la misma cotización lado a lado con fechas distintas; una pantalla en la escena —monitor sobre el escritorio, laptop entreabierta— con la curva del tipo de cambio; una hoja con una gráfica impresa; un sello de fecha o una fecha de vencimiento marcada.
+
+CIFRAS: se permite UN comparativo numérico en todo el carrusel, en el slide que habla del cambio — la misma operación con dos totales, el segundo mayor. Es uno solo en el set: si lo usas en un slide, los demás comunican sin números. La cifra se presenta como ejemplo, nunca como una cotización real ni como un tipo de cambio vigente.
+
+Prohibido afirmar la pérdida. Una hoja que diga "margen negativo" o "estás perdiendo" no va. El total más alto, resaltado, dice lo mismo sin el veredicto.
+
+Repertorio por tiempo narrativo, como punto de partida:
+
+- Tensión / apertura: el objeto de la compra y el documento donde vive su costo.
+- Qué cambia: DOS ESTADOS DE LO MISMO en el mismo cuadro. Dos hojas de la misma cotización, una con fecha o sello posterior, con los totales visiblemente distintos — distinta longitud, distinta posición, uno resaltado. El cambio se VE, no se insinúa. IMPORTANTE: los dígitos van fuera de foco o cortados por el encuadre; nunca una cifra legible, porque sería un tipo de cambio inventado horneado en la pieza.
+- Qué riesgo: la consecuencia visible. El total más alto ocupando más espacio que el anterior, el equipo embalado todavía esperando, el margen apretado entre dos documentos.
+- Solución: la operación resuelta. Un solo documento, ordenado, con una sola cifra — también sin dígitos legibles.
+- Cierre / CTA: el cuadro más callado del set, con el motivo de vuelta y nada compitiendo.
 
 Mal: "imagen de negocios profesional".
+Mal: "el mismo motor con la operación aún abierta y el valor final sin definirse" — no hay nada que fotografiar.
 Bien: "un pallet detenido en el andén mientras el reloj avanza — la mercancía existe pero no se mueve".
+Bien: "dos hojas de la misma cotización lado a lado, la de la derecha con fecha posterior y un total más largo, los dígitos fuera de foco".
 
 ## visualMotif
 
-Un sujeto u objeto concreto y ÚNICO que aparece en los ${slideCount} slides y evoluciona con la historia, para que el set se lea como una serie y no como ${slideCount} piezas sueltas. Descríbelo en una frase.
-Lo que evoluciona es su ESTADO, no el encuadre: el mismo objeto en la misma pose ${slideCount} veces se lee como una pieza repetida, no como una serie.${imageType ? `\nEl medio visual del set es ${MEDIUM_LABELS[imageType] ?? imageType}, así que el motivo tiene que ser representable en ese medio.` : ''}
+Un sujeto u objeto concreto que abre y cierra el set. Descríbelo en una frase.
+
+El motivo funciona como PARÉNTESIS, no como protagonista de los ${slideCount} cuadros:
+
+- Slide 1 y slide ${slideCount}: ahí el motivo es el sujeto principal. Abre y cierra.
+- Slides de en medio: cada uno trae SU PROPIO sujeto, el que le exige su línea. El motivo puede aparecer como detalle secundario, al fondo, desenfocado, o no aparecer.
+
+No necesitas repetirlo en todos para que el set se vea unido: la unidad la da el sistema visual, que ya es idéntico en los ${slideCount} slides — misma paleta, misma luz, misma cámara, mismo fondo, misma zona de texto. Repetir el objeto encima de eso no suma cohesión, produce ${slideCount} veces la misma imagen.
+
+Dos slides seguidos con el mismo encuadre del mismo objeto están mal.${imageType ? `\nEl medio visual del set es ${MEDIUM_LABELS[imageType] ?? imageType}, así que el motivo tiene que ser representable en ese medio.` : ''}
 
 ${complianceLines.length > 0 ? `## CUMPLIMIENTO (no negociable)\n\n${complianceLines.join('\n\n')}\n` : ''}
+${editorialBans ? `${editorialBans}\n` : ''}
 ${branchContext}
 ${industryName ? `\n## INDUSTRIA\n\nEl carrusel habla a: ${industryName}.${verticalKeywords.length > 0 ? ` Vocabulario del sector: ${verticalKeywords.join(', ')}.` : ''}\n` : ''}
 ${angleName ? `\n## ÁNGULO NARRATIVO\n\n${angleName}\n` : ''}
@@ -258,20 +346,18 @@ Responde SOLO JSON válido, sin fences ni texto alrededor:
 El arreglo "slides" tiene exactamente ${slideCount} elementos, en el orden pedido, con los roles tal como se te dieron.`;
 }
 
-/** Parse the model output, tolerating markdown fences. */
-function parseScript(content: string): { visualMotif?: string; slides?: unknown[] } | null {
-  try {
-    return JSON.parse(content);
-  } catch {
-    const cleaned = content.replace(/```json|```/g, '').trim();
-    const match = cleaned.match(/\{[\s\S]*\}/);
-    if (!match) return null;
-    try {
-      return JSON.parse(match[0]);
-    } catch {
-      return null;
-    }
-  }
+/**
+ * Parse the model output.
+ *
+ * Tolerant on purpose — see `parseModelJson`. A real script was lost to a single
+ * trailing comma before a closing brace, which is invalid JSON and which the
+ * prompt cannot reliably prevent.
+ */
+function parseScript(
+  content: string,
+): { parsed: { visualMotif?: string; slides?: unknown[] } | null; detail: string } {
+  const result = parseModelJson<{ visualMotif?: string; slides?: unknown[] }>(content);
+  return { parsed: result.ok ? result.data! : null, detail: result.detail ?? '' };
 }
 
 /**
@@ -416,10 +502,11 @@ serve(async (req) => {
     }
 
     let branchContext = '';
+    let editorialBans = '';
     if (body.branch_id) {
       const { data: branch } = await serviceClient
         .from('commercial_branches')
-        .select('name, prompt_kit, strategic_config')
+        .select('name, slug, prompt_kit, strategic_config')
         .eq('id', body.branch_id)
         .eq('business_id', body.business_id)
         .single();
@@ -430,6 +517,31 @@ serve(async (req) => {
           branch.strategic_config as Record<string, unknown> | null,
           branch.name,
         );
+
+        /**
+         * The branch's editorial bans, from the copy kit.
+         *
+         * This exists because the two context sources contradict each other. The
+         * block above comes from `commercial_branches`, which for the costs branch
+         * still instructs the agent to "evidenciar los costos ocultos que los
+         * bancos tradicionales cobran" — an angle the copy kit bans outright. The
+         * kit is the newer editorial truth, and until now it only reached the copy
+         * agent, so the carousel obeyed the older instruction and produced slides
+         * about exposing what someone hides.
+         *
+         * Non-fatal on purpose: an unmappable branch loses the bans, not the
+         * carousel.
+         */
+        try {
+          const { kit } = await getCopyKit(
+            branch.slug ?? branch.name,
+            serviceClient,
+            body.business_id,
+          );
+          editorialBans = buildEditorialBansBlock(kit as unknown as Record<string, unknown>);
+        } catch (err) {
+          console.warn('No se pudo resolver el copy kit de la rama:', err);
+        }
       }
     }
 
@@ -456,6 +568,7 @@ serve(async (req) => {
       imageType: body.imageType,
       slides: body.slides,
       singleLine: body.singleLine === true,
+      editorialBans,
       guidance: body.guidance,
     });
 
@@ -473,7 +586,16 @@ serve(async (req) => {
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userMessage },
       ],
-      max_completion_tokens: 3000,
+      /**
+       * Room for the script plus the model's own reasoning.
+       *
+       * The system prompt grew a lot (few-shot de mecánica, prohibiciones
+       * editoriales de la rama, reglas del motivo), and this model spends part of
+       * the completion budget reasoning before it writes. At 3000 a truncated
+       * response is a real risk, and a truncated response is unparseable — the
+       * whole call is lost, so the headroom is cheaper than the retry.
+       */
+      max_completion_tokens: 6000,
       temperature: 0.8,
       timeoutMs: 90_000,
     });
@@ -485,10 +607,21 @@ serve(async (req) => {
       );
     }
 
-    const parsed = parseScript(result.content);
+    const { parsed, detail } = parseScript(result.content);
     if (!parsed || !Array.isArray(parsed.slides)) {
-      console.error('Could not parse carousel script:', result.content.slice(0, 500));
-      return jsonResponse({ error: 'parse_error', message: 'Failed to parse AI response' }, 500);
+      // Log the tail, not the head: when a response is truncated the head looks
+      // perfectly fine and tells you nothing about why it failed.
+      console.error(
+        `Could not parse carousel script (${detail}). Final del contenido:`,
+        result.content.slice(-500),
+      );
+      return jsonResponse(
+        {
+          error: 'parse_error',
+          message: `El modelo no devolvió un guion válido: ${detail || 'JSON inválido'}. Reintenta.`,
+        },
+        500,
+      );
     }
 
     // --- 6. Normalize: the roles and the slide count come from the caller, not

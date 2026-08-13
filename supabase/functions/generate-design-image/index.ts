@@ -4,6 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.53.0";
 import { fetchBusinessContext, fetchMasterPromptByType } from "../_shared/fetchBusinessContext.ts";
 import { interpolateTemplate } from "../_shared/interpolateTemplate.ts";
 import { validateImagePromptResponse } from "../_shared/validateResponse.ts";
+import { parseModelJson } from "../_shared/parseModelJson.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -132,12 +133,31 @@ interface GenerateImageRequest {
   // Used when mode = "generate": which type to activate.
   // Used when mode = "carousel_prompts": the medium for the WHOLE set.
   imageType?: 'fotografia' | 'infografia' | 'mapa_rutas';
+  // Used when mode = "prompts": build ONLY this variant instead of all three.
+  // The UI needs three to let the user choose; a caller that already knows which
+  // medium it wants should say so — three long prompts in one response is what
+  // makes the last one come back missing.
+  promptVariant?: 'fotografia' | 'infografia' | 'mapa_rutas';
+  // Used when mode = "prompts": 'style_only' returns the visual system with no
+  // subject and no scene. For callers that reuse one prompt across several pieces,
+  // like the carousel's shared spec, where any object named in it would repeat.
+  promptScope?: 'full' | 'style_only';
   // Used when mode = "generate": the pre-built prompt to use
   promptFinal?: string;
   negativeInstructions?: string;
   // ── mode = "carousel_prompts" ──
-  // The slides to build prompts for, in reading order.
+  // The slides to build prompts for, in reading order. Usually ONE: the caller
+  // builds a carousel slide by slide, so a set of any size never depends on a
+  // single long request. See carouselDesignBlock.
   carouselSlides?: CarouselPromptSlideInput[];
+  // Design block from an earlier call in the same set. When present the model is
+  // NOT asked to write one: it only writes this slide's scene, and the block is
+  // reused verbatim. That is what keeps slide 5 in the same visual family as
+  // slide 1 while each slide costs its own small request.
+  carouselDesignBlock?: string;
+  // Size of the WHOLE set, when this call only carries part of it. The slide
+  // prompt says "SLIDE 2 OF 5", so a per-slide call still needs the total.
+  carouselTotalSlides?: number;
   // Recurring concrete subject that threads the slides together, from the
   // carousel script agent. Keeps the set reading as a series.
   visualMotif?: string;
@@ -854,6 +874,59 @@ serve(async (req) => {
 // Carousel prompt assembly
 // ---------------------------------------------------------------------------
 
+/**
+ * Variety rules for the scene writer.
+ *
+ * This agent is the one the image model actually reads, and it was missing what
+ * the script agent already knew. Two failures came from that: every slide framed
+ * the same object on the same table, and the beats that talk about a CHANGE had no
+ * device to show one, so they fell back to a calculator and a clipboard.
+ *
+ * The recurring subject is a bookend rather than a constant because the shared
+ * design block already pins palette, light, camera and background across the set —
+ * cohesion is covered, so repeating the object on top of it only costs variety.
+ */
+const CAROUSEL_SCENE_VARIETY = `## ELEMENTOS DE LA ESCENA Y PALETA
+
+El dato vive en un OBJETO de la escena, no flotando sobre ella. Superficies disponibles:
+- cotización u orden de compra impresa, con su total visible
+- dos hojas de la misma cotización lado a lado, con fechas distintas
+- pantalla en la escena (monitor sobre el escritorio, laptop entreabierta) con una curva de tipo de cambio
+- hoja con una gráfica impresa, tipo reporte
+- sello de fecha, fecha de vencimiento marcada, hoja de calendario
+
+Marcas de cambio, cuando la línea habla de que algo se movió:
+- dos totales de distinta longitud, el segundo más largo
+- el total mayor resaltado
+- la curva de la pantalla subiendo de izquierda a derecha
+
+PALETA COMPLETA, no solo el acento. El sistema visual pide navy para estructura, teal para acentos funcionales y coral como ÚNICO resalte de tensión, en las proporciones del design spec. Una foto sin ningún elemento gráfico no tiene dónde aplicar el teal y el set sale plano: la escena necesita al menos un elemento que lo cargue — una línea que conecta dos documentos, un subrayado sobre una fila, una pestaña o etiqueta en una hoja, el borde de una tarjeta, el trazo de la curva en la pantalla. El coral se reserva para UNA sola cosa en el cuadro: el elemento donde vive la tensión de esa frase (el total mayor, la etiqueta de precio, la fecha que se movió). Navy en los objetos y la estructura.
+
+## TRES REGLAS PARA NO SATURAR
+
+1. UN recurso protagonista por slide: el que carga la idea de esa línea. Todo lo demás es contexto y va desenfocado o cortado por el encuadre.
+2. El dato vive en UNA superficie. Si el total está en la hoja, la pantalla no repite el total. Si la curva está en la pantalla, la hoja no trae otra curva.
+3. Máximo TRES objetos en el cuadro: sujeto, superficie del dato y una pieza de contexto. Nada más.
+
+## LA ESCENA TRADUCE LA FRASE
+
+Cada escena es la traducción visual de la línea de SU slide, no un fondo bonito detrás del texto. La historia se cuenta en imágenes; el texto solo la nombra. Prueba para descartar una escena: si funcionaría igual debajo de la frase de otro slide, está mal — significa que ilustra el tema y no lo que dice esa línea en particular.
+
+## VARIEDAD ENTRE SLIDES (obligatorio)
+
+El sujeto recurrente del set funciona como PARÉNTESIS: es el protagonista en el primer y en el último slide. En los slides de en medio cada escena trae SU PROPIO sujeto, el que exige su línea, y el recurrente aparece como detalle secundario, al fondo, desenfocado, o no aparece. La unidad del set ya la garantiza el bloque de diseño, que es idéntico en todos; repetir el mismo objeto encima de eso produce la misma imagen N veces.
+
+Cambia también la escala y el registro entre slides: plano general, detalle macro, documento de la operación, escena de operación. Dos escenas seguidas con el mismo encuadre del mismo objeto están mal.
+
+Recurso por tipo de momento, como punto de partida:
+- apertura: el objeto de la compra y el documento donde vive su costo
+- algo cambia: DOS ESTADOS DE LO MISMO en el cuadro — dos hojas de la misma cotización, una con fecha o sello posterior, totales visiblemente distintos en longitud y posición
+- riesgo o consecuencia: el efecto hecho visible — el total más largo, el equipo embalado todavía esperando
+- solución: la operación resuelta, un solo documento ordenado
+- cierre: el cuadro más callado, con el sujeto recurrente de vuelta
+
+CIFRAS: los números y el texto de los documentos van SIEMPRE fuera de foco, cortados por el encuadre o de espaldas. Una cifra legible dentro de la imagen es un dato inventado y está prohibida. El cambio se comunica por la forma —dos hojas, dos fechas, dos totales de distinto largo— nunca por dígitos que se puedan leer.`;
+
 /** Master-prompt router section that governs each medium. */
 const CAROUSEL_MEDIUM_SECTION: Record<string, string> = {
   fotografia: 'SALIDA fotografia (excepción fotográfica natural)',
@@ -886,6 +959,78 @@ function reservedSpaceBlock(brandElements: string[]): string {
     return 'This slide carries no brand element: use the whole frame. Do NOT reserve an empty corner or bottom band.';
   }
   return parts.join('\n');
+}
+
+/**
+ * Colour and placement of the baked text.
+ *
+ * Both were weaker here than in the single-image path, which is why the slides
+ * came out entirely navy with no accent: the old instruction was "at most one
+ * short phrase in an accent color", and "at most" permits zero. The master prompt
+ * states the brand pattern as a requirement, so this mirrors it.
+ *
+ * Placement matters more in a carousel than in a standalone piece. Each slide's
+ * scene is written separately, so left to itself the text lands wherever that
+ * scene suggests and the headline jumps around the frame while you swipe. Pinning
+ * the same zone across the set is what makes it read as one piece, and it also
+ * keeps the copy out of the corners reserved for the logo and the legal note.
+ */
+function carouselTextRules(slide: CarouselPromptSlideInput): string {
+  const carriesLogo = (slide.brandElements ?? []).includes('logo');
+  const carriesDisclaimer = (slide.brandElements ?? []).includes('disclaimer');
+
+  const rules: string[] = [
+    /**
+     * The same two-accent pattern the single-image path uses, verbatim from the
+     * master prompt: one word teal, one word coral. The carousel had a weaker rule
+     * that made coral primary and teal conditional, and the result was sets where
+     * coral was the only brand colour present — the palette reduced to one accent.
+     */
+    'COLOUR — brand pattern, not optional, same as the single-image pieces: set the text in navy #0F1419, highlight ONE key word in turquoise #2ED4C7 and ANOTHER key word in coral #FF7A4A. Two accents, one of each, never two words in the same colour and never a whole sentence highlighted. If the line is too short for two, use coral only. No accent colour on the body or the CTA. No other colours for text: no white text on light backgrounds, no grey, no black.',
+    'PLACEMENT — identical zone in every slide of the set: the text block sits in the UPPER portion of the frame, left-aligned, starting at about 8% from the left edge. The visual subject lives in the lower two thirds. This is the same zone on all slides so the headline does not move while the reader swipes.',
+    'The subject must not run underneath the letters: leave that upper area as clean background, with enough contrast that every word is readable at thumbnail size.',
+  ];
+
+  if (carriesLogo) {
+    rules.push(
+      'This slide reserves its top-left corner for the logo, so the text starts BELOW that corner — never beside it, never wrapping around it.',
+    );
+  }
+  if (carriesDisclaimer) {
+    rules.push(
+      'This slide reserves its bottom strip for the legal note, so no text and no part of the subject may enter it.',
+    );
+  }
+
+  return `TEXT COLOUR AND PLACEMENT:\n${rules.map((r) => `- ${r}`).join('\n')}`;
+}
+
+/**
+ * How this slide relates to the set's recurring subject.
+ *
+ * Bookends only: the subject opens and closes the set, and the slides in between
+ * carry their own. The set still reads as one piece because the design spec —
+ * palette, light, camera, background, text zone — is identical across it, so the
+ * repeated object was buying cohesion that was already paid for and charging
+ * variety for it.
+ */
+function motifLine(
+  slide: CarouselPromptSlideInput,
+  totalSlides: number,
+  visualMotif: string,
+): string {
+  const motif = visualMotif.trim();
+  if (!motif) return '';
+
+  const isBookend = slide.index === 0 || slide.index === totalSlides - 1;
+
+  if (isBookend) {
+    return `SUBJECT OF THIS SLIDE — it opens or closes the set, so the recurring subject is the protagonist here: ${motif}`;
+  }
+
+  // Named, then excluded. Naming it matters: the shared design spec may describe
+  // it too, and without this the model reads that description as an instruction.
+  return `The set has a recurring subject (${motif}) that belongs to the FIRST and LAST slide only. This is a middle slide: it has its own subject, stated in the scene below. Do NOT make that recurring object the subject here. It may appear as a small secondary detail, out of focus in the background, or not at all.`;
 }
 
 /**
@@ -947,13 +1092,26 @@ function assembleCarouselSlidePrompt(params: {
 
   return [
     `CAROUSEL SLIDE ${slide.index + 1} OF ${totalSlides} — narrative role "${slide.role}". This image is one piece of a series. The DESIGN SPEC below is identical across every slide on purpose: keep the same visual family, the same recurring subject, the same camera treatment and the same palette. Only the narrative beat changes.`,
-    visualMotif.trim()
-      ? `RECURRING SUBJECT ACROSS THE SET: ${visualMotif.trim()}`
-      : '',
-    `DESIGN SPEC (shared by the whole set):\n${designBlock.trim()}`,
-    `SCENE FOR THIS SLIDE:\n${sceneBlock.trim()}`,
+    /**
+     * The recurring subject is asserted only where it belongs.
+     *
+     * This line used to go out on every slide, worded as "RECURRING SUBJECT ACROSS
+     * THE SET". No amount of instruction elsewhere could beat that: the prompt the
+     * image model actually reads was telling it, five times, to put the same object
+     * in the frame. Saying nothing on the middle slides is what makes them free.
+     */
+    motifLine(slide, totalSlides, visualMotif),
+    /**
+     * The spec can come from a finished single-image prompt, which by contract
+     * carries its own subject and scene. Reusing it is the point — that is how the
+     * set inherits the exact visual system of the pieces that already work — but
+     * its scene has to be neutralised or all the slides render the reference.
+     */
+    `DESIGN SPEC (shared by the whole set):\n${designBlock.trim()}\n\nIf the spec above names a specific subject, object or scene, treat it ONLY as an example of the style. It does not describe this image. The scene for this slide is the one stated below and it replaces it entirely. What you take from the spec is the medium and materiality, the camera treatment, the lighting, the palette and its proportions, the composition density, the negative space and the system restrictions.`,
+    `SCENE FOR THIS SLIDE (this is what you render):\n${sceneBlock.trim()}`,
     layoutRules.length > 0 ? `TEXT LAYOUT:\n${layoutRules.join('\n')}` : '',
-    `TEXT TO RENDER IN THE IMAGE (exact and authoritative):\n${textLines.join('\n')}\nRender ONLY this text, spelled exactly as written, in Spanish, without translating it and without adding words, labels, numbers, captions, stage titles, legends or invented UI text.\n${BRAND_TYPOGRAPHY}\nHeadline in navy #0F1419; at most one short phrase in an accent color. No paragraph blocks, no bullet lists.`,
+    `TEXT TO RENDER IN THE IMAGE (exact and authoritative):\n${textLines.join('\n')}\nRender ONLY this text, spelled exactly as written, in Spanish, without translating it and without adding words, labels, numbers, captions, stage titles, legends or invented UI text.\n${BRAND_TYPOGRAPHY}\nNo paragraph blocks, no bullet lists.`,
+    carouselTextRules(slide),
     'NO BRANDING: do not render any logo, wordmark, brand name (including "Xending"), symbol, watermark or readable signage anywhere. Do not write any legal disclaimer, terms or fine print.',
     reservedSpaceBlock(params.slide.brandElements ?? []),
     `Canvas: ${aspectRatio}, read on a phone while swiping. Text must stay legible at thumbnail size.`,
@@ -961,15 +1119,27 @@ function assembleCarouselSlidePrompt(params: {
   ].filter(Boolean).join('\n\n');
 }
 
-/** User message asking the model for the shared design block + one scene per slide. */
+/**
+ * User message asking the model for this batch's scenes, plus the shared design
+ * block when the caller does not have one yet.
+ *
+ * `designBlock` present = the set already has its visual spec, so the model only
+ * writes the scene. That is the difference between a request that returns one
+ * short scene and one that returns a full spec plus N scenes — the second is what
+ * pushed the 5-slide set past the 110s ceiling.
+ */
 function buildCarouselUserMessage(params: {
   slides: CarouselPromptSlideInput[];
   visualMotif: string;
   imageType: string;
   backgroundStyle: string;
   aspectRatio: string;
+  designBlock?: string;
+  totalSlides?: number;
 }): string {
   const { slides, visualMotif, imageType, backgroundStyle, aspectRatio } = params;
+  const sharedBlock = params.designBlock?.trim() ?? '';
+  const setSize = params.totalSlides ?? slides.length;
   const mediumSection = CAROUSEL_MEDIUM_SECTION[imageType] ?? imageType;
 
   const slideLines = slides
@@ -986,34 +1156,53 @@ function buildCarouselUserMessage(params: {
     })
     .join('\n\n');
 
-  return `Construye los prompts técnicos en inglés para un CARRUSEL de ${slides.length} slides que se leen en orden.
+  const deliverables = sharedBlock
+    ? `El set YA tiene su bloque de diseño y no debes reescribirlo ni "mejorarlo". Se inserta textualmente en este prompt tal como está:
 
-Medio visual del set completo: ${mediumSection}. Aplica COMPLETAS sus reglas del ROUTER VISUAL a los ${slides.length} slides. No mezcles medios entre slides.
+--- DESIGN BLOCK DEL SET (referencia, no lo devuelvas) ---
+${sharedBlock}
+--- FIN DEL DESIGN BLOCK ---
+
+Ese bloque puede venir de una pieza terminada de esta misma campaña, así que puede mencionar un sujeto y una escena concretos. De ahí tomas el sistema visual: medio, materialidad, cámara, luz, paleta y proporciones, densidad y espacio negativo. Su escena NO la copies — tu trabajo es escribir la escena de ESTE slide, que la reemplaza.
+
+Devuelve únicamente slides[]: por cada slide pedido, su sceneBlock — la escena concreta de ESE slide en inglés (sujeto, qué hace el motivo recurrente en este momento de la historia, encuadre). Entre 40 y 90 palabras. Debe encajar sin fricción con el bloque de arriba y ser claramente distinta de las escenas de los demás slides del set, pero obviamente de la misma serie: el motivo recurrente evoluciona, no se reemplaza.
+
+El texto va SIEMPRE en la zona superior del cuadro, igual en los ${setSize} slides — no lo decidas por slide ni lo muevas de lugar, o el titular salta mientras el lector desliza. Compón el sujeto en los dos tercios inferiores y deja la franja superior como fondo limpio con contraste suficiente para leer el texto encima.
+
+${CAROUSEL_SCENE_VARIETY}`
+    : `1. designBlock — UN bloque de diseño en inglés, compartido por los ${setSize} slides del set. Se va a insertar textualmente e idéntico en cada prompt, así que escríbelo una sola vez y que sea completo y autosuficiente: medio y materialidad, tratamiento de cámara y escala, iluminación, paleta con hex y sus proporciones, tipografía, densidad de composición, espacio negativo y restricciones del sistema visual. NO metas aquí nada específico de un slide.
+
+2. slides[] — por cada slide pedido, su sceneBlock: la escena concreta de ESE slide en inglés (sujeto, qué hace el motivo recurrente en este momento de la historia, encuadre). Entre 40 y 90 palabras. El motivo recurrente evoluciona a lo largo del set, no se reemplaza.
+
+El texto va SIEMPRE en la zona superior del cuadro, igual en los ${setSize} slides — no lo decidas por slide ni lo muevas de lugar, o el titular salta mientras el lector desliza. Compón el sujeto en los dos tercios inferiores y deja la franja superior como fondo limpio con contraste suficiente para leer el texto encima.
+
+${CAROUSEL_SCENE_VARIETY}`;
+
+  return `Construye los prompts técnicos en inglés para un CARRUSEL de ${setSize} slides que se leen en orden. En esta llamada te toca${slides.length === 1 ? ' 1 slide' : `n ${slides.length} slides`} del set.
+
+Medio visual del set completo: ${mediumSection}. Aplica COMPLETAS sus reglas del ROUTER VISUAL. No mezcles medios entre slides.
 Estilo de fondo: ${backgroundStyle}.
 Formato: ${aspectRatio}.
 Texto en imagen: true — cada slide hornea su propio texto, exacto.
 ${visualMotif ? `Motivo visual recurrente que hilvana el set: ${visualMotif}` : ''}
 
-## SLIDES
+## SLIDES DE ESTA LLAMADA
 
 ${slideLines}
 
 ## QUÉ DEBES DEVOLVER
 
-1. designBlock — UN bloque de diseño en inglés, compartido por los ${slides.length} slides. Se va a insertar textualmente e idéntico en cada prompt, así que escríbelo una sola vez y que sea completo y autosuficiente: medio y materialidad, tratamiento de cámara y escala, iluminación, paleta con hex y sus proporciones, tipografía, densidad de composición, espacio negativo y restricciones del sistema visual. NO metas aquí nada específico de un slide.
-
-2. slides[] — por cada slide, su sceneBlock: la escena concreta de ESE slide en inglés (sujeto, qué hace el motivo recurrente en este momento de la historia, encuadre, dónde vive el texto dentro del cuadro). Entre 40 y 90 palabras. Que los ${slides.length} sceneBlock sean claramente distintos entre sí pero obviamente de la misma serie: el motivo recurrente evoluciona, no se reemplaza.
+${deliverables}
 
 Devuelve SOLO JSON válido, sin fences:
 
 {
-  "designBlock": "",
-  "slides": [
-    { "index": 0, "sceneBlock": "", "negativeInstructions": "" }
+${sharedBlock ? '' : '  "designBlock": "",\n'}  "slides": [
+    { "index": ${slides[0]?.index ?? 0}, "sceneBlock": "", "negativeInstructions": "" }
   ]
 }
 
-El arreglo "slides" trae exactamente ${slides.length} elementos con index 0..${slides.length - 1}.`;
+El arreglo "slides" trae exactamente ${slides.length} elemento(s), con los index tal como se te dieron: ${slides.map((s) => s.index).join(', ')}.`;
 }
 
 // ---------------------------------------------------------------------------
@@ -1088,21 +1277,39 @@ async function handleMasterImagePath(
 
     console.log('Image generated successfully (generate mode).');
 
-    // Save generated image to image_library (non-blocking)
+    /**
+     * Catalogue the image in image_library.
+     *
+     * The row id is returned so a caller that also saves a mockup can link the two
+     * (`image_library.mockup_id`). Without that link the library keeps its own copy
+     * of the bytes forever: deleting the mockup left the image visible in the asset
+     * catalogue, pointing at a file that no longer existed.
+     *
+     * The insert stays here rather than moving to the client because the pipeline
+     * uses this same path and never creates a mockup — moving it would silently
+     * stop cataloguing every pipeline image.
+     */
+    let imageLibraryId: string | null = null;
     try {
       const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
       const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
       const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-      await supabase.from('image_library').insert({
-        business_id: requestBody.business_id,
-        image_base64: imageBase64,
-        commercial_branch_id: requestBody.branch_id ?? null,
-        image_type: requestBody.imageType ?? null,
-        image_intent: requestBody.imageIntent ?? null,
-        angle_tag: requestBody.angle ?? 'unknown',
-        pipeline_run_id: requestBody.pipelineRunId ?? null,
-      });
+      const { data: libraryRow } = await supabase
+        .from('image_library')
+        .insert({
+          business_id: requestBody.business_id,
+          image_base64: imageBase64,
+          commercial_branch_id: requestBody.branch_id ?? null,
+          image_type: requestBody.imageType ?? null,
+          image_intent: requestBody.imageIntent ?? null,
+          angle_tag: requestBody.angle ?? 'unknown',
+          pipeline_run_id: requestBody.pipelineRunId ?? null,
+        })
+        .select('id')
+        .single();
+
+      imageLibraryId = (libraryRow as { id: string } | null)?.id ?? null;
       console.log('Image saved to image_library.');
     } catch (saveErr) {
       // Non-blocking: log error but still return the image
@@ -1113,6 +1320,8 @@ async function handleMasterImagePath(
       JSON.stringify({
         imageBase64,
         imageType: requestBody.imageType,
+        // Null when the catalogue insert failed; the caller just skips the link.
+        imageLibraryId,
         promptUsed: {
           promptFinal: requestBody.promptFinal,
           negativeInstructions: requestBody.negativeInstructions ?? '',
@@ -1247,10 +1456,41 @@ async function handleMasterImagePath(
     );
   }
 
-  // 7. Step 1: Generate all 3 prompts in a single call to gpt-5.4-mini
-  console.log('Step 1 (prompts mode): Generating 3 image prompts via gpt-5.4-mini...');
+  /**
+   * Which variants the caller actually needs.
+   *
+   * The UI shows three so the user can choose, but the carousel's visual anchor
+   * needs exactly one — and asking for three meant three long prompts in one
+   * response, which is how `mapa_rutas` ended up missing: the model ran out of
+   * budget before writing the third. Generating what nobody reads is not free,
+   * it is the failure mode.
+   */
+  const wantedVariant = requestBody.promptVariant;
+  const wantedVariants: Array<'fotografia' | 'infografia' | 'mapa_rutas'> = wantedVariant
+    ? [wantedVariant]
+    : ['fotografia', 'infografia', 'mapa_rutas'];
 
-  const step1UserMessage = `Traduce el imageIntent a tres prompts técnicos (fotografía, infografía, mapa/rutas). imageIntent: "${requestBody.imageIntent ?? requestBody.imageDirection ?? requestBody.userRequest}". Headline: "${requestBody.headline ?? ''}". Body: "${requestBody.body ?? ''}". CTA: "${requestBody.cta ?? ''}". Fondo: ${effectiveBackgroundStyle}. Texto en imagen: ${(requestBody.textInImage ?? requestBody.includeText ?? false) ? 'true' : 'false'}. Override de corredor: mode=${requestBody.corridorMode ?? 'auto'}, flow=${requestBody.corridorFlowType ?? 'auto'}, origin=${requestBody.corridorOrigin ?? ''}, destination=${requestBody.corridorDestination ?? ''}. Responde SOLO JSON válido con fotografia, infografia y mapa_rutas; mapa_rutas debe incluir corridor_analysis.`;
+  console.log(
+    `Step 1 (prompts mode): Generating ${wantedVariants.length} image prompt(s) [${wantedVariants.join(', ')}] via gpt-5.4-mini...`,
+  );
+
+  const variantAsk = wantedVariant
+    ? `Devuelve ÚNICAMENTE la variante ${wantedVariant}. Responde SOLO JSON válido con la clave "${wantedVariant}"${wantedVariant === 'mapa_rutas' ? ', que debe incluir corridor_analysis' : ''}. No incluyas las otras variantes.`
+    : 'Responde SOLO JSON válido con fotografia, infografia y mapa_rutas; mapa_rutas debe incluir corridor_analysis.';
+
+  /**
+   * Style-only scope: the visual system with no subject and no scene.
+   *
+   * The carousel reuses one of these prompts as the shared spec for every slide, so
+   * a scene inside it gets rendered five times. Asking the image model to ignore
+   * the scene does not work — it is a negation competing with a vivid description.
+   * Not producing the scene is the only reliable way.
+   */
+  const scopeAsk = requestBody.promptScope === 'style_only'
+    ? `\n\nALCANCE: solo el SISTEMA VISUAL, sin escena. Describe medio y materialidad, tratamiento de cámara y escala, iluminación, paleta con hex y sus proporciones, tipografía, densidad de composición, espacio negativo y restricciones del sistema visual. PROHIBIDO nombrar un sujeto, un objeto, un producto o una escena concreta: este texto se va a reutilizar en varias piezas con sujetos distintos, así que cualquier objeto que menciones se va a repetir en todas. Nada de "un motor", "una factura sobre una mesa", "un pallet". Solo cómo se ve, no qué se ve.`
+    : '';
+
+  const step1UserMessage = `Traduce el imageIntent a ${wantedVariant ? 'un prompt técnico' : 'tres prompts técnicos (fotografía, infografía, mapa/rutas)'}. imageIntent: "${requestBody.imageIntent ?? requestBody.imageDirection ?? requestBody.userRequest}". Headline: "${requestBody.headline ?? ''}". Body: "${requestBody.body ?? ''}". CTA: "${requestBody.cta ?? ''}". Fondo: ${effectiveBackgroundStyle}. Texto en imagen: ${(requestBody.textInImage ?? requestBody.includeText ?? false) ? 'true' : 'false'}. Override de corredor: mode=${requestBody.corridorMode ?? 'auto'}, flow=${requestBody.corridorFlowType ?? 'auto'}, origin=${requestBody.corridorOrigin ?? ''}, destination=${requestBody.corridorDestination ?? ''}. ${variantAsk}${scopeAsk}`;
 
   const step1Response = await fetchWithRetry(
     'https://api.openai.com/v1/chat/completions',
@@ -1266,7 +1506,14 @@ async function handleMasterImagePath(
           { role: 'system', content: interpolatedPrompt },
           { role: 'user', content: step1UserMessage },
         ],
-        max_completion_tokens: 3000,
+        /**
+         * Each `prompt_final` is required to be self-contained — subject, context,
+         * visual mode, composition, camera, materials, light, hierarchy, palette,
+         * negative space and restrictions — and `mapa_rutas` adds its corridor
+         * analysis on top. Three of those plus the model's own reasoning did not
+         * fit in 3000, and the symptom was the third variant silently missing.
+         */
+        max_completion_tokens: wantedVariants.length === 1 ? 3500 : 9000,
         temperature: 0.7,
       }),
     },
@@ -1290,33 +1537,44 @@ async function handleMasterImagePath(
     );
   }
 
-  // 8. Parse the three-prompt JSON response
-  let threePrompts: ThreePromptsResponse;
-  try {
-    threePrompts = JSON.parse(promptContent);
-  } catch (_parseError) {
-    const cleaned = promptContent.replace(/```json|```/g, '').trim();
-    const match = cleaned.match(/\{[\s\S]*\}/);
-    if (!match) {
-      console.error('Could not parse three-prompt response:', promptContent);
-      return new Response(
-        JSON.stringify({ error: 'parse_error', message: 'Failed to parse three-prompt response', rawContent: promptContent }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-    threePrompts = JSON.parse(match[0]);
-  }
-
-  // Validate all three keys are present
-  if (!threePrompts.fotografia || !threePrompts.infografia || !threePrompts.mapa_rutas) {
-    console.error('Missing prompt variants in response:', Object.keys(threePrompts));
+  // 8. Parse the prompt JSON response. Tolerant for the same reason as the other
+  // two model calls in this flow: a trailing comma should not cost the response.
+  const promptsParse = parseModelJson<ThreePromptsResponse>(promptContent);
+  if (!promptsParse.ok) {
+    console.error(
+      `Could not parse three-prompt response (${promptsParse.detail}). Final del contenido:`,
+      promptContent.slice(-400),
+    );
     return new Response(
-      JSON.stringify({ error: 'parse_error', message: 'Incomplete three-prompt response — missing one or more variants' }),
+      JSON.stringify({
+        error: 'parse_error',
+        message: `El modelo no devolvió prompts válidos: ${promptsParse.detail ?? 'JSON inválido'}. Reintenta.`,
+      }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+  const threePrompts: ThreePromptsResponse = promptsParse.data!;
+
+  // Only the variants that were actually requested have to be present. Demanding
+  // all three from a single-variant call would reject a perfectly good response.
+  const missingVariants = wantedVariants.filter(
+    (v) => !(threePrompts as unknown as Record<string, unknown>)[v],
+  );
+  if (missingVariants.length > 0) {
+    console.error(
+      `Missing prompt variants: pedidas [${wantedVariants.join(', ')}], faltan [${missingVariants.join(', ')}], llegaron [${Object.keys(threePrompts ?? {}).join(', ')}]. Final del contenido:`,
+      promptContent.slice(-400),
+    );
+    return new Response(
+      JSON.stringify({
+        error: 'parse_error',
+        message: `El modelo no devolvió ${missingVariants.join(' ni ')}. Suele ser respuesta truncada: reintenta.`,
+      }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 
-  console.log('Step 1 (prompts mode) complete. 3 prompts generated successfully.');
+  console.log(`Step 1 (prompts mode) complete. ${wantedVariants.length} prompt(s) generated.`);
 
   // 9. Return all 3 prompts — no image generated yet
   return new Response(
@@ -1344,12 +1602,19 @@ async function handleMasterImagePath(
 // ---------------------------------------------------------------------------
 
 /**
- * Build one self-contained image prompt per carousel slide in a single model
- * call, under the same master visual system the single-image flow uses.
+ * Build a self-contained image prompt for the carousel slides in this call, under
+ * the same master visual system the single-image flow uses.
  *
- * The model writes the shared design block once and one scene per slide; this
- * function stitches them so every stored prompt carries the full spec. That way
- * a slide the user edits and regenerates alone still belongs to the set.
+ * The caller decides how much work one request does. It is meant to send ONE
+ * slide at a time: asking for a full design spec plus five scenes in a single
+ * response is what pushed a 5-slide set past the 110s ceiling, and it made one
+ * slow response cost the whole set. The first call returns the design block, and
+ * every later call passes it back in `carouselDesignBlock` so the block is reused
+ * verbatim instead of paraphrased — four paraphrases of one spec drift, one copy
+ * cannot.
+ *
+ * The stitched prompt always carries the full spec, so a slide the user edits and
+ * regenerates alone still belongs to the set.
  */
 async function buildCarouselPrompts(
   requestBody: GenerateImageRequest,
@@ -1375,14 +1640,22 @@ async function buildCarouselPrompts(
     );
   }
 
-  // Reading order is authoritative and comes from the caller's preset; reindex
-  // so a caller passing sparse or unsorted indexes cannot scramble the set.
+  // Reading order comes from the caller's preset and the index is ABSOLUTE within
+  // the set: a per-slide call may legitimately carry only slide 3. Sort but never
+  // reindex — renumbering a partial batch to 0 would mislabel the slide and lose
+  // its place in the series.
   const slides: CarouselPromptSlideInput[] = [...rawSlides]
     .sort((a, b) => (a.index ?? 0) - (b.index ?? 0))
-    .map((s, i) => ({ ...s, index: i }));
+    .map((s) => ({ ...s, index: s.index ?? 0 }));
+
+  const totalSlides = Math.max(
+    requestBody.carouselTotalSlides ?? slides.length,
+    ...slides.map((s) => s.index + 1),
+  );
 
   const imageType = requestBody.imageType ?? 'fotografia';
   const visualMotif = requestBody.visualMotif?.trim() ?? '';
+  const providedDesignBlock = requestBody.carouselDesignBlock?.trim() ?? '';
 
   const userMessage = buildCarouselUserMessage({
     slides,
@@ -1390,9 +1663,13 @@ async function buildCarouselPrompts(
     imageType,
     backgroundStyle,
     aspectRatio,
+    designBlock: providedDesignBlock,
+    totalSlides,
   });
 
-  console.log(`carousel_prompts: building ${slides.length} prompts (medium=${imageType})...`);
+  console.log(
+    `carousel_prompts: building ${slides.length}/${totalSlides} prompt(s) (medium=${imageType}, designBlock=${providedDesignBlock ? 'reused' : 'new'})...`,
+  );
 
   const response = await fetchWithRetry(
     'https://api.openai.com/v1/chat/completions',
@@ -1408,8 +1685,12 @@ async function buildCarouselPrompts(
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userMessage },
         ],
-        // One design block plus N scenes — scales with the slide count.
-        max_completion_tokens: 1200 + slides.length * 500,
+        // Scales with what this call actually has to write. Reusing the design
+        // block drops the bulk of the response, which is the point of splitting
+        // the set into one request per slide. The ceiling stays generous on
+        // purpose: a truncated response is invalid JSON, which is a worse failure
+        // than a slow one.
+        max_completion_tokens: (providedDesignBlock ? 300 : 1200) + slides.length * 500,
         temperature: 0.7,
       }),
     },
@@ -1433,23 +1714,30 @@ async function buildCarouselPrompts(
     );
   }
 
-  let parsed: CarouselPromptsModelResponse;
-  try {
-    parsed = JSON.parse(content);
-  } catch (_err) {
-    const cleaned = content.replace(/```json|```/g, '').trim();
-    const match = cleaned.match(/\{[\s\S]*\}/);
-    if (!match) {
-      console.error('Could not parse carousel prompts response:', content.slice(0, 500));
-      return new Response(
-        JSON.stringify({ error: 'parse_error', message: 'Failed to parse carousel prompts response' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-    parsed = JSON.parse(match[0]);
+  // Tolerant parse: same model, same failure mode as the carousel script — a
+  // trailing comma before a closing brace threw away an otherwise valid response.
+  const parseResult = parseModelJson<CarouselPromptsModelResponse>(content);
+  if (!parseResult.ok) {
+    console.error(
+      `Could not parse carousel prompts response (${parseResult.detail}). Final del contenido:`,
+      content.slice(-500),
+    );
+    return new Response(
+      JSON.stringify({
+        error: 'parse_error',
+        message: `El modelo no devolvió prompts válidos: ${parseResult.detail ?? 'JSON inválido'}. Reintenta.`,
+      }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
   }
+  const parsed = parseResult.data!;
 
-  if (!parsed.designBlock?.trim() || !Array.isArray(parsed.slides)) {
+  // The design block is only expected back when the caller did not already have
+  // one. If it did, whatever the model echoes is ignored: the set's block is the
+  // one that was passed in.
+  const designBlock = providedDesignBlock || (parsed.designBlock?.trim() ?? '');
+
+  if (!designBlock || !Array.isArray(parsed.slides)) {
     console.error('Incomplete carousel prompts response:', Object.keys(parsed ?? {}));
     return new Response(
       JSON.stringify({ error: 'parse_error', message: 'Incomplete carousel prompts response — missing designBlock or slides' }),
@@ -1460,6 +1748,14 @@ async function buildCarouselPrompts(
   const sceneByIndex = new Map<number, { sceneBlock?: string; negativeInstructions?: string }>();
   for (const s of parsed.slides) {
     if (typeof s?.index === 'number') sceneByIndex.set(s.index, s);
+  }
+
+  // Single-slide call: accept the one scene returned even if the model numbered it
+  // 0 instead of echoing the absolute index. There is no ambiguity about which
+  // slide it belongs to, and rejecting it would fail a request that succeeded.
+  if (slides.length === 1 && parsed.slides.length === 1) {
+    const only = parsed.slides[0];
+    if (only?.sceneBlock?.trim()) sceneByIndex.set(slides[0].index, only);
   }
 
   const missingScene = slides.filter((s) => !sceneByIndex.get(s.index)?.sceneBlock?.trim());
@@ -1473,7 +1769,6 @@ async function buildCarouselPrompts(
     );
   }
 
-  const designBlock = parsed.designBlock.trim();
   const builtSlides = slides.map((slide) => {
     const scene = sceneByIndex.get(slide.index)!;
     return {
@@ -1481,7 +1776,7 @@ async function buildCarouselPrompts(
       role: slide.role,
       promptFinal: assembleCarouselSlidePrompt({
         slide,
-        totalSlides: slides.length,
+        totalSlides,
         designBlock,
         sceneBlock: scene.sceneBlock!,
         negativeInstructions: scene.negativeInstructions ?? '',

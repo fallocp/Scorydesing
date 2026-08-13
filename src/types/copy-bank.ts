@@ -80,6 +80,89 @@ export interface CopyBankRow {
   updated_at: string;
 }
 
+// ---------------------------------------------------------------------------
+// Tabs: approval, work state and publication are three different axes
+// ---------------------------------------------------------------------------
+
+/**
+ * Which list the panel is showing.
+ *
+ * These exist because the bank mixes two populations that need opposite
+ * treatment, and showing them in one undifferentiated list is what made the
+ * panel confusing:
+ *
+ * - `proposed` — what the copy agent just wrote. Nothing has been decided about
+ *   it yet, so this is the ONLY tab with approve/reject actions.
+ * - `bank` — the pre-approved library (the seeded copies). There is nothing to
+ *   approve here; the only decision is which one to work with.
+ *
+ * `working` and `used` are not a third population, they are views over the same
+ * approved library.
+ */
+export type CopyBankTab = 'proposed' | 'bank' | 'working' | 'used';
+
+export const COPY_BANK_TAB_LABELS: Record<CopyBankTab, string> = {
+  proposed: 'Propuestas',
+  bank: 'Banco',
+  working: 'En proceso',
+  used: 'Usados',
+};
+
+export const COPY_BANK_TAB_ORDER: CopyBankTab[] = ['bank', 'working', 'proposed', 'used'];
+
+/** What has already been produced for a copy. Derived — nothing new is stored. */
+export interface CopyBankProgress {
+  hasImagePrompt: boolean;
+  /** Slides in the carousel, and how many already have a rendered image. */
+  carouselTotal: number;
+  carouselDone: number;
+  /** Something exists for this copy already: a prompt or a carousel. */
+  started: boolean;
+}
+
+/**
+ * Read the work state off `image_meta`.
+ *
+ * Note what is NOT here: whether the single (non-carousel) image was rendered.
+ * That lives in `design_mockups`, which is not joined to the copy, so the honest
+ * signal for single-image mode is "prompt listo" and nothing more.
+ */
+export function copyBankProgress(row: CopyBankRow): CopyBankProgress {
+  const slots = row.image_meta?.carousel?.slots ?? [];
+  const carouselTotal = slots.length;
+  const carouselDone = slots.filter((s) => !!s.imageUrl).length;
+  const hasImagePrompt = !!row.image_meta?.imagePrompt?.trim();
+
+  return {
+    hasImagePrompt,
+    carouselTotal,
+    carouselDone,
+    started: hasImagePrompt || carouselTotal > 0,
+  };
+}
+
+/**
+ * Whether a row belongs in a tab.
+ *
+ * Deliberately NOT a partition: a copy you are working on still shows up under
+ * `bank`. Moving it out would make it look deleted from the library the moment
+ * you touched it, and the library is the thing you browse.
+ */
+export function matchesCopyBankTab(row: CopyBankRow, tab: CopyBankTab): boolean {
+  const isProposal = row.status === 'proposed';
+
+  switch (tab) {
+    case 'proposed':
+      return isProposal;
+    case 'used':
+      return !isProposal && !!row.used_at;
+    case 'bank':
+      return !isProposal && !row.used_at;
+    case 'working':
+      return !isProposal && !row.used_at && copyBankProgress(row).started;
+  }
+}
+
 /** Filters applied client-side over the fetched bank. */
 export interface CopyBankFilters {
   branch: string | null;

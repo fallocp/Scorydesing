@@ -50,6 +50,15 @@ interface SaveMockupParams {
   /** Carousel slides pass both: the group they belong to and their position. */
   carouselGroupId?: string;
   carouselIndex?: number;
+  /**
+   * `image_library` row the generating function already created for this image.
+   *
+   * Passing it links the catalogue entry to this mockup, which is what makes the
+   * catalogue copy disappear when the mockup is deleted. Omitting it is safe: the
+   * mockup saves fine, the catalogue entry just stays unlinked — which is the
+   * correct outcome for callers whose images never went through that function.
+   */
+  imageLibraryId?: string | null;
 }
 
 /**
@@ -119,7 +128,41 @@ export function useSaveMockup() {
 
       if (insertError) throw new Error(`Insert failed: ${insertError.message}`);
 
-      return { imageUrl, mockupId: (inserted as { id: string }).id };
+      const mockupId = (inserted as { id: string }).id;
+
+      /**
+       * Close the loop with the catalogue entry.
+       *
+       * Two things happen here, and both matter:
+       *
+       * - `mockup_id` gives the row an owner, so deleting the mockup cascades and
+       *   the image stops appearing in the asset catalogue pointing at a file that
+       *   is gone.
+       * - `image_url` + clearing `image_base64` removes the second copy of the
+       *   bytes. The image already lives in Storage at this point, so keeping a
+       *   multi-megabyte string in a JSON column buys nothing and is loaded on
+       *   every catalogue query.
+       *
+       * Best-effort: the mockup is saved and returning it matters more than the
+       * catalogue bookkeeping, so a failure here is logged, not thrown.
+       */
+      if (params.imageLibraryId) {
+        const { error: linkError } = await supabase
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .from('image_library' as any)
+          .update({
+            mockup_id: mockupId,
+            image_url: imageUrl,
+            image_base64: null,
+          })
+          .eq('id', params.imageLibraryId);
+
+        if (linkError) {
+          console.error('No se pudo ligar image_library al mockup:', linkError.message);
+        }
+      }
+
+      return { imageUrl, mockupId };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['design-mockups', activeBusinessId] });
@@ -152,5 +195,88 @@ export function useSavedMockups() {
     },
     enabled: !!activeBusinessId,
     staleTime: 30_000,
+  });
+}
+
+/** Storage bucket that holds the mockup PNGs. Same one `useSaveMockup` writes to. */
+const MOCKUP_BUCKET = 'design-images';
+
+/**
+ * Recover the object path inside the bucket from a public URL.
+ *
+ * The row only stores the public URL, so the path has to be read back out of it.
+ * A public URL looks like
+ *   https://<ref>.supabase.co/storage/v1/object/public/design-images/<path>
+ * and everything after the bucket name is the key.
+ *
+ * Returns null when the URL does not match — a mockup saved by another route, or
+ * an external URL. The caller treats that as "no file to remove" rather than as a
+ * failure: the row still has to go.
+ */
+export function storagePathFromPublicUrl(imageUrl: string): string | null {
+  const marker = `/storage/v1/object/public/${MOCKUP_BUCKET}/`;
+  const at = imageUrl.indexOf(marker);
+  if (at === -1) return null;
+  const path = imageUrl.slice(at + marker.length).split('?')[0];
+  return path ? decodeURIComponent(path) : null;
+}
+
+/**
+ * Delete a mockup: the row and the file behind it.
+ *
+ * Order matters, and it is row-first on purpose. The DELETE policy on
+ * design_mockups is `created_by = auth.uid()`, so deleting someone else's mockup
+ * silently affects zero rows. Removing the file first would destroy the image and
+ * leave the row pointing at nothing — the worst of both. Deleting the row first
+ * and asking Postgres which rows it actually removed tells us whether we were
+ * allowed at all, before anything irreversible happens to the file.
+ *
+ * A file that fails to delete after the row is gone is reported, not swallowed:
+ * an orphan in Storage is invisible and keeps costing, so it is worth surfacing.
+ */
+export function useDeleteMockup() {
+  const { activeBusinessId } = useActiveBusiness();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (params: { id: string }) => {
+      const { data: deleted, error } = await mockupsTable()
+        .delete()
+        .eq('id', params.id)
+        .select('id, image_url');
+
+      if (error) throw new Error(`No se pudo borrar: ${error.message}`);
+
+      const rows = (deleted ?? []) as { id: string; image_url: string }[];
+      if (rows.length === 0) {
+        // RLS filtered it out. Nothing was deleted and nothing was touched.
+        throw new Error(
+          'No se borró nada. Solo puedes borrar los mockups que tú generaste.',
+        );
+      }
+
+      const path = storagePathFromPublicUrl(rows[0].image_url ?? '');
+      if (path) {
+        const { error: storageError } = await supabase.storage
+          .from(MOCKUP_BUCKET)
+          .remove([path]);
+
+        if (storageError) {
+          throw new Error(
+            `El mockup se borró de la base, pero el archivo quedó en Storage: ${storageError.message}`,
+          );
+        }
+      }
+
+      return { id: params.id, fileRemoved: !!path };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['design-mockups', activeBusinessId] });
+    },
+    // A failed storage cleanup still removed the row, so the list has to refresh
+    // either way or the grid keeps showing something that no longer exists.
+    onError: () => {
+      queryClient.invalidateQueries({ queryKey: ['design-mockups', activeBusinessId] });
+    },
   });
 }
