@@ -16,13 +16,40 @@
  */
 
 /**
+ * Los tres ejemplos aprobados son de sets que VENDEN: los tres cierran ofreciendo
+ * el producto y terminan en un CTA imperativo. Bajo los otros objetivos esa forma
+ * de cerrar está prohibida, así que las dos viñetas que la describen se sacan del
+ * bloque en vez de quedar contradiciendo la sección de cierre.
+ *
+ * Se filtran aquí, junto a los ejemplos, y no con una advertencia arriba: un
+ * "ignora las viñetas 6 y 7 si tu objetivo es otro" es más frágil que no ponerlas.
+ */
+function closingBullets(objective: CarouselScriptObjective): string {
+  if (objective === 'vender') {
+    return `- En el slide de solución el sujeto es el producto: "la cobertura ayuda a…",
+  "una estrategia puede ayudarte a…". Nunca una orden al lector.
+- El CTA va solo, en su propio slide, y es lo único imperativo del carrusel.`;
+  }
+
+  return `- NOTA SOBRE EL CIERRE: los tres ejemplos cierran ofreciendo el producto porque
+  eran sets de venta. El tuyo no lo es. Cópiales el ritmo y el encadenamiento, NO
+  su último movimiento: la sección "CIERRE Y PRESENCIA DE MARCA" manda sobre esto.`;
+}
+
+/** Objetivo del set, en los mismos términos que el cliente. */
+export type CarouselScriptObjective = 'explicar' | 'conectar' | 'vender';
+
+/**
  * Bloque listo para insertar en el system prompt.
  *
  * Tres ejemplos buenos (para que se vea el patrón, no un caso aislado) y uno malo
  * — este último es una salida real de este mismo agente, que es la forma más
  * directa de nombrar los errores que hay que evitar.
  */
-export const CAROUSEL_MECHANICS_EXAMPLES = `## MECÁNICA DEL BANCO (ejemplos aprobados)
+export function carouselMechanicsExamples(
+  objective: CarouselScriptObjective = 'conectar',
+): string {
+  return `## MECÁNICA DEL BANCO (ejemplos aprobados)
 
 Estos carruseles ya están aprobados. Cópiales la MECÁNICA: el largo de cada línea,
 el encadenamiento entre slides, el condicional, quién es el sujeto de la frase.
@@ -59,9 +86,7 @@ Qué tienen en común, y es lo único que debes replicar:
   el 1 ("Si pagarás después…", "Eso puede…", "Cada compra…").
 - El verbo del riesgo va en condicional: "puede cambiar", "puede moverse",
   "puede acumularse". El banco nunca afirma el daño.
-- En el slide de solución el sujeto es el producto: "la cobertura ayuda a…",
-  "una estrategia puede ayudarte a…". Nunca una orden al lector.
-- El CTA va solo, en su propio slide, y es lo único imperativo del carrusel.
+${closingBullets(objective)}
 - Cero cifras. Ninguno de los ejemplos necesita un número para funcionar.
 
 ## CONTRAEJEMPLO (salida real de este agente, rechazada)
@@ -81,4 +106,28 @@ Todo lo que está mal ahí, y que no debes repetir:
   dice ilustrativo. Y el body vuelve a repetir el slide 2.
 - Slide 4: tres bloques de texto en una sola imagen, dos claims de producto que
   nadie autorizó ("accesible", "sin montos mínimos") y una descalificación del
-  mercado ("prohibitivos"). Además le ordena al lector que planee y fije.`;
+  mercado ("prohibitivos"). Además le ordena al lector que planee y fije.
+
+Aclaración sobre el slide 1 del contraejemplo: el texto no era el problema —
+"El costo en dólares ya está claro. El costo en pesos todavía no" es un copy
+aprobado del banco. El error fue PARTIRLO entre headline y body. Ese copy, entero
+y en una sola línea, es correcto.
+
+## PROHIBIDO REUSAR ESTAS LÍNEAS
+
+Los ejemplos de arriba son de la rama de coberturas, y cuando el set también es de
+coberturas la instrucción "no copies el vocabulario" no alcanza: el vocabulario
+coincide. Estas líneas y sus paráfrasis están QUEMADAS. Si alguna aparece en tu
+guion, aunque sea con otras palabras, el guion está mal:
+
+- "Si pagarás/pagas después, el tipo de cambio puede cambiar tu costo final"
+- "Cada compra internacional agrega una nueva obligación cambiaria"
+- "Cada compra posterior puede acumular la exposición"
+- "La cobertura cambiaria ayuda a administrar esa exposición"
+- "Una estrategia cambiaria puede ayudarte a planearlas mejor"
+- "Eso puede modificar el costo final en pesos de tu operación"
+
+Todas dicen el mecanismo en abstracto. Lo tuyo tiene que decirlo con la operación
+concreta de la industria activa: qué se compra, en qué documento vive su costo, en
+qué fecha se paga. Ahí es donde tu guion se vuelve distinto a estos ejemplos.`;
+}

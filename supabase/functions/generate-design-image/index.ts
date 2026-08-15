@@ -5,6 +5,7 @@ import { fetchBusinessContext, fetchMasterPromptByType } from "../_shared/fetchB
 import { interpolateTemplate } from "../_shared/interpolateTemplate.ts";
 import { validateImagePromptResponse } from "../_shared/validateResponse.ts";
 import { parseModelJson } from "../_shared/parseModelJson.ts";
+import { BRAND_COLORS, BRAND_COLOR_LANGUAGE_EN } from "../_shared/brandColorLanguage.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -232,6 +233,39 @@ interface CarouselPromptSlideInput {
   /** Brand elements composited later ('logo' | 'disclaimer'). Drives the
    *  reserved negative space: slides without any use the whole frame. */
   brandElements?: string[];
+  /**
+   * Art direction decided upstream by the script agent.
+   *
+   * Without it the prompt can only ask for "a photo related to this text", which is
+   * what produced five interchangeable slides. With it the prompt knows what the
+   * image has to prove, the device that proves it, the composition that carries it,
+   * which words may appear inside the objects, and which block of the headline
+   * takes emphasis.
+   */
+  brief?: {
+    visualIntent?: string;
+    visualMetaphor?: string;
+    layout?: string;
+    primaryObjects?: string[];
+    environmentalText?: string[];
+    /** Semantic role, not a colour: the brand mapping resolves it. */
+    highlights?: { text: string; colorRole: string }[];
+    /**
+     * Documents in the scene with their exact values, computed upstream.
+     *
+     * Shaped per document rather than as a flat list because that is the whole
+     * problem: given a pile of labels the model cannot tell which value belongs to
+     * which card, and it repeated the same figures on all three.
+     */
+    documents?: {
+      label: string;
+      kind: string;
+      date?: string;
+      fields?: { label: string; value: string; colorRole?: string }[];
+      total: { label: string; value: string; colorRole?: string };
+    }[];
+    accumulatedLabel?: string;
+  };
 }
 
 /** What the model returns: the design block once, plus one scene per slide. */
@@ -925,7 +959,7 @@ Recurso por tipo de momento, como punto de partida:
 - solución: la operación resuelta, un solo documento ordenado
 - cierre: el cuadro más callado, con el sujeto recurrente de vuelta
 
-CIFRAS: los números y el texto de los documentos van SIEMPRE fuera de foco, cortados por el encuadre o de espaldas. Una cifra legible dentro de la imagen es un dato inventado y está prohibida. El cambio se comunica por la forma —dos hojas, dos fechas, dos totales de distinto largo— nunca por dígitos que se puedan leer.`;
+CIFRAS: los montos y las etiquetas que vengan en el brief se renderizan LEGIBLES y correctos — son lo que hace que la escena explique el concepto. Un comparativo de dos totales sin números legibles no comunica el cambio, solo lo insinúa. Lo que no va: cifras que el brief no pidió, presentar un número como el tipo de cambio vigente o una cotización oficial, y rellenar el resto del documento con dígitos inventados. Los montos son props ilustrativos y tienen que verse plausibles y redondos; el resto de la superficie queda abstracto.`;
 
 /** Master-prompt router section that governs each medium. */
 const CAROUSEL_MEDIUM_SECTION: Record<string, string> = {
@@ -962,6 +996,164 @@ function reservedSpaceBlock(brandElements: string[]): string {
 }
 
 /**
+ * The art direction, stated before the scene.
+ *
+ * This is the difference between "make a nice image about this text" and a brief:
+ * what the picture has to prove, the device that proves it, and the objects that
+ * must be in frame. It goes ahead of the scene description so the scene reads as
+ * the execution of an intent rather than as the intent itself.
+ */
+function briefBlock(slide: CarouselPromptSlideInput): string {
+  const brief = slide.brief;
+  if (!brief) return '';
+
+  const parts: string[] = [];
+  if (brief.visualIntent?.trim()) {
+    parts.push(`- What this image must make evident: ${brief.visualIntent.trim()}`);
+  }
+  if (brief.visualMetaphor?.trim()) {
+    parts.push(`- The device that demonstrates it: ${brief.visualMetaphor.trim()}`);
+  }
+  if ((brief.primaryObjects ?? []).length > 0) {
+    parts.push(`- Objects that must be in frame: ${brief.primaryObjects!.join(', ')}`);
+  }
+  if (parts.length === 0) return '';
+
+  return `ART DIRECTION FOR THIS SLIDE:\n${parts.join('\n')}\n\nDo not merely depict the industry the copy mentions. The scene has to demonstrate this specific claim: an image that would work just as well under a different headline is the wrong image.`;
+}
+
+/**
+ * The numeric specification, kept apart from the art direction.
+ *
+ * A prompt that mixes both dilutes the numbers: the creative half is long and
+ * evocative, the numeric half is four lines, and the model obeys the half it has
+ * more of. Real output showed three documents carrying identical values because the
+ * data arrived as one undifferentiated list of labels.
+ *
+ * So the values are stated per document, in a block that says what is fixed, what
+ * changes and against what the comparison is measured — the three ambiguities that
+ * let a model produce something plausible instead of something correct.
+ */
+function documentDataBlock(slide: CarouselPromptSlideInput): string {
+  const documents = slide.brief?.documents ?? [];
+  if (documents.length === 0) return '';
+
+  const usdValues = new Set(
+    documents.flatMap((d) =>
+      (d.fields ?? []).filter((f) => /USD/i.test(f.label)).map((f) => f.value),
+    ),
+  );
+  const fixedUsd = usdValues.size === 1 ? [...usdValues][0] : null;
+
+  const logic: string[] = [
+    `${documents[0].label} is the baseline case.`,
+  ];
+  if (fixedUsd) {
+    logic.push(
+      `The USD obligation is IDENTICAL in every document: ${fixedUsd}. It is the same purchase — do not vary it, do not scale it, do not round it differently on one document.`,
+    );
+    logic.push(
+      'Only the exchange rate and the resulting MXN cost differ between documents. If the USD amounts differ, the piece says the purchases got bigger, which is the wrong message.',
+    );
+  }
+  documents.slice(1).forEach((d) => {
+    const variation = (d.fields ?? []).find((f) => /VARIACI/i.test(f.label));
+    if (variation) {
+      logic.push(`${d.label} is ${variation.value} versus ${documents[0].label}, measured against the baseline and not against the previous document.`);
+    }
+  });
+
+  const tables = documents
+    .map((d) => {
+      const lines = [
+        `  ${d.kind}`,
+        `  ${d.label}`,
+        d.date ? `  ${d.date}` : '',
+        ...(d.fields ?? []).map((f) => `  ${f.label} ${f.value}`),
+        `  ${d.total.label} ${d.total.value}`,
+      ].filter(Boolean);
+      return `DOCUMENT "${d.label}" — exact visible text:\n${lines.join('\n')}`;
+    })
+    .join('\n\n');
+
+  const accumulated = slide.brief?.accumulatedLabel
+    ? `\n\nBelow the documents, one single line, no box around it:\n  IMPACTO ACUMULADO ${slide.brief.accumulatedLabel}\nThat figure is the point of the slide — without it the scene only says there were several purchases.`
+    : '';
+
+  return `DOCUMENT DATA — NON-NEGOTIABLE. Render these values exactly as written. Do not invent, replace, average or re-round any number, and do not move a value from one document to another.
+
+NUMERIC LOGIC:
+${logic.map((l) => `- ${l}`).join('\n')}
+
+${tables}${accumulated}
+
+Every document keeps the SAME fields in the SAME order, so the reader finds the one value that changed instead of comparing two different layouts. Every document shows its TOTAL.`;
+}
+
+/**
+ * Words allowed to appear inside the objects.
+ *
+ * Text on an invoice or a screen is how an object explains a concept instead of
+ * another sentence doing it — "USD" printed on the document says what a second line
+ * of copy would have had to say. The list comes from the brief precisely so the
+ * model is not inventing financial data, and anything outside it stays illegible.
+ */
+function environmentalTextBlock(slide: CarouselPromptSlideInput): string {
+  const labels = (slide.brief?.environmentalText ?? []).filter((t) => t?.trim());
+
+  /**
+   * When the slide carries documents, the numeric spec above already listed every
+   * visible value, so this block cannot claim to be exhaustive. Saying "only these"
+   * next to a table of totals tells the model to drop the totals — the two blocks
+   * would be giving opposite orders about the same surfaces.
+   */
+  const hasDocuments = (slide.brief?.documents ?? []).length > 0;
+  const exclusivity = hasDocuments
+    ? 'Beyond the DOCUMENT DATA above and these labels, nothing else renders legibly: every other surface stays abstract — out of focus, cropped or turned away.'
+    : 'Only these, spelled exactly. Everything else on those surfaces stays abstract: out of focus, cropped or turned away.';
+
+  if (labels.length === 0) {
+    return hasDocuments
+      ? 'TEXT INSIDE OBJECTS: nothing beyond the DOCUMENT DATA above. Any other document, screen or label in frame stays abstract — out of focus, cropped or turned away. No invented words, no filler paragraphs, no pseudo-text.'
+      : 'TEXT INSIDE OBJECTS: none on this slide. Documents, screens and labels stay abstract — out of focus, cropped or turned away. No invented words, no filler paragraphs, no pseudo-text.';
+  }
+
+  const structure = hasDocuments
+    ? ''
+    : `\n\nDOCUMENT STRUCTURE — a quote or invoice that is explaining a cost must look complete. Minimum: the word COTIZACIÓN or FACTURA, a description line, and a clearly visible TOTAL with its figure. A document whose TOTAL is missing or empty reads as an unfinished mockup.
+
+WHEN TWO DOCUMENTS ARE COMPARED, they are the SAME document at two moments, so they must be identical in everything except what changed: same structure, same fields in the same positions, same scale, same perspective, same currency labels. Only the values and the stamp differ. The comparison works because the eye finds the one difference instantly — change the layout too and the reader has to hunt for it.`;
+
+  return `TEXT INSIDE OBJECTS — these exact labels render legibly, because they are what makes the scene explain the concept:\n${labels
+    .map((t) => `  - ${t}`)
+    .join('\n')}\n${exclusivity} No filler paragraphs, no gibberish, no pseudo-text, and no figure of your own — any number in frame is an illustrative prop, never a quoted market rate.${structure}`;
+}
+
+/**
+ * Where the text and the scene sit, by composition.
+ *
+ * The old rule pinned every slide to the same band — text across the top, subject
+ * below — which kept the set consistent but made five slides look like one
+ * template filled in five times. The architecture is now chosen per slide by what
+ * the message needs, and cohesion is carried by the shared design spec instead.
+ */
+function layoutRule(layout?: string): string {
+  switch (layout) {
+    case 'split_photo':
+      return 'LAYOUT split_photo: headline and supporting copy in the LEFT column, photography holding the right side and the lower right. The two do not overlap — the composition is divided, not layered.';
+    case 'editorial_repetition':
+      return 'LAYOUT editorial_repetition: headline at the top, and below it the same object and its document REPEATED into depth — three or four instances receding, so the accumulation is the composition itself and not a caption about it.';
+    case 'document_result':
+      return 'LAYOUT document_result: headline at the top, and a document or a resolved result as the subject in the lower two thirds, shot straighter and more symmetrical than the other slides. The scene should read as settled: orderly desk, aligned geometry, one clear outcome.';
+    case 'hero_clean':
+      return 'LAYOUT hero_clean: closing frame. One hero subject, generous negative space, minimum conceptual complexity. The text is short and the composition is calm — this is the end of the set, not another lesson.';
+    case 'editorial_top':
+    default:
+      return 'LAYOUT editorial_top: headline across the upper area, supporting sentence directly under it, and the scene in the lower two thirds.';
+  }
+}
+
+/**
  * Colour and placement of the baked text.
  *
  * Both were weaker here than in the single-image path, which is why the slides
@@ -979,17 +1171,37 @@ function carouselTextRules(slide: CarouselPromptSlideInput): string {
   const carriesLogo = (slide.brandElements ?? []).includes('logo');
   const carriesDisclaimer = (slide.brandElements ?? []).includes('disclaimer');
 
+  const highlights = (slide.brief?.highlights ?? []).filter((h) => h?.text?.trim());
+
+  /**
+   * Emphasis comes from the brief, by semantic block.
+   *
+   * The rule used to be "one word teal, one word coral", which fought the copy: in
+   * "Cada motor también mueve tus costos" the unit that carries the meaning is "tus
+   * costos", not "costos". And two accents are only information when the line holds
+   * an opposition — USD against MXN — otherwise they fragment the headline.
+   */
+  const colourRule = highlights.length > 0
+    ? `HEADLINE EMPHASIS — decided upstream, apply exactly. All text in navy ${BRAND_COLORS.navy} EXCEPT these blocks:\n${highlights
+        .map(
+          (h) =>
+            `  - "${h.text}" in ${
+              h.colorRole === 'control'
+                ? `turquoise ${BRAND_COLORS.turquoise}`
+                : `coral ${BRAND_COLORS.coral}`
+            }`,
+        )
+        .join('\n')}\nColour each block whole, exactly as written, and nothing else. A stray accent elsewhere breaks the reading. No accent on the supporting line or the CTA.`
+    : `HEADLINE EMPHASIS: all text in navy ${BRAND_COLORS.navy}, with at most ONE semantic block in coral ${BRAND_COLORS.coral} if one clearly carries the tension of the line. No accent on the supporting line or the CTA.`;
+
   const rules: string[] = [
-    /**
-     * The same two-accent pattern the single-image path uses, verbatim from the
-     * master prompt: one word teal, one word coral. The carousel had a weaker rule
-     * that made coral primary and teal conditional, and the result was sets where
-     * coral was the only brand colour present — the palette reduced to one accent.
-     */
-    'COLOUR — brand pattern, not optional, same as the single-image pieces: set the text in navy #0F1419, highlight ONE key word in turquoise #2ED4C7 and ANOTHER key word in coral #FF7A4A. Two accents, one of each, never two words in the same colour and never a whole sentence highlighted. If the line is too short for two, use coral only. No accent colour on the body or the CTA. No other colours for text: no white text on light backgrounds, no grey, no black.',
-    'PLACEMENT — identical zone in every slide of the set: the text block sits in the UPPER portion of the frame, left-aligned, starting at about 8% from the left edge. The visual subject lives in the lower two thirds. This is the same zone on all slides so the headline does not move while the reader swipes.',
-    'The subject must not run underneath the letters: leave that upper area as clean background, with enough contrast that every word is readable at thumbnail size.',
+    'HIERARCHY — this is an editorial ad, not a captioned photo. The headline is the DOMINANT element of the composition: large, immediately legible, occupying a substantial share of the frame. The supporting sentence is MUCH smaller, in a clean geometric sans-serif, and explains without competing. The CTA and any label are smaller still. First visual hit is the headline, or the headline and the scene together — never a big image with a small title in a corner.',
+    'LINE BREAKS: the headline arrives with its line breaks already decided by meaning. Respect them exactly. Do not reflow it to fit, do not join the lines, do not add breaks of your own.',
+    colourRule,
+    'The subject must never run underneath the letters. Whatever area the headline occupies stays clean, with enough contrast that every word is readable at thumbnail size.',
   ];
+
+  rules.push(layoutRule(slide.brief?.layout));
 
   if (carriesLogo) {
     rules.push(
@@ -1055,9 +1267,20 @@ function assembleCarouselSlidePrompt(params: {
     negativeInstructions, visualMotif, aspectRatio,
   } = params;
 
-  const textLines = [`- Headline: "${slide.headline}"`];
-  if (slide.body?.trim()) textLines.push(`- Body: "${slide.body.trim()}"`);
-  if (slide.cta?.trim()) textLines.push(`- CTA: "${slide.cta.trim()}"`);
+  /**
+   * The exact strings, delimited without quotes.
+   *
+   * Wrapping copy in quotation marks made the image model render the quotes as part
+   * of the headline. Delimiting with a label and a line break instead removes the
+   * ambiguity about where the text starts and ends.
+   */
+  const textLines = [`HEADLINE — render exactly, keeping these line breaks:\n${slide.headline}`];
+  if (slide.body?.trim()) {
+    textLines.push(`SUPPORTING COPY — render exactly, much smaller than the headline:\n${slide.body.trim()}`);
+  }
+  if (slide.cta?.trim()) {
+    textLines.push(`CTA — render exactly, smaller still:\n${slide.cta.trim()}`);
+  }
 
   /**
    * How the baked text is laid out.
@@ -1110,12 +1333,29 @@ function assembleCarouselSlidePrompt(params: {
     `DESIGN SPEC (shared by the whole set):\n${designBlock.trim()}\n\nIf the spec above names a specific subject, object or scene, treat it ONLY as an example of the style. It does not describe this image. The scene for this slide is the one stated below and it replaces it entirely. What you take from the spec is the medium and materiality, the camera treatment, the lighting, the palette and its proportions, the composition density, the negative space and the system restrictions.`,
     `SCENE FOR THIS SLIDE (this is what you render):\n${sceneBlock.trim()}`,
     layoutRules.length > 0 ? `TEXT LAYOUT:\n${layoutRules.join('\n')}` : '',
-    `TEXT TO RENDER IN THE IMAGE (exact and authoritative):\n${textLines.join('\n')}\nRender ONLY this text, spelled exactly as written, in Spanish, without translating it and without adding words, labels, numbers, captions, stage titles, legends or invented UI text.\n${BRAND_TYPOGRAPHY}\nNo paragraph blocks, no bullet lists.`,
+    briefBlock(slide),
+    /**
+     * The master prompt carries both branches of its `textInImage` rule as plain
+     * text, so the "forbid every letter" half is present even though the carousel
+     * runs with text enabled. Saying so once, decisively, costs one line and removes
+     * a contradiction the model would otherwise have to arbitrate.
+     */
+    'TEXT IS ENABLED for this piece: it renders its own headline, supporting copy and document labels. Ignore any instruction in the system prompt that applies when text in image is disabled.',
+    BRAND_COLOR_LANGUAGE_EN,
+    documentDataBlock(slide),
+    `TEXT TO RENDER IN THE IMAGE (exact and authoritative). The quotation marks are NOT part of the copy and must not appear in the image:\n\n${textLines.join('\n\n')}\n\nSpell it exactly as written, in Spanish, without translating it, without rewording it and without adding sentences of your own. Do not render quotation marks around any of it.\n${BRAND_TYPOGRAPHY}\nNo paragraph blocks, no bullet lists.`,
+    environmentalTextBlock(slide),
     carouselTextRules(slide),
     'NO BRANDING: do not render any logo, wordmark, brand name (including "Xending"), symbol, watermark or readable signage anywhere. Do not write any legal disclaimer, terms or fine print.',
     reservedSpaceBlock(params.slide.brandElements ?? []),
     `Canvas: ${aspectRatio}, read on a phone while swiping. Text must stay legible at thumbnail size.`,
-    negativeInstructions.trim() ? `NEGATIVE: ${negativeInstructions.trim()}` : '',
+    /**
+     * The failure modes of this specific piece, named.
+     *
+     * Every entry here is something that actually came back wrong at some point in
+     * this flow, which is why it is a fixed list and not left to the scene writer.
+     */
+    `AVOID: generic stock-photo composition; a photograph that merely depicts the industry without explaining the claim; decorative financial icons; excessive gradients; clutter; cheap fintech illustration style; crypto or neon aesthetic; overloaded infographic; meaningless or gibberish text; fake paragraphs on documents; several unrelated visual metaphors in one frame; more than two highlighted blocks; any element competing with the headline; deformed machinery; screens full of pseudo-text; unnecessary people; floating objects without support; excessive glow; gratuitous holograms.${negativeInstructions.trim() ? ` ${negativeInstructions.trim()}` : ''}`,
   ].filter(Boolean).join('\n\n');
 }
 
@@ -1147,10 +1387,20 @@ function buildCarouselUserMessage(params: {
       const brand = (s.brandElements ?? []).length > 0
         ? ` Lleva ${s.brandElements!.join(' y ')} montados encima después.`
         : '';
+      const brief = s.brief;
       return [
         `Slide ${s.index + 1} (rol "${s.role}"):`,
         `  imageIntent: ${s.imageIntent}`,
-        `  texto que se hornea: "${s.headline}"${s.body ? ` / "${s.body}"` : ''}${s.cta ? ` / CTA "${s.cta}"` : ''}`,
+        brief?.visualIntent ? `  qué debe volver evidente: ${brief.visualIntent}` : '',
+        brief?.visualMetaphor ? `  recurso que lo demuestra: ${brief.visualMetaphor}` : '',
+        brief?.layout ? `  layout: ${brief.layout}` : '',
+        (brief?.primaryObjects ?? []).length > 0
+          ? `  objetos en cuadro: ${brief!.primaryObjects!.join(', ')}`
+          : '',
+        (brief?.environmentalText ?? []).length > 0
+          ? `  etiquetas legibles permitidas dentro de los objetos: ${brief!.environmentalText!.join(', ')}`
+          : '',
+        `  texto que se hornea: ${s.headline.replace(/\n/g, ' / ')}${s.body ? ` — ${s.body}` : ''}${s.cta ? ` — CTA ${s.cta}` : ''}`,
         brand ? `  nota:${brand}` : '',
       ].filter(Boolean).join('\n');
     })
@@ -1585,7 +1835,10 @@ async function handleMasterImagePath(
         source: promptSource,
         version: selectedMasterPromptVersion,
         backgroundStyle: effectiveBackgroundStyle,
-        corridor: threePrompts.mapa_rutas.corridor_analysis ?? null,
+        // Optional because a single-variant call (see promptVariant) legitimately
+        // has no mapa_rutas: reaching into it unconditionally crashed the whole
+        // request with "Cannot read properties of undefined".
+        corridor: threePrompts.mapa_rutas?.corridor_analysis ?? null,
       },
       // Convenience: tell the caller how to activate each type
       usage: {
@@ -1690,7 +1943,18 @@ async function buildCarouselPrompts(
         // the set into one request per slide. The ceiling stays generous on
         // purpose: a truncated response is invalid JSON, which is a worse failure
         // than a slow one.
-        max_completion_tokens: (providedDesignBlock ? 300 : 1200) + slides.length * 500,
+        /**
+         * The floor matters more than the slope here.
+         *
+         * This model spends part of the completion budget reasoning before it emits
+         * anything, and the system prompt for a carousel slide has grown a lot:
+         * colour language, art-direction brief, document structure, layout rules.
+         * At 800 tokens for a single slide the reasoning alone can consume the
+         * budget and return empty content, which the caller sees as a bare 500.
+         *
+         * An unused ceiling costs nothing, since billing is on tokens produced.
+         */
+        max_completion_tokens: (providedDesignBlock ? 2000 : 3000) + slides.length * 700,
         temperature: 0.7,
       }),
     },

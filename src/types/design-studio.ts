@@ -126,12 +126,20 @@ export type CopyBankImageMode = 'single' | 'carousel';
  * Narrative function of a slide. Values stay in English because they are
  * persisted in `piece_v2`; the UI labels them in Spanish.
  *
- * Two families live here on purpose:
+ * Several families live here on purpose:
  * - `tension | shift | risk | solution | cta` — the five beats the approved copy
  *   bank actually uses (`docs/prompts/copy-banks/_contexto-maestro.*`, §26).
  * - `hook | problem | example` — the original four-slide shape. Kept because
  *   carousels already saved in `piece_v2` carry these roles and have to keep
  *   rendering after a reload.
+ * - `promise | signal | close` — the checklist, whose slides are INDEPENDENT of
+ *   each other and can be read in any order.
+ * - `moment | outcome` — the timeline, whose slides are dates rather than
+ *   arguments.
+ *
+ * A role may repeat inside a preset (a checklist is three `signal` slides), which
+ * is why anything that addresses a single slide has to go through its index. See
+ * `brandElementsForSlide`.
  */
 export type CarouselSlideRole =
   | 'tension'
@@ -141,7 +149,12 @@ export type CarouselSlideRole =
   | 'cta'
   | 'hook'
   | 'problem'
-  | 'example';
+  | 'example'
+  | 'promise'
+  | 'signal'
+  | 'moment'
+  | 'outcome'
+  | 'close';
 
 /** Render lifecycle for a slide (drives the per-slot queue UI). */
 export type CarouselSlotStatus =
@@ -155,17 +168,170 @@ export type CarouselSlotStatus =
 export type CarouselBrandElement = 'logo' | 'disclaimer';
 
 /**
+ * How much text the piece is designed around.
+ *
+ * This is an art-direction decision, not a technical limit. Image models render
+ * short strings reliably enough now that a slide can be built as a finished
+ * editorial ad — dominant headline, small supporting line, meaningful labels
+ * inside the objects — instead of a photograph with a caption on top.
+ *
+ * `MINIMAL_TEXT` is declared but not implemented: it exists so the mode is a
+ * dimension of the preset from the start rather than a retrofit later.
+ */
+export type CarouselVisualMode = 'EDITORIAL_FULL_TEXT' | 'MINIMAL_TEXT';
+
+/**
+ * Composition architecture of a slide.
+ *
+ * The layout is chosen per slide by what the message needs, and the set must not
+ * repeat one: five slides under the same template read as filled-in placeholders
+ * even when each scene differs.
+ */
+export type CarouselLayout =
+  /** Headline across the top, supporting line under it, conceptual scene below. */
+  | 'editorial_top'
+  /** Headline and copy in the left column, photography holding the right. */
+  | 'split_photo'
+  /** Repetition into depth: the same object and document, several times. */
+  | 'editorial_repetition'
+  /** A document or result, organised and resolved, as the subject. */
+  | 'document_result'
+  /** Clean hero shot, minimum complexity. Closing frame. */
+  | 'hero_clean';
+
+export const CAROUSEL_LAYOUT_LABELS: Record<CarouselLayout, string> = {
+  editorial_top: 'Editorial superior',
+  split_photo: 'Split con fotografía',
+  editorial_repetition: 'Repetición',
+  document_result: 'Documento / resultado',
+  hero_clean: 'Hero limpio',
+};
+
+/**
+ * What the carousel is FOR, which is a different axis from how it reads.
+ *
+ * The preset decides the structure; this decides who owns the closing sentence and
+ * whether the brand is named at all. They were fused before, and the result was
+ * that every set ended on "Xending puede ayudar a…" regardless of what it was for:
+ * the closing rule lived in the prompt as a single fixed instruction.
+ *
+ * Naming the brand is not what makes a piece branded — the logo is composited on
+ * the cover of every set. A piece that explains something and never says the name
+ * is still recognisably ours, and it is the version people actually forward.
+ */
+export type CarouselObjective = 'explicar' | 'conectar' | 'vender';
+
+export const CAROUSEL_OBJECTIVES: {
+  value: CarouselObjective;
+  label: string;
+  /** What it changes about the copy, in the panel's own words. */
+  hint: string;
+}[] = [
+  {
+    value: 'explicar',
+    label: 'Explicar',
+    hint: 'Cierra en la idea. El texto no nombra la marca ni le ordena nada al lector: la marca la pone el logo.',
+  },
+  {
+    value: 'conectar',
+    label: 'Conectar',
+    hint: 'Cierra en la categoría de solución ("una cobertura puede…"), con una invitación suave. Máximo una mención de marca.',
+  },
+  {
+    value: 'vender',
+    label: 'Vender',
+    hint: 'Cierra con la marca como sujeto y el CTA imperativo del banco. Es el único objetivo donde el nombre va en el texto.',
+  },
+];
+
+export const DEFAULT_CAROUSEL_OBJECTIVE: CarouselObjective = 'conectar';
+
+/**
+ * What a highlighted block MEANS. The colour is derived from this, not chosen.
+ *
+ * Keeping the role and the colour apart is what makes the code readable as a
+ * system: the agent decides that a phrase carries risk, and the brand decides that
+ * risk is coral. Changing the palette then touches one mapping instead of every
+ * prompt that ever named a hex.
+ */
+export type CarouselColorRole = 'risk' | 'control';
+
+/** Brand meaning of each colour. Mirrors `_shared/brandColorLanguage.ts`. */
+export const CAROUSEL_ROLE_COLOR: Record<CarouselColorRole, string> = {
+  /** Future and its exposure: PAGO, increase, variation, impact. */
+  risk: '#FF7A4A',
+  /** Present and what is under control: HOY, current value, Xending. */
+  control: '#2ED4C7',
+};
+
+/**
+ * A block of the headline that carries typographic emphasis.
+ *
+ * `text` is a complete semantic unit, not a lone word: "tus costos" highlighted
+ * whole reads better than "costos" on its own. It must appear verbatim inside the
+ * headline — emphasis on text that is not there cannot be rendered.
+ *
+ * One block normally. Two only when the line holds a real opposition (USD against
+ * MXN), because then the colour is information rather than decoration.
+ */
+export interface CarouselHighlight {
+  text: string;
+  colorRole: CarouselColorRole;
+}
+
+/**
  * Copy rendered on a single slide.
  *
- * `headline` is the only guaranteed field: it holds the line the slide is about.
- * On a `singleLine` preset it is the WHOLE slide — including the closing slide,
- * whose headline is the call to action itself. `cta` therefore only carries text
- * on presets that end with a solution slide instead of a dedicated CTA slide.
+ * Under `EDITORIAL_FULL_TEXT` all three levels have a job: `headline` is the
+ * dominant element, `body` is the sentence that lands it, and `cta` closes. The
+ * hierarchy between them is the point — a supporting line that competes with the
+ * headline breaks the piece.
+ *
+ * `headline` may carry newlines. They are editorial line breaks chosen by meaning
+ * ("Tu factura / está en dólares. / Tu presupuesto, / en pesos") and have to
+ * survive to the image prompt, so nothing in this flow may collapse them.
  */
 export interface CarouselSlideCopy {
   headline: string;
   body?: string;
   cta?: string;
+}
+
+/**
+ * The art direction of one slide, decided before any image prompt exists.
+ *
+ * This is what turns "text plus a related photo" into a designed piece: what the
+ * image has to prove, the metaphor that proves it, the composition that carries
+ * it, and the words allowed to appear inside the objects. Persisted so a
+ * regeneration keeps the same intent instead of drifting back to a hero shot.
+ */
+export interface CarouselSlideBrief {
+  /** What the image must make evident, in one sentence. */
+  visualIntent: string;
+  /** The concrete device that demonstrates it. */
+  visualMetaphor: string;
+  layout: CarouselLayout;
+  /** The objects that must be in frame. */
+  primaryObjects: string[];
+  /**
+   * Short labels allowed to render inside documents, screens and tags — "USD",
+   * "MXN", "HOY", "60 DÍAS", "TOTAL". They come from here so the model is not
+   * inventing financial data, and they are what lets an object explain a concept
+   * instead of another sentence doing it.
+   */
+  environmentalText: string[];
+  /** Typographic emphasis, by semantic unit. One block, or two when opposed. */
+  highlights: CarouselHighlight[];
+  /**
+   * Documents in the scene with their exact values, when the slide carries figures.
+   *
+   * Built in code from the FX assumptions, never by a model: the numbers have to be
+   * internally consistent and assigned to a specific document. Empty on slides that
+   * communicate without figures.
+   */
+  documents?: CarouselFigureDocument[];
+  /** The sum of the gaps, for a repetition slide. */
+  accumulatedLabel?: string;
 }
 
 /**
@@ -204,6 +370,11 @@ export interface CarouselSlot {
    */
   imageIntent: string;
   /**
+   * Art direction for this slide. Optional because carousels saved before this
+   * existed have none, and those still have to load.
+   */
+  brief?: CarouselSlideBrief;
+  /**
    * Self-contained image prompt. Carries the full design block verbatim (not a
    * delta over a shared base), so this slide can be edited and regenerated on
    * its own without losing the visual system.
@@ -228,6 +399,11 @@ export interface CarouselSlot {
 export interface CarouselMeta {
   presetSlug: string;
   /**
+   * What the set is for. Absent on carousels created before this existed, which
+   * read as 'vender' because that is what the old fixed rules produced.
+   */
+  objective?: CarouselObjective;
+  /**
    * The design block shared verbatim by every slide prompt. Persisted so a
    * single slide can be rebuilt from scratch and still match the set.
    */
@@ -240,6 +416,8 @@ export interface CarouselMeta {
    * rebuilt set lost the thread that made it read as a series.
    */
   visualMotif?: string;
+  /** Text density the set was designed around. Absent on older carousels. */
+  visualMode?: CarouselVisualMode;
   /** Ties the rendered images together (`design_mockups.carousel_group_id`). */
   groupId: string;
   /** Medium picked for the whole set — mixing mediums breaks the set. */
@@ -260,23 +438,32 @@ export interface CarouselPreset {
   /** One entry per slide, in reading order. Length = number of slides. */
   roles: CarouselSlideRole[];
   /**
-   * Which slide carries each brand element, addressed by role so the mapping
-   * survives presets of different lengths. Omit an element to leave it off.
+   * Which slide reserves space for each brand element, addressed by role so the
+   * mapping survives presets of different lengths. Omit an element to leave it off.
+   *
+   * This only reserves negative space in the prompt — nothing is composited by the
+   * export, which would stamp a lockup on top of one mounted by hand. Mounting is
+   * done per piece in the brand layer editor.
    *
    * The disclaimer rides the slide that makes the claim, not automatically the
    * last one: a legal note has to sit next to the number it qualifies.
    */
   brandPlacement: Partial<Record<CarouselBrandElement, CarouselSlideRole>>;
+  /** How much text the pieces are designed around. */
+  visualMode: CarouselVisualMode;
   /**
-   * Every slide carries ONE line and nothing else — no headline/body split.
+   * How this structure is read, in the agent's own instructions.
    *
-   * This is how the approved bank writes carousels: the slides read as a single
-   * sentence cut into pieces, so a second text level on the same slide is not
-   * hierarchy, it is the same idea said twice. It also buys the opening slide the
-   * room to keep a two-clause contrast intact instead of splitting it across two
-   * type sizes, which is what broke the first version of this flow.
+   * These rules used to live in the prompt as a single fixed block, and that block
+   * described one thing: an argument chained across five slides, opening on the seed
+   * headline. Every structure came out as that structure — a checklist written under
+   * "los slides se leen como una sola oración cortada en cinco" is not a checklist.
+   *
+   * Only what is specific to the shape goes here. Compliance, line length, the
+   * conditional on risk and the ban on invented product claims stay global: they
+   * are true of every carousel we publish.
    */
-  singleLine?: boolean;
+  narrativeRules: string;
 }
 
 export const CAROUSEL_ROLE_LABELS: Record<CarouselSlideRole, string> = {
@@ -288,6 +475,11 @@ export const CAROUSEL_ROLE_LABELS: Record<CarouselSlideRole, string> = {
   hook: 'Gancho',
   problem: 'Problema',
   example: 'Ejemplo',
+  promise: 'Promesa',
+  signal: 'Señal',
+  moment: 'Momento',
+  outcome: 'Resultado',
+  close: 'Cierre',
 };
 
 /**
@@ -301,19 +493,75 @@ export const CAROUSEL_ROLE_LABELS: Record<CarouselSlideRole, string> = {
  */
 export const CAROUSEL_ROLE_BRIEFS: Record<CarouselSlideRole, string> = {
   tension:
-    'La tensión, completa, en una sola línea. Es el headline semilla íntegro: si son dos oraciones en contraste, van las dos. Prohibido partirlo en dos niveles de texto.',
+    'Detiene el scroll y planta el problema. Headline grande desde el copy semilla, escena simple con el producto protagonista y un elemento que introduce la tensión. Poco supporting copy. No resuelvas nada todavía.',
   shift:
-    'Qué puede cambiar entre hoy y el momento del pago. Una frase, en condicional.',
+    'Muestra el MECANISMO: qué puede cambiar entre hoy y el pago. La escena necesita dos momentos en el cuadro — mismo producto, misma factura, dos fechas, dos resultados. Frase en condicional.',
   risk:
-    'Qué riesgo genera ese cambio para la empresa. Continúa la frase anterior ("ese movimiento…", "y con él…"). Sin cifras inventadas.',
+    'Muestra la CONSECUENCIA. Si la línea habla de acumulación, la escena repite: varias compras, varios documentos, impacto agregado. Que el concepto se vea, no que se enuncie.',
   solution:
-    'Cómo ayuda la solución. El sujeto es el producto, no el cliente: "puede ayudar a…". Sin imperativos y sin claims que no estén autorizados.',
-  cta: 'Solo el CTA, escrito en el campo headline. Nada más en el slide.',
+    'Pasa visualmente de la incertidumbre al control: la escena se siente más ordenada, más estable, con un resultado definido. El sujeto de la frase es el producto, no el cliente.',
+  cta: 'Cierre. El CTA aprobado, composición limpia, producto premium y máximo aire. No es otro capítulo educativo.',
   hook: 'Detiene el scroll. Es el headline del copy semilla completo, casi tal cual.',
   problem: 'El costo concreto de no resolverlo. Nada abstracto.',
   example:
     'El riesgo concreto que eso genera. Un monto suelto no es un ejemplo: si usas una cifra, va la operación completa y etiquetada como ilustrativa.',
+  promise:
+    'Anuncia QUÉ va a encontrar el lector y CUÁNTAS cosas son: "3 señales de que tu operación tiene exposición abierta". El número tiene que coincidir con los slides que siguen. No es la tensión del copy semilla: es la portada de una lista.',
+  signal:
+    'UN ítem de la lista, autónomo. Se entiende solo, sin haber leído los otros, y no continúa la frase del anterior. Es una situación reconocible que el lector puede verificar en su propia operación hoy — "tu proveedor te factura en dólares y tú presupuestas en pesos" — no un argumento sobre ella. La escena es la evidencia de esa señal.',
+  moment:
+    'UNA fecha de la operación, con lo que se sabe y lo que todavía no en ese momento. El headline nombra el momento ("El día que cotizas"), el body dice qué queda abierto. La escena es el mismo expediente en esa fecha: el sello, el calendario, el documento de ese día. No argumentes: reporta el momento.',
+  outcome:
+    'El resultado de la cronología, visto de lejos: qué quedó definido y qué se movió entre la primera fecha y la última. Cierra la línea de tiempo, no abre un tema nuevo.',
+  close:
+    'Cierre del set. Remata sin abrir nada: composición limpia, máximo aire, una sola línea. Qué dice exactamente lo decide el objetivo del set.',
 };
+
+/**
+ * Layout that suits each beat, as a starting point for the script agent.
+ *
+ * A suggestion rather than a rule: the agent picks what the message needs, and the
+ * only hard constraint is that the set does not repeat one. Without a starting
+ * point, though, every slide converges on the same composition.
+ */
+export const CAROUSEL_ROLE_LAYOUT_HINT: Record<CarouselSlideRole, CarouselLayout> = {
+  tension: 'editorial_top',
+  shift: 'split_photo',
+  risk: 'editorial_repetition',
+  solution: 'document_result',
+  cta: 'hero_clean',
+  hook: 'editorial_top',
+  problem: 'split_photo',
+  example: 'editorial_repetition',
+  promise: 'editorial_top',
+  // Las señales comparten composición a propósito: es lo que hace que se lean como
+  // fichas de una misma lista en vez de cinco piezas distintas.
+  signal: 'split_photo',
+  moment: 'document_result',
+  outcome: 'editorial_repetition',
+  close: 'hero_clean',
+};
+
+/** Cómo se lee un arco encadenado: el que usa el banco aprobado. */
+const CHAINED_ARC_RULES = `1. El slide 1 lleva el headline semilla COMPLETO, casi tal cual. Ese texto ya lo aprobó el usuario: respétalo, no lo "mejores". Si son dos oraciones en contraste, van las dos en la misma línea — partir la antítesis entre dos niveles de texto mata el gancho.
+2. Los slides se leen como UNA sola oración cortada en varias. Cada slide continúa el anterior y lo retoma ("Eso puede…", "Ese movimiento…", "Y con él…"). Leer uno solo, fuera de orden, deja la idea incompleta: eso es correcto en esta estructura.`;
+
+/** Cómo se lee una lista: al revés que el arco, cada slide se sostiene solo. */
+const CHECKLIST_RULES = `1. El slide 1 NO es el copy semilla. Es la portada de la lista y anuncia cuántos ítems son: "3 señales de que tu operación tiene exposición abierta". El copy semilla es la materia prima de los ítems, no el titular.
+2. Los ítems son INDEPENDIENTES entre sí. Prohibido encadenarlos: ninguno empieza con "eso", "además", "y con él", "por eso". Cada uno se entiende sin haber leído los otros y se puede leer en cualquier orden. Esto es lo contrario de un arco argumental — si los ítems se necesitan entre sí, la lista está mal armada.
+3. Cada ítem es una SITUACIÓN VERIFICABLE, no un argumento ni un consejo. "Facturas en dólares y presupuestas en pesos" sí. "Deberías revisar tu exposición" no.
+4. Los ítems no se repiten ni se solapan: si dos describen lo mismo con otras palabras, sobra uno. Tienen que ser tres cosas distintas que pasan en la misma operación.
+5. Los ítems comparten forma gramatical entre ellos — los tres arrancan igual, con el mismo tipo de sujeto y el mismo tiempo verbal. Eso es lo que hace que se lean como una lista y no como tres frases sueltas.
+6. Los ítems también comparten LAYOUT y tipo de escena: cambia el objeto de cada uno, no la composición. Una lista donde cada ficha está encuadrada distinto se lee como tres piezas sueltas.`;
+
+/** Cómo se lee una cronología: los slides son fechas, no argumentos. */
+const TIMELINE_RULES = `1. El slide 1 NO es el copy semilla: es la PRIMERA FECHA de la operación. El copy semilla dice de qué trata la cronología; tú la conviertes en momentos.
+2. Cada slide es UN MOMENTO con nombre temporal en el headline: "El día que cotizas", "Sesenta días después", "El día del pago". El lector avanza en el tiempo, no en un razonamiento.
+3. Los momentos van en ORDEN CRONOLÓGICO y la distancia entre ellos se nombra. Un salto sin decir cuánto tiempo pasó rompe la única mecánica de esta estructura.
+4. Es la MISMA operación en los N momentos. No cambies de proveedor, de producto ni de monto entre slides: lo único que avanza es la fecha, y lo que eso deja abierto o cerrado.
+5. No argumentes: REPORTA. Cada slide dice qué se sabe y qué todavía no en esa fecha. La conclusión vive únicamente en el slide de resultado.
+6. Prohibido el condicional especulativo en los momentos intermedios ("podría", "tal vez"). En una fecha las cosas ya pasaron o todavía no han pasado, y eso es más fuerte que una hipótesis.
+7. Los momentos comparten LAYOUT y escena: el mismo expediente, el mismo encuadre, lo que cambia es la fecha y lo que el documento ya dice. Cambiar la composición entre fechas rompe la sensación de que es la misma operación avanzando.`;
 
 export const CAROUSEL_PRESETS: CarouselPreset[] = [
   {
@@ -326,7 +574,8 @@ export const CAROUSEL_PRESETS: CarouselPreset[] = [
     // No disclaimer: the legal note is composited outside this flow when the piece
     // is published, so reserving space for one here would leave an empty strip.
     brandPlacement: { logo: 'tension' },
-    singleLine: true,
+    visualMode: 'EDITORIAL_FULL_TEXT',
+    narrativeRules: CHAINED_ARC_RULES,
   },
   {
     slug: 'hook-problem-example-solution',
@@ -335,6 +584,28 @@ export const CAROUSEL_PRESETS: CarouselPreset[] = [
       'Arco de 4 slides con headline y body por slide. Cierra con el CTA en el último.',
     roles: ['hook', 'problem', 'example', 'solution'],
     brandPlacement: { logo: 'hook' },
+    visualMode: 'EDITORIAL_FULL_TEXT',
+    narrativeRules: CHAINED_ARC_RULES,
+  },
+  {
+    slug: 'checklist-3-senales',
+    name: 'Checklist — 3 señales',
+    description:
+      'Portada con la promesa, tres señales independientes y un cierre. El lector se autodiagnostica y los slides se pueden leer en cualquier orden.',
+    roles: ['promise', 'signal', 'signal', 'signal', 'close'],
+    brandPlacement: { logo: 'promise' },
+    visualMode: 'EDITORIAL_FULL_TEXT',
+    narrativeRules: CHECKLIST_RULES,
+  },
+  {
+    slug: 'cronologia-operacion',
+    name: 'Cronología de una operación',
+    description:
+      'Tres fechas de la misma operación y un resultado. El lector sigue un caso en el tiempo, no un argumento.',
+    roles: ['moment', 'moment', 'moment', 'outcome', 'close'],
+    brandPlacement: { logo: 'moment' },
+    visualMode: 'EDITORIAL_FULL_TEXT',
+    narrativeRules: TIMELINE_RULES,
   },
 ];
 
@@ -346,11 +617,274 @@ export function getCarouselPreset(slug: string): CarouselPreset {
   );
 }
 
-/** Brand elements a given role carries under a preset. */
-export function brandElementsForRole(
+// ---------------------------------------------------------------------------
+// Illustrative FX figures
+// ---------------------------------------------------------------------------
+
+/**
+ * Assumptions behind the numbers a carousel is allowed to show.
+ *
+ * These exist because the figures have to be arithmetically coherent: a piece
+ * showing "USD 8,750" next to "MXN 157,980" is implicitly quoting a rate of
+ * 18.06 that nobody chose, and anyone who divides catches it. The rate is an
+ * input rather than something the model picks, and every other number is derived
+ * from it in code — language models are unreliable at arithmetic, and here the
+ * arithmetic IS the message.
+ */
+export interface CarouselFxAssumptions {
+  /** Illustrative rate, set by the user. Never presented as a market quote. */
+  baseRate: number;
+  /** USD amount of the illustrative operation. */
+  amountUsd: number;
+  /**
+   * Drift of each later moment against the BASE rate, in percent — not against
+   * the previous one. Small on purpose: the point is that a small movement
+   * repeated adds up, not that the purchases got bigger.
+   */
+  driftPct: number[];
+}
+
+/**
+ * Standard illustrative case: USD 10,000 at 18.20, drifting +1% and +2%.
+ *
+ * One ceiling for the whole carousel (+2%) rather than a different percentage per
+ * slide — the reader is following one mechanism, and unrelated percentages make it
+ * look like unrelated examples. 2% keeps it plausible: a movement small enough to
+ * be ignored and large enough to matter when it repeats. The +1% exists only so
+ * the three-purchase comparison has a middle step.
+ */
+export const DEFAULT_CAROUSEL_FX: CarouselFxAssumptions = {
+  baseRate: 18.2,
+  amountUsd: 10000,
+  /** Against the base: +1% and +2%. Not compounded — see `computeCarouselFx`. */
+  driftPct: [1, 2],
+};
+
+/** One moment of the illustrative operation, with its text ready to render. */
+export interface CarouselFxMoment {
+  rate: number;
+  amountUsd: number;
+  amountMxn: number;
+  /** Difference in MXN against the first moment. Zero on the first. */
+  deltaMxn: number;
+  /** Drift against the first moment, in percent. Zero on the first. */
+  deltaPct: number;
+  labels: {
+    rate: string;
+    usd: string;
+    mxn: string;
+    delta: string;
+    pct: string;
+  };
+}
+
+/** Thousands separators and two decimals, without depending on ICU. */
+function formatAmount(value: number): string {
+  const [int, dec] = Math.abs(value).toFixed(2).split('.');
+  const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return `${value < 0 ? '-' : ''}${grouped}.${dec}`;
+}
+
+/**
+ * Derive the moments of the illustrative operation.
+ *
+ * The rate is rounded to two decimals BEFORE the multiplication, on purpose: the
+ * piece shows both the rate and the total, so they have to agree when a reader
+ * multiplies them by hand. Computing with full precision and rounding only for
+ * display would print 17.47 next to 174,730 — off by 30 pesos and wrong to
+ * anyone checking.
+ *
+ * Every drift is measured against the BASE moment, not against the previous one.
+ * "+2%" has to mean one thing: with compounding, the third moment of a 1%/2% set
+ * is +3.02% against the base while the label says +2%, and a piece that shows a
+ * percentage next to the numbers it describes cannot afford that ambiguity.
+ */
+export function computeCarouselFx(a: CarouselFxAssumptions): CarouselFxMoment[] {
+  // Every product is rounded to cents. Without this, 17.33 * 10000 lands on
+  // 173299.99999999997 and the piece prints a total that is a cent short of the
+  // multiplication it displays.
+  const toCents = (n: number) => Math.round(n * 100) / 100;
+
+  const moments: CarouselFxMoment[] = [];
+  const baseRate = toCents(a.baseRate);
+  const base = toCents(baseRate * a.amountUsd);
+
+  const drifts = [0, ...a.driftPct];
+
+  for (let i = 0; i < drifts.length; i++) {
+    const rate = toCents(baseRate * (1 + drifts[i] / 100));
+    const amountMxn = toCents(rate * a.amountUsd);
+    const deltaMxn = toCents(amountMxn - base);
+
+    const deltaPct = base === 0 ? 0 : Math.round((deltaMxn / base) * 1000) / 10;
+
+    moments.push({
+      rate,
+      amountUsd: a.amountUsd,
+      amountMxn,
+      deltaMxn,
+      deltaPct,
+      labels: {
+        rate: formatAmount(rate).replace(/,/g, ''),
+        usd: `USD ${formatAmount(a.amountUsd)}`,
+        mxn: `MXN ${formatAmount(amountMxn)}`,
+        delta: deltaMxn === 0 ? '' : `+MXN ${formatAmount(deltaMxn)}`,
+        pct: deltaPct === 0 ? '' : `+${deltaPct.toFixed(1)}%`,
+      },
+    });
+  }
+
+  return moments;
+}
+
+/** One line of a document in the scene: a field name and its exact value. */
+export interface CarouselFigureField {
+  label: string;
+  value: string;
+  /** Meaning of the value, which resolves its colour. Omitted = neutral navy. */
+  colorRole?: CarouselColorRole;
+}
+
+/**
+ * A document in the scene, with every visible value already decided.
+ *
+ * This replaced a flat list of labels, and the reason is worth keeping: given
+ * `["TOTAL USD 10,000.00", "TIPO DE CAMBIO 18.38", "TIPO DE CAMBIO 18.56", ...]`
+ * the image model has no way to know which value belongs to which card, so it put
+ * the same numbers on all three and pulled a stray "+4.0%" out of the pile. Data
+ * for several documents has to be shaped like several documents.
+ */
+export interface CarouselFigureDocument {
+  /** 'HOY', 'PAGO', 'COMPRA 1'. Doubles as the stamp on the document. */
+  label: string;
+  /** 'COTIZACIÓN', 'FACTURA'. The document has to look like something. */
+  kind: string;
+  date?: string;
+  fields: CarouselFigureField[];
+  /** Always present: a quote explaining a cost without a TOTAL reads unfinished. */
+  total: CarouselFigureField;
+}
+
+/** Which numeric story a slide is telling. */
+export type CarouselFigureScenario = 'two_moment' | 'repeated_purchases';
+
+const MONTHS_ES = [
+  'ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN',
+  'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC',
+];
+
+/** '20 JUN 2026' — the format these documents print. */
+export function formatFigureDate(date: Date): string {
+  return `${String(date.getDate()).padStart(2, '0')} ${MONTHS_ES[date.getMonth()]} ${date.getFullYear()}`;
+}
+
+function shiftDays(base: Date, days: number): Date {
+  const next = new Date(base);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+/**
+ * Turn the computed moments into the documents a slide renders.
+ *
+ * The field set is identical across documents of the same scenario, in the same
+ * order, because that is what makes a comparison readable: the eye finds the one
+ * value that changed instead of re-reading two different layouts. The only
+ * asymmetry allowed is the variation line, which the base case does not have
+ * because there is nothing yet to vary against.
+ *
+ * Dates are derived from `today` rather than hardcoded so the pieces do not carry
+ * a stale year.
+ *
+ * The two-moment case takes the first and LAST moment, skipping the middle steps.
+ * Its claim is what the movement costs by payment day, so it needs the full gap
+ * (18.20 → 18.56); the intermediate +1% exists only for the three-purchase
+ * comparison, and using it here would show a smaller number than the story states.
+ */
+export function buildFigureDocuments(
+  scenario: CarouselFigureScenario,
+  moments: CarouselFxMoment[],
+  today: Date = new Date(),
+): CarouselFigureDocument[] {
+  const labels = scenario === 'two_moment'
+    ? ['HOY', 'PAGO']
+    : ['COMPRA 1', 'COMPRA 2', 'COMPRA 3'];
+  const dayOffsets = scenario === 'two_moment' ? [0, 60] : [0, 35, 70];
+
+  const selected = scenario === 'two_moment' && moments.length > 1
+    ? [moments[0], moments[moments.length - 1]]
+    : moments.slice(0, labels.length);
+
+  return selected.map((m, i) => {
+    const fields: CarouselFigureField[] = [
+      // Navy: the obligation is neither the benefit nor the risk, and it is the
+      // value that must read as identical across every document.
+      { label: 'TOTAL USD', value: m.labels.usd.replace('USD ', '') },
+      {
+        label: 'TIPO DE CAMBIO',
+        value: m.labels.rate,
+        colorRole: i === 0 ? 'control' : 'risk',
+      },
+      {
+        label: 'COSTO MXN',
+        value: m.labels.mxn.replace('MXN ', ''),
+        colorRole: i === 0 ? 'control' : 'risk',
+      },
+    ];
+
+    if (m.labels.pct) {
+      fields.push({ label: 'VARIACIÓN', value: m.labels.pct, colorRole: 'risk' });
+    }
+
+    return {
+      label: labels[i],
+      kind: 'COTIZACIÓN',
+      date: formatFigureDate(shiftDays(today, dayOffsets[i])),
+      fields,
+      total: {
+        label: 'TOTAL',
+        value: m.labels.mxn.replace('MXN ', ''),
+        colorRole: i === 0 ? undefined : 'risk',
+      },
+    };
+  });
+}
+
+/**
+ * What the repetition slide is actually about: the differences adding up.
+ *
+ * Each purchase costs more in pesos than the first one did, and the slide's claim is
+ * that those gaps compound. That total is the number the piece needs — showing three
+ * growing totals without it leaves the reader to do the addition.
+ */
+export function accumulatedFxImpact(moments: CarouselFxMoment[]): {
+  amount: number;
+  label: string;
+} {
+  const amount = Math.round(moments.reduce((sum, m) => sum + m.deltaMxn, 0) * 100) / 100;
+  return {
+    amount,
+    label: amount === 0 ? '' : `+MXN ${formatAmount(amount)}`,
+  };
+}
+
+/**
+ * Brand elements the slide at `index` carries under a preset.
+ *
+ * Addressed by index, not by role, because a role can repeat: a checklist is three
+ * `signal` slides and a timeline is three `moment` slides. Asking "does this role
+ * carry the logo" put it on all three, which is three lockups in one set.
+ *
+ * When the placement names a repeated role, the FIRST slide of that role owns the
+ * element — it is the cover, the one that shows up in the feed.
+ */
+export function brandElementsForSlide(
   preset: CarouselPreset,
-  role: CarouselSlideRole,
+  index: number,
 ): CarouselBrandElement[] {
+  const role = preset.roles[index];
+  if (!role || preset.roles.indexOf(role) !== index) return [];
+
   return (Object.entries(preset.brandPlacement) as Array<
     [CarouselBrandElement, CarouselSlideRole]
   >)

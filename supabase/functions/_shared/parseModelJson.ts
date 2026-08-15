@@ -38,6 +38,113 @@ function stripFences(text: string): string {
 }
 
 /**
+ * Escape raw line breaks and tabs that appear INSIDE a JSON string literal.
+ *
+ * JSON forbids unescaped control characters in strings, so a model that writes a
+ * genuine line break inside a value produces something no parser accepts:
+ *
+ *     { "headline": "Cada motor
+ *     también mueve" }
+ *
+ * This started happening the moment the carousel began asking for headlines with
+ * editorial line breaks — the model does exactly what it was told and formats the
+ * value, which is invalid JSON. Dropping the character would glue the words
+ * together ("motortambién"), so it is converted to the escape it should have been.
+ *
+ * The scan tracks string boundaries, honouring backslash escapes, so line breaks
+ * BETWEEN fields are left alone: those are just formatting.
+ */
+function escapeControlCharsInStrings(text: string): string {
+  let out = '';
+  let inString = false;
+  let escaped = false;
+
+  for (const ch of text) {
+    if (escaped) {
+      out += ch;
+      escaped = false;
+      continue;
+    }
+
+    if (ch === '\\') {
+      out += ch;
+      escaped = inString;
+      continue;
+    }
+
+    if (ch === '"') {
+      inString = !inString;
+      out += ch;
+      continue;
+    }
+
+    if (inString && (ch === '\n' || ch === '\r' || ch === '\t')) {
+      out += ch === '\n' ? '\\n' : ch === '\r' ? '\\r' : '\\t';
+      continue;
+    }
+
+    out += ch;
+  }
+
+  return out;
+}
+
+/**
+ * Escape raw line breaks that appear INSIDE a JSON string literal.
+ *
+ * A real newline inside a string is invalid JSON, and a model asked to write
+ * editorial line breaks tends to produce exactly that:
+ *
+ *     "headline": "Cada motor
+ *     también mueve
+ *     tus costos"
+ *
+ * The damage was silent and specific. The payload failed to parse, the line breaks
+ * were lost, and the words came back glued — "Cada motortambién muevetus costos" —
+ * because nothing put a space where the break had been.
+ *
+ * Walking the text while tracking string boundaries is what makes this safe: only
+ * breaks inside a string are escaped, so the formatting between fields is left
+ * alone and the structure of the document cannot change.
+ */
+function escapeNewlinesInsideStrings(text: string): string {
+  let out = '';
+  let inString = false;
+  let escaped = false;
+
+  for (const char of text) {
+    if (escaped) {
+      out += char;
+      escaped = false;
+      continue;
+    }
+
+    if (char === '\\') {
+      out += char;
+      escaped = true;
+      continue;
+    }
+
+    if (char === '"') {
+      inString = !inString;
+      out += char;
+      continue;
+    }
+
+    if (inString && (char === '\n' || char === '\r')) {
+      // Carriage returns are dropped rather than escaped: they would survive into
+      // the copy as an invisible character with no typographic meaning.
+      if (char === '\n') out += '\\n';
+      continue;
+    }
+
+    out += char;
+  }
+
+  return out;
+}
+
+/**
  * Parse model output into an object, repairing the harmless deviations.
  *
  * Returns a result instead of throwing so callers can distinguish "the model
@@ -61,9 +168,23 @@ export function parseModelJson<T>(content: string | null | undefined): ParseMode
   const match = unfenced.match(/\{[\s\S]*\}/);
   if (match) attempts.push(match[0]);
 
-  // Same candidates again, with trailing commas removed.
+  // Same candidates again, with trailing commas removed, with raw control
+  // characters escaped, and with both repairs applied together — the two failures
+  // show up in the same response often enough to be worth the combination.
   for (const candidate of [...attempts]) {
-    const repaired = stripTrailingCommas(candidate);
+    for (const repaired of [
+      stripTrailingCommas(candidate),
+      escapeControlCharsInStrings(candidate),
+      escapeControlCharsInStrings(stripTrailingCommas(candidate)),
+    ]) {
+      if (repaired !== candidate) attempts.push(repaired);
+    }
+  }
+
+  // And again with raw line breaks inside strings escaped. Last because it is the
+  // most invasive of the three, so a payload that parses without it should.
+  for (const candidate of [...attempts]) {
+    const repaired = escapeNewlinesInsideStrings(candidate);
     if (repaired !== candidate) attempts.push(repaired);
   }
 

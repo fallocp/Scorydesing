@@ -24,9 +24,10 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.53.0";
 import { callOpenAI } from '../_shared/callOpenAI.ts';
 import { fetchBusinessContext } from '../_shared/fetchBusinessContext.ts';
 import { buildBranchContextBlock } from '../_shared/buildBranchContextBlock.ts';
-import { CAROUSEL_MECHANICS_EXAMPLES } from '../_shared/carouselExamples.ts';
+import { carouselMechanicsExamples } from '../_shared/carouselExamples.ts';
 import { getCopyKit } from '../_shared/copyKitRegistry.ts';
 import { parseModelJson } from '../_shared/parseModelJson.ts';
+import { BRAND_COLOR_LANGUAGE_ES } from '../_shared/brandColorLanguage.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -45,6 +46,29 @@ interface CarouselSlideSpec {
   brief: string;
   /** Brand elements composited on this slide later ('logo' | 'disclaimer'). */
   brandElements?: string[];
+  /** Composition that suits this beat. A starting point, not a rule. */
+  layoutHint?: string;
+}
+
+/**
+ * Typographic emphasis on a semantic block of the headline.
+ *
+ * The agent picks the ROLE; the colour comes from the brand mapping. See
+ * `_shared/brandColorLanguage.ts` for why that split matters.
+ */
+interface ScriptHighlight {
+  text: string;
+  colorRole: 'risk' | 'control';
+}
+
+/** Art direction for one slide, decided before any image prompt exists. */
+interface ScriptBrief {
+  visualIntent: string;
+  visualMetaphor: string;
+  layout: string;
+  primaryObjects: string[];
+  environmentalText: string[];
+  highlights: ScriptHighlight[];
 }
 
 interface GenerateCarouselScriptRequest {
@@ -56,26 +80,70 @@ interface GenerateCarouselScriptRequest {
   /** Slides in reading order. Length = number of slides. */
   slides: CarouselSlideSpec[];
   /**
-   * Every slide carries one line and nothing else — the shape the approved bank
-   * uses. Comes from the preset, so the agent never has to guess whether a second
-   * text level belongs on the slide.
+   * Text density the set is designed around. Comes from the preset.
+   *
+   * 'EDITORIAL_FULL_TEXT' builds each slide as a finished editorial ad: dominant
+   * headline, small supporting sentence, labels inside the objects.
    */
-  singleLine?: boolean;
+  visualMode?: 'EDITORIAL_FULL_TEXT' | 'MINIMAL_TEXT';
+  /**
+   * What the set is FOR, which decides the closing and whether the brand is named.
+   *
+   * A separate axis from the preset: the preset says how the set reads, this says
+   * what it is trying to achieve. The same approved copy is a lesson under
+   * 'explicar' and a pitch under 'vender'. Defaults to 'conectar' — carousels
+   * created before this existed behaved like 'vender', but that is the version that
+   * repeats the brand name, so it is not the default anyone would choose.
+   */
+  objective?: 'explicar' | 'conectar' | 'vender';
+  /**
+   * How the chosen structure is read, in the agent's own instructions.
+   *
+   * Sent by the client because it belongs to the preset, and the preset catalogue
+   * lives there: a checklist and a timeline are read in opposite ways, and the rules
+   * that describe an argument chained across five slides turn both of them back into
+   * that argument. Optional so an older client keeps working — see the fallback.
+   */
+  narrativeRules?: string;
   angleName?: string | null;
   industryName?: string | null;
   /** Medium chosen for the WHOLE set — mixing mediums breaks the set. */
   imageType?: 'foto' | 'infografia' | 'financiero';
+  /**
+   * Illustrative figures, already computed and formatted by the caller.
+   *
+   * Context for the agent, not content for it to place: the values reach the image
+   * as documents assigned per slide in code. The reason is arithmetic — a piece that
+   * shows a rate and a total has to satisfy USD x TC = MXN when a reader multiplies
+   * them, and letting a language model produce those numbers fails. Real output
+   * showed USD 8,750 next to MXN 157,980, quoting a rate of 18.06 nobody chose.
+   *
+   * What the agent owes this table is agreement: copy that describes the same
+   * movement the documents show.
+   */
+  fxMoments?: {
+    label: string;
+    rate: string;
+    usd: string;
+    mxn: string;
+    delta: string;
+    pct: string;
+  }[];
+  /** Sum of the gaps across the moments, for the repetition slide. */
+  fxAccumulated?: string;
   /** Free-text steering from the user. */
   guidance?: string;
 }
 
 interface ScriptSlide {
   role: string;
+  /** May contain newlines: editorial line breaks chosen by meaning. */
   headline: string;
   body: string;
   cta?: string;
   /** What the image of this slide must COMMUNICATE (semantic, not technical). */
   imageIntent: string;
+  brief?: ScriptBrief;
 }
 
 interface GenerateCarouselScriptResponse {
@@ -103,29 +171,20 @@ function jsonResponse(body: unknown, status = 200): Response {
  */
 
 /**
- * A slide whose only text is one line. The approved bank runs 9 to 13 words on
- * these, so a 7-word ceiling was not a safety net — it was the reason the agent
- * kept splitting a two-clause opening into headline + body and killing the
- * contrast.
- */
-const MAX_LINE_WORDS = 14;
-/** Headline of a slide that ALSO carries a body: the two share the frame. */
-const MAX_HEADLINE_WORDS = 7;
-const MAX_BODY_WORDS = 14;
-/** The closing slide is just the call to action. */
-const MAX_CTA_LINE_WORDS = 5;
-
-/**
- * Word budget for the headline of one slide.
+ * Text budget of an editorial slide.
  *
- * The opening slide always gets the full line budget, `singleLine` or not: it
- * carries the seed headline whole, and the seed headline is routinely 13 words
- * ("El costo en dólares ya está claro. El costo en pesos todavía no").
+ * Wider than the old ceilings because the piece is now designed around its text
+ * instead of tolerating it: the headline is the dominant element and needs room to
+ * be one, and the supporting line has an actual job. The limits are art direction
+ * — past them a slide stops being an ad and becomes a document.
  */
-function headlineBudget(index: number, role: string, singleLine: boolean): number {
-  if (/^cta$/i.test(role)) return MAX_CTA_LINE_WORDS;
-  if (index === 0 || singleLine) return MAX_LINE_WORDS;
-  return MAX_HEADLINE_WORDS;
+const MAX_HEADLINE_WORDS = 15;
+const MAX_BODY_WORDS = 25;
+const MAX_CTA_WORDS = 6;
+
+/** Word budget for the headline of one slide. The CTA slide holds only the CTA. */
+function headlineBudget(role: string): number {
+  return /^cta$/i.test(role) ? MAX_CTA_WORDS : MAX_HEADLINE_WORDS;
 }
 
 /**
@@ -186,6 +245,10 @@ const MEDIUM_LABELS: Record<string, string> = {
 
 function buildSystemPrompt(params: {
   brandName: string;
+  /** What the set is for. Governs the closing and the brand budget. */
+  objective?: string;
+  /** How this structure reads. Comes from the preset. */
+  narrativeRules?: string;
   compliance: { forbidden_terms: string[]; required_qualifiers: string[]; max_values: Record<string, string> };
   branchContext: string;
   verticalKeywords: string[];
@@ -193,24 +256,68 @@ function buildSystemPrompt(params: {
   angleName?: string | null;
   imageType?: string;
   slides: CarouselSlideSpec[];
-  singleLine: boolean;
   editorialBans: string;
+  fxMoments?: {
+    label: string; rate: string; usd: string; mxn: string; delta: string; pct: string;
+  }[];
+  fxAccumulated?: string;
   guidance?: string;
 }): string {
   const {
-    brandName, compliance, branchContext, verticalKeywords,
-    industryName, angleName, imageType, slides, singleLine, editorialBans, guidance,
+    brandName, objective, compliance, branchContext, verticalKeywords, industryName,
+    angleName, imageType, slides, editorialBans, fxMoments, fxAccumulated, guidance,
   } = params;
+
+  /**
+   * Fallback for carousels whose caller predates per-preset rules.
+   *
+   * The chained arc, because that is what the fixed block described and what every
+   * existing preset was written against — a set generated by an older client has to
+   * keep coming out the way it used to.
+   */
+  const narrativeRules = params.narrativeRules?.trim() ||
+    `1. El slide 1 lleva el headline semilla COMPLETO, casi tal cual. Ese texto ya lo aprobó el usuario: respétalo, no lo "mejores". Si son dos oraciones en contraste, van las dos en la misma línea — partir la antítesis entre dos niveles de texto mata el gancho.
+2. Los slides se leen como UNA sola oración cortada en varias. Cada slide continúa el anterior y lo retoma ("Eso puede…", "Ese movimiento…", "Y con él…").`;
+
+  /**
+   * The mechanism the copy has to agree with, pre-computed.
+   *
+   * The agent used to place these values itself and invented internally
+   * inconsistent ones: three purchases at 4,850 / 7,230 / 12,940 USD say "you
+   * bought bigger motors", not "the exchange rate impact accumulates". They now
+   * reach the image as documents assigned in code, so what the agent needs from
+   * this table is agreement, not transcription — a headline claiming a 5% jump next
+   * to documents showing 2% breaks the piece just as badly.
+   */
+  const fxBlock = (fxMoments ?? []).length > 0
+    ? `CIFRAS DE LA OPERACIÓN ILUSTRATIVA: ya están calculadas y el sistema las coloca. Esto es la mecánica que tu texto tiene que respetar:
+
+${fxMoments!
+  .map(
+    (m) =>
+      `${m.label}\n   TOTAL USD ${m.usd.replace('USD ', '')}\n   TIPO DE CAMBIO ${m.rate}\n   COSTO MXN ${m.mxn.replace('MXN ', '')}${m.pct ? `\n   VARIACIÓN ${m.pct}\n   IMPACTO ${m.delta}` : ''}`,
+  )
+  .join('\n\n')}${fxAccumulated ? `\n\nIMPACTO ACUMULADO de los momentos: ${fxAccumulated}` : ''}
+
+Cómo usarlas:
+- SON CONTEXTO PARA ESCRIBIR, NO TEXTO PARA COLOCAR. El sistema ya sabe en qué slides van y las inyecta él mismo, documento por documento, en el momento de generar la imagen. Tú no las escribes en ningún campo: no van en environmentalText, ni en el headline, ni en el body, ni en el imageIntent.
+- Lo que sí tienes que hacer con ellas: escribir un headline y un supporting copy COMPATIBLES con esta mecánica. Si el texto dice "sube 5%" y la cifra dice +2%, la pieza se contradice consigo misma.
+- El monto en USD es EL MISMO en todos los momentos. Lo que se mueve es el tipo de cambio, no el tamaño de la compra. Un copy que hable de compras más grandes cuenta otra historia que la que muestran los documentos.
+- Los slides que llevan cifras son los de la mecánica y la repetición. Para ellos, el imageIntent tiene que pedir la SUPERFICIE donde van a caber —dos hojas de la misma cotización lado a lado, tres documentos sucesivos— sin escribir los valores.
+- Los demás slides comunican sin números, con objetos, fechas y estados.
+- Son props ilustrativos de una mecánica. Nunca los presentes como tipo de cambio vigente, cotización oficial ni rendimiento garantizado.`
+    : `CIFRAS: no uses ninguna. No hay cifras autorizadas para este set, así que ningún slide lleva montos ni tipos de cambio — la mecánica se comunica con objetos, fechas y estados.`;
 
   const slideCount = slides.length;
 
   const roleLines = slides
     .map((s, i) => {
       const brand = (s.brandElements ?? []).length > 0
-        ? ` [Este slide lleva ${s.brandElements!.join(' y ')} montados encima después, así que su copy debe ser aún más breve.]`
+        ? ` [Lleva ${s.brandElements!.join(' y ')} montados encima después: deja aire donde van.]`
         : '';
-      const budget = ` (máximo ${headlineBudget(i, s.role, singleLine)} palabras)`;
-      return `Slide ${i + 1} — rol "${s.role}"${budget}: ${s.brief}${brand}`;
+      const budget = ` (headline hasta ${headlineBudget(s.role)} palabras`;
+      const layout = s.layoutHint ? `, layout sugerido ${s.layoutHint})` : ')';
+      return `Slide ${i + 1} — rol "${s.role}"${budget}${layout}: ${s.brief}${brand}`;
     })
     .join('\n');
 
@@ -236,39 +343,97 @@ function buildSystemPrompt(params: {
    */
   const ctaSlideIndex = slides.findIndex((s) => /^cta$/i.test(s.role));
   const closing = slides.filter((s) => /solution|close/i.test(s.role));
-  const ctaRule = ctaSlideIndex >= 0
-    ? `El slide ${ctaSlideIndex + 1} es el CTA y es lo ÚNICO imperativo del carrusel: escríbelo en su "headline", deja su "body" vacío, y deja el campo "cta" vacío en TODOS los slides.`
+  const closingSlot = ctaSlideIndex >= 0
+    ? `el slide ${ctaSlideIndex + 1}`
     : closing.length > 0
-      ? `El CTA va SOLO en el slide de rol "${closing[closing.length - 1].role}". En los demás, deja "cta" vacío.`
-      : 'Ningún slide lleva CTA. Deja "cta" vacío en todos.';
+      ? `el slide de rol "${closing[closing.length - 1].role}"`
+      : 'el último slide';
 
-  const lengthRules = singleLine
-    ? `- Cada slide lleva UNA sola línea, en "headline". Deja "body" vacío en todos los slides.
-- El presupuesto de palabras de cada slide está arriba, junto a su rol. Respétalo slide por slide.
-- Sin punto final en la línea, salvo cuando son dos oraciones en contraste: ahí el punto interno sí va ("Tu factura está en dólares. Tu presupuesto, en pesos.").`
-    : `- headline: respeta el máximo indicado junto a cada rol. Sin punto final.
-- body: máximo ${MAX_BODY_WORDS} palabras. Una frase. Si el headline ya dice la idea completa, déjalo vacío en lugar de repetirla.
-- cta: máximo 4 palabras.`;
+  /**
+   * Who owns the closing sentence, and whether the brand is named.
+   *
+   * This used to be one fixed instruction — "el sujeto es el producto: puede ayudar
+   * a definir…" — so every set in every context closed the same way, and the brand
+   * name showed up in a piece whose job was to explain something. The closing is a
+   * function of what the set is FOR, which the preset does not know: the same
+   * approved copy is a lesson or a pitch depending on where it is published.
+   *
+   * The brand budget is stated as a number because "úsala con moderación" produced
+   * three mentions in five slides. Zero is a real option: the logo is composited on
+   * the cover of every set, so the piece is branded whether or not a line says so.
+   */
+  const objectiveRules: Record<string, string> = {
+    explicar: `OBJETIVO DEL SET: EXPLICAR. El lector se va entendiendo un mecanismo, no conociendo un proveedor.
 
-  return `Eres estratega de contenido para ${brandName}, fintech B2B. Escribes carruseles para Instagram y LinkedIn dirigidos a empresas.
+- MARCA: CERO menciones en todo el texto. No escribas "${brandName}" en ningún headline, body ni CTA. La marca ya viene en el logo montado sobre la portada; nombrarla además convierte una explicación en un anuncio.
+- El sujeto de las frases es la OPERACIÓN DEL LECTOR o el concepto: "el costo se define antes del pago, no después", "esa diferencia se acumula en cada compra". Nunca un producto, ni genérico ni de marca.
+- Prohibido ofrecer, recomendar o vender una solución. Si el set termina proponiendo algo, dejó de explicar.
+- ${closingSlot} NO es un CTA: es el remate de la idea. Su headline cierra el razonamiento ("Una operación con su costo ya definido") y deja el campo "cta" vacío en TODOS los slides.`,
+
+    conectar: `OBJETIVO DEL SET: CONECTAR. El lector se reconoce en la situación y ve que tiene alternativas.
+
+- MARCA: máximo UNA mención de "${brandName}" en todo el set, y solo si el cierre la necesita de verdad. Cero también es correcto.
+- El sujeto del cierre es la CATEGORÍA de solución, no la marca: "una cobertura puede definir ese costo", "una estrategia cambiaria puede ayudar a planearlas". El lector todavía no está eligiendo proveedor.
+- ${closingSlot} cierra con una invitación abierta, no con una orden de compra: "revisa tu exposición", "conoce las alternativas". Va en su "headline"; deja el campo "cta" vacío en TODOS los slides.`,
+
+    vender: `OBJETIVO DEL SET: VENDER. El lector ya conoce el problema y aquí decide dar un paso.
+
+- MARCA: se nombra UNA vez, en el cierre, y ahí sí es el sujeto: "${brandName} puede ayudar a definir ese costo". En los slides intermedios NO aparece — repetirla en cada línea la vuelve ruido.
+- ${ctaSlideIndex >= 0
+      ? `El slide ${ctaSlideIndex + 1} es el CTA y es lo ÚNICO imperativo del carrusel: escríbelo en su "headline", deja su "body" vacío, y deja el campo "cta" vacío en TODOS los slides.`
+      : closing.length > 0
+        ? `El CTA va SOLO en ${closingSlot}, en su campo "cta". En los demás, deja "cta" vacío.`
+        : 'Ningún slide lleva CTA. Deja "cta" vacío en todos.'}
+- El imperativo al lector vive ÚNICAMENTE en el CTA: "Define tu costo cambiario", "Protege tu margen". Fuera de ahí no le ordenas nada.`,
+  };
+
+  const ctaRule = objectiveRules[objective ?? 'conectar'] ?? objectiveRules.conectar;
+
+  const lengthRules = `- headline: de 4 a ${MAX_HEADLINE_WORDS} palabras. Es el elemento DOMINANTE de la pieza. Sin punto final, salvo cuando son dos oraciones en contraste: ahí el punto interno sí va.
+- body (supporting copy): de 8 a ${MAX_BODY_WORDS} palabras, UNA oración. Su trabajo es aterrizar el headline, no competir con él ni repetirlo. En el slide del CTA va vacío.
+- cta: máximo ${MAX_CTA_WORDS} palabras.
+- SALTOS DE LÍNEA EDITORIALES: el headline puede traer saltos de línea reales (\\n) y debes ponerlos por SIGNIFICADO, no por ancho. "Tu factura\\nestá en dólares.\\nTu presupuesto,\\nen pesos" es mejor que cortar donde se acabe el renglón. "Cada motor\\ntambién mueve\\ntus costos" pega más que una sola línea corrida. Corta en unidades semánticas.`;
+
+  return `Eres director de arte y estratega de contenido para ${brandName}, fintech B2B. Diseñas carruseles para Instagram y LinkedIn dirigidos a empresas.
 
 Recibes un copy YA APROBADO por el usuario y lo conviertes en un guion de ${slideCount} slides que se leen en orden, deslizando.
+
+## QUÉ ESTÁS DISEÑANDO
+
+Cada slide es una PIEZA PUBLICITARIA COMPLETA, no una fotografía con texto encima. Headline, supporting copy, escena, documentos, cifras, etiquetas y composición trabajan juntos para explicar UNA sola idea.
+
+La regla que gobierna todo:
+
+> El headline dice la idea. El supporting copy la aterriza. La escena la DEMUESTRA.
+
+Los tres tienen que estar alineados. Si cualquiera de ellos pudiera cambiarse por algo genérico sin que la pieza cambie de significado, la dirección es demasiado débil y hay que rehacerla.
+
+No diseñas una imagen para acompañar un texto: diseñas una pieza que convierte el texto en una escena.
 
 ## ESTRUCTURA PEDIDA
 
 ${roleLines}
 
-## REGLAS DE NARRATIVA
+## CÓMO SE LEE ESTA ESTRUCTURA
 
-1. El slide 1 lleva el headline semilla COMPLETO, casi tal cual. Ese texto ya lo aprobó el usuario: respétalo, no lo "mejores". Si son dos oraciones en contraste, van las dos en la misma línea — partir la antítesis entre dos niveles de texto mata el gancho.
-2. Los ${slideCount} slides se leen como UNA sola oración cortada en ${slideCount}. Cada slide continúa el anterior y lo retoma ("Eso puede…", "Ese movimiento…", "Y con él…").
-3. Una sola idea por slide, dicha UNA sola vez. Si dos slides son intercambiables, o si dentro de un slide el segundo texto repite el primero, el guion está mal.
-4. El riesgo va en CONDICIONAL: "puede cambiar", "puede moverse", "puede modificar", "puede acumularse". Prohibido afirmar el daño ("se pierde margen", "altera tu costo", "te cuesta") y prohibido el tono de amenaza ("sin avisar", "cuando ya es tarde").
-5. La solución tiene como sujeto al producto, no al cliente: "puede ayudar a definir…", "ayuda a administrar…". Prohibido ordenarle al lector que planee, fije, revise, organice o compare. Eso vive únicamente en el CTA.
-6. Cifras: no las necesitas. Un monto suelto ("USD 100,000") no es un ejemplo. Si de verdad usas un número, va la operación completa y etiquetada como ilustrativa; si no puedes, no pongas número.
-7. Solo claims que autorice el contexto de la rama. No inventes atributos de producto (precio, accesibilidad, mínimos, cobertura) ni descalifiques al mercado o a un tercero.
-8. ${ctaRule}
-9. Nada de relleno tipo "en el mundo actual", "hoy más que nunca", "la transformación digital".
+Estas reglas son de la estructura pedida, no del carrusel en general. Mándanlas sobre cualquier ejemplo: si un ejemplo de más abajo se lee distinto, es porque es de otra estructura.
+
+${narrativeRules}
+
+## REGLAS QUE APLICAN SIEMPRE
+
+1. Una sola idea por slide, dicha UNA sola vez. Si dentro de un slide el segundo texto repite el primero, el guion está mal.
+2. El riesgo va en CONDICIONAL: "puede cambiar", "puede moverse", "puede modificar", "puede acumularse". Prohibido afirmar el daño ("se pierde margen", "altera tu costo", "te cuesta") y prohibido el tono de amenaza ("sin avisar", "cuando ya es tarde").
+3. Cifras: no las necesitas. Un monto suelto ("USD 100,000") no es un ejemplo. Si de verdad usas un número, va la operación completa y etiquetada como ilustrativa; si no puedes, no pongas número.
+4. Solo claims que autorice el contexto de la rama. No inventes atributos de producto (precio, accesibilidad, mínimos, cobertura) ni descalifiques al mercado o a un tercero.
+5. Nada de relleno tipo "en el mundo actual", "hoy más que nunca", "la transformación digital".
+6. La historia sale de la INDUSTRIA activa y de su operación concreta: qué se compra, en qué documento vive su costo, en qué fecha se paga. Un guion que funcionaría igual para cualquier industria está mal dirigido.
+
+## CIERRE Y PRESENCIA DE MARCA
+
+Esta sección manda sobre cualquier ejemplo que veas más abajo. Los ejemplos aprobados son de sets que vendían; si tu objetivo es otro, su forma de cerrar NO aplica.
+
+${ctaRule}
 
 ## REGLAS DE LONGITUD (críticas)
 
@@ -278,13 +443,60 @@ ${lengthRules}
 
 Pasarte de ahí rompe la pieza. Si no cabe la idea, recórtala, no la comprimas con abreviaturas.
 
-${CAROUSEL_MECHANICS_EXAMPLES}
+${carouselMechanicsExamples(
+  objective === 'explicar' || objective === 'vender' ? objective : 'conectar',
+)}
+
+## JERARQUÍA TIPOGRÁFICA
+
+Tres niveles, y la distancia entre ellos es la que hace que la pieza funcione:
+
+1. HEADLINE — el elemento con más peso visual del slide. Detiene el scroll, se entiende rápido y ocupa una proporción importante del cuadro. Claramente más grande que todo lo demás.
+2. SUPPORTING COPY — mucho más chico. Explica. No compite.
+3. CTA, cifras y etiquetas — más chicos todavía. Parte del sistema, nunca protagonistas.
+
+El primer golpe visual es el headline, o el headline y la escena a la vez. Nunca una imagen enorme con un titular chiquito en una esquina.
+
+## HIGHLIGHTS: EL COLOR ES INFORMACIÓN
+
+Se destacan UNIDADES SEMÁNTICAS COMPLETAS, no palabras sueltas ni frases enteras.
+
+Bien: "Cada motor también mueve **tus costos**" — el bloque es "tus costos" completo.
+Bien: "Tu factura está en **dólares**. Tu presupuesto, **en pesos**" — dos bloques, porque hay oposición.
+Mal: "Cada motor también mueve tus costos" con todo en color — sin contraste no hay jerarquía.
+Mal: colorear palabras sueltas repartidas por la línea — fragmenta la lectura.
+
+Normalmente UN bloque. Dos únicamente cuando el headline enfrenta dos conceptos opuestos, y ahí uno lleva rol "risk" y el otro rol "control", porque el color está explicando la tensión.
+
+${BRAND_COLOR_LANGUAGE_ES}
+
+PROHIBIDO SOBRECOLOREAR. "Cada MOTOR también MUEVE tus COSTOS" con tres colores está mal. Fragmentar todo el headline mata la lectura. Un bloque, o dos si hay oposición conceptual. Nada más.
+
+EL HIGHLIGHT NUNCA ES EL HEADLINE COMPLETO. Si toda la línea va en color no hay contraste y no hay jerarquía: el acento existe porque el resto NO lo lleva. En el slide del CTA colorea únicamente el nombre de la marca — "Cotiza con Xending" lleva "Xending" en turquesa y "Cotiza con" en navy, no la frase entera.
+
+En el campo highlights, cada elemento lleva "text" (el bloque literal del headline) y "colorRole" ("risk" o "control"). No pongas colores: el rol define el color.
+
+## VARIEDAD DE COMPOSICIÓN
+
+Los ${slideCount} slides pertenecen a la misma campaña pero NO usan el mismo layout. Junto a cada rol arriba tienes una sugerencia de composición; puedes cambiarla si el mensaje pide otra, con una sola condición: que no se repita el mismo layout en dos slides del set. Cinco veces la misma arquitectura se lee como plantilla rellenada, aunque las escenas cambien.
 
 ## imageIntent
 
 Por cada slide describe QUÉ DEBE COMUNICAR su imagen, no cómo se ve técnicamente (de eso se encarga otro agente).
 
 PRINCIPIO: la imagen TRADUCE la frase de su slide, no la acompaña. Igual que en las piezas individuales, la historia se cuenta en imágenes y el texto solo la nombra. Pregúntate qué se vería si esa frase pasara en la vida real, y describe eso. Si la imagen funcionaría igual con la frase de otro slide, está mal: significa que ilustra el tema y no dice lo que dice ESA línea.
+
+TEST DE GENERALIDAD, aplícalo a cada slide antes de darlo por bueno: ¿esta misma imagen serviría igual para diez headlines distintos? "Un motor en una tarima" sirve para velocidad, costo, importación, inventario, financiamiento y logística — por sí solo no cuenta ninguna idea. Necesita el elemento que lo ata a ESTE mensaje.
+
+NO ILUSTRES LA INDUSTRIA, DEMUESTRA LA AFIRMACIÓN. Si el headline dice "ese movimiento puede acumularse en cada compra de equipo", un motor bonito no lo demuestra; varios motores, varias compras, documentos repetidos y una sensación de suma sí.
+
+CÓMO TRADUCIR LOS CONCEPTOS ABSTRACTOS. Esto es lo que convierte una frase financiera en algo que se ve:
+- Cambio: dos momentos, dos cotizaciones, dos fechas, dos cifras, un antes y un después.
+- Acumulación: repetición. Varias compras, varias facturas, varios equipos, suma incremental.
+- Certidumbre: un valor ya definido, un documento cerrado, un monto confirmado, un resultado único.
+- Tiempo: calendario, fecha, secuencia, HOY contra 60 DÍAS, desplazamiento temporal.
+- Presupuesto contra obligación: USD y MXN, factura y presupuesto, dos documentos comparados.
+- Margen: costo y precio juntos, la diferencia, una barra, una hoja de cálculo.
 
 REGLA DURA: tiene que ser FOTOGRAFIABLE. Objetos físicos y su estado, en un solo cuadro. Si para entenderlo hace falta saber algo que no está a la vista, no sirve.
 
@@ -296,22 +508,22 @@ REGLA LIGADA AL MOTIVO: el imageIntent del primer y del último slide sí puede 
 
 SUPERFICIES donde puede vivir el dato, porque el dato tiene que estar en un objeto de la escena y no flotando sobre ella: una cotización u orden de compra impresa con su total visible; dos hojas de la misma cotización lado a lado con fechas distintas; una pantalla en la escena —monitor sobre el escritorio, laptop entreabierta— con la curva del tipo de cambio; una hoja con una gráfica impresa; un sello de fecha o una fecha de vencimiento marcada.
 
-CIFRAS: se permite UN comparativo numérico en todo el carrusel, en el slide que habla del cambio — la misma operación con dos totales, el segundo mayor. Es uno solo en el set: si lo usas en un slide, los demás comunican sin números. La cifra se presenta como ejemplo, nunca como una cotización real ni como un tipo de cambio vigente.
+${fxBlock}
 
 Prohibido afirmar la pérdida. Una hoja que diga "margen negativo" o "estás perdiendo" no va. El total más alto, resaltado, dice lo mismo sin el veredicto.
 
 Repertorio por tiempo narrativo, como punto de partida:
 
 - Tensión / apertura: el objeto de la compra y el documento donde vive su costo.
-- Qué cambia: DOS ESTADOS DE LO MISMO en el mismo cuadro. Dos hojas de la misma cotización, una con fecha o sello posterior, con los totales visiblemente distintos — distinta longitud, distinta posición, uno resaltado. El cambio se VE, no se insinúa. IMPORTANTE: los dígitos van fuera de foco o cortados por el encuadre; nunca una cifra legible, porque sería un tipo de cambio inventado horneado en la pieza.
+- Qué cambia: DOS ESTADOS DE LO MISMO en el mismo cuadro. Dos hojas de la misma cotización, una con fecha o sello posterior, y los dos totales legibles y distintos. Los valores los pone el sistema; lo tuyo es pedir las dos hojas y que se lean. Dos totales borrosos no comunican nada.
 - Qué riesgo: la consecuencia visible. El total más alto ocupando más espacio que el anterior, el equipo embalado todavía esperando, el margen apretado entre dos documentos.
-- Solución: la operación resuelta. Un solo documento, ordenado, con una sola cifra — también sin dígitos legibles.
+- Solución: la operación resuelta. Un solo documento, ordenado, con un solo total definido y legible — un número, no dos.
 - Cierre / CTA: el cuadro más callado del set, con el motivo de vuelta y nada compitiendo.
 
 Mal: "imagen de negocios profesional".
 Mal: "el mismo motor con la operación aún abierta y el valor final sin definirse" — no hay nada que fotografiar.
 Bien: "un pallet detenido en el andén mientras el reloj avanza — la mercancía existe pero no se mueve".
-Bien: "dos hojas de la misma cotización lado a lado, la de la derecha con fecha posterior y un total más largo, los dígitos fuera de foco".
+Bien: "dos hojas de la misma cotización lado a lado, sellos HOY y PAGO arriba, con los dos totales legibles y distintos".
 
 ## visualMotif
 
@@ -339,9 +551,32 @@ Responde SOLO JSON válido, sin fences ni texto alrededor:
 {
   "visualMotif": "",
   "slides": [
-    { "role": "${slides[0]?.role ?? 'tension'}", "headline": "", "body": "", "cta": "", "imageIntent": "" }
+    {
+      "role": "${slides[0]?.role ?? 'tension'}",
+      "headline": "",
+      "body": "",
+      "cta": "",
+      "imageIntent": "",
+      "brief": {
+        "visualIntent": "",
+        "visualMetaphor": "",
+        "layout": "editorial_top",
+        "primaryObjects": [],
+        "environmentalText": [],
+        "highlights": [{ "text": "", "colorRole": "risk" }]
+      }
+    }
   ]
 }
+
+Qué va en cada campo del brief:
+
+- visualIntent: qué tiene que volver evidente la imagen, en una frase. Es la respuesta a "¿qué podría mostrar que hiciera esta afirmación visualmente evidente antes de terminar de leer el supporting copy?".
+- visualMetaphor: el recurso concreto que lo demuestra. "Dos cotizaciones de la misma operación con fechas distintas", "cuatro compras sucesivas con su documento", "un resultado único ya definido".
+- layout: uno de editorial_top, split_photo, editorial_repetition, document_result, hero_clean. Por defecto no repitas el mismo en dos slides. La excepción son los slides EQUIVALENTES entre sí —los ítems de una lista, las fechas de una cronología—: esos comparten layout a propósito, porque la composición repetida es lo que los hace leerse como partes de una misma serie.
+- primaryObjects: los objetos que tienen que estar en cuadro.
+- environmentalText: etiquetas cortas SIN CIFRAS que pueden aparecer DENTRO de los objetos: "USD", "MXN", "HOY", "60 DÍAS", "TOTAL", "TIPO DE CAMBIO", "PAGO". Nombres de campo y sellos, nada más. Prohibido cualquier número aquí —montos, tasas, porcentajes—: esos los inyecta el sistema por documento, y duplicarlos aquí produce valores sueltos que no pertenecen a ninguna hoja. Vacío si el slide no necesita ninguna.
+- highlights: uno o dos bloques del headline con su rol semántico. El texto tiene que aparecer LITERAL dentro del headline, y ser una unidad semántica completa.
 
 El arreglo "slides" tiene exactamente ${slideCount} elementos, en el orden pedido, con los roles tal como se te dieron.`;
 }
@@ -400,7 +635,16 @@ const MIN_CLAMPED_WORDS = 4;
  */
 function clampWords(text: string, maxWords: number): string {
   const words = text.trim().split(/\s+/).filter(Boolean);
-  if (words.length <= maxWords) return words.join(" ");
+
+  /**
+   * Within budget the text is returned untouched, newlines included.
+   *
+   * The headline carries editorial line breaks chosen by meaning ("Tu factura /
+   * está en dólares. / Tu presupuesto, / en pesos"), and the old version joined on
+   * a single space — it silently flattened the composition the agent had designed.
+   * Over budget the break positions are lost anyway, so the blunt path stays.
+   */
+  if (words.length <= maxWords) return text.trim();
 
   const cut = words.slice(0, maxWords);
   const bare = (w: string) => w.replace(/[.,;:]+$/, "").toLowerCase();
@@ -425,6 +669,101 @@ function clampWords(text: string, maxWords: number): string {
   if (cut.length < MIN_CLAMPED_WORDS) return words.slice(0, maxWords).join(" ");
 
   return cut.join(" ").replace(/[,;:]+$/, "");
+}
+
+const LAYOUTS = [
+  'editorial_top',
+  'split_photo',
+  'editorial_repetition',
+  'document_result',
+  'hero_clean',
+] as const;
+
+/**
+ * Normalize the art-direction brief the model returned.
+ *
+ * The one rule worth enforcing in code is the highlight: emphasis on text that is
+ * not in the headline cannot be rendered, and the image model asked to colour a
+ * phrase it cannot find will either colour the wrong thing or write the phrase in.
+ * So a highlight that does not appear verbatim in the headline is dropped rather
+ * than passed along.
+ *
+ * Two highlights is the ceiling. Beyond that the headline fragments and stops
+ * being readable, which is the failure the emphasis was supposed to prevent.
+ */
+function normalizeBrief(
+  raw: unknown,
+  headline: string,
+  layoutHint?: string,
+): ScriptBrief | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const b = raw as Record<string, unknown>;
+
+  const str = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
+  const list = (v: unknown): string[] =>
+    Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && !!x.trim()).map((x) => x.trim()) : [];
+
+  const normalizedHeadline = headline.toLowerCase();
+  const highlights: ScriptHighlight[] = (Array.isArray(b.highlights) ? b.highlights : [])
+    .map((h) => {
+      const item = (h ?? {}) as Record<string, unknown>;
+      return {
+        text: str(item.text),
+        // Unknown or missing role falls back to risk: it is the accent these pieces
+        // use most, and a wrong-but-branded colour beats no emphasis at all.
+        colorRole: item.colorRole === 'control' ? ('control' as const) : ('risk' as const),
+      };
+    })
+    .filter((h) => h.text.length > 0 && normalizedHeadline.includes(h.text.toLowerCase()))
+    .flatMap((h) => {
+      /**
+       * A highlight that covers the whole headline is not emphasis.
+       *
+       * The accent works because the rest of the line does not carry it, so
+       * colouring everything removes the contrast it was there to create — a CTA
+       * came back with "Cotiza con Xending" entirely in turquoise.
+       *
+       * When that happens and the line names the brand, the brand is the block
+       * worth accenting; otherwise the slide is better off with no accent at all
+       * than with a uniformly coloured headline.
+       */
+      const coversEverything =
+        h.text.trim().toLowerCase() === headline.trim().toLowerCase().replace(/\s+/g, ' ') ||
+        h.text.replace(/\s+/g, '').length >= headline.replace(/\s+/g, '').length;
+
+      if (!coversEverything) return [h];
+
+      const brand = headline.match(/xending/i)?.[0];
+      return brand ? [{ text: brand, colorRole: h.colorRole }] : [];
+    })
+    .slice(0, 2);
+
+  const layoutRaw = str(b.layout);
+  const layout = (LAYOUTS as readonly string[]).includes(layoutRaw)
+    ? layoutRaw
+    : (layoutHint && (LAYOUTS as readonly string[]).includes(layoutHint) ? layoutHint : 'editorial_top');
+
+  /**
+   * Environmental labels are field names and stamps, never values.
+   *
+   * The exact figures reach the image as documents, computed in code and assigned
+   * per slide. A number that also arrives through this list has no document to
+   * belong to, and the last set that did it rendered a loose "+4.0%" floating next
+   * to three cards that already carried their own variation. "60 DÍAS" survives
+   * because it is a term, not a value: no currency, no rate, no percentage.
+   */
+  const environmentalText = list(b.environmentalText).filter(
+    (t) => !/[$%]|\d[\d,.]*\.\d|\d{1,3},\d{3}|\b\d+\s*(%|USD|MXN|pesos)\b|\b(USD|MXN)\s*\d/i.test(t),
+  );
+
+  return {
+    visualIntent: str(b.visualIntent),
+    visualMetaphor: str(b.visualMetaphor),
+    layout,
+    primaryObjects: list(b.primaryObjects),
+    environmentalText,
+    highlights,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -564,11 +903,14 @@ serve(async (req) => {
       branchContext,
       verticalKeywords,
       industryName: body.industryName,
+      objective: body.objective,
+      narrativeRules: body.narrativeRules,
       angleName: body.angleName,
       imageType: body.imageType,
       slides: body.slides,
-      singleLine: body.singleLine === true,
       editorialBans,
+      fxMoments: body.fxMoments,
+      fxAccumulated: body.fxAccumulated,
       guidance: body.guidance,
     });
 
@@ -626,26 +968,52 @@ serve(async (req) => {
 
     // --- 6. Normalize: the roles and the slide count come from the caller, not
     // from the model, so a hallucinated extra slide cannot corrupt the set. ---
-    const singleLine = body.singleLine === true;
     /** A preset with its own CTA slide keeps the call to action in that headline. */
     const hasCtaSlide = body.slides.some((s) => /^cta$/i.test(s.role));
+
+    /**
+     * Only a selling set gets a CTA line.
+     *
+     * Enforced here and not left to the prompt because this one is decidable: an
+     * imperative baked into a piece meant to explain something is the exact failure
+     * the objective exists to prevent, and an empty string cannot be wrong the way a
+     * rewritten sentence could. What the model does with the closing HEADLINE still
+     * depends on the prompt — that text carries meaning and code cannot judge it.
+     */
+    const allowsCta = (body.objective ?? 'conectar') === 'vender';
+
+    /**
+     * The one slide allowed to hold a CTA line, when the preset has no CTA slide.
+     *
+     * Without this the check was only "does the set lack a cta role", so a model
+     * that put a `cta` on three slides got three imperatives baked into three
+     * images. The call to action closes the set; it does not accompany it.
+     */
+    const lastClosingIndex = body.slides.reduce(
+      (found, s, i) => (/solution|close/i.test(s.role) ? i : found),
+      -1,
+    );
 
     const slides: ScriptSlide[] = body.slides.map((spec, i) => {
       const raw = (parsed.slides![i] ?? {}) as Record<string, unknown>;
       const headline = typeof raw.headline === 'string' ? raw.headline : '';
       const bodyText = typeof raw.body === 'string' ? raw.body : '';
       const ctaText = typeof raw.cta === 'string' ? raw.cta.trim() : '';
+      const isCtaSlide = /^cta$/i.test(spec.role);
+      const mayHoldCta = allowsCta && !hasCtaSlide &&
+        (lastClosingIndex === -1 ? i === body.slides.length - 1 : i === lastClosingIndex);
+
+      const clampedHeadline = clampWords(headline, headlineBudget(spec.role));
 
       return {
         role: spec.role,
-        headline: clampWords(headline, headlineBudget(i, spec.role, singleLine)),
-        // On a one-line preset the body is not the model's call: a stray second
-        // line would be baked into an image laid out for a single one. Same for
-        // the CTA field when the preset already has a CTA slide — the text lives
-        // in that slide's headline, and keeping both renders it twice.
-        body: singleLine ? '' : clampWords(bodyText, MAX_BODY_WORDS),
-        cta: ctaText && !hasCtaSlide ? clampWords(ctaText, 4) : undefined,
+        headline: clampedHeadline,
+        // The CTA slide is the call to action and nothing else: a supporting line
+        // there turns the closing frame into another chapter.
+        body: isCtaSlide ? '' : clampWords(bodyText, MAX_BODY_WORDS),
+        cta: ctaText && mayHoldCta ? clampWords(ctaText, MAX_CTA_WORDS) : undefined,
         imageIntent: typeof raw.imageIntent === 'string' ? raw.imageIntent.trim() : '',
+        brief: normalizeBrief(raw.brief, clampedHeadline, spec.layoutHint),
       };
     });
 

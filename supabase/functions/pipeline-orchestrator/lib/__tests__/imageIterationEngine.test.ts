@@ -169,7 +169,12 @@ const imageIterationArb = fc.record({
   prompt_used: promptArb,
   image_base64: fc.string({ minLength: 10, maxLength: 100 }),
   user_feedback: fc.option(userFeedbackArb, { nil: null }),
-  created_at: fc.date().map((d) => d.toISOString()),
+  /**
+   * `noInvalidDate` no es opcional aquí: fast-check incluye Invalid Date entre sus
+   * casos, y `toISOString()` sobre esa fecha lanza RangeError. El test fallaba en
+   * la generación de datos, no en el código bajo prueba, así que fallaba al azar.
+   */
+  created_at: fc.date({ noInvalidDate: true }).map((d) => d.toISOString()),
 })
 
 /** Generates a list of iterations with length constrained to [0, maxLen] */

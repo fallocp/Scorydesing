@@ -10,7 +10,7 @@
  * its own, without touching the rest of the set.
  */
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   AlertCircle,
   Check,
@@ -41,19 +41,22 @@ import {
 } from '@/hooks/useCarouselQueue';
 import type { CopyBankItem } from '@/hooks/useDesignCopyBank';
 import {
+  computeCarouselFx,
+  DEFAULT_CAROUSEL_FX,
   CAROUSEL_DIMENSIONS,
+  CAROUSEL_LAYOUT_LABELS,
+  CAROUSEL_OBJECTIVES,
   CAROUSEL_PRESETS,
   CAROUSEL_ROLE_LABELS,
+  DEFAULT_CAROUSEL_OBJECTIVE,
   DEFAULT_CAROUSEL_PRESET_SLUG,
   getCarouselPreset,
   type CarouselBrandElement,
+  type CarouselObjective,
   type DesignImageType,
 } from '@/types/design-studio';
-import {
-  exportCarouselPdf,
-  exportCarouselPngs,
-  type CarouselBranding,
-} from '@/utils/design-studio/exportCarousel';
+import { exportCarouselPdf, exportCarouselPngs } from '@/utils/design-studio/exportCarousel';
+import { CollapsibleSection } from './CollapsibleSection';
 
 interface CarouselPanelProps {
   /** The approved bank copy this carousel derives from. */
@@ -72,16 +75,19 @@ interface CarouselPanelProps {
    */
   imageType: DesignImageType | null;
   brandSlug: string | undefined;
-  /** Logo and legal text composited on the slides that carry them. */
-  branding: CarouselBranding;
   /** Overrides where the carousel state is written. See UseCarouselQueueParams. */
   persistMeta?: UseCarouselQueueParams['persistMeta'];
   disabled?: boolean;
 }
 
+/**
+ * Nada se monta automáticamente, así que la etiqueta dice lo que realmente pasa:
+ * el prompt le pide aire a ese slide para que la marca se pueda montar a mano
+ * después. Decir "logo" hacía leer que el slide ya lo trae.
+ */
 const BRAND_ELEMENT_LABELS: Record<CarouselBrandElement, string> = {
-  logo: 'logo',
-  disclaimer: 'disclaimer',
+  logo: 'espacio para logo',
+  disclaimer: 'espacio para disclaimer',
 };
 
 /**
@@ -121,12 +127,21 @@ export function CarouselPanel({
   background,
   imageType,
   brandSlug,
-  branding,
   persistMeta,
   disabled = false,
 }: CarouselPanelProps) {
   const { toast } = useToast();
   const [presetSlug, setPresetSlug] = useState(DEFAULT_CAROUSEL_PRESET_SLUG);
+  /**
+   * What the set is for, chosen here and not derived from the copy.
+   *
+   * The funnel stage of the narrative angle would be a decent guess, but it is not
+   * saved on the bank row, and the same approved copy is legitimately a lesson or a
+   * pitch depending on where it gets published. So it is a choice, not an inference.
+   */
+  const [objective, setObjective] = useState<CarouselObjective>(
+    DEFAULT_CAROUSEL_OBJECTIVE,
+  );
   const [guidance, setGuidance] = useState('');
   const [isExporting, setIsExporting] = useState<'png' | 'pdf' | null>(null);
 
@@ -144,6 +159,25 @@ export function CarouselPanel({
   /** Background for the whole set, seeded from Stage B. */
   const [setBackground, setSetBackground] = useState<string>(
     background ?? 'white-xending-v2',
+  );
+  /**
+   * Assumptions behind any figure the set shows.
+   *
+   * Editable because the rate moves and a stale one dates the piece. Everything
+   * else — the peso totals, the drift, the accumulated difference — is derived from
+   * these two so the arithmetic on the image holds up.
+   */
+  const [fxRate, setFxRate] = useState(String(DEFAULT_CAROUSEL_FX.baseRate));
+  const [fxAmount, setFxAmount] = useState(String(DEFAULT_CAROUSEL_FX.amountUsd));
+
+  const fxPreview = useMemo(
+    () =>
+      computeCarouselFx({
+        ...DEFAULT_CAROUSEL_FX,
+        baseRate: Number(fxRate) || DEFAULT_CAROUSEL_FX.baseRate,
+        amountUsd: Number(fxAmount) || DEFAULT_CAROUSEL_FX.amountUsd,
+      }),
+    [fxRate, fxAmount],
   );
 
   const queue = useCarouselQueue({
@@ -175,13 +209,26 @@ export function CarouselPanel({
    * with instead of the one currently picked.
    */
   const activePreset = getCarouselPreset(queue.presetSlug ?? presetSlug);
-  const isSingleLine = activePreset.singleLine === true;
+  /**
+   * Under EDITORIAL_FULL_TEXT every slide has three text levels with different
+   * jobs, so the supporting line is part of the design rather than an extra.
+   */
+  const isSingleLine = activePreset.visualMode === 'MINIMAL_TEXT';
   const allCopyReady = slots.length > 0 && slots.every((s) => s.slideCopy.headline.trim());
   const allDone = slots.length > 0 && doneCount === slots.length;
   const exportableSlides = slots.filter((s) => s.imageUrl);
 
   const handleCreateScript = async () => {
-    const ok = await queue.createScript({ presetSlug, guidance });
+    const ok = await queue.createScript({
+      presetSlug,
+      objective,
+      guidance,
+      fx: {
+        ...DEFAULT_CAROUSEL_FX,
+        baseRate: Number(fxRate) || DEFAULT_CAROUSEL_FX.baseRate,
+        amountUsd: Number(fxAmount) || DEFAULT_CAROUSEL_FX.amountUsd,
+      },
+    });
     if (!ok) return;
 
     /**
@@ -238,16 +285,15 @@ export function CarouselPanel({
     const payload = exportableSlides.map((s) => ({
       index: s.index,
       imageUrl: s.imageUrl!,
-      brandElements: s.brandElements,
     }));
 
     setIsExporting(format);
     try {
       if (format === 'png') {
-        const count = await exportCarouselPngs({ slides: payload, branding: branding, prefix });
+        const count = await exportCarouselPngs({ slides: payload, prefix });
         toast({ title: `${count} PNG exportados`, description: 'Numerados en orden de lectura.' });
       } else {
-        await exportCarouselPdf({ slides: payload, branding, prefix });
+        await exportCarouselPdf({ slides: payload, prefix });
         toast({
           title: 'PDF exportado',
           description: `${payload.length} páginas. Es el formato que LinkedIn muestra como carrusel.`,
@@ -267,25 +313,29 @@ export function CarouselPanel({
   if (!bankItem) return null;
 
   return (
-    <section className="space-y-5 rounded-lg border border-border/60 bg-muted/20 p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
-            <Images className="h-4 w-4" />
-            Carrusel
-          </h3>
-          <p className="text-xs text-muted-foreground">
-            {CAROUSEL_DIMENSIONS.width}×{CAROUSEL_DIMENSIONS.height} — mismo formato que un post,
-            un solo set para Instagram y LinkedIn
-          </p>
-        </div>
-        {slots.length > 0 && (
-          <Badge variant="outline" className="text-[10px] font-normal">
-            {doneCount}/{slots.length} generados
-          </Badge>
-        )}
-      </div>
-
+    <CollapsibleSection
+      // No "Carrusel": el StageHeader de arriba ya lo dice, y dos títulos iguales
+      // pegados hacen dudar de si son el mismo bloque.
+      title="Generar el carrusel"
+      Icon={Images}
+      subtitle={`${CAROUSEL_DIMENSIONS.width}×${CAROUSEL_DIMENSIONS.height} — mismo formato que un post, un solo set para Instagram y LinkedIn`}
+      badge={
+        slots.length > 0 ? (
+          <>
+            <Badge variant="outline" className="text-[10px] font-normal">
+              {doneCount}/{slots.length} generados
+            </Badge>
+            {/* Con qué objetivo se escribió este set. Los chips solo existen antes
+                del guion, así que sin esto no habría forma de saberlo después. */}
+            <Badge variant="secondary" className="text-[10px] font-normal">
+              {CAROUSEL_OBJECTIVES.find((o) => o.value === queue.objective)?.label ??
+                queue.objective}
+            </Badge>
+          </>
+        ) : null
+      }
+      bodyClassName="space-y-5 p-4"
+    >
       {error && (
         <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3">
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
@@ -329,6 +379,29 @@ export function CarouselPanel({
             </p>
           )}
 
+          {/* Objetivo: el segundo eje del set. La estructura decide cómo se lee;
+              esto decide cómo cierra y si la marca se nombra en el texto. Estaba
+              fijo en el prompt, y por eso todos los sets terminaban igual. */}
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Objetivo del set
+            </Label>
+            <div className="flex flex-wrap gap-2">
+              {CAROUSEL_OBJECTIVES.map((opt) => (
+                <OptionChip
+                  key={opt.value}
+                  label={opt.label}
+                  active={objective === opt.value}
+                  disabled={busy}
+                  onClick={() => setObjective(opt.value)}
+                />
+              ))}
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              {CAROUSEL_OBJECTIVES.find((o) => o.value === objective)?.hint}
+            </p>
+          </div>
+
           {/* Medio y fondo del set. Antes se heredaban en silencio de la Etapa B
               y un default de 'foto' dejaba los slides sin el sistema visual. */}
           <div className="grid gap-3 sm:grid-cols-2">
@@ -368,6 +441,49 @@ export function CarouselPanel({
                 ))}
               </div>
             </div>
+          </div>
+
+          {/* Las cifras se calculan aquí, no las inventa el modelo: la pieza muestra
+              el TC y el total juntos, así que tienen que cuadrar al multiplicarlos. */}
+          <div className="space-y-2 rounded-md border border-border/70 bg-background p-3">
+            <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Cifras ilustrativas
+            </Label>
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="space-y-1">
+                <Label className="text-[10px] text-muted-foreground">Tipo de cambio</Label>
+                <Input
+                  value={fxRate}
+                  onChange={(e) => setFxRate(e.target.value)}
+                  disabled={busy}
+                  inputMode="decimal"
+                  className="h-8 w-24 text-sm"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[10px] text-muted-foreground">Monto USD</Label>
+                <Input
+                  value={fxAmount}
+                  onChange={(e) => setFxAmount(e.target.value)}
+                  disabled={busy}
+                  inputMode="numeric"
+                  className="h-8 w-28 text-sm"
+                />
+              </div>
+            </div>
+            <div className="space-y-0.5 font-mono text-[11px] text-muted-foreground">
+              {fxPreview.map((m, i) => (
+                <div key={i}>
+                  {['HOY', 'PAGO', 'COMPRA 3'][i] ?? `MOMENTO ${i + 1}`} — {m.labels.rate} ·{' '}
+                  {m.labels.usd} · {m.labels.mxn}
+                  {m.labels.delta ? ` · ${m.labels.delta}` : ''}
+                </div>
+              ))}
+            </div>
+            <p className="text-[10px] text-muted-foreground">
+              El monto en USD es el mismo en los tres momentos: lo que se mueve es el tipo de
+              cambio, no el tamaño de la compra.
+            </p>
           </div>
 
           <div className="space-y-1.5">
@@ -629,12 +745,14 @@ export function CarouselPanel({
             </Button>
           </div>
           <p className="text-[11px] text-muted-foreground">
-            El logo y el disclaimer se montan en su posición por defecto. Para moverlos, usa
-            &ldquo;Montar marca&rdquo; en ese slide.
+            Las imágenes salen tal cual: aquí no se monta logo ni disclaimer. Eso lo haces tú
+            con &ldquo;Montar marca&rdquo; sobre cada pieza, y el PDF con esas versiones se arma
+            en &ldquo;Armar PDF en orden&rdquo;, arriba de los mockups guardados, eligiendo qué
+            pieza va en cada posición.
           </p>
         </div>
       )}
-    </section>
+    </CollapsibleSection>
   );
 }
 
@@ -712,13 +830,23 @@ function SlotCopyEditor({
     <Card className="border-border/70">
       <CardContent className="space-y-2 p-3">
         <SlotHeader slot={slot} total={total} />
-        <Input
-          value={slot.slideCopy.headline}
-          onChange={(e) => onChange('headline', e.target.value)}
-          disabled={disabled}
-          placeholder={singleLine ? 'La línea de este slide' : 'Headline del slide'}
-          className="text-sm font-semibold"
-        />
+        {/* Textarea, no Input: el headline lleva saltos de línea editoriales y un
+            <input> de HTML no puede contenerlos — el navegador los borra sin dejar
+            espacio, así que "Cada motor\ntambién mueve" se veía y se guardaba como
+            "Cada motortambién mueve" en cuanto el campo tocaba el valor. */}
+        <div className="space-y-1">
+          <Textarea
+            rows={3}
+            value={slot.slideCopy.headline}
+            onChange={(e) => onChange('headline', e.target.value)}
+            disabled={disabled}
+            placeholder="Headline del slide"
+            className="resize-none text-sm font-semibold leading-snug"
+          />
+          <p className="text-[10px] text-muted-foreground">
+            Los saltos de línea son parte del diseño: se hornean tal cual en la imagen.
+          </p>
+        </div>
         {/* Hidden on one-line presets: the slide is laid out for a single line, so
             offering a second field invites text the image has no room for. */}
         {!singleLine && (
@@ -741,6 +869,103 @@ function SlotCopyEditor({
             className="text-sm"
           />
         )}
+        {/* La dirección de arte del slide, visible. Es lo que permite entender por
+            qué una generación salió bien o mal, en lugar de adivinarlo. */}
+        {slot.brief && (
+          <div className="space-y-1 rounded-md border border-border/60 bg-muted/30 p-2">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Badge variant="outline" className="text-[10px] font-normal">
+                {CAROUSEL_LAYOUT_LABELS[slot.brief.layout] ?? slot.brief.layout}
+              </Badge>
+              {slot.brief.highlights.map((h, i) => (
+                <Badge
+                  key={`${h.text}-${i}`}
+                  variant="outline"
+                  className={cn(
+                    'text-[10px] font-normal',
+                    h.colorRole === 'risk'
+                      ? 'border-[#FF7A4A]/50 text-[#FF7A4A]'
+                      : 'border-[#2ED4C7]/60 text-[#1FB8AC]',
+                  )}
+                >
+                  {h.text}
+                </Badge>
+              ))}
+              {/* El índice va en la key a propósito: en un comparativo la misma
+                  etiqueta aparece dos veces —"TOTAL USD 10,000.00" en HOY y en
+                  PAGO— y eso es correcto, así que el texto no es un id único. */}
+              {slot.brief.environmentalText.map((t, i) => (
+                <Badge key={`${t}-${i}`} variant="secondary" className="text-[10px] font-normal">
+                  {t}
+                </Badge>
+              ))}
+            </div>
+            {slot.brief.visualIntent && (
+              <p className="text-[11px] text-muted-foreground">
+                <span className="font-medium text-foreground">Debe demostrar: </span>
+                {slot.brief.visualIntent}
+              </p>
+            )}
+            {slot.brief.visualMetaphor && (
+              <p className="text-[11px] text-muted-foreground">
+                <span className="font-medium text-foreground">Recurso: </span>
+                {slot.brief.visualMetaphor}
+              </p>
+            )}
+            {/* Las cifras exactas que van a hornearse. Se muestran porque son la
+                parte de la pieza que se puede verificar a mano: si el TC por el
+                monto no da el total, se ve aquí antes de gastar una generación. */}
+            {(slot.brief.documents ?? []).length > 0 && (
+              <div className="space-y-1.5 pt-1">
+                <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                  Cifras en la imagen
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {slot.brief.documents!.map((doc, i) => (
+                    <div
+                      key={`${doc.label}-${i}`}
+                      className="min-w-[130px] flex-1 rounded border border-border/60 bg-background/60 p-1.5"
+                    >
+                      <div className="flex items-baseline justify-between gap-1">
+                        <span className="text-[10px] font-semibold">{doc.label}</span>
+                        <span className="text-[9px] text-muted-foreground">{doc.date}</span>
+                      </div>
+                      {[...doc.fields, doc.total].map((f, j) => (
+                        <div
+                          key={`${f.label}-${j}`}
+                          className="flex items-baseline justify-between gap-2 text-[10px]"
+                        >
+                          <span className="text-muted-foreground">{f.label}</span>
+                          <span
+                            className={cn(
+                              'font-mono tabular-nums',
+                              f.colorRole === 'risk'
+                                ? 'text-[#FF7A4A]'
+                                : f.colorRole === 'control'
+                                  ? 'text-[#1FB8AC]'
+                                  : 'text-foreground',
+                            )}
+                          >
+                            {f.value}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+                {slot.brief.accumulatedLabel && (
+                  <p className="text-[10px] text-muted-foreground">
+                    <span className="font-medium text-foreground">Impacto acumulado: </span>
+                    <span className="font-mono tabular-nums text-[#FF7A4A]">
+                      {slot.brief.accumulatedLabel}
+                    </span>
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Editable: es lo que define la escena de este slide. Antes solo se podía
             leer, así que corregir una idea mala obligaba a rehacer el guion. */}
         <div className="space-y-1">

@@ -22,12 +22,22 @@ import { useActiveBusiness } from './useActiveBusiness';
 import { useSaveMockup } from './useDesignMockups';
 import { useUpdateBankMeta, type CopyBankItem } from './useDesignCopyBank';
 import {
-  brandElementsForRole,
+  accumulatedFxImpact,
+  brandElementsForSlide,
+  DEFAULT_CAROUSEL_OBJECTIVE,
+  type CarouselObjective,
+  buildFigureDocuments,
+  computeCarouselFx,
+  DEFAULT_CAROUSEL_FX,
   CAROUSEL_ASPECT_RATIO,
   CAROUSEL_DIMENSIONS,
   CAROUSEL_ROLE_BRIEFS,
+  CAROUSEL_ROLE_LAYOUT_HINT,
   getCarouselPreset,
+  type CarouselFigureScenario,
+  type CarouselFxAssumptions,
   type CarouselMeta,
+  type CarouselSlideRole,
   type CarouselSlideCopy,
   type CarouselSlot,
   type CarouselSlotStatus,
@@ -68,6 +78,32 @@ export interface UseCarouselQueueParams {
 }
 
 const IMAGE_SIZE = `${CAROUSEL_DIMENSIONS.width}x${CAROUSEL_DIMENSIONS.height}`;
+
+/**
+ * What each moment is called in the table the script agent reads.
+ *
+ * Named by position in the mechanism, not by the stamp a slide prints. The stamps
+ * differ per slide — the two-state comparison stamps HOY and PAGO on the base and
+ * the final moment, while the accumulation slide stamps three successive purchases
+ * across all three — so a single set of stamps here would describe one slide and
+ * misdescribe the other. `buildFigureDocuments` owns the stamps.
+ */
+const FX_MOMENT_LABELS = ['MOMENTO BASE', 'MOMENTO INTERMEDIO', 'MOMENTO FINAL'];
+
+/**
+ * Which slides carry figure documents, and which numeric story each one tells.
+ *
+ * Only two beats need numbers: the one explaining the mechanism, which needs the
+ * same operation at two moments, and the one about repetition, which needs the same
+ * operation several times. The rest communicate without figures — the guidance is
+ * one numeric slide per set, two at most.
+ */
+const FIGURE_SCENARIO_BY_ROLE: Partial<Record<CarouselSlideRole, CarouselFigureScenario>> = {
+  shift: 'two_moment',
+  risk: 'repeated_purchases',
+  problem: 'two_moment',
+  example: 'repeated_purchases',
+};
 
 /**
  * Platform recorded on the saved mockups. Carousel slides use the same square
@@ -111,6 +147,8 @@ export function useCarouselQueue({
   const [visualMotif, setVisualMotif] = useState('');
   const [groupId, setGroupId] = useState<string | null>(null);
   const [presetSlug, setPresetSlug] = useState<string | null>(null);
+  /** What the set is for. Decides the closing and the brand budget. */
+  const [objective, setObjective] = useState<CarouselObjective>(DEFAULT_CAROUSEL_OBJECTIVE);
   const [isScripting, setIsScripting] = useState(false);
   const [isBuildingPrompts, setIsBuildingPrompts] = useState(false);
   /** Fetching the visual spec from the single-image path. */
@@ -154,6 +192,7 @@ export function useCarouselQueue({
       setVisualMotif('');
       setGroupId(null);
       setPresetSlug(null);
+      setObjective(DEFAULT_CAROUSEL_OBJECTIVE);
       setError(null);
       return;
     }
@@ -169,6 +208,9 @@ export function useCarouselQueue({
     setVisualMotif(carousel.visualMotif ?? '');
     setGroupId(carousel.groupId);
     setPresetSlug(carousel.presetSlug);
+    // Older carousels have no objective. They were written under the fixed rules,
+    // which are what 'vender' now reproduces, so that is the honest label for them.
+    setObjective(carousel.objective ?? 'vender');
     setError(null);
   }, [bankItem?.row.id, bankItem?.meta.carousel, applySlots]);
 
@@ -180,14 +222,17 @@ export function useCarouselQueue({
       visualMotif?: string;
       groupId?: string;
       presetSlug?: string;
+      objective?: CarouselObjective;
       imageType?: DesignImageType;
     }) => {
       if (!bankItem) return;
 
       const meta: CarouselMeta = {
         presetSlug: next.presetSlug ?? presetSlug ?? '',
+        objective: next.objective ?? objective,
         visualAnchor: next.visualAnchor ?? visualAnchor,
         visualMotif: next.visualMotif ?? visualMotif,
+        visualMode: getCarouselPreset(next.presetSlug ?? presetSlug ?? '').visualMode,
         groupId: next.groupId ?? groupId ?? crypto.randomUUID(),
         imageType: next.imageType ?? imageType,
         slots: toPersisted(next.slots),
@@ -205,7 +250,7 @@ export function useCarouselQueue({
         meta: { imageMode: 'carousel', carousel: meta },
       });
     },
-    [bankItem, presetSlug, visualAnchor, groupId, imageType, updateBankMeta, persistMeta],
+    [bankItem, presetSlug, objective, visualAnchor, visualMotif, groupId, imageType, updateBankMeta, persistMeta],
   );
 
   // -------------------------------------------------------------------------
@@ -213,10 +258,24 @@ export function useCarouselQueue({
   // -------------------------------------------------------------------------
 
   const createScript = useCallback(
-    async (params: { presetSlug: string; guidance?: string }) => {
+    async (params: {
+      presetSlug: string;
+      objective?: CarouselObjective;
+      guidance?: string;
+      fx?: CarouselFxAssumptions;
+    }) => {
       if (!bankItem || !activeBusinessId) return false;
 
       const preset = getCarouselPreset(params.presetSlug);
+      /**
+       * Read from the params, not from state.
+       *
+       * The panel owns the chips and calls this in the same tick it would have set
+       * the hook's state, so reading state here would send the previous objective on
+       * the very first script — the one case where getting it wrong is most visible.
+       */
+      const nextObjective = params.objective ?? objective;
+      const fxMoments = computeCarouselFx(params.fx ?? DEFAULT_CAROUSEL_FX);
       setIsScripting(true);
       setError(null);
 
@@ -233,17 +292,40 @@ export function useCarouselQueue({
                 body: bankItem.row.subcopy ?? '',
                 cta: bankItem.row.cta ?? '',
               },
-              slides: preset.roles.map((role) => ({
+              slides: preset.roles.map((role, i) => ({
                 role,
                 brief: CAROUSEL_ROLE_BRIEFS[role],
-                brandElements: brandElementsForRole(preset, role),
+                brandElements: brandElementsForSlide(preset, i),
+                // Composition that suits this beat. The agent may override it; what
+                // it may not do is use the same one twice in the set.
+                layoutHint: CAROUSEL_ROLE_LAYOUT_HINT[role],
               })),
-              // The shape belongs to the preset, not to the agent: it decides
-              // whether a slide may carry a second text level at all.
-              singleLine: preset.singleLine === true,
+              // Text density belongs to the preset, not to the agent.
+              visualMode: preset.visualMode,
+              // Y cómo se lee la estructura: sin esto, un checklist sale escrito con
+              // las reglas de un arco encadenado y deja de ser un checklist.
+              narrativeRules: preset.narrativeRules,
+              // What the set is for: decides who owns the closing line and whether
+              // the brand name appears in the copy at all.
+              objective: nextObjective,
               angleName: bankItem.meta.angleName,
               industryName: bankItem.meta.industryName,
               imageType,
+              /**
+               * Figures computed here, not by the agent.
+               *
+               * The rate and the totals have to satisfy USD x TC = MXN when a reader
+               * multiplies them, and a language model does not produce three
+               * mutually consistent numbers reliably. The agent never places these —
+               * they reach the image as documents — it only writes copy that agrees
+               * with the mechanism they describe.
+               */
+              fxMoments: fxMoments.map((m, i) => ({
+                label: FX_MOMENT_LABELS[i] ?? `MOMENTO ${i + 1}`,
+                ...m.labels,
+              })),
+              /** The number the repetition slide is about: the gaps adding up. */
+              fxAccumulated: accumulatedFxImpact(fxMoments).label,
               guidance: params.guidance?.trim() || undefined,
             },
           },
@@ -266,29 +348,60 @@ export function useCarouselQueue({
               cta: scripted.cta ?? '',
             },
             imageIntent: scripted.imageIntent ?? '',
+            // Art direction from the script agent. Persisted so a regeneration keeps
+            // the same intent instead of drifting back to a generic hero shot.
+            brief: scripted.brief ?? undefined,
             // Filled in step 3, after the user settles the copy.
             prompt: '',
-            brandElements: brandElementsForRole(preset, role),
+            brandElements: brandElementsForSlide(preset, i),
             status: 'idle' as CarouselSlotStatus,
           };
         });
 
         const scriptedMotif = typeof data.visualMotif === 'string' ? data.visualMotif : '';
 
-        applySlots(nextSlots);
+        /**
+         * Attach the figure documents in code, by role.
+         *
+         * The agent decides the narrative and the composition; it never decides a
+         * number or which document a number belongs to. That is what produced three
+         * cards showing the same 18.93 and a stray +4.0%: a flat list of labels has
+         * no way to say which value goes where.
+         */
+        const withFigures = nextSlots.map((slot) => {
+          const scenario = FIGURE_SCENARIO_BY_ROLE[slot.role];
+          if (!scenario || !slot.brief) return slot;
+
+          const documents = buildFigureDocuments(scenario, fxMoments);
+          return {
+            ...slot,
+            brief: {
+              ...slot.brief,
+              documents,
+              accumulatedLabel:
+                scenario === 'repeated_purchases'
+                  ? accumulatedFxImpact(fxMoments).label
+                  : undefined,
+            },
+          };
+        });
+
+        applySlots(withFigures);
         setVisualMotif(scriptedMotif);
         setGroupId(newGroupId);
         setPresetSlug(params.presetSlug);
+        setObjective(nextObjective);
         setVisualAnchor('');
 
         await persist({
-          slots: nextSlots,
+          slots: withFigures,
           visualAnchor: '',
           // Passed explicitly: the state setter above has not landed yet, so the
           // value in `persist`'s closure is still the previous motif.
           visualMotif: scriptedMotif,
           groupId: newGroupId,
           presetSlug: params.presetSlug,
+          objective: nextObjective,
         });
 
         return true;
@@ -299,7 +412,7 @@ export function useCarouselQueue({
         setIsScripting(false);
       }
     },
-    [bankItem, activeBusinessId, branchId, imageType, persist, applySlots],
+    [bankItem, activeBusinessId, branchId, imageType, objective, persist, applySlots],
   );
 
   // -------------------------------------------------------------------------
@@ -569,6 +682,9 @@ export function useCarouselQueue({
               body: slot.slideCopy.body,
               cta: slot.slideCopy.cta,
               imageIntent: slot.imageIntent || slot.slideCopy.headline,
+              // Art direction travels with the slide: without it the prompt can only
+              // ask for "an image related to this text".
+              brief: slot.brief,
               brandElements: slot.brandElements,
             }],
           },
@@ -778,6 +894,7 @@ export function useCarouselQueue({
     visualMotif,
     groupId,
     presetSlug,
+    objective,
     // Flags
     isScripting,
     isBuildingPrompts,

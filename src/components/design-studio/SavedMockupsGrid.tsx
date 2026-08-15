@@ -12,6 +12,7 @@ import {
   ThumbsUp,
   ThumbsDown,
   MessageSquare,
+  Images,
   Instagram,
   Facebook,
   Linkedin,
@@ -39,6 +40,7 @@ import {
 import { MockupIterationChat } from './MockupIterationChat'
 import { MockupSlideViewer, type MockupSlideItem } from './MockupSlideViewer'
 import { BrandLayerDialog } from './BrandLayerDialog'
+import { CollapsibleSection } from './CollapsibleSection'
 
 /**
  * Icon, short label and thumbnail aspect per platform.
@@ -314,15 +316,14 @@ export function SavedMockupsGrid({
         />
       )}
 
-      <div className="space-y-3">
-        <div className="flex flex-wrap items-baseline justify-between gap-x-3">
-          <h3 className="text-sm font-semibold text-foreground">
-            Mockups guardados ({mockups.length})
-          </h3>
-          <p className="text-xs text-muted-foreground">
-            Clic para seleccionar · ⤢ abre el visor y navegas con ← →
-          </p>
-        </div>
+      {/* Plegable: son hasta 50 piezas y es el bloque más alto de la página, así
+          que dejarlo abierto convierte cualquier navegación en un scroll largo. */}
+      <CollapsibleSection
+        title={`Mockups guardados (${mockups.length})`}
+        Icon={Images}
+        aside="Clic para seleccionar · ⤢ abre el visor y navegas con ← →"
+        bodyClassName="p-4"
+      >
         {/* items-start: tiles keep their own height (a story is taller than a
             square post) instead of stretching to the tallest one in the row. */}
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 items-start">
@@ -471,7 +472,7 @@ export function SavedMockupsGrid({
             )
           })}
         </div>
-      </div>
+      </CollapsibleSection>
     </>
   )
 }

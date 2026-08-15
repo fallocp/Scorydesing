@@ -36,6 +36,7 @@ import { IndustrySelector } from '@/components/design-studio/IndustrySelector';
 import { ReferenceImageUploader } from '@/components/design-studio/ReferenceImageUploader';
 import { MockupGallery } from '@/components/design-studio/MockupGallery';
 import { SavedMockupsGrid } from '@/components/design-studio/SavedMockupsGrid';
+import { CarouselPdfComposer } from '@/components/design-studio/CarouselPdfComposer';
 import { DesignFeedbackChat } from '@/components/design-studio/DesignFeedbackChat';
 import { HtmlPreviewPanel } from '@/components/design-studio/HtmlPreviewPanel';
 import { TemplateSaveDialog } from '@/components/design-studio/TemplateSaveDialog';
@@ -1362,11 +1363,6 @@ export default function DesignStudioPage() {
                       // Solo semilla: el panel del carrusel elige su propio medio.
                       imageType={store.selections.pieceImagePrompt?.type ?? null}
                       brandSlug={activeBusiness?.slug}
-                      branding={{
-                        logoUrl: businessConfig?.logo_url ?? null,
-                        wordmark: activeBusiness?.name ?? null,
-                        disclaimer: businessConfig?.disclaimer ?? null,
-                      }}
                       disabled={isAnyLoading}
                     />
                   </section>
@@ -1517,6 +1513,11 @@ export default function DesignStudioPage() {
             </p>
           </div>
         )}
+
+        {/* Armado del PDF: va arriba de la galería porque su insumo son las piezas
+            de abajo, en particular las variantes con marca montada, que la galería
+            lista por fecha y no en orden de lectura. */}
+        <CarouselPdfComposer mockups={savedMockups} />
 
         {/* Saved Mockups from DB — always visible */}
         <SavedMockupsGrid
