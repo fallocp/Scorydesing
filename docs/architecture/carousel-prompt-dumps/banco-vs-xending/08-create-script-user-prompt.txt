@@ -1,0 +1,5 @@
+Copy semilla aprobado por el usuario:
+- Headline: "Tu banco es bueno para muchas cosas. Pagos internacionales no es una."
+- Body: "3-5 días de espera para liquidación"
+- CTA: "Compara tu experiencia actual."
+Escribe el guion de 5 slides y el motivo visual.

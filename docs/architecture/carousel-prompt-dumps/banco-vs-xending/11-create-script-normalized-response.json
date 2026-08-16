@@ -1,0 +1,95 @@
+{
+  "captureStatus": "NO CAPTURADO EN RUNTIME",
+  "reason": "generate-carousel-script requires a valid end-user JWT plus tenant membership; no usable user session was available. Raw script completions are not persisted.",
+  "controlledDownstreamFixture": {
+    "slides": [
+      {
+        "role": "tension",
+        "headline": "Tu banco es bueno para muchas cosas. Pagos internacionales no es una.",
+        "body": "3-5 días de espera para liquidación",
+        "cta": "",
+        "imageIntent": "Detiene el scroll y planta el problema. Headline grande desde el copy semilla, escena simple con el producto protagonista y un elemento que introduce la tensión. Poco supporting copy. No resuelvas nada todavía. Contexto concreto: dos estados de cuenta comparables.",
+        "brief": {
+          "visualIntent": "Volver visible el rol tension mediante dos estados de cuenta comparables",
+          "visualMetaphor": "dos estados de cuenta comparables como evidencia física de la afirmación",
+          "layout": "editorial_top",
+          "primaryObjects": [
+            "dos estados de cuenta comparables"
+          ],
+          "environmentalText": [],
+          "highlights": []
+        }
+      },
+      {
+        "role": "shift",
+        "headline": "Tu banco es bueno para muchas cosas. Pagos internacionales no es una de ellas.",
+        "body": "",
+        "cta": "",
+        "imageIntent": "Muestra el MECANISMO: qué puede cambiar entre hoy y el pago. La escena necesita dos momentos en el cuadro — mismo producto, misma factura, dos fechas, dos resultados. Frase en condicional. Contexto concreto: ruta operativa.",
+        "brief": {
+          "visualIntent": "Volver visible el rol shift mediante ruta operativa",
+          "visualMetaphor": "ruta operativa como evidencia física de la afirmación",
+          "layout": "split_photo",
+          "primaryObjects": [
+            "ruta operativa"
+          ],
+          "environmentalText": [],
+          "highlights": []
+        }
+      },
+      {
+        "role": "risk",
+        "headline": "3-5 días de espera para liquidación",
+        "body": "",
+        "cta": "",
+        "imageIntent": "Muestra la CONSECUENCIA. Si la línea habla de acumulación, la escena repite: varias compras, varios documentos, impacto agregado. Que el concepto se vea, no que se enuncie. Contexto concreto: documento de costos.",
+        "brief": {
+          "visualIntent": "Volver visible el rol risk mediante documento de costos",
+          "visualMetaphor": "documento de costos como evidencia física de la afirmación",
+          "layout": "editorial_repetition",
+          "primaryObjects": [
+            "documento de costos"
+          ],
+          "environmentalText": [],
+          "highlights": []
+        }
+      },
+      {
+        "role": "solution",
+        "headline": "liquidación mismo día vs 3-5 días bancarios",
+        "body": "",
+        "cta": "",
+        "imageIntent": "Pasa visualmente de la incertidumbre al control: la escena se siente más ordenada, más estable, con un resultado definido. El sujeto de la frase es el producto, no el cliente. Contexto concreto: dos estados de cuenta comparables.",
+        "brief": {
+          "visualIntent": "Volver visible el rol solution mediante dos estados de cuenta comparables",
+          "visualMetaphor": "dos estados de cuenta comparables como evidencia física de la afirmación",
+          "layout": "document_result",
+          "primaryObjects": [
+            "dos estados de cuenta comparables"
+          ],
+          "environmentalText": [],
+          "highlights": []
+        }
+      },
+      {
+        "role": "cta",
+        "headline": "Compara tu experiencia actual.",
+        "body": "",
+        "cta": "",
+        "imageIntent": "Cierre. El CTA aprobado, composición limpia, producto premium y máximo aire. No es otro capítulo educativo. Contexto concreto: ruta operativa.",
+        "brief": {
+          "visualIntent": "Volver visible el rol cta mediante ruta operativa",
+          "visualMetaphor": "ruta operativa como evidencia física de la afirmación",
+          "layout": "hero_clean",
+          "primaryObjects": [
+            "ruta operativa"
+          ],
+          "environmentalText": [],
+          "highlights": []
+        }
+      }
+    ],
+    "visualMotif": "Dos estados de cuenta comparables abren la serie y un único resultado operativo la cierra."
+  },
+  "fixtureProvenance": "commercial_branches.prompt_kit (real production branch context; controlled audit fixture, not a persisted copy-bank row)"
+}

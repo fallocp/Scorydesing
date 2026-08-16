@@ -1,0 +1,189 @@
+{
+  "requestedSlug": "pagos-con-orden",
+  "activeDatabaseSlug": "control-operativo-pagos",
+  "requestedSlugPresentInActiveDatabase": false,
+  "branch": {
+    "id": "<BRANCH_ID:control-operativo-pagos>",
+    "business_id": "<BUSINESS_ID>",
+    "category_id": "<CATEGORY_ID>",
+    "name": "Control Operativo de Pagos",
+    "slug": "control-operativo-pagos",
+    "strategic_config": {
+      "ctas": [
+        "Ordena tus pagos hoy",
+        "Solicita una demo",
+        "Conoce la plataforma",
+        "Digitaliza tu tesorería"
+      ],
+      "dolor": "Tu proceso de pagos internacionales depende de llamadas al banco, correos de confirmación que se pierden, y hojas de Excel.",
+      "angulos": [
+        "Comparativa",
+        "Educativo",
+        "Testimonial",
+        "Urgencia Operativa"
+      ],
+      "footers": [
+        "Funcionalidades sujetas al plan contratado.",
+        "Xending — orden y control en cada pago internacional."
+      ],
+      "insight": "Los equipos de tesorería pasan 15-20 horas semanales en tareas manuales de pagos internacionales.",
+      "promesa": "Xending centraliza todos tus pagos internacionales en una plataforma con trazabilidad completa.",
+      "objetivo": "Posicionar a Xending como la plataforma que trae orden y control a los pagos internacionales de las empresas.",
+      "audiencia": "Gerentes de tesorería y equipos de cuentas por pagar de empresas con 20+ pagos internacionales mensuales.",
+      "guia_visual": "Dashboards y interfaces limpias, checklists y flujos de proceso.",
+      "claims_permitidos": [
+        "Trazabilidad completa de pagos",
+        "Automatiza tu tesorería",
+        "Control total desde una plataforma",
+        "Reduce errores manuales"
+      ],
+      "claims_prohibidos": [
+        "Elimina 100% de errores",
+        "Automatización total sin intervención humana",
+        "Reemplaza a tu equipo de tesorería"
+      ]
+    },
+    "prompt_kit": {
+      "audience": [
+        "Gerentes de tesorería con 20+ pagos internacionales mensuales",
+        "Equipos de cuentas por pagar",
+        "Contralores que necesitan trazabilidad y auditoría",
+        "Empresas en proceso de digitalización financiera",
+        "CFOs que buscan reducir errores operativos",
+        "Empresas con múltiples beneficiarios internacionales"
+      ],
+      "branch_id": "control_operativo_pagos",
+      "branch_name": "Control Operativo de Pagos",
+      "branch_type": "product",
+      "positioning": "Xending centraliza, automatiza y da trazabilidad completa a los pagos internacionales de empresas que manejan alto volumen de operaciones, eliminando procesos manuales, errores y falta de visibilidad.",
+      "executive_angle": "El problema no es hacer pagos internacionales. Es controlarlos cuando son 20, 50 o 100 al mes.",
+      "malos_headlines": [
+        "Automatiza tus pagos.",
+        "Plataforma de pagos inteligente.",
+        "Digitaliza tu tesorería.",
+        "Pagos fáciles para empresas.",
+        "La solución integral de pagos.",
+        "Operación eficiente garantizada."
+      ],
+      "primary_problem": "Los equipos de tesorería de empresas con alto volumen de pagos internacionales dependen de procesos manuales: llamadas al banco, correos de confirmación, hojas de Excel para rastrear pagos y conciliaciones que toman días. Esto genera errores, falta de visibilidad y pérdida de control operativo.",
+      "tensiones_clave": [
+        "Hacer un pago internacional es fácil. Controlar 50 al mes no lo es.",
+        "Si tu proceso de pagos depende de Excel y correos, tu control es frágil.",
+        "Cada pago manual es una oportunidad de error.",
+        "La falta de trazabilidad no es un inconveniente. Es un riesgo operativo.",
+        "Tu equipo no debería pasar horas rastreando pagos que una plataforma puede mostrar en segundos.",
+        "Conciliar pagos internacionales no debería tomar días.",
+        "Si no puedes ver el estatus de cada pago en tiempo real, no tienes control.",
+        "Los procesos manuales no escalan. Tu operación sí."
+      ],
+      "visual_language": [
+        "dashboard con lista de pagos y estatus",
+        "flujo de autorización por niveles",
+        "archivo CSV/Excel siendo cargado para pagos masivos",
+        "catálogo de beneficiarios organizado",
+        "timeline de un pago: creado → autorizado → enviado → recibido",
+        "comparativa: proceso manual vs plataforma",
+        "equipo de tesorería con visibilidad en pantalla",
+        "checklist de pagos completados"
+      ],
+      "buenos_headlines": [
+        "Hacer un pago es fácil. Controlar 50 al mes no lo es.",
+        "Si tu proceso de pagos depende de Excel, tu control es frágil.",
+        "Cada pago manual es una oportunidad de error.",
+        "Tu equipo no debería pasar horas rastreando pagos.",
+        "Conciliar pagos internacionales no debería tomar días.",
+        "Los procesos manuales no escalan. Tu operación sí.",
+        "¿Sabes el estatus exacto de cada pago internacional ahora mismo?",
+        "La trazabilidad no es un lujo. Es control operativo básico.",
+        "20 pagos al mes con procesos manuales es un riesgo, no una rutina."
+      ],
+      "cta_recomendados": [
+        "Conoce cómo controlar tus pagos desde una plataforma.",
+        "Evalúa tu proceso actual de pagos internacionales.",
+        "Solicita una demo de pagos masivos.",
+        "Revisa cómo simplificar tu conciliación.",
+        "Descubre trazabilidad completa en cada pago."
+      ],
+      "claims_permitidos": [
+        "Trazabilidad completa de cada pago internacional.",
+        "Pagos masivos mediante carga de archivo.",
+        "Estatus en tiempo real de cada operación.",
+        "Autorización por niveles y roles.",
+        "Catálogo centralizado de beneficiarios.",
+        "Reduce errores manuales en tu operación de pagos.",
+        "Conciliación simplificada desde una sola plataforma."
+      ],
+      "claims_prohibidos": [
+        "Elimina 100% de errores.",
+        "Automatización total sin intervención humana.",
+        "Reemplaza a tu equipo de tesorería.",
+        "Cero errores garantizados.",
+        "La plataforma más completa del mercado."
+      ],
+      "provocative_angle": "¿Tu equipo de tesorería sabe exactamente el estatus de cada pago internacional en este momento?",
+      "short_positioning": "Control total sobre cada pago internacional desde una sola plataforma.",
+      "strategic_promise": "Una plataforma que centraliza todos los pagos internacionales con trazabilidad completa, pagos masivos por archivo, autorización por niveles y visibilidad en tiempo real del estatus de cada operación.",
+      "temas_prioritarios": [
+        "control operativo",
+        "trazabilidad de pagos",
+        "pagos masivos",
+        "conciliación",
+        "autorización por niveles",
+        "beneficiarios centralizados",
+        "reducción de errores",
+        "visibilidad en tiempo real",
+        "auditoría",
+        "procesos manuales vs automatizados"
+      ],
+      "dolores_especificos": [
+        "procesos manuales de pago (llamadas, correos, Excel)",
+        "falta de trazabilidad en pagos internacionales",
+        "conciliación que toma días",
+        "errores por captura manual de datos",
+        "imposibilidad de ver estatus en tiempo real",
+        "pagos masivos que requieren procesar uno por uno",
+        "falta de autorización por niveles",
+        "dependencia de una persona para ejecutar pagos",
+        "auditoría difícil por falta de registros centralizados",
+        "beneficiarios dispersos sin catálogo centralizado",
+        "duplicidad de pagos por falta de control",
+        "tiempo excesivo del equipo en tareas operativas repetitivas"
+      ],
+      "formulas_narrativas": [
+        "Hacer [un pago] es fácil. Controlar [N al mes] no lo es.",
+        "Si tu proceso depende de [Excel/correos/llamadas], tu control es [frágil/limitado].",
+        "Cada [pago manual] es una oportunidad de [error/duplicidad/retraso].",
+        "Los procesos manuales no [escalan]. Tu operación [sí crece].",
+        "Si no puedes ver [el estatus en tiempo real], no tienes [control real].",
+        "[Conciliar/Rastrear/Auditar] no debería tomar [días/horas].",
+        "La trazabilidad no es [un lujo]. Es [control operativo básico].",
+        "[N pagos] al mes con procesos manuales es [un riesgo], no [una rutina]."
+      ],
+      "restricciones_de_rama": [
+        "No centrar la idea en velocidad o mismo día como beneficio principal.",
+        "No centrar la idea en tipo de cambio o ahorro en FX.",
+        "No centrar la idea en múltiples monedas como producto.",
+        "No centrar la idea en cobertura cambiaria.",
+        "No centrar la idea en costos ocultos.",
+        "No prometer eliminación total de errores.",
+        "El foco debe estar en CONTROL, TRAZABILIDAD, ORDEN y EFICIENCIA OPERATIVA."
+      ],
+      "beneficios_especificos": [
+        "pagos masivos mediante carga de archivo",
+        "trazabilidad completa de cada operación",
+        "estatus en tiempo real de cada pago",
+        "autorización por niveles y roles",
+        "catálogo centralizado de beneficiarios",
+        "conciliación automatizada",
+        "historial completo para auditoría",
+        "reducción de errores manuales",
+        "programación de pagos recurrentes",
+        "dashboard operativo con visibilidad total"
+      ]
+    },
+    "display_order": 4,
+    "is_active": true,
+    "created_at": "2026-05-01T23:16:21.502678+00:00",
+    "updated_at": "2026-05-05T04:08:56.121934+00:00"
+  }
+}

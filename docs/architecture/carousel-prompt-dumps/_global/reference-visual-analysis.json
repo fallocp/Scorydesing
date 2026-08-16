@@ -1,0 +1,7 @@
+{
+  "visualAnchor": "text prompt_final from mode=prompts + promptScope=style_only; passed verbatim as carouselDesignBlock",
+  "pixelReference": "none in carousel flow",
+  "referenceImageBase64": "absent",
+  "persistedAnchor": true,
+  "consequence": "The carousel inherits a textual visual system, not the pixels/composition of a sibling or an uploaded image."
+}

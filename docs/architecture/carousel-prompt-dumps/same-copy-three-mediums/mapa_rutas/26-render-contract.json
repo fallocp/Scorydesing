@@ -1,0 +1,16 @@
+{
+  "executionStatus": "NO EJECUTADO",
+  "reason": "mode=generate creates an image, consumes render capacity and inserts image_library; excluded from this read-only audit.",
+  "endpoint": "<SANITIZED_URL>",
+  "upstreamModelRequest": {
+    "model": "gpt-image-2",
+    "n": 1,
+    "size": "1024x1024",
+    "quality": "medium",
+    "timeoutMs": 110000
+  },
+  "persistenceOnExecution": [
+    "image_library insert",
+    "caller may later create design_mockups/storage objects"
+  ]
+}

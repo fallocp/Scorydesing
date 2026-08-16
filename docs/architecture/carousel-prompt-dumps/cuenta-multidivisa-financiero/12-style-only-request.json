@@ -1,0 +1,20 @@
+{
+  "mode": "prompts",
+  "promptVariant": "mapa_rutas",
+  "promptScope": "style_only",
+  "userRequest": "Tu empresa opera en varias monedas. Tu tesorería no debería operar a ciegas.",
+  "brand": "xending",
+  "business_id": "<BUSINESS_ID>",
+  "branch_id": "<BRANCH_ID:cuenta-multidivisa>",
+  "headline": "Tu empresa opera en varias monedas. Tu tesorería no debería operar a ciegas.",
+  "body": "múltiples cuentas bancarias por moneda",
+  "cta": "Conoce cómo centralizar tu operación multidivisa.",
+  "imageIntent": "Una cuenta corporativa con compartimentos USD, EUR y MXN abre y cierra la serie.",
+  "angle": "general",
+  "backgroundStyle": "white",
+  "masterPromptVersion": "v2",
+  "corridorMode": "auto",
+  "corridorFlowType": "auto",
+  "aspectRatio": "1:1",
+  "imageSize": "1024x1024"
+}

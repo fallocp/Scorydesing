@@ -1,0 +1,44 @@
+## PROHIBICIONES EDITORIALES DE LA RAMA (no negociable)
+
+Estas reglas MANDAN sobre el contexto de rama de más abajo. Si ese contexto sugiere un ángulo que aquí está prohibido, el ángulo NO se usa — ni en el texto ni en el imageIntent.
+
+FRASES Y ÁNGULOS PROHIBIDOS. No las escribas, no las parafrasees y no construyas la escena de la imagen sobre ellas:
+- "el dólar va a subir"
+- "el peso va a caer"
+- "aprovecha antes de que suba"
+- "gánale al dólar"
+- "gana con el tipo de cambio"
+- "vence al mercado"
+- "predice el tipo de cambio"
+- "garantiza tu ahorro"
+- "ahorro garantizado"
+- "asegura tus costos"
+- "asegura tu margen"
+- "garantiza tu margen"
+- "asegura el mejor dólar"
+- "el mejor dólar"
+- "protección total"
+- "riesgo cero"
+- "sin riesgo"
+- "elimina tu riesgo"
+- "elimina todo el riesgo"
+- "cobertura gratis"
+- "el tipo de cambio se cose"
+- "abre un hueco"
+
+Esto incluye sus equivalentes: "el precio real no está a simple vista", "lo oculto queda expuesto", "lo que de verdad pagas" son la misma idea prohibida con otras palabras.
+
+ARRANQUES SATURADOS. Ningún headline de slide empieza así:
+- "Tu"
+- "El tipo de cambio"
+- "Un dólar distinto"
+- "Una variación en el dólar"
+- "El dólar"
+
+REGLAS DE NEGOCIO DURAS:
+- Xending NO predice el mercado. La necesidad de cobertura existe por incertidumbre, no por una expectativa de movimiento.
+- NO asumir que Xending ofrece directamente cualquier instrumento mencionado. Todo copy que nombre un forward depende de disponibilidad, contraparte, jurisdicción, elegibilidad, términos de contratación y disclosures aplicables.
+- Una cobertura NO genera ahorro: da certidumbre. Prohibido presentarla como forma de ganar dinero.
+- El forward define condiciones cambiarias para una obligación futura conforme a los términos contratados. No es apuesta, predicción ni ganancia garantizada.
+- Los copies de cobertura general pueden hablar del territorio (certidumbre, presupuesto, margen, exposición) sin explicar un instrumento específico.
+- Xending NO es banco ni casa de bolsa. Es una solución empresarial de pagos internacionales.

@@ -1,0 +1,37 @@
+[
+  {
+    "index": 0,
+    "role": "tension",
+    "source": "extraído del promptFinal real devuelto por carousel_prompts",
+    "sceneBlock": "A premium editorial B2B photo of a white industrial auto part or shipping-ready component staged on a clean worktable, with a printed payment order placed prominently beside it as the evidence of the delay. The component sits in the lower two-thirds, partly wrapped and ready for dispatch, while the payment order is the only surface carrying the tension cue: one coral-highlighted due date or total, with a thin teal underline or tab as the sole functional accent. Keep the top third open, bright, and uncluttered for the headline, with a calm, controlled office-logistics atmosphere and no sense of artificial urgency.",
+    "negativeInstructions": "No extra objects, no extra documents, no stacked paperwork, no visible logos, no invented text, no gibberish, no watermark, no fake stock-photo staging, no people facing camera, no busy warehouse, no dark background, no neon, no cyberpunk, no crypto aesthetic, no cartoon or toy look, no plastic props, no clutter, no three-column layout, no thick arrows, no multiple coral accents, no multiple teal accents, no dramatic urgency, no distorted product shape, no unreadable numbers, no duplicated surfaces, no generic Canva composition."
+  },
+  {
+    "index": 1,
+    "role": "shift",
+    "source": "extraído del promptFinal real devuelto por carousel_prompts",
+    "sceneBlock": "A split-photo editorial scene built around the same industrial component ready for shipment, shown in two adjacent moments within one frame: on the left, the component sits beside an open printed quotation with a visible total and a stamped earlier date; on the right, the same component appears packed and staged for dispatch next to the same quotation updated with a later date and a longer, highlighted total. Keep the operational clock motif as the physical evidence of change, with one clear navy structural line and a single coral tension cue on the later date or total, plus a small teal connector line. Compose the subject in the lower two-thirds, leaving the upper band clean for the headline.",
+    "negativeInstructions": "No extra objects, no collage, no three-column layout, no invented text beyond the provided line, no fake logos, no watermark, no gibberish, no unreadable documents, no duplicate data surfaces, no multiple charts, no thick arrows, no clutter, no generic Canva style, no stock-photo posing, no distorted industrial parts, no toy-like packaging, no excessive navy, teal, or coral, no dark background, no cyberpunk or neon look, no people with visible faces, no incorrect split-screen symmetry, no floating text, no messy office scene."
+  },
+  {
+    "index": 2,
+    "role": "risk",
+    "source": "extraído del promptFinal real devuelto por carousel_prompts",
+    "sceneBlock": "Editorial B2B photo of a supplier confirmation moment inside a clean industrial office: a printed supplier confirmation sheet with a visible approval stamp and a second copy slightly behind it, both resting beside a partially opened laptop on a white desk. The industrial component appears in the lower frame, still packed and waiting, acting as the recurring operational timepiece. Keep the top third clean and bright for headline text, with the confirmation document as the single data-bearing surface and a restrained teal line marking the approval path.",
+    "negativeInstructions": "Avoid extra documents, multiple screens, busy desks, hands covering the paper, readable invented text beyond the provided copy area, fake logos, generic stock-photo smiles, clutter, three-column layouts, neon, crypto styling, gamer aesthetics, glossy plastic, low-quality props, distorted paper, illegible numbers, duplicated totals, overdone urgency, dark backgrounds, and more than three objects in frame."
+  },
+  {
+    "index": 3,
+    "role": "solution",
+    "source": "extraído del promptFinal real devuelto por carousel_prompts",
+    "sceneBlock": "A clean, ordered payment-order document becomes the hero in the lower two-thirds of the frame, shot as a realistic editorial close-up on a bright white desk with a soft shadow and a small amount of blurred industrial context at the edge. The industrial component appears only as a faint, out-of-focus reference in the background, now visually aligned with the document’s calm control. The payment order is the single surface carrying the data, with a teal structural line and one restrained coral highlight marking the resolved status. Leave the upper third almost empty and luminous for the headline.",
+    "negativeInstructions": "Do not add extra documents, screens, hands, people, or duplicate surfaces. No clutter, no multiple totals, no invented figures beyond the provided text, no fake logos, no watermark, no gibberish, no generic Canva layout, no three-column composition, no dark background, no neon, no crypto or gamer styling, no plastic look, no toy-like objects, no distorted paper, no unreadable text, no extra labels, no excessive coral, teal, or navy."
+  },
+  {
+    "index": 4,
+    "role": "cta",
+    "source": "extraído del promptFinal real devuelto por carousel_prompts",
+    "sceneBlock": "A quiet closing-frame editorial photo of the same industrial component now fully strapped and staged for shipment, placed in the lower two-thirds of a bright white workspace beside a single premium operating clock as the physical proof of the message. The clock is the hero secondary object: clean, technical, and calm, with a subtle teal structural accent and one restrained coral highlight on the active state. Keep the upper third completely open and luminous for the headline, with soft contact shadows, minimal context, and a premium operational-finance mood.",
+    "negativeInstructions": "No extra objects, no busy warehouse, no people, no hands, no multiple clocks, no duplicate products, no clutter, no dark background, no artificial urgency, no neon, no crypto or gamer styling, no cartoon look, no plastic toy feel, no fake stock staging, no visible logos, no gibberish text, no invented numbers, no overdone gradients, no thick arrows, no three-column layout, no collage, no inconsistent scale, no distorted industrial parts."
+  }
+]

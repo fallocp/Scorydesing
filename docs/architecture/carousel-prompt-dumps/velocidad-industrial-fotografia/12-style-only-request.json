@@ -1,0 +1,20 @@
+{
+  "mode": "prompts",
+  "promptVariant": "fotografia",
+  "promptScope": "style_only",
+  "userRequest": "Las autopartes pueden estar listas antes que el pago",
+  "brand": "xending",
+  "business_id": "<BUSINESS_ID>",
+  "branch_id": "<BRANCH_ID:velocidad-mismo-dia>",
+  "headline": "Las autopartes pueden estar listas antes que el pago",
+  "body": "Paga a proveedores en China el mismo día y mantén tu compra en movimiento.",
+  "cta": "Pagos a China, mismo día",
+  "imageIntent": "Un componente industrial listo para embarque funciona como reloj operativo de la serie.",
+  "angle": "general",
+  "backgroundStyle": "white",
+  "masterPromptVersion": "v2",
+  "corridorMode": "auto",
+  "corridorFlowType": "auto",
+  "aspectRatio": "1:1",
+  "imageSize": "1024x1024"
+}

@@ -1,0 +1,37 @@
+[
+  {
+    "index": 0,
+    "role": "tension",
+    "source": "extraído del promptFinal real devuelto por carousel_prompts",
+    "sceneBlock": "Two comparable account statements dominate the lower two-thirds of the frame, placed side by side on a pristine white desk in a strict editorial top layout. The left statement is restrained and gray, with a shorter total and a subtle coral waiting marker; the right statement uses Xending teal and navy structure, but still shows the same payment context with no resolution yet. A slim teal connector and a small date stamp make the comparison physically obvious while the upper third stays clean for the headline.",
+    "negativeInstructions": "No extra documents, no third statement, no people, no devices floating, no dashboards, no invented logos, no watermark, no gibberish, no misspelled or fabricated text, no unreadable text blocks, no clutter, no three-column layout, no catalog grid, no inconsistent scale, no aggressive contrast, no neon, no crypto or gamer styling, no childish or cheap plastic look, no low-poly forms, no dark background, no excessive navy, teal, or coral, no thick arrows, no duplicated objects, no decorative props unrelated to the comparison."
+  },
+  {
+    "index": 1,
+    "role": "shift",
+    "source": "extraído del promptFinal real devuelto por carousel_prompts",
+    "sceneBlock": "A split-photo operational route scene inside the same premium white 3D comparison system: two nearly identical quote sheets sit side by side on a clean desk, one dated today and one dated later, both attached to the same purchase order. The left sheet is restrained in light grays; the right sheet introduces teal routing accents and a single coral tension marker on the delayed date/total. A thin operational route line connects the documents, making the shift visible as the same payment moving through a slower international settlement path. Keep the upper third clean for the headline, with the documents and route occupying the lower two thirds.",
+    "negativeInstructions": "No extra objects, no third document, no people, no generic dashboard, no floating data, no invented labels beyond the exact provided copy, no clutter, no three-column layout, no collage, no flat vector design, no dark background, no aggressive contrast, no crypto or neon aesthetics, no fake logos, no watermark, no gibberish, no misspellings, no invented numbers beyond plausible illustrative totals, no thick arrows, no too many routes, no childish or toy-like elements, no low-poly or cheap plastic surfaces."
+  },
+  {
+    "index": 2,
+    "role": "risk",
+    "source": "extraído del promptFinal real devuelto por carousel_prompts",
+    "sceneBlock": "A premium 3D editorial scene on a pure white background: a single cost document dominates the lower two-thirds, angled slightly in three-quarter view, with a visible larger total highlighted in coral to show the waiting burden of settlement. A second, smaller supporting sheet or receipt peeks behind it in neutral gray, implying repeated purchases without adding clutter. Add one thin teal underline or tab on the document edge for structure. Leave the upper third clean and bright for the headline.",
+    "negativeInstructions": "No extra documents, no three-column layout, no catalog grid, no repeated totals across multiple surfaces, no floating numbers, no invented labels, no gibberish text, no watermark, no logos, no dark background, no neon, no crypto or gamer styling, no clutter, no thick arrows, no excessive coral, no excessive teal, no malformed paper edges, no flat vector illustration, no low-poly rendering, no childish or toy-like objects."
+  },
+  {
+    "index": 3,
+    "role": "solution",
+    "source": "extraído del promptFinal real devuelto por carousel_prompts",
+    "sceneBlock": "A premium 3D document-result scene on a pure white background, shown in a slightly elevated three-quarter view with the composition anchored in the lower two-thirds and a clean empty band across the top for the headline. Two comparable account statements sit side by side as the hero evidence: the left one restrained in neutral grays with a longer waiting period and a muted status line, the right one cleaner and more activated with navy structure, teal operational accents, and a single coral highlight on the solved timing. Keep the data on the paper surfaces only, with a visible same-day settlement vs 3–5 banking days comparison, crisp alignment, and one small contextual connector line or tab in teal.",
+    "negativeInstructions": "No extra documents, no third statement, no floating labels, no invented numbers beyond the exact provided comparison, no clutter, no three-column layout, no catalog grid, no generic Canva infographic, no flat vector style, no dark background, no excessive navy, teal, or coral, no neon, no crypto or gamer aesthetics, no low-poly, no cheap plastic, no toy look, no inconsistent scale, no thick arrows, no multiple routes, no logos, no watermarks, no gibberish, no misspellings, no unreadable text, no handwritten typography, no overdesigned dashboard, no decorative excess, no centered title area, no objects in the top band, no extra context props, no malformed paper edges, no warped statements, no fake bank branding."
+  },
+  {
+    "index": 4,
+    "role": "cta",
+    "source": "extraído del promptFinal real devuelto por carousel_prompts",
+    "sceneBlock": "A quiet operational-route close-up in the same premium 3D system: a single refined route object dominates the lower two-thirds, rendered as a clean white path with navy structural edges, one teal activation node, and one subtle coral pause marker resolved into forward motion. The route is shown as a physical, continuous corridor on a minimal white platform, with a small comparison document partially visible at the edge as context. Keep the top third completely open and bright for the CTA.",
+    "negativeInstructions": "No extra objects, no second route, no infographic panels, no catalog layout, no clutter, no dark background, no neon, no crypto or gamer styling, no flat vector art, no low-poly forms, no cheap plastic, no malformed route geometry, no excessive coral or teal, no invented labels, no unreadable text, no logos, no watermark, no three-column composition, no inconsistent scale, no childish or toy-like elements."
+  }
+]

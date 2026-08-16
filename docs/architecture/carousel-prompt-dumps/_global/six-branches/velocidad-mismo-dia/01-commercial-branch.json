@@ -1,0 +1,298 @@
+{
+  "requestedSlug": "velocidad-mismo-dia",
+  "activeDatabaseSlug": "velocidad-mismo-dia",
+  "requestedSlugPresentInActiveDatabase": true,
+  "branch": {
+    "id": "<BRANCH_ID:velocidad-mismo-dia>",
+    "business_id": "<BUSINESS_ID>",
+    "category_id": "<CATEGORY_ID>",
+    "name": "Velocidad - Mismo Día",
+    "slug": "velocidad-mismo-dia",
+    "strategic_config": {
+      "ctas": [
+        "Revisar tiempos de pago",
+        "Comparar velocidad de liquidación",
+        "Solicitar cotización",
+        "Conocer el proceso"
+      ],
+      "dolor": "Cuando un pago internacional tarda días en liquidarse, tu proveedor ajusta prioridades, tu inventario se retrasa y tu planeación financiera opera con incertidumbre sobre cuándo se ejecutará realmente la operación.",
+      "angulos": [
+        "Urgencia Operativa",
+        "Comparativa",
+        "Dato Duro",
+        "Impacto en Cadena"
+      ],
+      "footers": [
+        "Tiempos de liquidación sujetos a horarios de corte y país destino.",
+        "Xending — pagos internacionales con mayor agilidad."
+      ],
+      "insight": "Los pagos internacionales bancarios tardan 3-5 días hábiles en promedio. Ese tiempo de espera afecta la cadena de suministro, la relación con proveedores y la capacidad de respuesta operativa de la empresa.",
+      "promesa": "Con Xending, los pagos internacionales se procesan el mismo día hábil. Tu proveedor recibe los fondos con mayor agilidad, y tu operación mantiene continuidad sin depender de tiempos bancarios.",
+      "objetivo": "Posicionar a Xending como la opción más ágil para pagos internacionales, destacando la liquidación en el mismo día hábil como ventaja operativa frente a tiempos bancarios tradicionales.",
+      "audiencia": "CFOs, tesoreros y directores de operaciones de empresas mexicanas que realizan pagos internacionales frecuentes y donde la velocidad de liquidación impacta su cadena de suministro.",
+      "guia_visual": "Elementos que transmitan agilidad y fluidez: líneas dinámicas, gradientes coral→turquesa. Fondo oscuro navy con acentos brillantes. Tipografía bold para headlines. Evitar sensación de urgencia artificial.",
+      "claims_permitidos": [
+        "Liquidación mismo día hábil",
+        "Mayor agilidad que canales tradicionales",
+        "Rastreo en tiempo real",
+        "Operación continua"
+      ],
+      "claims_prohibidos": [
+        "Instantáneo garantizado",
+        "Siempre mismo día sin excepción",
+        "100% de operaciones en minutos"
+      ],
+      "content_ingredients": {
+        "default": {
+          "ctas": [
+            "Envía tu primer pago hoy",
+            "Prueba la velocidad Xending",
+            "Cotiza tu pago ahora"
+          ],
+          "sublines": [
+            "Tu dinero cruza fronteras más rápido que nunca.",
+            "Liquidación mismo día hábil para tu negocio."
+          ],
+          "big_stats": [
+            "Mismo día",
+            "< 24 hrs hábiles",
+            "En minutos"
+          ],
+          "headlines": [
+            "Pagos internacionales en minutos",
+            "Minutos, no días",
+            "Del produce al pago, sin demoras"
+          ],
+          "benefit_phrases": [
+            "Liquidación mismo día hábil",
+            "Disponible 24/7",
+            "Rastreo en tiempo real",
+            "Sin esperas bancarias"
+          ],
+          "photo_direction": "Persona en movimiento, contexto de negocios dinámico, sensación de velocidad y eficiencia"
+        },
+        "dato_duro": {
+          "ctas": [
+            "Envía ahora",
+            "Activa tu cuenta"
+          ],
+          "sublines": [
+            "Tus pagos internacionales se liquidan el mismo día hábil.",
+            "Velocidad que mueve tu operación."
+          ],
+          "big_stats": [
+            "Mismo día hábil",
+            "24/7",
+            "+1,200 operaciones/mes",
+            "En minutos"
+          ],
+          "headlines": [
+            "Mismo día hábil",
+            "Pagos en minutos, no en días",
+            "24/7 para tu negocio"
+          ],
+          "benefit_phrases": [
+            "Liquidación mismo día",
+            "Disponible 24/7",
+            "Rastreo en tiempo real"
+          ],
+          "photo_direction": "Números grandes, reloj o elementos de tiempo, persona en acción profesional"
+        },
+        "educativo": {
+          "ctas": [
+            "Empieza ahora",
+            "Regístrate gratis",
+            "Conoce el proceso"
+          ],
+          "sublines": [
+            "Registra, cotiza, envía. Sin burocracia bancaria.",
+            "Plataforma 100% digital, disponible cuando la necesites."
+          ],
+          "headlines": [
+            "3 pasos para pagar al mundo",
+            "Así de simple funciona",
+            "Tu pago en 3 pasos"
+          ],
+          "benefit_phrases": [
+            "Registro en minutos",
+            "Cotización instantánea",
+            "Envío mismo día",
+            "Rastreo automático"
+          ],
+          "photo_direction": "Persona usando plataforma digital, pantalla de celular o laptop, contexto de simplicidad"
+        },
+        "comparativa": {
+          "ctas": [
+            "Compara ahora",
+            "Haz el switch",
+            "Prueba la diferencia"
+          ],
+          "sublines": [
+            "Mientras tu banco procesa, tu operación ya se liquidó.",
+            "3-5 días vs mismo día. La diferencia importa."
+          ],
+          "data_sets": [
+            {
+              "banco": "3-5 días hábiles",
+              "xending": "Mismo día hábil",
+              "diferencia": "Hasta 5x más rápido"
+            }
+          ],
+          "headlines": [
+            "Más rápido que tu banco",
+            "La diferencia es tiempo",
+            "Tu banco tarda días. Nosotros, minutos."
+          ],
+          "benefit_phrases": [
+            "Liquidación mismo día",
+            "Sin intermediarios lentos",
+            "Operación continua"
+          ],
+          "photo_direction": "Contraste visual entre lento/rápido, persona aliviada o satisfecha con resultado inmediato"
+        }
+      },
+      "diferenciadores_vs_banco": [
+        "Banco: 3-5 días hábiles promedio para liquidar un pago internacional. Xending: mismo día hábil.",
+        "Banco: no tienes visibilidad del estatus de tu pago durante esos días. Xending: rastreo en tiempo real.",
+        "Banco: horarios de corte limitados y ventanas de operación reducidas. Xending: mayor flexibilidad operativa."
+      ]
+    },
+    "prompt_kit": {
+      "audience": [
+        "CFOs de empresas importadoras",
+        "Directores de operaciones",
+        "Tesoreros con pagos urgentes",
+        "Empresas con proveedores que exigen pago antes de embarcar",
+        "Importadores de perecederos o productos con fecha límite",
+        "Empresas con operaciones just-in-time"
+      ],
+      "branch_id": "velocidad_mismo_dia",
+      "branch_name": "Velocidad - Mismo Día",
+      "branch_type": "product",
+      "positioning": "Xending liquida pagos internacionales el mismo día hábil, eliminando los 3-5 días de espera bancaria que frenan operaciones, detienen embarques y tensan relaciones con proveedores.",
+      "executive_angle": "El tiempo de un pago no es solo un dato operativo. Es mercancía que no sale, producción que se atrasa y proveedores que pierden confianza.",
+      "malos_headlines": [
+        "Pagos rápidos para tu empresa.",
+        "Envía dinero al instante.",
+        "La plataforma más rápida del mercado.",
+        "Pagos internacionales en segundos.",
+        "Velocidad garantizada siempre."
+      ],
+      "primary_problem": "Los pagos internacionales bancarios tardan 3-5 días hábiles en llegar al beneficiario. Mientras tanto, el embarque no sale, la mercancía no se libera, el proveedor se impacienta y la operación se frena. El costo real no está en la comisión, está en el tiempo perdido.",
+      "tensiones_clave": [
+        "Enviar un pago no significa que el proveedor lo reciba.",
+        "El banco confirma el envío. El proveedor sigue esperando fondos disponibles.",
+        "Un pago que tarda 3 días puede frenar una operación completa.",
+        "La mercancía no espera procesos bancarios.",
+        "El proveedor no libera sin fondos confirmados, no importa lo que diga tu banco.",
+        "Cada día de espera puede ser un embarque perdido, un recargo o una reasignación.",
+        "La velocidad de pago no es un lujo. Es continuidad operativa.",
+        "Un pago lento puede costarte más que la comisión que intentas ahorrar."
+      ],
+      "visual_language": [
+        "reloj con indicador de mismo día",
+        "línea de tiempo: banco (3-5 días) vs Xending (mismo día)",
+        "contenedor en puerto esperando liberación",
+        "proveedor revisando confirmación de pago",
+        "embarque saliendo de almacén",
+        "dashboard con estatus de pago en tiempo real",
+        "flechas de velocidad y movimiento",
+        "comparativa visual de tiempos"
+      ],
+      "buenos_headlines": [
+        "La mercancía no espera la liquidación bancaria.",
+        "El banco confirma. El proveedor todavía espera.",
+        "Pagar hoy no significa que cobren hoy.",
+        "Un pago lento puede frenar una orden completa.",
+        "Tu cotización puede vencer antes que el pago llegue.",
+        "Entre enviar y cobrar puede perderse un embarque.",
+        "Tres días de espera también cuestan inventario.",
+        "El proveedor no libera con promesas. Libera con fondos.",
+        "Tu operación no puede esperar el ritmo de tu banco."
+      ],
+      "cta_recomendados": [
+        "Revisa tu ruta de pago.",
+        "Compara tiempos de liquidación.",
+        "Evalúa pagos mismo día.",
+        "Valida cuándo cobra tu proveedor.",
+        "Conoce la diferencia entre enviar y cobrar."
+      ],
+      "claims_permitidos": [
+        "Liquidación mismo día hábil.",
+        "Tu proveedor recibe fondos disponibles en horas, no en días.",
+        "Elimina los 3-5 días de espera bancaria.",
+        "Operación continua sin interrupciones por pagos en tránsito.",
+        "Mayor agilidad frente a canales bancarios tradicionales."
+      ],
+      "claims_prohibidos": [
+        "Instantáneo garantizado.",
+        "Siempre mismo día sin excepción.",
+        "100% de operaciones en minutos.",
+        "Cero demoras.",
+        "Más rápido que cualquier alternativa.",
+        "Tu pago llega en segundos."
+      ],
+      "provocative_angle": "Tu banco tarda 3 días en enviar un pago. ¿Cuánto te cuesta cada día de espera?",
+      "short_positioning": "Pagos internacionales que llegan el mismo día.",
+      "strategic_promise": "Liquidación el mismo día hábil para que tu proveedor reciba, tu embarque salga y tu operación no se detenga por un pago en tránsito.",
+      "temas_prioritarios": [
+        "velocidad de liquidación",
+        "mismo día hábil",
+        "proveedor esperando",
+        "embarque detenido",
+        "mercancía no liberada",
+        "continuidad operativa",
+        "urgencia de pago",
+        "fondos disponibles vs pago enviado",
+        "relación con proveedor",
+        "operación just-in-time"
+      ],
+      "dolores_especificos": [
+        "proveedor esperando confirmación de fondos para liberar mercancía",
+        "embarque detenido por pago en tránsito",
+        "3-5 días hábiles de espera bancaria",
+        "recargos por demora en puerto o almacén",
+        "proveedor que reasigna mercancía a otro comprador",
+        "producción atrasada por falta de insumos pagados",
+        "pérdida de ventana de embarque",
+        "cotización que vence antes de que llegue el pago",
+        "relación comercial deteriorada por pagos lentos",
+        "operación just-in-time interrumpida",
+        "costos de almacenaje por mercancía no liberada"
+      ],
+      "formulas_narrativas": [
+        "[Enviar] no significa [que cobren].",
+        "[Confirmar envío] no es [fondos disponibles].",
+        "[N días de espera] pueden costarte [consecuencia operativa].",
+        "La mercancía no espera [proceso bancario].",
+        "Entre [enviar] y [cobrar] puede perderse [oportunidad].",
+        "Si el pago tarda [N días], [consecuencia concreta].",
+        "El problema no es [pagar]. Es [que llegue a tiempo].",
+        "Un pago lento puede costarte más que [la comisión]."
+      ],
+      "restricciones_de_rama": [
+        "No centrar la idea en tipo de cambio o ahorro en FX.",
+        "No centrar la idea en múltiples monedas o cuentas.",
+        "No centrar la idea en cobertura cambiaria.",
+        "No centrar la idea en costos ocultos como tema principal.",
+        "No prometer tiempos exactos garantizados.",
+        "No decir que el tipo de cambio se mueve mientras el pago viaja (el precio se cierra al pactar).",
+        "El foco debe estar en TIEMPO, URGENCIA y CONTINUIDAD OPERATIVA."
+      ],
+      "beneficios_especificos": [
+        "liquidación el mismo día hábil",
+        "proveedor recibe fondos disponibles en horas",
+        "embarque sale el mismo día del pago",
+        "eliminación de tiempos muertos bancarios",
+        "continuidad operativa sin interrupciones",
+        "relación comercial fortalecida con proveedores",
+        "operación predecible y controlada",
+        "sin dependencia de horarios bancarios limitados"
+      ]
+    },
+    "display_order": 0,
+    "is_active": true,
+    "created_at": "2026-05-01T23:16:21.502678+00:00",
+    "updated_at": "2026-05-23T15:54:58.916012+00:00"
+  }
+}

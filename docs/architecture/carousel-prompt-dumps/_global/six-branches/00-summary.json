@@ -1,0 +1,50 @@
+[
+  {
+    "requested": "ahorro-costos-ocultos",
+    "actual": "ahorro-costos-ocultos",
+    "hasDbPromptKit": true,
+    "modernKit": "costos-ahorro",
+    "branchContextLength": 7004,
+    "editorialBansLength": 1951
+  },
+  {
+    "requested": "banco-vs-xending",
+    "actual": "banco-vs-xending",
+    "hasDbPromptKit": true,
+    "modernKit": null,
+    "branchContextLength": 7184,
+    "editorialBansLength": 0
+  },
+  {
+    "requested": "cobertura-cambiaria",
+    "actual": "cobertura-cambiaria",
+    "hasDbPromptKit": true,
+    "modernKit": "coberturas",
+    "branchContextLength": 7385,
+    "editorialBansLength": 2072
+  },
+  {
+    "requested": "cuenta-multidivisa",
+    "actual": "cuenta-multidivisa",
+    "hasDbPromptKit": true,
+    "modernKit": null,
+    "branchContextLength": 8658,
+    "editorialBansLength": 0
+  },
+  {
+    "requested": "velocidad-mismo-dia",
+    "actual": "velocidad-mismo-dia",
+    "hasDbPromptKit": true,
+    "modernKit": "velocidad",
+    "branchContextLength": 6468,
+    "editorialBansLength": 1193
+  },
+  {
+    "requested": "pagos-con-orden",
+    "actual": "control-operativo-pagos",
+    "hasDbPromptKit": true,
+    "modernKit": null,
+    "branchContextLength": 7086,
+    "editorialBansLength": 0
+  }
+]

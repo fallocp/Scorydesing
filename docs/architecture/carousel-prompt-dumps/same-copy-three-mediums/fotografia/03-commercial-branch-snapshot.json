@@ -1,0 +1,314 @@
+{
+  "id": "<BRANCH_ID:ahorro-costos-ocultos>",
+  "business_id": "<BUSINESS_ID>",
+  "category_id": "<CATEGORY_ID>",
+  "name": "Ahorro / Costos Ocultos",
+  "slug": "ahorro-costos-ocultos",
+  "strategic_config": {
+    "ctas": [
+      "Ver desglose de costos",
+      "Comparar con tu banco",
+      "Solicitar cotización transparente",
+      "Revisar alternativas de pago"
+    ],
+    "dolor": "Con tu banco, el proceso es opaco: debitas sin saber el costo final, el tipo de cambio se aplica sin mostrártelo antes, y el monto que llega al destino no coincide con lo cotizado porque faltan las comisiones de intermediarios.",
+    "angulos": [
+      "Educativo",
+      "Comparativa",
+      "Dato Duro",
+      "Transparencia"
+    ],
+    "footers": [
+      "Costos sujetos a monto, destino y condiciones de mercado. Consulta condiciones.",
+      "Xending — transparencia en cada operación."
+    ],
+    "insight": "La mayoría de las empresas no conocen el costo total de sus transferencias internacionales hasta que ya se ejecutaron. El banco muestra un precio inicial, pero el monto final incluye comisiones de envío, margen cambiario y cargos de corresponsalía que no estaban en la cotización original.",
+    "promesa": "Con Xending, el costo se pacta al momento de la operación. Ves el tipo de cambio antes de confirmar, sabes exactamente cuánto llegará al destino, y no hay cargos adicionales después de pactar. Precio cerrado, sin sorpresas.",
+    "objetivo": "Educar a empresas sobre los costos reales de sus pagos internacionales y posicionar a Xending como la alternativa con precio transparente y cerrado al momento de pactar.",
+    "audiencia": "CFOs, tesoreros y contralores de empresas medianas que realizan pagos internacionales recurrentes y buscan previsibilidad en sus costos operativos.",
+    "guia_visual": "Gráficas comparativas limpias, desglose de costos lado a lado. Contraste entre opacidad (banco) y claridad (Xending). Infografías con datos reales, no alarmistas. Paleta turquesa dominante con acentos coral para highlights.",
+    "claims_permitidos": [
+      "Costo cerrado al pactar",
+      "Tipo de cambio visible antes de confirmar",
+      "Sin cargos adicionales post-operación",
+      "Precio todo incluido",
+      "Mayor visibilidad en costos de transferencia"
+    ],
+    "claims_prohibidos": [
+      "Ahorro garantizado",
+      "Siempre más barato",
+      "Gratis",
+      "Sin ningún costo",
+      "Cero comisiones",
+      "Cero corresponsalía",
+      "Tu banco te roba"
+    ],
+    "content_ingredients": {
+      "default": {
+        "ctas": [
+          "Cotiza ahora",
+          "Compara tasas",
+          "Calcula tu ahorro"
+        ],
+        "sublines": [
+          "Mejores tasas de cambio y transferencias rápidas y seguras a todo el mundo.",
+          "Cambia divisas con mejores tasas y sin complicaciones."
+        ],
+        "big_stats": [
+          "Hasta 70% menos en comisiones",
+          "Hasta $52 USD más por operación",
+          "0 comisiones ocultas"
+        ],
+        "headlines": [
+          "Envía más, paga menos.",
+          "Convierte más, ahorra más.",
+          "Tu dinero, sin fronteras."
+        ],
+        "benefit_phrases": [
+          "Tasas competitivas y transparentes",
+          "Transacciones seguras y confiables",
+          "Transferencias rápidas 24/7",
+          "Sin comisiones ocultas",
+          "Rastreo en tiempo real"
+        ],
+        "photo_direction": "Persona con celular, expresión positiva/sonriente, contexto profesional casual"
+      },
+      "dato_duro": {
+        "ctas": [
+          "Calcula tu ahorro",
+          "Descubre cuánto pierdes",
+          "Cotiza sin compromiso"
+        ],
+        "sublines": [
+          "Tu banco te cobra comisión de envío, margen cambiario inflado y cargos por corresponsalía.",
+          "Con Xending, sabes exactamente cuánto pagas."
+        ],
+        "big_stats": [
+          "Hasta 70% menos",
+          "$52 USD más por operación",
+          "$0 comisiones ocultas",
+          "2-4% de ahorro por operación"
+        ],
+        "headlines": [
+          "Ahorra hasta 70% vs tu banco",
+          "Cada centavo cuenta",
+          "$0 en comisiones ocultas"
+        ],
+        "benefit_phrases": [
+          "Sin comisiones ocultas",
+          "Tipo de cambio transparente",
+          "Cero cargos por corresponsalía"
+        ],
+        "photo_direction": "Números grandes de impacto, gráficas de ahorro, persona analizando datos financieros"
+      },
+      "educativo": {
+        "ctas": [
+          "Compara tu costo real",
+          "Descubre los costos ocultos",
+          "Cotiza transparente"
+        ],
+        "sublines": [
+          "Comisión de envío + margen cambiario + corresponsalía = miles de dólares al año.",
+          "Te mostramos exactamente a dónde va tu dinero."
+        ],
+        "headlines": [
+          "¿Sabes cuánto te cobra tu banco?",
+          "Los costos que no ves",
+          "Desglose de costos reales"
+        ],
+        "benefit_phrases": [
+          "Comisión de envío visible",
+          "Margen cambiario real",
+          "Sin cargos por corresponsalía",
+          "Desglose completo"
+        ],
+        "photo_direction": "Infografía de desglose, persona descubriendo información, contexto de transparencia"
+      },
+      "comparativa": {
+        "ctas": [
+          "Cotiza ahora",
+          "Compara tasas",
+          "Calcula tu ahorro"
+        ],
+        "sublines": [
+          "Cambia divisas con mejores tasas y sin complicaciones.",
+          "Compara y decide con números reales."
+        ],
+        "data_sets": [
+          {
+            "diferencia": "Hasta $52 USD más en cada operación",
+            "tasa_antes": "18.50 MXN",
+            "label_antes": "ANTES",
+            "tasa_xending": "19.65 MXN",
+            "label_xending": "CON XENDING",
+            "recibes_antes": "$820 USD",
+            "recibes_xending": "$872 USD"
+          },
+          {
+            "diferencia": "Ahorra $33 en cada transferencia",
+            "costo_antes": "$45 USD por envío",
+            "label_antes": "TU BANCO",
+            "costo_xending": "$12 USD por envío",
+            "label_xending": "XENDING"
+          }
+        ],
+        "headlines": [
+          "Envía más, paga menos.",
+          "La diferencia es clara.",
+          "Tu banco te cobra de más."
+        ],
+        "benefit_phrases": [
+          "Tasas competitivas y transparentes",
+          "Sin comisiones ocultas",
+          "Transferencias rápidas 24/7"
+        ],
+        "photo_direction": "Persona satisfecha comparando opciones, expresión de descubrimiento positivo"
+      }
+    },
+    "diferenciadores_vs_banco": [
+      "Banco: debitas y no sabes el costo final hasta que se ejecuta. Xending: costo cerrado al pactar la operación.",
+      "Banco: no te muestra el tipo de cambio, solo hace el intercambio y hasta ahí te enteras cuánto pagaste. Xending: ves el TC antes de confirmar.",
+      "Banco: te da un precio pero faltan comisiones de envío, corresponsalía y margen FX. Xending: precio todo incluido, sin cargos extras.",
+      "Banco: el monto que llega al destino no coincide con lo cotizado. Xending: lo que pactas es lo que llega."
+    ]
+  },
+  "prompt_kit": {
+    "audience": [
+      "CFOs que buscan optimizar costos operativos",
+      "Contralores que concilian pagos internacionales",
+      "Directores financieros con volumen mensual alto en USD",
+      "Empresas que pagan más de $50K USD mensuales al extranjero",
+      "Tesoreros que sospechan que pagan de más pero no pueden demostrarlo"
+    ],
+    "branch_id": "ahorro_costos_ocultos",
+    "branch_name": "Ahorro / Costos Ocultos",
+    "branch_type": "narrative",
+    "positioning": "Xending revela y elimina los costos ocultos que los bancos tradicionales esconden en pagos internacionales: spread cambiario inflado, comisiones por corresponsalía, cargos por manejo y fees que nunca aparecen en la cotización inicial.",
+    "executive_angle": "El costo real de un pago internacional no está en la comisión que ves. Está en todo lo que no ves.",
+    "malos_headlines": [
+      "Ahorra con Xending.",
+      "Pagos más baratos.",
+      "Te estamos robando menos que tu banco.",
+      "Somos más baratos que todos.",
+      "Cero comisiones.",
+      "Gratis para siempre."
+    ],
+    "primary_problem": "Los bancos tradicionales esconden márgenes en el tipo de cambio (spread), cobran comisiones por corresponsalía, cargos por manejo de cuenta en dólares y fees que no aparecen en la cotización inicial. Las empresas pagan 2-4% más de lo que creen en cada operación.",
+    "tensiones_clave": [
+      "La comisión que ves no es todo lo que pagas.",
+      "El tipo de cambio que te cotiza tu banco no es el tipo de cambio real.",
+      "Entre lo que envías y lo que recibe tu proveedor hay costos que nunca presupuestaste.",
+      "Un spread de 1% en $100K USD son $1,000 que nunca aparecen en tu estado de cuenta como comisión.",
+      "Los costos ocultos no se ven en una sola operación. Se ven al final del año.",
+      "Tu banco no te cobra una comisión alta. Te cobra muchas comisiones pequeñas que suman mucho.",
+      "La transparencia no es un beneficio. Es un derecho que tu banco no te da.",
+      "Si no puedes desglosar exactamente cuánto pagas por cada transferencia, estás pagando de más."
+    ],
+    "visual_language": [
+      "desglose de costos: comisión + spread + corresponsalía",
+      "gráfica comparativa banco vs Xending",
+      "lupa revelando costos ocultos",
+      "iceberg: comisión visible arriba, costos ocultos abajo",
+      "calculadora de ahorro",
+      "números grandes con porcentajes de ahorro",
+      "tabla de dos columnas: lo que ves vs lo que realmente pagas",
+      "acumulado anual de costos ocultos"
+    ],
+    "buenos_headlines": [
+      "La comisión que ves no es todo lo que pagas.",
+      "Tu banco no te cobra caro. Te cobra muchas veces.",
+      "¿Sabes cuánto cuesta realmente tu transferencia internacional?",
+      "El spread oculto puede costarte más que la comisión visible.",
+      "Entre lo que envías y lo que recibe tu proveedor hay costos que nunca presupuestaste.",
+      "Un 1% de spread en $100K USD son $1,000 que nunca aparecen como comisión.",
+      "Si no puedes desglosar el costo de tu transferencia, probablemente estás pagando de más.",
+      "Los costos ocultos no se ven en una operación. Se ven al final del año.",
+      "Tu banco te cobra comisión de envío, spread cambiario y corresponsalía. ¿Lo sabías?"
+    ],
+    "cta_recomendados": [
+      "Calcula cuánto pagas realmente.",
+      "Compara tu costo real vs tu banco.",
+      "Descubre tu ahorro potencial.",
+      "Pide un desglose de tu última transferencia.",
+      "Revisa cuánto te cuesta cada operación."
+    ],
+    "claims_permitidos": [
+      "Tipo de cambio transparente y competitivo.",
+      "Sin spread oculto.",
+      "Sin comisiones por corresponsalía.",
+      "Desglose completo de costos en cada operación.",
+      "Ahorro de hasta 70% vs costos bancarios promedio.",
+      "Compara tu costo real antes de operar."
+    ],
+    "claims_prohibidos": [
+      "Ahorro garantizado del 70%.",
+      "Siempre más barato que cualquier banco.",
+      "Gratis.",
+      "Sin ningún costo.",
+      "Cero comisiones en todo.",
+      "El tipo de cambio más bajo del mercado garantizado."
+    ],
+    "provocative_angle": "¿Sabes exactamente cuánto te cuesta cada transferencia internacional? La mayoría de las empresas no.",
+    "short_positioning": "Descubre cuánto realmente pagas por tus transferencias internacionales.",
+    "strategic_promise": "Transparencia total en costos. Con Xending ves exactamente cuánto pagas: tipo de cambio real, sin spread oculto, sin comisiones sorpresa, sin cargos intermedios.",
+    "temas_prioritarios": [
+      "costos ocultos",
+      "spread cambiario",
+      "comisiones invisibles",
+      "corresponsalía",
+      "transparencia de precios",
+      "desglose de costos",
+      "ahorro real",
+      "comparativa de costos",
+      "margen oculto",
+      "pricing bancario"
+    ],
+    "dolores_especificos": [
+      "spread cambiario inflado vs tipo de cambio interbancario",
+      "comisiones por corresponsalía que aparecen después",
+      "cargos por manejo de cuenta en dólares",
+      "fees de recepción que cobra el banco del beneficiario",
+      "diferencia entre monto enviado y monto recibido",
+      "imposibilidad de desglosar el costo real de una transferencia",
+      "costos acumulados que solo se ven al cierre anual",
+      "cotización que no incluye todos los cargos",
+      "margen oculto en el tipo de cambio",
+      "comisiones que varían sin explicación",
+      "falta de competencia en pricing bancario",
+      "inercia por no saber cuánto se pierde realmente"
+    ],
+    "formulas_narrativas": [
+      "La [comisión visible] no es [todo lo que pagas].",
+      "Entre [lo que envías] y [lo que reciben] hay [costos que no ves].",
+      "Un [porcentaje pequeño] en [volumen alto] son [cantidad significativa].",
+      "Si no puedes [desglosar el costo], probablemente [estás pagando de más].",
+      "Tu banco no te cobra [una comisión alta]. Te cobra [muchas pequeñas].",
+      "Los costos ocultos no se ven en [una operación]. Se ven en [el acumulado].",
+      "El problema no es [el tipo de cambio]. Es [todo lo que viene después].",
+      "[Transparencia] no es un beneficio. Es [lo mínimo que deberías exigir]."
+    ],
+    "restricciones_de_rama": [
+      "No centrar la idea en velocidad o mismo día.",
+      "No centrar la idea en múltiples monedas o cuentas.",
+      "No centrar la idea en cobertura cambiaria.",
+      "No centrar la idea en control operativo o trazabilidad.",
+      "No acusar directamente a bancos de robar o estafar.",
+      "No prometer ahorro exacto garantizado.",
+      "El foco debe estar en COSTOS OCULTOS, TRANSPARENCIA y AHORRO REAL."
+    ],
+    "beneficios_especificos": [
+      "tipo de cambio transparente sin spread oculto",
+      "desglose completo de costos en cada operación",
+      "sin comisiones por corresponsalía",
+      "sin cargos sorpresa post-operación",
+      "comparativa clara vs costo bancario",
+      "ahorro estimado visible antes de operar",
+      "historial de ahorro acumulado",
+      "pricing competitivo y predecible"
+    ]
+  },
+  "display_order": 1,
+  "is_active": true,
+  "created_at": "2026-05-01T23:16:21.502678+00:00",
+  "updated_at": "2026-05-23T15:54:58.916012+00:00"
+}

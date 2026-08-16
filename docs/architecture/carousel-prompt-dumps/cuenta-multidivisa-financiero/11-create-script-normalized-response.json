@@ -1,0 +1,95 @@
+{
+  "captureStatus": "NO CAPTURADO EN RUNTIME",
+  "reason": "generate-carousel-script requires a valid end-user JWT plus tenant membership; no usable user session was available. Raw script completions are not persisted.",
+  "controlledDownstreamFixture": {
+    "slides": [
+      {
+        "role": "tension",
+        "headline": "Tu empresa opera en varias monedas. Tu tesorería no debería operar a ciegas.",
+        "body": "múltiples cuentas bancarias por moneda",
+        "cta": "",
+        "imageIntent": "Detiene el scroll y planta el problema. Headline grande desde el copy semilla, escena simple con el producto protagonista y un elemento que introduce la tensión. Poco supporting copy. No resuelvas nada todavía. Contexto concreto: cuenta corporativa multimoneda.",
+        "brief": {
+          "visualIntent": "Volver visible el rol tension mediante cuenta corporativa multimoneda",
+          "visualMetaphor": "cuenta corporativa multimoneda como evidencia física de la afirmación",
+          "layout": "editorial_top",
+          "primaryObjects": [
+            "cuenta corporativa multimoneda"
+          ],
+          "environmentalText": [],
+          "highlights": []
+        }
+      },
+      {
+        "role": "shift",
+        "headline": "Tener muchas cuentas no significa tener más control.",
+        "body": "",
+        "cta": "",
+        "imageIntent": "Muestra el MECANISMO: qué puede cambiar entre hoy y el pago. La escena necesita dos momentos en el cuadro — mismo producto, misma factura, dos fechas, dos resultados. Frase en condicional. Contexto concreto: documentos USD EUR MXN.",
+        "brief": {
+          "visualIntent": "Volver visible el rol shift mediante documentos USD EUR MXN",
+          "visualMetaphor": "documentos USD EUR MXN como evidencia física de la afirmación",
+          "layout": "split_photo",
+          "primaryObjects": [
+            "documentos USD EUR MXN"
+          ],
+          "environmentalText": [],
+          "highlights": []
+        }
+      },
+      {
+        "role": "risk",
+        "headline": "múltiples cuentas bancarias por moneda",
+        "body": "",
+        "cta": "",
+        "imageIntent": "Muestra la CONSECUENCIA. Si la línea habla de acumulación, la escena repite: varias compras, varios documentos, impacto agregado. Que el concepto se vea, no que se enuncie. Contexto concreto: panel de tesorería.",
+        "brief": {
+          "visualIntent": "Volver visible el rol risk mediante panel de tesorería",
+          "visualMetaphor": "panel de tesorería como evidencia física de la afirmación",
+          "layout": "editorial_repetition",
+          "primaryObjects": [
+            "panel de tesorería"
+          ],
+          "environmentalText": [],
+          "highlights": []
+        }
+      },
+      {
+        "role": "solution",
+        "headline": "administrar cuentas en más de 30 divisas",
+        "body": "",
+        "cta": "",
+        "imageIntent": "Pasa visualmente de la incertidumbre al control: la escena se siente más ordenada, más estable, con un resultado definido. El sujeto de la frase es el producto, no el cliente. Contexto concreto: cuenta corporativa multimoneda.",
+        "brief": {
+          "visualIntent": "Volver visible el rol solution mediante cuenta corporativa multimoneda",
+          "visualMetaphor": "cuenta corporativa multimoneda como evidencia física de la afirmación",
+          "layout": "document_result",
+          "primaryObjects": [
+            "cuenta corporativa multimoneda"
+          ],
+          "environmentalText": [],
+          "highlights": []
+        }
+      },
+      {
+        "role": "cta",
+        "headline": "Conoce cómo centralizar tu operación multidivisa.",
+        "body": "",
+        "cta": "",
+        "imageIntent": "Cierre. El CTA aprobado, composición limpia, producto premium y máximo aire. No es otro capítulo educativo. Contexto concreto: documentos USD EUR MXN.",
+        "brief": {
+          "visualIntent": "Volver visible el rol cta mediante documentos USD EUR MXN",
+          "visualMetaphor": "documentos USD EUR MXN como evidencia física de la afirmación",
+          "layout": "hero_clean",
+          "primaryObjects": [
+            "documentos USD EUR MXN"
+          ],
+          "environmentalText": [],
+          "highlights": []
+        }
+      }
+    ],
+    "visualMotif": "Una cuenta corporativa con compartimentos USD, EUR y MXN abre y cierra la serie."
+  },
+  "fixtureProvenance": "commercial_branches.prompt_kit (real production branch context; controlled audit fixture, not a persisted copy-bank row)"
+}

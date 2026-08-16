@@ -1,0 +1,12 @@
+{
+  "requestedSlug": "cuenta-multidivisa",
+  "activeDatabaseSlug": "cuenta-multidivisa",
+  "commercialBranchesPromptKitFound": true,
+  "modernCodeCopyKitSlug": null,
+  "modernCodeCopyKitResolution": {
+    "status": "error",
+    "message": "No hay copy_kit para la rama \"cuenta-multidivisa\". Disponibles: velocidad, costos-ahorro, coberturas."
+  },
+  "editorialBansLength": 0,
+  "branchContextLength": 8658
+}

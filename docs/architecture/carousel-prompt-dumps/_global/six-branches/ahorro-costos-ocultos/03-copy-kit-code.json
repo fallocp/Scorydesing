@@ -1,0 +1,529 @@
+{
+  "kit_version": "costos-ahorro-v2.0",
+  "branch_slug": "costos-ahorro",
+  "branch_name": "Costos, tipo de cambio y ahorro",
+  "source": "contexto_maestro_xending_costos_ahorros.md + 90 copys aprobados (china_asia 30, internacional 30, industria 30)",
+  "editorial_objective": "Comunicar que Xending es una alternativa ágil y especializada para cotizar, comparar y pagar operaciones internacionales, cuidando el costo, el tipo de cambio y el margen. El copy debe explicar cómo ayuda Xending, no limitarse a decirle al cliente que se organice, revise, prepare, planee o analice por su cuenta.",
+  "scope": [
+    "costos de pagos internacionales",
+    "tipo de cambio",
+    "spread cambiario",
+    "ahorro acumulado",
+    "comparación de cotizaciones",
+    "costo operativo de manejar múltiples cuentas",
+    "eficiencia financiera",
+    "impacto anual de pequeñas diferencias",
+    "condiciones distintas según país y moneda"
+  ],
+  "client_should_think": [
+    "Quizá debería comparar mi tipo de cambio.",
+    "Una pequeña diferencia repetida puede representar mucho al año.",
+    "Mi banco o proveedor habitual no necesariamente ofrece siempre la mejor condición.",
+    "Puedo pedir una segunda cotización sin cambiar toda mi operación.",
+    "Xending puede ser una alternativa ágil para mi siguiente pago.",
+    "No necesito abrir múltiples cuentas para operar en otros mercados."
+  ],
+  "positioning_must_communicate": [
+    "claridad",
+    "confianza",
+    "eficiencia",
+    "criterio financiero",
+    "acompañamiento",
+    "capacidad de comparación",
+    "una alternativa especializada"
+  ],
+  "allowed_situations": [
+    "una diferencia pequeña se acumula",
+    "el tipo de cambio impacta el costo de importación",
+    "la costumbre puede impedir comparar",
+    "distintas monedas y mercados tienen condiciones distintas",
+    "más cuentas generan más conciliación",
+    "el precio de fábrica no es el costo final",
+    "los aranceles no son el único costo",
+    "el volumen vuelve relevante cada décima"
+  ],
+  "situation_framing_rule": "Xending no vende desde el miedo. La tensión es moderada y señala una consecuencia real, nunca un escenario catastrófico. La costumbre se puede señalar; el banco NO se ataca ni se desacredita. El cliente no debe sentir que Xending lo regaña por no comparar: debe sentir que le ofrece una alternativa sencilla para revisar su siguiente pago.",
+  "tone": {
+    "yes": [
+      "empresarial",
+      "cercano",
+      "confiable",
+      "moderno",
+      "sobrio",
+      "directo",
+      "casual sin perder profesionalismo"
+    ],
+    "no": [
+      "alarmista",
+      "acusatorio",
+      "campaña bancaria tradicional",
+      "anuncio agresivo",
+      "clase de tesorería",
+      "tutorial administrativo"
+    ],
+    "tension": "moderada",
+    "hedging": "El condicional es preferido: 'puede modificar', 'pueden acumularse', 'puede influir', 'puede representar'. Nunca afirmación absoluta de ahorro."
+  },
+  "angle_quota": {
+    "tipo_de_cambio_costo_importacion": 20,
+    "impacto_acumulado": 18,
+    "segunda_cotizacion": 14,
+    "diferencias_mercado": 11,
+    "comparacion_integral": 10,
+    "margen_importacion": 10,
+    "costumbre_proveedor": 7,
+    "simplificacion_cuentas": 7,
+    "ejemplo_numerico": 3
+  },
+  "angle_quota_note": "Distribución objetivo sobre bloques de 30 copys. Suma 100. 'ejemplo_numerico' tiene tope DURO de 5% aunque su cuota sea 3%: es el único ángulo que admite cifras.",
+  "angle_quota_rationale": "La 'Distribución recomendada' del contexto maestro cubría 7 ángulos, pero su lista de 'Ángulos permitidos' tiene 8, y dos de los permitidos (tipo de cambio como parte del costo de importación, comparación completa) quedaron fuera de la distribución. Al medir los 90 copys aprobados esos dos son el 32% y el 14% del banco. Aquí entran con 20% y 10%, y los 7 originales conservan sus pesos relativos escalados a los 70 puntos restantes: 25/20/15/15/10/10/5 × 0.70 → 18/14/10/11/7/7/3.",
+  "angles": {
+    "impacto_acumulado": {
+      "label": "Diferencias pequeñas que se acumulan",
+      "premise": "Un 1% puede parecer poco en una operación. Repetido durante el año, puede representar miles de dólares.",
+      "note": "Las cifras deben ser ejemplos ilustrativos, nunca promesas de ahorro."
+    },
+    "segunda_cotizacion": {
+      "label": "Segunda cotización",
+      "premise": "El cliente no necesita cambiar toda su operación. Puede comenzar comparando su siguiente pago."
+    },
+    "margen_importacion": {
+      "label": "Margen anual y protección del margen",
+      "premise": "El spread y el tipo de cambio pueden impactar el margen cuando la empresa realiza pagos frecuentes."
+    },
+    "diferencias_mercado": {
+      "label": "Diferentes mercados",
+      "premise": "No todas las monedas, destinos o estructuras de pago tienen las mismas condiciones."
+    },
+    "costumbre_proveedor": {
+      "label": "Costumbre y proveedor habitual",
+      "premise": "Una relación de muchos años con un banco o proveedor no garantiza que cada cotización sea la más conveniente. Comunicarlo sin atacar ni desacreditar."
+    },
+    "simplificacion_cuentas": {
+      "label": "Menos cuentas y procesos",
+      "premise": "Abrir múltiples cuentas puede aumentar conciliaciones, portales, autorizaciones y trabajo operativo. Xending puede presentarse como forma de centralizar o simplificar, sin afirmar funciones inexistentes.",
+      "note": "El dolor no es solo 'conciliación'. Frasear como 'cada cuenta suma costos y procesos'."
+    },
+    "tipo_de_cambio_costo_importacion": {
+      "label": "Tipo de cambio como parte del costo de importación",
+      "premise": "La compra no termina al negociar con el proveedor. La conversión de moneda también impacta el costo final."
+    },
+    "comparacion_integral": {
+      "label": "Comparación completa",
+      "premise": "La comparación considera tipo de cambio, comisión, tiempo, moneda, país y condiciones de la operación.",
+      "note": "No afirmar que el proveedor recibirá menos de lo acordado."
+    },
+    "ejemplo_numerico": {
+      "label": "Ejemplo numérico ilustrativo",
+      "premise": "Una operación aritmética verificable presentada como ejemplo, siempre con nota legal.",
+      "note": "Tope 5% de la tanda."
+    }
+  },
+  "corridors": {
+    "china_asia": {
+      "label": "China y Asia",
+      "focus": [
+        "tipo de cambio en pagos a China",
+        "ahorro acumulado en importaciones",
+        "comparación antes de pagar al proveedor",
+        "especialización regional",
+        "infraestructura y socios conectados con Asia",
+        "eficiencia para importadores",
+        "posibilidad de operar sin abrir nuevas cuentas bancarias"
+      ],
+      "infrastructure_basis": "Infraestructura y socios especializados en la región, incluyendo PingPong Payments. PROHIBIDO usar el nombre 'Xending Asia' o afirmar presencia física propia en Asia.",
+      "vocabulary": [
+        "China",
+        "Asia",
+        "proveedor",
+        "importación",
+        "aranceles",
+        "tipo de cambio",
+        "conversión de moneda",
+        "cotización",
+        "margen",
+        "contenedor",
+        "volumen"
+      ],
+      "cta": [
+        "Cotiza tu pago a China",
+        "Cotiza con Xending",
+        "Cotiza antes de pagar",
+        "Cotiza tu próximo pago",
+        "Cotiza el costo completo",
+        "Cotiza costo y velocidad",
+        "Compara tu tipo de cambio",
+        "Compara antes de pagar",
+        "Pide una segunda cotización",
+        "Habla con Xending",
+        "Pregúntale a Xending"
+      ]
+    },
+    "internacional_general": {
+      "label": "Pagos internacionales generales",
+      "focus": [
+        "Estados Unidos",
+        "Europa",
+        "Asia",
+        "distintas monedas",
+        "comparación de tipo de cambio",
+        "ahorro acumulado",
+        "segunda cotización",
+        "múltiples cuentas",
+        "pagos recurrentes",
+        "impacto en el margen"
+      ],
+      "vocabulary": [
+        "transferencia",
+        "país",
+        "destino",
+        "moneda",
+        "divisa",
+        "comisión",
+        "tipo de cambio",
+        "cotización",
+        "margen",
+        "pagos recurrentes",
+        "conciliación",
+        "portales"
+      ],
+      "cta": [
+        "Cotiza tu pago internacional",
+        "Cotiza con Xending",
+        "Cotiza tu pago",
+        "Cotiza tu próximo pago",
+        "Cotiza antes de pagar",
+        "Cotiza el costo completo",
+        "Cotiza costo y velocidad",
+        "Compara tu tipo de cambio",
+        "Compara antes de pagar",
+        "Compara el costo real",
+        "Pide una segunda cotización",
+        "Solicita una cotización",
+        "Habla con Xending",
+        "Pregúntale a Xending"
+      ]
+    },
+    "industria": {
+      "label": "Costos y ahorro por tipo de importación",
+      "focus": [
+        "el tipo de cambio aplicado al producto concreto que importa el cliente",
+        "costo unitario por pieza, caja, envase o componente",
+        "ahorro acumulado en compras de volumen",
+        "margen del producto definido al pagar"
+      ],
+      "structure": [
+        "Mencionar el producto o industria en el headline.",
+        "Conectar con el costo cambiario o el costo total.",
+        "Explicar cómo Xending ayuda a cotizar o comparar.",
+        "CTA de cotización o comparación."
+      ],
+      "cta": [
+        "Cotiza tu pago a China",
+        "Cotiza con Xending",
+        "Cotiza antes de pagar",
+        "Cotiza tu próximo pago",
+        "Cotiza el costo completo",
+        "Cotiza costo y velocidad",
+        "Compara tu tipo de cambio",
+        "Compara antes de pagar"
+      ]
+    }
+  },
+  "industries": {
+    "autopartes": {
+      "angles": [
+        "costo cambiario",
+        "costo unitario por pieza"
+      ]
+    },
+    "maquinaria": {
+      "angles": [
+        "costo total de inversión",
+        "precio de fábrica vs costo final"
+      ]
+    },
+    "electronicos": {
+      "angles": [
+        "ahorro acumulado en compras frecuentes",
+        "margen comercial"
+      ]
+    },
+    "textiles_calzado": {
+      "angles": [
+        "protección del margen",
+        "costo final de mercancía"
+      ]
+    },
+    "empaques_envases": {
+      "angles": [
+        "costo unitario",
+        "costo por caja o envase"
+      ]
+    },
+    "insumos_industriales": {
+      "angles": [
+        "costo de producción",
+        "costo de materiales"
+      ]
+    },
+    "refacciones_motores_valvulas_bombas_rodamientos": {
+      "angles": [
+        "costo total",
+        "compras recurrentes y acumulado",
+        "costo y velocidad"
+      ]
+    },
+    "moldes_herramientas": {
+      "angles": [
+        "costo cambiario",
+        "eficiencia financiera"
+      ]
+    },
+    "solar_iluminacion_electrico": {
+      "angles": [
+        "costo de importación",
+        "costo final de componentes"
+      ]
+    },
+    "electrodomesticos_pantallas_ferreteria_baterias": {
+      "angles": [
+        "margen comercial",
+        "ahorro acumulado en volumen",
+        "costo de inventario"
+      ]
+    }
+  },
+  "formulas_allowed": [
+    "[X] también [Y]",
+    "[X] no es / no termina en [lo obvio]",
+    "Más [A] no deberían significar más [B]",
+    "Menos [A]. Más [B]",
+    "Cada [unidad] también [verbo] [efecto]",
+    "[Producto] a buen precio. [Pago] bien cotizado",
+    "[A] se negocia. [B] también",
+    "Una sola [A] limita [B]",
+    "[X] se construye / se acumula [unidad] a [unidad]",
+    "[Cifra pequeña] también cuenta"
+  ],
+  "banned_openings": [
+    "El tipo de cambio",
+    "Una pequeña diferencia",
+    "Cada pago",
+    "No todas las rutas",
+    "El costo",
+    "Tu costo"
+  ],
+  "banned_openings_note": "Arranques ya saturados. Los cuatro primeros vienen del contexto maestro; 'El costo' y 'Tu costo' salen de medir los 90 copys aprobados de esta rama (9 de 180 headlines abren con 'el costo'). Cambiar el arranque, NO la fórmula: 'Los aranceles no son el único costo' usa la misma fórmula sin abrir con 'El costo'.",
+  "banned_phrases": [
+    "costos ocultos",
+    "el costo oculto",
+    "el costo que no ves",
+    "lo que no ves te cuesta",
+    "te están cobrando de más",
+    "tu banco te engaña",
+    "tu banco es caro",
+    "lo que tu banco no te dice",
+    "el dinero que desaparece",
+    "tu proveedor recibe menos",
+    "el costo real aparece después",
+    "garantizamos el mejor tipo de cambio",
+    "ahorro garantizado",
+    "siempre somos más baratos",
+    "estás perdiendo dinero",
+    "sin comisiones",
+    "sin intermediarios",
+    "ruta directa",
+    "optimiza tus finanzas",
+    "toma mejores decisiones",
+    "el acumulado",
+    "la primera lectura"
+  ],
+  "banned_phrases_note": "'sin comisiones', 'sin intermediarios' y 'ruta directa' solo se permiten si son completamente factuales y están confirmados para ese corredor. 'el acumulado' y 'lo que no ves' están prohibidos sin objeto: decir de qué (ej. 'las comisiones acumuladas').",
+  "legal_note": {
+    "text": "* Ejemplos exclusivamente ilustrativos. El resultado depende del monto, moneda, tipo de cambio y condiciones de cada operación.",
+    "trigger": "Toda pieza que incluya una cifra, porcentaje u operación aritmética.",
+    "style": "Asterisco en la cifra + nota al pie de la pieza.",
+    "detect": [
+      "\\d",
+      "por ciento",
+      "USD\\s*[\\d,]"
+    ],
+    "detect_note": "Solo cifras. NO incluir 'dólares' ni 'USD' sueltos: 'Cotizar tus dólares también protege tu margen' no lleva cifra y no necesita nota."
+  },
+  "numbers_policy": {
+    "allowed": "Una operación aritmética verificable presentada como ejemplo ilustrativo. Ej: 'En un pago de USD 100,000, una diferencia de 0.5% representa USD 500.*'",
+    "requires": "Nota legal obligatoria (ver legal_note).",
+    "quota": "Máximo 5% de la tanda (ángulo 'ejemplo_numerico').",
+    "banned": [
+      "porcentajes de ahorro presentados como resultado que Xending entrega ('ahorra hasta 50%', 'reduce tus costos 30%')",
+      "tarifas, spreads o comisiones inventadas",
+      "afirmar que Xending siempre es más barato",
+      "garantizar ahorro o el mejor tipo de cambio"
+    ],
+    "principle": "Una resta es aritmética. Un porcentaje de ahorro es una promesa. La primera se permite con disclaimer; la segunda nunca."
+  },
+  "hard_business_rules": [
+    "El beneficiario normalmente RECIBE el monto completo enviado. El costo NO es una resta visible del monto que llega.",
+    "El costo vive en el tipo de cambio (spread) y en comisiones fijas por transferencia que suman al hacer muchas operaciones.",
+    "PROHIBIDO representar 'envías 10,000 y recibes 9,500'. Es incorrecto.",
+    "Cuando se pacta una operación, el precio queda cerrado. NO decir que el tipo de cambio se mueve después de pactar ni que la cotización vence tras cerrar.",
+    "Xending NO es banco. Es plataforma de pagos internacionales.",
+    "Cuenta multidivisa: el beneficio es UNIFICAR cuentas. Frasear como 'cada cuenta suma costos y procesos', no solo 'conciliación'."
+  ],
+  "cta_selection_rule": [
+    "Si el copy habla del tipo de cambio acumulado: 'Compara tu tipo de cambio' o 'Compara antes de pagar'.",
+    "Si habla de una alternativa o del proveedor habitual: 'Pide una segunda cotización'.",
+    "Si habla del costo total o integral: 'Cotiza el costo completo' o 'Compara el costo real'.",
+    "Si habla de costo y tiempo juntos: 'Cotiza costo y velocidad'.",
+    "Si es institucional o de simplificación operativa: 'Habla con Xending' o 'Pregúntale a Xending'.",
+    "Si el corredor es China: preferir 'Cotiza tu pago a China'.",
+    "El CTA puede repetirse entre piezas. No se penaliza reusar el mismo verbo."
+  ],
+  "gold_examples": [
+    {
+      "headline": "Los aranceles no son el único costo",
+      "subcopy": "El tipo de cambio y la transferencia también impactan el costo de importar desde China.",
+      "cta": "Cotiza el costo completo",
+      "angleTag": "tipo_de_cambio_costo_importacion",
+      "angleLabel": "Costo total de importación",
+      "corridor": "china_asia",
+      "needsLegalNote": false
+    },
+    {
+      "headline": "Décimas que suman todo el año",
+      "subcopy": "En pagos recurrentes, pequeñas diferencias pueden acumular un impacto relevante.",
+      "cta": "Compara tu tipo de cambio",
+      "angleTag": "impacto_acumulado",
+      "angleLabel": "Ahorro acumulado",
+      "corridor": "china_asia",
+      "needsLegalNote": false
+    },
+    {
+      "headline": "Una sola cotización limita tus opciones",
+      "subcopy": "Xending suma una alternativa para pagar a China sin cambiar toda tu operación.",
+      "cta": "Pide una segunda cotización",
+      "angleTag": "segunda_cotizacion",
+      "angleLabel": "Diversificación financiera",
+      "corridor": "china_asia",
+      "needsLegalNote": false
+    },
+    {
+      "headline": "Más monedas no deberían significar más cuentas",
+      "subcopy": "Simplifica pagos a Asia sin multiplicar portales y conciliaciones.",
+      "cta": "Habla con Xending",
+      "angleTag": "simplificacion_cuentas",
+      "angleLabel": "Simplificación operativa",
+      "corridor": "china_asia",
+      "needsLegalNote": false
+    },
+    {
+      "headline": "Tu opción habitual no tiene que ser la única",
+      "subcopy": "Agrega a Xending como alternativa para tu siguiente transferencia internacional.",
+      "cta": "Cotiza tu próximo pago",
+      "angleTag": "costumbre_proveedor",
+      "angleLabel": "Diversificación de proveedores",
+      "corridor": "internacional_general",
+      "needsLegalNote": false
+    },
+    {
+      "headline": "Cada mercado cambia el costo",
+      "subcopy": "El país, la moneda y las condiciones pueden modificar el costo de tu transferencia.",
+      "cta": "Cotiza tu pago internacional",
+      "angleTag": "diferencias_mercado",
+      "angleLabel": "Diferencias por mercado",
+      "corridor": "internacional_general",
+      "needsLegalNote": false
+    },
+    {
+      "headline": "El margen no termina en compras",
+      "subcopy": "La forma de pagar también puede influir en la rentabilidad de tu operación.",
+      "cta": "Cotiza con Xending",
+      "angleTag": "margen_importacion",
+      "angleLabel": "Protección del margen",
+      "corridor": "internacional_general",
+      "needsLegalNote": false
+    },
+    {
+      "headline": "Un 0.5% sí mueve números",
+      "subcopy": "En USD 100,000, una diferencia de 0.5% representa USD 500.*",
+      "cta": "Compara antes de pagar",
+      "angleTag": "ejemplo_numerico",
+      "angleLabel": "Ejemplo numérico ilustrativo",
+      "corridor": "internacional_general",
+      "needsLegalNote": true
+    },
+    {
+      "headline": "Menos portales. Más control",
+      "subcopy": "Centraliza pagos internacionales y reduce procesos de conciliación.",
+      "cta": "Habla con Xending",
+      "angleTag": "simplificacion_cuentas",
+      "angleLabel": "Control operativo",
+      "corridor": "internacional_general",
+      "needsLegalNote": false
+    },
+    {
+      "headline": "La maquinaria no solo cuesta lo que cotiza la fábrica",
+      "subcopy": "El tipo de cambio y la transferencia también influyen en el costo de tu inversión.",
+      "cta": "Cotiza el costo completo",
+      "angleTag": "tipo_de_cambio_costo_importacion",
+      "angleLabel": "Maquinaria y costo total",
+      "corridor": "industria",
+      "industry": "maquinaria",
+      "needsLegalNote": false
+    },
+    {
+      "headline": "Tu compra puede venir por contenedor. El ahorro también",
+      "subcopy": "En importaciones de volumen, una pequeña diferencia cambiaria puede multiplicarse.",
+      "cta": "Compara antes de pagar",
+      "angleTag": "impacto_acumulado",
+      "angleLabel": "Volumen de importación",
+      "corridor": "industria",
+      "needsLegalNote": false
+    },
+    {
+      "headline": "Ferretería a buen precio. Pagos bien cotizados",
+      "subcopy": "Compara el costo de pagar herramientas, piezas y materiales en Asia.",
+      "cta": "Cotiza tu próximo pago",
+      "angleTag": "comparacion_integral",
+      "angleLabel": "Ferretería y costo total",
+      "corridor": "industria",
+      "industry": "electrodomesticos_pantallas_ferreteria_baterias",
+      "needsLegalNote": false
+    }
+  ],
+  "rejected_examples": [
+    {
+      "text": "El costo que no ves",
+      "reason": "dramático, genérico, sugiere ocultamiento"
+    },
+    {
+      "text": "Tu proveedor recibe menos de lo esperado",
+      "reason": "no aplica al funcionamiento real: el beneficiario recibe el monto completo"
+    },
+    {
+      "text": "Calcula el impacto",
+      "reason": "CTA rechazado: no existe una calculadora real"
+    },
+    {
+      "text": "Compara tu operación",
+      "reason": "demasiado amplio. Preferir 'Compara tu tipo de cambio' o 'Compara el costo real'"
+    },
+    {
+      "text": "Conoce la ruta",
+      "reason": "parece mensaje de logística, no de costo"
+    },
+    {
+      "text": "Planea tu conversión",
+      "reason": "asigna trabajo al cliente y no comunica cómo ayuda Xending"
+    },
+    {
+      "text": "El acumulado importa más",
+      "reason": "abstracto sin objeto: ¿el acumulado de qué?"
+    },
+    {
+      "text": "Revisa tu costo total, no solo el envío",
+      "reason": "solo asigna tarea al cliente, no dice cómo ayuda Xending"
+    }
+  ]
+}

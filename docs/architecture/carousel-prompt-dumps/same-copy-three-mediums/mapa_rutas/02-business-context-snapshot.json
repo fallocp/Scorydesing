@@ -1,0 +1,112 @@
+{
+  "masterPrompt": "Eres un director creativo senior especializado en publicidad fintech B2B, fotografía comercial, campañas de pagos internacionales, comercio exterior, FX, tesorería empresarial y financiamiento operativo.\r\n\r\nTu tarea es convertir una pieza de contenido ya generada en un prompt visual profesional para crear una imagen publicitaria.\r\n\r\nLa imagen debe reforzar el mensaje comercial, no decorar. Debe visualizar el dolor, la promesa o el resultado operativo de la pieza.\r\n\r\n## DATOS DE ENTRADA\r\n\r\nMarca: {{brand}}\r\nProducto: {{productLine}}\r\nRama comercial: {{commercialBranch}}\r\nVertical / industria: {{industryVertical}}\r\nMomento de mercado: {{marketMoment}}\r\nAudiencia: {{audience}}\r\nCanal: {{channel}}\r\nFormato: {{format}}\r\nHeadline: {{headline}}\r\nBody: {{body}}\r\nCTA: {{cta}}\r\nFooter: {{footer}}\r\nÁngulo: {{angle}}\r\nDirección visual sugerida: {{imageDirection}}\r\nEstilo visual de marca: {{visualStyle}}\r\nTemplate seleccionado: {{recommendedTemplate}}\r\nGuía visual de rama: {{visualGuidelines}}\r\nColores de marca: {{brandColors}}\r\nRestricciones visuales: {{visualRestrictions}}\r\n\r\n## REGLA CRÍTICA: COHERENCIA IMAGEN-COPY\r\n\r\nAntes de construir el prompt visual, analiza el headline y body proporcionados:\r\n\r\n1. Identifica si el copy usa una METÁFORA concreta (capas, desglose, flujo, puente, filtro, visible/oculto, etc.)\r\n2. Si la hay, la imagen DEBE representar esa metáfora visualmente — no una abstracción genérica del tema.\r\n3. Si el headline dice \"capas\", la imagen muestra capas. Si dice \"desglose\", muestra algo descompuesto en partes. Si dice \"visible vs oculto\", muestra algo parcialmente revelado.\r\n4. Pregúntate: \"¿Si quito el texto, alguien entendería de qué trata el ad solo con la imagen?\" Si no, la imagen es demasiado genérica — rehazla.\r\n5. NUNCA generes imágenes genéricas de \"negocios\", \"finanzas\", \"tecnología\" o \"laptop con gráficas\". Siempre busca la especificidad del mensaje.\r\n6. La imagen debe generar la misma TENSIÓN EMOCIONAL que el copy: si el copy expone un problema, la imagen debe hacer sentir ese problema. Si promete una solución, la imagen debe transmitir ese alivio o control.\r\n\r\n## REGLAS GENERALES\r\n\r\n1. La imagen debe estar alineada con el headline y el dolor de negocio.\r\n2. No generes una imagen genérica de fintech.\r\n3. No uses bancos físicos como recurso visual principal.\r\n4. No uses billetes exagerados, monedas volando o estética de riqueza fácil.\r\n5. No uses gráficos financieros falsos que parezcan prometer ganancias.\r\n6. No muestres logos de bancos, marcas registradas, gobiernos o instituciones reales.\r\n7. No uses texto excesivo dentro de la imagen.\r\n8. Deja espacio limpio para colocar headline y footer.\r\n9. El estilo debe ser premium, limpio, empresarial, creíble y moderno.\r\n10. Si la vertical es agro, mostrar operación real: campo, cajas, camión, productor, bodega, mercancía, laptop o celular con confirmación.\r\n11. Si la rama es cobertura cambiaria, mostrar contexto financiero: CFO, laptop, gráfico abstracto USD/MXN, margen, análisis.\r\n12. Si la rama es cuenta multidivisa, mostrar control operativo: dashboard, monedas, pagos, mapa, equipo financiero.\r\n13. Si la rama es ahorro, mostrar comparación o detección de costos: invoice, transferencia, dashboard, margen.\r\n14. Si la rama es capital, mostrar operación activa: inventario, compra, proveedor, carga, liquidez, continuidad.\r\n15. La imagen debe poder funcionar como anuncio cuadrado, story, carrusel o banner según formato.\r\n16. No incluir texto dentro de la imagen salvo que se indique específicamente.\r\n17. El prompt debe estar listo para usar con un generador de imágenes.\r\n18. Evita caricatura salvo que el template lo pida.\r\n19. Evita estética demasiado corporativa sin contexto real.\r\n20. Prioriza escenas hiperrealistas y comerciales.\r\n\r\n## ESTRUCTURA DEL PROMPT VISUAL\r\n\r\nGenera un prompt final con los siguientes elementos integrados en un solo texto:\r\n\r\n1. Escena principal (DEBE reflejar la metáfora del headline)\r\n2. Contexto de industria\r\n3. Personajes\r\n4. Acción principal\r\n5. Ambiente\r\n6. Elementos visuales de negocio\r\n7. Estilo fotográfico\r\n8. Paleta de color\r\n9. Composición\r\n10. Espacio para texto\r\n11. Restricciones visuales\r\n12. Formato\r\n\r\n## FORMATO DE SALIDA\r\n\r\nDevuelve exclusivamente JSON válido. No incluyas explicación fuera del JSON.\r\n\r\n```json\r\n{\r\n  \"imagePrompt\": {\r\n    \"mainPrompt\": \"string\",\r\n    \"negativePrompt\": \"string\",\r\n    \"format\": \"{{format}}\",\r\n    \"recommendedAspectRatio\": \"string\",\r\n    \"textSafeArea\": \"string\",\r\n    \"overlayTextSuggestion\": {\r\n      \"headline\": \"{{headline}}\",\r\n      \"footer\": \"{{footer}}\",\r\n      \"cta\": \"{{cta}}\"\r\n    },\r\n    \"designNotes\": [\"string\"],\r\n    \"templateRecommendation\": \"{{recommendedTemplate}}\"\r\n  }\r\n}\r\n```",
+  "complianceRules": {
+    "max_values": {},
+    "forbidden_terms": [
+      "garantizado",
+      "sin riesgo",
+      "rendimiento asegurado"
+    ],
+    "required_qualifiers": [
+      "indicativo",
+      "sujeto a cambio"
+    ]
+  },
+  "brandIdentity": {
+    "name": "Xending",
+    "slug": "xending",
+    "logo_url": "<SANITIZED_URL>",
+    "primary_color": "#FF7A4A",
+    "secondary_color": "#2ED4C7",
+    "accent_color": "#0F1419",
+    "fonts": {
+      "body": "Poppins",
+      "mono": "JetBrains Mono",
+      "display": "Montserrat"
+    },
+    "disclaimer": "Xending es una marca operada por Xending Global LLC en EE.UU. Los servicios de cambio de divisas son proporcionados a través de socios regulados. Las tasas mostradas son indicativas y pueden variar al momento de la operación.",
+    "short_disclaimer": "Tasas indicativas. Sujetas a cambio."
+  },
+  "channels": [
+    {
+      "name": "Instagram Story",
+      "slug": "instagram-story",
+      "platform_format": "instagram_story",
+      "display_order": 0
+    },
+    {
+      "name": "Instagram Post",
+      "slug": "instagram-post",
+      "platform_format": "instagram_post",
+      "display_order": 1
+    },
+    {
+      "name": "Instagram Ads",
+      "slug": "instagram-ads",
+      "platform_format": "instagram_ads",
+      "display_order": 2
+    },
+    {
+      "name": "Facebook",
+      "slug": "facebook",
+      "platform_format": "facebook",
+      "display_order": 3
+    },
+    {
+      "name": "LinkedIn",
+      "slug": "linkedin",
+      "platform_format": "linkedin",
+      "display_order": 4
+    },
+    {
+      "name": "WhatsApp",
+      "slug": "whatsapp",
+      "platform_format": "whatsapp",
+      "display_order": 5
+    },
+    {
+      "name": "Email",
+      "slug": "email",
+      "platform_format": "email",
+      "display_order": 6
+    }
+  ],
+  "angles": [
+    {
+      "name": "Urgencia Operativa",
+      "slug": "urgencia-operativa",
+      "description": "Enfoque en la necesidad inmediata de actuar.",
+      "display_order": 0
+    },
+    {
+      "name": "Comparativa",
+      "slug": "comparativa",
+      "description": "Contraste directo entre la solución actual (banco) y Xending.",
+      "display_order": 1
+    },
+    {
+      "name": "Testimonial",
+      "slug": "testimonial",
+      "description": "Historias de clientes reales o arquetipos.",
+      "display_order": 2
+    },
+    {
+      "name": "Dato Duro",
+      "slug": "dato-duro",
+      "description": "Contenido basado en estadísticas y datos verificables.",
+      "display_order": 3
+    },
+    {
+      "name": "Educativo",
+      "slug": "educativo",
+      "description": "Contenido que enseña conceptos financieros o de comercio exterior.",
+      "display_order": 4
+    },
+    {
+      "name": "Emocional",
+      "slug": "emocional",
+      "description": "Apela a sentimientos de seguridad y confianza.",
+      "display_order": 5
+    }
+  ]
+}

@@ -1,0 +1,214 @@
+[
+  {
+    "userRequest": "Tu banco es bueno para muchas cosas. Pagos internacionales no es una.",
+    "brand": "xending",
+    "business_id": "<BUSINESS_ID>",
+    "branch_id": "<BRANCH_ID:banco-vs-xending>",
+    "mode": "carousel_prompts",
+    "imageType": "infografia",
+    "visualMotif": "Dos estados de cuenta comparables abren la serie y un único resultado operativo la cierra.",
+    "carouselTotalSlides": 5,
+    "headline": "Tu banco es bueno para muchas cosas. Pagos internacionales no es una.",
+    "body": "3-5 días de espera para liquidación",
+    "imageIntent": "Dos estados de cuenta comparables abren la serie y un único resultado operativo la cierra.",
+    "angle": "general",
+    "backgroundStyle": "white",
+    "masterPromptVersion": "v2",
+    "corridorMode": "auto",
+    "corridorFlowType": "auto",
+    "aspectRatio": "1:1",
+    "imageSize": "1024x1024",
+    "carouselDesignBlock": "Premium 3D iconography / product-visual system on a pure white background, designed as a corporate B2B comparison layout with two clean vertical columns and a clear left-to-right reading order. The composition should communicate comparison and operational outcome through abstract, polished 3D forms only: one side in neutral grays representing the status quo, the other side in brand colors representing the improved flow. Use a single hero visual hierarchy with 1–3 secondary elements maximum, large areas of negative space, and a clean editorial grid. Camera in a slightly elevated three-quarter view with soft isometric discipline, 45–70 mm equivalent feel, subtle perspective, no dramatic distortion. Materials must feel premium and tactile: matte white ceramic, satin acrylic, brushed light graphite, and refined soft-edge surfaces with precise bevels. Lighting is bright studio softbox, high-key but not overexposed, with gentle contact shadows and controlled reflections. Palette distribution: 80–90% white (#FFFFFF) and very light gray (#F5F5F5), 6–12% navy (#0F1419) for structure, outlines, and checks, 2–5% teal (#2ED4C7) for the active/solved state, and 1–3% coral (#FF7A4A) for the waiting/problem state only. Keep the left side visually restrained and neutral, the right side cleaner and more activated with brand color accents. The layout should feel like a premium comparison table translated into 3D, with crisp alignment, corporate clarity, and a single strong operational result at the end. Typography only if absolutely necessary, and only as exact provided copy; otherwise no text. If text is present, use Montserrat Bold/ExtraBold for headline and Poppins Medium/SemiBold for body and CTA, flat vector-like, matte, clean, and fully legible. Maintain a modern institutional B2B aesthetic, lots of breathing room, minimal secondary detail, no clutter, no decorative excess, and no aggressive contrast.",
+    "carouselSlides": [
+      {
+        "index": 0,
+        "role": "tension",
+        "headline": "Tu banco es bueno para muchas cosas. Pagos internacionales no es una.",
+        "body": "3-5 días de espera para liquidación",
+        "cta": "",
+        "imageIntent": "Detiene el scroll y planta el problema. Headline grande desde el copy semilla, escena simple con el producto protagonista y un elemento que introduce la tensión. Poco supporting copy. No resuelvas nada todavía. Contexto concreto: dos estados de cuenta comparables.",
+        "brandElements": [
+          "logo"
+        ],
+        "brief": {
+          "visualIntent": "Volver visible el rol tension mediante dos estados de cuenta comparables",
+          "visualMetaphor": "dos estados de cuenta comparables como evidencia física de la afirmación",
+          "layout": "editorial_top",
+          "primaryObjects": [
+            "dos estados de cuenta comparables"
+          ],
+          "environmentalText": [],
+          "highlights": []
+        }
+      }
+    ]
+  },
+  {
+    "userRequest": "Tu banco es bueno para muchas cosas. Pagos internacionales no es una.",
+    "brand": "xending",
+    "business_id": "<BUSINESS_ID>",
+    "branch_id": "<BRANCH_ID:banco-vs-xending>",
+    "mode": "carousel_prompts",
+    "imageType": "infografia",
+    "visualMotif": "Dos estados de cuenta comparables abren la serie y un único resultado operativo la cierra.",
+    "carouselTotalSlides": 5,
+    "headline": "Tu banco es bueno para muchas cosas. Pagos internacionales no es una.",
+    "body": "3-5 días de espera para liquidación",
+    "imageIntent": "Dos estados de cuenta comparables abren la serie y un único resultado operativo la cierra.",
+    "angle": "general",
+    "backgroundStyle": "white",
+    "masterPromptVersion": "v2",
+    "corridorMode": "auto",
+    "corridorFlowType": "auto",
+    "aspectRatio": "1:1",
+    "imageSize": "1024x1024",
+    "carouselDesignBlock": "Premium 3D iconography / product-visual system on a pure white background, designed as a corporate B2B comparison layout with two clean vertical columns and a clear left-to-right reading order. The composition should communicate comparison and operational outcome through abstract, polished 3D forms only: one side in neutral grays representing the status quo, the other side in brand colors representing the improved flow. Use a single hero visual hierarchy with 1–3 secondary elements maximum, large areas of negative space, and a clean editorial grid. Camera in a slightly elevated three-quarter view with soft isometric discipline, 45–70 mm equivalent feel, subtle perspective, no dramatic distortion. Materials must feel premium and tactile: matte white ceramic, satin acrylic, brushed light graphite, and refined soft-edge surfaces with precise bevels. Lighting is bright studio softbox, high-key but not overexposed, with gentle contact shadows and controlled reflections. Palette distribution: 80–90% white (#FFFFFF) and very light gray (#F5F5F5), 6–12% navy (#0F1419) for structure, outlines, and checks, 2–5% teal (#2ED4C7) for the active/solved state, and 1–3% coral (#FF7A4A) for the waiting/problem state only. Keep the left side visually restrained and neutral, the right side cleaner and more activated with brand color accents. The layout should feel like a premium comparison table translated into 3D, with crisp alignment, corporate clarity, and a single strong operational result at the end. Typography only if absolutely necessary, and only as exact provided copy; otherwise no text. If text is present, use Montserrat Bold/ExtraBold for headline and Poppins Medium/SemiBold for body and CTA, flat vector-like, matte, clean, and fully legible. Maintain a modern institutional B2B aesthetic, lots of breathing room, minimal secondary detail, no clutter, no decorative excess, and no aggressive contrast.",
+    "carouselSlides": [
+      {
+        "index": 1,
+        "role": "shift",
+        "headline": "Tu banco es bueno para muchas cosas. Pagos internacionales no es una de ellas.",
+        "body": "",
+        "cta": "",
+        "imageIntent": "Muestra el MECANISMO: qué puede cambiar entre hoy y el pago. La escena necesita dos momentos en el cuadro — mismo producto, misma factura, dos fechas, dos resultados. Frase en condicional. Contexto concreto: ruta operativa.",
+        "brandElements": [],
+        "brief": {
+          "visualIntent": "Volver visible el rol shift mediante ruta operativa",
+          "visualMetaphor": "ruta operativa como evidencia física de la afirmación",
+          "layout": "split_photo",
+          "primaryObjects": [
+            "ruta operativa"
+          ],
+          "environmentalText": [],
+          "highlights": []
+        }
+      }
+    ]
+  },
+  {
+    "userRequest": "Tu banco es bueno para muchas cosas. Pagos internacionales no es una.",
+    "brand": "xending",
+    "business_id": "<BUSINESS_ID>",
+    "branch_id": "<BRANCH_ID:banco-vs-xending>",
+    "mode": "carousel_prompts",
+    "imageType": "infografia",
+    "visualMotif": "Dos estados de cuenta comparables abren la serie y un único resultado operativo la cierra.",
+    "carouselTotalSlides": 5,
+    "headline": "Tu banco es bueno para muchas cosas. Pagos internacionales no es una.",
+    "body": "3-5 días de espera para liquidación",
+    "imageIntent": "Dos estados de cuenta comparables abren la serie y un único resultado operativo la cierra.",
+    "angle": "general",
+    "backgroundStyle": "white",
+    "masterPromptVersion": "v2",
+    "corridorMode": "auto",
+    "corridorFlowType": "auto",
+    "aspectRatio": "1:1",
+    "imageSize": "1024x1024",
+    "carouselDesignBlock": "Premium 3D iconography / product-visual system on a pure white background, designed as a corporate B2B comparison layout with two clean vertical columns and a clear left-to-right reading order. The composition should communicate comparison and operational outcome through abstract, polished 3D forms only: one side in neutral grays representing the status quo, the other side in brand colors representing the improved flow. Use a single hero visual hierarchy with 1–3 secondary elements maximum, large areas of negative space, and a clean editorial grid. Camera in a slightly elevated three-quarter view with soft isometric discipline, 45–70 mm equivalent feel, subtle perspective, no dramatic distortion. Materials must feel premium and tactile: matte white ceramic, satin acrylic, brushed light graphite, and refined soft-edge surfaces with precise bevels. Lighting is bright studio softbox, high-key but not overexposed, with gentle contact shadows and controlled reflections. Palette distribution: 80–90% white (#FFFFFF) and very light gray (#F5F5F5), 6–12% navy (#0F1419) for structure, outlines, and checks, 2–5% teal (#2ED4C7) for the active/solved state, and 1–3% coral (#FF7A4A) for the waiting/problem state only. Keep the left side visually restrained and neutral, the right side cleaner and more activated with brand color accents. The layout should feel like a premium comparison table translated into 3D, with crisp alignment, corporate clarity, and a single strong operational result at the end. Typography only if absolutely necessary, and only as exact provided copy; otherwise no text. If text is present, use Montserrat Bold/ExtraBold for headline and Poppins Medium/SemiBold for body and CTA, flat vector-like, matte, clean, and fully legible. Maintain a modern institutional B2B aesthetic, lots of breathing room, minimal secondary detail, no clutter, no decorative excess, and no aggressive contrast.",
+    "carouselSlides": [
+      {
+        "index": 2,
+        "role": "risk",
+        "headline": "3-5 días de espera para liquidación",
+        "body": "",
+        "cta": "",
+        "imageIntent": "Muestra la CONSECUENCIA. Si la línea habla de acumulación, la escena repite: varias compras, varios documentos, impacto agregado. Que el concepto se vea, no que se enuncie. Contexto concreto: documento de costos.",
+        "brandElements": [],
+        "brief": {
+          "visualIntent": "Volver visible el rol risk mediante documento de costos",
+          "visualMetaphor": "documento de costos como evidencia física de la afirmación",
+          "layout": "editorial_repetition",
+          "primaryObjects": [
+            "documento de costos"
+          ],
+          "environmentalText": [],
+          "highlights": []
+        }
+      }
+    ]
+  },
+  {
+    "userRequest": "Tu banco es bueno para muchas cosas. Pagos internacionales no es una.",
+    "brand": "xending",
+    "business_id": "<BUSINESS_ID>",
+    "branch_id": "<BRANCH_ID:banco-vs-xending>",
+    "mode": "carousel_prompts",
+    "imageType": "infografia",
+    "visualMotif": "Dos estados de cuenta comparables abren la serie y un único resultado operativo la cierra.",
+    "carouselTotalSlides": 5,
+    "headline": "Tu banco es bueno para muchas cosas. Pagos internacionales no es una.",
+    "body": "3-5 días de espera para liquidación",
+    "imageIntent": "Dos estados de cuenta comparables abren la serie y un único resultado operativo la cierra.",
+    "angle": "general",
+    "backgroundStyle": "white",
+    "masterPromptVersion": "v2",
+    "corridorMode": "auto",
+    "corridorFlowType": "auto",
+    "aspectRatio": "1:1",
+    "imageSize": "1024x1024",
+    "carouselDesignBlock": "Premium 3D iconography / product-visual system on a pure white background, designed as a corporate B2B comparison layout with two clean vertical columns and a clear left-to-right reading order. The composition should communicate comparison and operational outcome through abstract, polished 3D forms only: one side in neutral grays representing the status quo, the other side in brand colors representing the improved flow. Use a single hero visual hierarchy with 1–3 secondary elements maximum, large areas of negative space, and a clean editorial grid. Camera in a slightly elevated three-quarter view with soft isometric discipline, 45–70 mm equivalent feel, subtle perspective, no dramatic distortion. Materials must feel premium and tactile: matte white ceramic, satin acrylic, brushed light graphite, and refined soft-edge surfaces with precise bevels. Lighting is bright studio softbox, high-key but not overexposed, with gentle contact shadows and controlled reflections. Palette distribution: 80–90% white (#FFFFFF) and very light gray (#F5F5F5), 6–12% navy (#0F1419) for structure, outlines, and checks, 2–5% teal (#2ED4C7) for the active/solved state, and 1–3% coral (#FF7A4A) for the waiting/problem state only. Keep the left side visually restrained and neutral, the right side cleaner and more activated with brand color accents. The layout should feel like a premium comparison table translated into 3D, with crisp alignment, corporate clarity, and a single strong operational result at the end. Typography only if absolutely necessary, and only as exact provided copy; otherwise no text. If text is present, use Montserrat Bold/ExtraBold for headline and Poppins Medium/SemiBold for body and CTA, flat vector-like, matte, clean, and fully legible. Maintain a modern institutional B2B aesthetic, lots of breathing room, minimal secondary detail, no clutter, no decorative excess, and no aggressive contrast.",
+    "carouselSlides": [
+      {
+        "index": 3,
+        "role": "solution",
+        "headline": "liquidación mismo día vs 3-5 días bancarios",
+        "body": "",
+        "cta": "",
+        "imageIntent": "Pasa visualmente de la incertidumbre al control: la escena se siente más ordenada, más estable, con un resultado definido. El sujeto de la frase es el producto, no el cliente. Contexto concreto: dos estados de cuenta comparables.",
+        "brandElements": [],
+        "brief": {
+          "visualIntent": "Volver visible el rol solution mediante dos estados de cuenta comparables",
+          "visualMetaphor": "dos estados de cuenta comparables como evidencia física de la afirmación",
+          "layout": "document_result",
+          "primaryObjects": [
+            "dos estados de cuenta comparables"
+          ],
+          "environmentalText": [],
+          "highlights": []
+        }
+      }
+    ]
+  },
+  {
+    "userRequest": "Tu banco es bueno para muchas cosas. Pagos internacionales no es una.",
+    "brand": "xending",
+    "business_id": "<BUSINESS_ID>",
+    "branch_id": "<BRANCH_ID:banco-vs-xending>",
+    "mode": "carousel_prompts",
+    "imageType": "infografia",
+    "visualMotif": "Dos estados de cuenta comparables abren la serie y un único resultado operativo la cierra.",
+    "carouselTotalSlides": 5,
+    "headline": "Tu banco es bueno para muchas cosas. Pagos internacionales no es una.",
+    "body": "3-5 días de espera para liquidación",
+    "imageIntent": "Dos estados de cuenta comparables abren la serie y un único resultado operativo la cierra.",
+    "angle": "general",
+    "backgroundStyle": "white",
+    "masterPromptVersion": "v2",
+    "corridorMode": "auto",
+    "corridorFlowType": "auto",
+    "aspectRatio": "1:1",
+    "imageSize": "1024x1024",
+    "carouselDesignBlock": "Premium 3D iconography / product-visual system on a pure white background, designed as a corporate B2B comparison layout with two clean vertical columns and a clear left-to-right reading order. The composition should communicate comparison and operational outcome through abstract, polished 3D forms only: one side in neutral grays representing the status quo, the other side in brand colors representing the improved flow. Use a single hero visual hierarchy with 1–3 secondary elements maximum, large areas of negative space, and a clean editorial grid. Camera in a slightly elevated three-quarter view with soft isometric discipline, 45–70 mm equivalent feel, subtle perspective, no dramatic distortion. Materials must feel premium and tactile: matte white ceramic, satin acrylic, brushed light graphite, and refined soft-edge surfaces with precise bevels. Lighting is bright studio softbox, high-key but not overexposed, with gentle contact shadows and controlled reflections. Palette distribution: 80–90% white (#FFFFFF) and very light gray (#F5F5F5), 6–12% navy (#0F1419) for structure, outlines, and checks, 2–5% teal (#2ED4C7) for the active/solved state, and 1–3% coral (#FF7A4A) for the waiting/problem state only. Keep the left side visually restrained and neutral, the right side cleaner and more activated with brand color accents. The layout should feel like a premium comparison table translated into 3D, with crisp alignment, corporate clarity, and a single strong operational result at the end. Typography only if absolutely necessary, and only as exact provided copy; otherwise no text. If text is present, use Montserrat Bold/ExtraBold for headline and Poppins Medium/SemiBold for body and CTA, flat vector-like, matte, clean, and fully legible. Maintain a modern institutional B2B aesthetic, lots of breathing room, minimal secondary detail, no clutter, no decorative excess, and no aggressive contrast.",
+    "carouselSlides": [
+      {
+        "index": 4,
+        "role": "cta",
+        "headline": "Compara tu experiencia actual.",
+        "body": "",
+        "cta": "",
+        "imageIntent": "Cierre. El CTA aprobado, composición limpia, producto premium y máximo aire. No es otro capítulo educativo. Contexto concreto: ruta operativa.",
+        "brandElements": [],
+        "brief": {
+          "visualIntent": "Volver visible el rol cta mediante ruta operativa",
+          "visualMetaphor": "ruta operativa como evidencia física de la afirmación",
+          "layout": "hero_clean",
+          "primaryObjects": [
+            "ruta operativa"
+          ],
+          "environmentalText": [],
+          "highlights": []
+        }
+      }
+    ]
+  }
+]

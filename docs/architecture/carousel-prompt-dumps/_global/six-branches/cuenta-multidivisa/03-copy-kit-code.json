@@ -1,0 +1,5 @@
+{
+  "status": "NO CAPTURADO EN RUNTIME",
+  "reason": "No hay copy_kit para la rama \"cuenta-multidivisa\". Disponibles: velocidad, costos-ahorro, coberturas.",
+  "distinction": "commercial_branches.prompt_kit sí existe y alimenta branchContext; este error corresponde solo al copyKitRegistry moderno de código."
+}

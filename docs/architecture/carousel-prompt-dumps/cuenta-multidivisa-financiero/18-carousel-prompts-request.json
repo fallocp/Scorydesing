@@ -1,0 +1,214 @@
+[
+  {
+    "userRequest": "Tu empresa opera en varias monedas. Tu tesorería no debería operar a ciegas.",
+    "brand": "xending",
+    "business_id": "<BUSINESS_ID>",
+    "branch_id": "<BRANCH_ID:cuenta-multidivisa>",
+    "mode": "carousel_prompts",
+    "imageType": "mapa_rutas",
+    "visualMotif": "Una cuenta corporativa con compartimentos USD, EUR y MXN abre y cierra la serie.",
+    "carouselTotalSlides": 5,
+    "headline": "Tu empresa opera en varias monedas. Tu tesorería no debería operar a ciegas.",
+    "body": "múltiples cuentas bancarias por moneda",
+    "imageIntent": "Una cuenta corporativa con compartimentos USD, EUR y MXN abre y cierra la serie.",
+    "angle": "general",
+    "backgroundStyle": "white",
+    "masterPromptVersion": "v2",
+    "corridorMode": "auto",
+    "corridorFlowType": "auto",
+    "aspectRatio": "1:1",
+    "imageSize": "1024x1024",
+    "carouselDesignBlock": "Create a white-background Xending system visual for a global treasury and multicurrency control concept, using an operational route language without naming any specific subject or scene. The composition must feel corporate, premium, institutional, modern, technological, and B2B, with a single clear visual hierarchy, 80–90% white space, and only 1–3 restrained secondary accents. Use a clean editorial layout with a dominant central flow, subtle structural navy elements (#0F1419) as the control framework, teal (#2ED4C7) as the activation/solution signal, and coral (#FF7A4A) as the only tension or status accent. Keep the palette mostly white (#FFFFFF) with very light gray support (#F5F5F5), no dark background, no heavy gradients, no busy composition, and no decorative clutter. The visual should suggest layered control, separation, and centralization through a minimal route system, with thin curves, small nodes, and a single focal interruption that resolves into a clearer controlled flow. Camera treatment: clean isometric or slightly elevated three-quarter view, premium product-visual clarity, soft studio lighting, realistic soft shadows, sharp edges, subtle depth, and generous negative space. Materiality: refined matte white, satin acrylic, light gray structural surfaces, precise bevels, and clean micro-reflections; no toy look, no plastic sheen, no low-poly geometry, no cyberpunk or neon styling. Typography rules only if text were present: Montserrat Bold or ExtraBold for headline, Poppins Medium or SemiBold for body/CTA, flat vector-like, matte, crisp, vertical axis, slightly tight tracking; however, because textInImage is false, include no readable text, labels, numbers, or logos of any kind. The composition must remain abstract and reusable across multiple pieces, with a restrained route motif that implies multicurrency coordination, visibility, and centralization without depicting any concrete business object or scene.",
+    "carouselSlides": [
+      {
+        "index": 0,
+        "role": "tension",
+        "headline": "Tu empresa opera en varias monedas. Tu tesorería no debería operar a ciegas.",
+        "body": "múltiples cuentas bancarias por moneda",
+        "cta": "",
+        "imageIntent": "Detiene el scroll y planta el problema. Headline grande desde el copy semilla, escena simple con el producto protagonista y un elemento que introduce la tensión. Poco supporting copy. No resuelvas nada todavía. Contexto concreto: cuenta corporativa multimoneda.",
+        "brandElements": [
+          "logo"
+        ],
+        "brief": {
+          "visualIntent": "Volver visible el rol tension mediante cuenta corporativa multimoneda",
+          "visualMetaphor": "cuenta corporativa multimoneda como evidencia física de la afirmación",
+          "layout": "editorial_top",
+          "primaryObjects": [
+            "cuenta corporativa multimoneda"
+          ],
+          "environmentalText": [],
+          "highlights": []
+        }
+      }
+    ]
+  },
+  {
+    "userRequest": "Tu empresa opera en varias monedas. Tu tesorería no debería operar a ciegas.",
+    "brand": "xending",
+    "business_id": "<BUSINESS_ID>",
+    "branch_id": "<BRANCH_ID:cuenta-multidivisa>",
+    "mode": "carousel_prompts",
+    "imageType": "mapa_rutas",
+    "visualMotif": "Una cuenta corporativa con compartimentos USD, EUR y MXN abre y cierra la serie.",
+    "carouselTotalSlides": 5,
+    "headline": "Tu empresa opera en varias monedas. Tu tesorería no debería operar a ciegas.",
+    "body": "múltiples cuentas bancarias por moneda",
+    "imageIntent": "Una cuenta corporativa con compartimentos USD, EUR y MXN abre y cierra la serie.",
+    "angle": "general",
+    "backgroundStyle": "white",
+    "masterPromptVersion": "v2",
+    "corridorMode": "auto",
+    "corridorFlowType": "auto",
+    "aspectRatio": "1:1",
+    "imageSize": "1024x1024",
+    "carouselDesignBlock": "Create a white-background Xending system visual for a global treasury and multicurrency control concept, using an operational route language without naming any specific subject or scene. The composition must feel corporate, premium, institutional, modern, technological, and B2B, with a single clear visual hierarchy, 80–90% white space, and only 1–3 restrained secondary accents. Use a clean editorial layout with a dominant central flow, subtle structural navy elements (#0F1419) as the control framework, teal (#2ED4C7) as the activation/solution signal, and coral (#FF7A4A) as the only tension or status accent. Keep the palette mostly white (#FFFFFF) with very light gray support (#F5F5F5), no dark background, no heavy gradients, no busy composition, and no decorative clutter. The visual should suggest layered control, separation, and centralization through a minimal route system, with thin curves, small nodes, and a single focal interruption that resolves into a clearer controlled flow. Camera treatment: clean isometric or slightly elevated three-quarter view, premium product-visual clarity, soft studio lighting, realistic soft shadows, sharp edges, subtle depth, and generous negative space. Materiality: refined matte white, satin acrylic, light gray structural surfaces, precise bevels, and clean micro-reflections; no toy look, no plastic sheen, no low-poly geometry, no cyberpunk or neon styling. Typography rules only if text were present: Montserrat Bold or ExtraBold for headline, Poppins Medium or SemiBold for body/CTA, flat vector-like, matte, crisp, vertical axis, slightly tight tracking; however, because textInImage is false, include no readable text, labels, numbers, or logos of any kind. The composition must remain abstract and reusable across multiple pieces, with a restrained route motif that implies multicurrency coordination, visibility, and centralization without depicting any concrete business object or scene.",
+    "carouselSlides": [
+      {
+        "index": 1,
+        "role": "shift",
+        "headline": "Tener muchas cuentas no significa tener más control.",
+        "body": "",
+        "cta": "",
+        "imageIntent": "Muestra el MECANISMO: qué puede cambiar entre hoy y el pago. La escena necesita dos momentos en el cuadro — mismo producto, misma factura, dos fechas, dos resultados. Frase en condicional. Contexto concreto: documentos USD EUR MXN.",
+        "brandElements": [],
+        "brief": {
+          "visualIntent": "Volver visible el rol shift mediante documentos USD EUR MXN",
+          "visualMetaphor": "documentos USD EUR MXN como evidencia física de la afirmación",
+          "layout": "split_photo",
+          "primaryObjects": [
+            "documentos USD EUR MXN"
+          ],
+          "environmentalText": [],
+          "highlights": []
+        }
+      }
+    ]
+  },
+  {
+    "userRequest": "Tu empresa opera en varias monedas. Tu tesorería no debería operar a ciegas.",
+    "brand": "xending",
+    "business_id": "<BUSINESS_ID>",
+    "branch_id": "<BRANCH_ID:cuenta-multidivisa>",
+    "mode": "carousel_prompts",
+    "imageType": "mapa_rutas",
+    "visualMotif": "Una cuenta corporativa con compartimentos USD, EUR y MXN abre y cierra la serie.",
+    "carouselTotalSlides": 5,
+    "headline": "Tu empresa opera en varias monedas. Tu tesorería no debería operar a ciegas.",
+    "body": "múltiples cuentas bancarias por moneda",
+    "imageIntent": "Una cuenta corporativa con compartimentos USD, EUR y MXN abre y cierra la serie.",
+    "angle": "general",
+    "backgroundStyle": "white",
+    "masterPromptVersion": "v2",
+    "corridorMode": "auto",
+    "corridorFlowType": "auto",
+    "aspectRatio": "1:1",
+    "imageSize": "1024x1024",
+    "carouselDesignBlock": "Create a white-background Xending system visual for a global treasury and multicurrency control concept, using an operational route language without naming any specific subject or scene. The composition must feel corporate, premium, institutional, modern, technological, and B2B, with a single clear visual hierarchy, 80–90% white space, and only 1–3 restrained secondary accents. Use a clean editorial layout with a dominant central flow, subtle structural navy elements (#0F1419) as the control framework, teal (#2ED4C7) as the activation/solution signal, and coral (#FF7A4A) as the only tension or status accent. Keep the palette mostly white (#FFFFFF) with very light gray support (#F5F5F5), no dark background, no heavy gradients, no busy composition, and no decorative clutter. The visual should suggest layered control, separation, and centralization through a minimal route system, with thin curves, small nodes, and a single focal interruption that resolves into a clearer controlled flow. Camera treatment: clean isometric or slightly elevated three-quarter view, premium product-visual clarity, soft studio lighting, realistic soft shadows, sharp edges, subtle depth, and generous negative space. Materiality: refined matte white, satin acrylic, light gray structural surfaces, precise bevels, and clean micro-reflections; no toy look, no plastic sheen, no low-poly geometry, no cyberpunk or neon styling. Typography rules only if text were present: Montserrat Bold or ExtraBold for headline, Poppins Medium or SemiBold for body/CTA, flat vector-like, matte, crisp, vertical axis, slightly tight tracking; however, because textInImage is false, include no readable text, labels, numbers, or logos of any kind. The composition must remain abstract and reusable across multiple pieces, with a restrained route motif that implies multicurrency coordination, visibility, and centralization without depicting any concrete business object or scene.",
+    "carouselSlides": [
+      {
+        "index": 2,
+        "role": "risk",
+        "headline": "múltiples cuentas bancarias por moneda",
+        "body": "",
+        "cta": "",
+        "imageIntent": "Muestra la CONSECUENCIA. Si la línea habla de acumulación, la escena repite: varias compras, varios documentos, impacto agregado. Que el concepto se vea, no que se enuncie. Contexto concreto: panel de tesorería.",
+        "brandElements": [],
+        "brief": {
+          "visualIntent": "Volver visible el rol risk mediante panel de tesorería",
+          "visualMetaphor": "panel de tesorería como evidencia física de la afirmación",
+          "layout": "editorial_repetition",
+          "primaryObjects": [
+            "panel de tesorería"
+          ],
+          "environmentalText": [],
+          "highlights": []
+        }
+      }
+    ]
+  },
+  {
+    "userRequest": "Tu empresa opera en varias monedas. Tu tesorería no debería operar a ciegas.",
+    "brand": "xending",
+    "business_id": "<BUSINESS_ID>",
+    "branch_id": "<BRANCH_ID:cuenta-multidivisa>",
+    "mode": "carousel_prompts",
+    "imageType": "mapa_rutas",
+    "visualMotif": "Una cuenta corporativa con compartimentos USD, EUR y MXN abre y cierra la serie.",
+    "carouselTotalSlides": 5,
+    "headline": "Tu empresa opera en varias monedas. Tu tesorería no debería operar a ciegas.",
+    "body": "múltiples cuentas bancarias por moneda",
+    "imageIntent": "Una cuenta corporativa con compartimentos USD, EUR y MXN abre y cierra la serie.",
+    "angle": "general",
+    "backgroundStyle": "white",
+    "masterPromptVersion": "v2",
+    "corridorMode": "auto",
+    "corridorFlowType": "auto",
+    "aspectRatio": "1:1",
+    "imageSize": "1024x1024",
+    "carouselDesignBlock": "Create a white-background Xending system visual for a global treasury and multicurrency control concept, using an operational route language without naming any specific subject or scene. The composition must feel corporate, premium, institutional, modern, technological, and B2B, with a single clear visual hierarchy, 80–90% white space, and only 1–3 restrained secondary accents. Use a clean editorial layout with a dominant central flow, subtle structural navy elements (#0F1419) as the control framework, teal (#2ED4C7) as the activation/solution signal, and coral (#FF7A4A) as the only tension or status accent. Keep the palette mostly white (#FFFFFF) with very light gray support (#F5F5F5), no dark background, no heavy gradients, no busy composition, and no decorative clutter. The visual should suggest layered control, separation, and centralization through a minimal route system, with thin curves, small nodes, and a single focal interruption that resolves into a clearer controlled flow. Camera treatment: clean isometric or slightly elevated three-quarter view, premium product-visual clarity, soft studio lighting, realistic soft shadows, sharp edges, subtle depth, and generous negative space. Materiality: refined matte white, satin acrylic, light gray structural surfaces, precise bevels, and clean micro-reflections; no toy look, no plastic sheen, no low-poly geometry, no cyberpunk or neon styling. Typography rules only if text were present: Montserrat Bold or ExtraBold for headline, Poppins Medium or SemiBold for body/CTA, flat vector-like, matte, crisp, vertical axis, slightly tight tracking; however, because textInImage is false, include no readable text, labels, numbers, or logos of any kind. The composition must remain abstract and reusable across multiple pieces, with a restrained route motif that implies multicurrency coordination, visibility, and centralization without depicting any concrete business object or scene.",
+    "carouselSlides": [
+      {
+        "index": 3,
+        "role": "solution",
+        "headline": "administrar cuentas en más de 30 divisas",
+        "body": "",
+        "cta": "",
+        "imageIntent": "Pasa visualmente de la incertidumbre al control: la escena se siente más ordenada, más estable, con un resultado definido. El sujeto de la frase es el producto, no el cliente. Contexto concreto: cuenta corporativa multimoneda.",
+        "brandElements": [],
+        "brief": {
+          "visualIntent": "Volver visible el rol solution mediante cuenta corporativa multimoneda",
+          "visualMetaphor": "cuenta corporativa multimoneda como evidencia física de la afirmación",
+          "layout": "document_result",
+          "primaryObjects": [
+            "cuenta corporativa multimoneda"
+          ],
+          "environmentalText": [],
+          "highlights": []
+        }
+      }
+    ]
+  },
+  {
+    "userRequest": "Tu empresa opera en varias monedas. Tu tesorería no debería operar a ciegas.",
+    "brand": "xending",
+    "business_id": "<BUSINESS_ID>",
+    "branch_id": "<BRANCH_ID:cuenta-multidivisa>",
+    "mode": "carousel_prompts",
+    "imageType": "mapa_rutas",
+    "visualMotif": "Una cuenta corporativa con compartimentos USD, EUR y MXN abre y cierra la serie.",
+    "carouselTotalSlides": 5,
+    "headline": "Tu empresa opera en varias monedas. Tu tesorería no debería operar a ciegas.",
+    "body": "múltiples cuentas bancarias por moneda",
+    "imageIntent": "Una cuenta corporativa con compartimentos USD, EUR y MXN abre y cierra la serie.",
+    "angle": "general",
+    "backgroundStyle": "white",
+    "masterPromptVersion": "v2",
+    "corridorMode": "auto",
+    "corridorFlowType": "auto",
+    "aspectRatio": "1:1",
+    "imageSize": "1024x1024",
+    "carouselDesignBlock": "Create a white-background Xending system visual for a global treasury and multicurrency control concept, using an operational route language without naming any specific subject or scene. The composition must feel corporate, premium, institutional, modern, technological, and B2B, with a single clear visual hierarchy, 80–90% white space, and only 1–3 restrained secondary accents. Use a clean editorial layout with a dominant central flow, subtle structural navy elements (#0F1419) as the control framework, teal (#2ED4C7) as the activation/solution signal, and coral (#FF7A4A) as the only tension or status accent. Keep the palette mostly white (#FFFFFF) with very light gray support (#F5F5F5), no dark background, no heavy gradients, no busy composition, and no decorative clutter. The visual should suggest layered control, separation, and centralization through a minimal route system, with thin curves, small nodes, and a single focal interruption that resolves into a clearer controlled flow. Camera treatment: clean isometric or slightly elevated three-quarter view, premium product-visual clarity, soft studio lighting, realistic soft shadows, sharp edges, subtle depth, and generous negative space. Materiality: refined matte white, satin acrylic, light gray structural surfaces, precise bevels, and clean micro-reflections; no toy look, no plastic sheen, no low-poly geometry, no cyberpunk or neon styling. Typography rules only if text were present: Montserrat Bold or ExtraBold for headline, Poppins Medium or SemiBold for body/CTA, flat vector-like, matte, crisp, vertical axis, slightly tight tracking; however, because textInImage is false, include no readable text, labels, numbers, or logos of any kind. The composition must remain abstract and reusable across multiple pieces, with a restrained route motif that implies multicurrency coordination, visibility, and centralization without depicting any concrete business object or scene.",
+    "carouselSlides": [
+      {
+        "index": 4,
+        "role": "cta",
+        "headline": "Conoce cómo centralizar tu operación multidivisa.",
+        "body": "",
+        "cta": "",
+        "imageIntent": "Cierre. El CTA aprobado, composición limpia, producto premium y máximo aire. No es otro capítulo educativo. Contexto concreto: documentos USD EUR MXN.",
+        "brandElements": [],
+        "brief": {
+          "visualIntent": "Volver visible el rol cta mediante documentos USD EUR MXN",
+          "visualMetaphor": "documentos USD EUR MXN como evidencia física de la afirmación",
+          "layout": "hero_clean",
+          "primaryObjects": [
+            "documentos USD EUR MXN"
+          ],
+          "environmentalText": [],
+          "highlights": []
+        }
+      }
+    ]
+  }
+]

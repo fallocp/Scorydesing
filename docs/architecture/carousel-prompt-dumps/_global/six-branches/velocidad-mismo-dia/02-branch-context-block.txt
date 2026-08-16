@@ -1,0 +1,154 @@
+
+## CONTEXTO PRIORITARIO DE RAMA COMERCIAL
+
+La rama seleccionada es: Velocidad - Mismo Día
+
+Este contexto tiene prioridad sobre cualquier ejemplo genérico del prompt base.
+
+Regla crítica: Tu tarea no es vender Xending en general. Tu tarea es generar contenido específico para esta rama comercial.
+
+Si la rama seleccionada NO es "Pagos Internacionales", evita generar ideas centradas en pagos internacionales genéricos, velocidad de transferencia, SWIFT, China, proveedor cobrando rápido o tipo de cambio competitivo, salvo que el contexto específico de la rama lo indique.
+
+### Posicionamiento de la rama
+Xending liquida pagos internacionales el mismo día hábil, eliminando los 3-5 días de espera bancaria que frenan operaciones, detienen embarques y tensan relaciones con proveedores.
+
+### Posicionamiento corto
+Pagos internacionales que llegan el mismo día.
+
+### Ángulo ejecutivo
+El tiempo de un pago no es solo un dato operativo. Es mercancía que no sale, producción que se atrasa y proveedores que pierden confianza.
+
+### Ángulo provocador
+Tu banco tarda 3 días en enviar un pago. ¿Cuánto te cuesta cada día de espera?
+
+### Problema principal
+Los pagos internacionales bancarios tardan 3-5 días hábiles en llegar al beneficiario. Mientras tanto, el embarque no sale, la mercancía no se libera, el proveedor se impacienta y la operación se frena. El costo real no está en la comisión, está en el tiempo perdido.
+
+### Promesa estratégica
+Liquidación el mismo día hábil para que tu proveedor reciba, tu embarque salga y tu operación no se detenga por un pago en tránsito.
+
+### Audiencia
+- CFOs de empresas importadoras
+- Directores de operaciones
+- Tesoreros con pagos urgentes
+- Empresas con proveedores que exigen pago antes de embarcar
+- Importadores de perecederos o productos con fecha límite
+- Empresas con operaciones just-in-time
+
+### Tensiones clave de esta rama
+- Enviar un pago no significa que el proveedor lo reciba.
+- El banco confirma el envío. El proveedor sigue esperando fondos disponibles.
+- Un pago que tarda 3 días puede frenar una operación completa.
+- La mercancía no espera procesos bancarios.
+- El proveedor no libera sin fondos confirmados, no importa lo que diga tu banco.
+- Cada día de espera puede ser un embarque perdido, un recargo o una reasignación.
+- La velocidad de pago no es un lujo. Es continuidad operativa.
+- Un pago lento puede costarte más que la comisión que intentas ahorrar.
+
+### Dolores específicos
+Cada idea debe conectar con al menos uno de estos dolores:
+- proveedor esperando confirmación de fondos para liberar mercancía
+- embarque detenido por pago en tránsito
+- 3-5 días hábiles de espera bancaria
+- recargos por demora en puerto o almacén
+- proveedor que reasigna mercancía a otro comprador
+- producción atrasada por falta de insumos pagados
+- pérdida de ventana de embarque
+- cotización que vence antes de que llegue el pago
+- relación comercial deteriorada por pagos lentos
+- operación just-in-time interrumpida
+- costos de almacenaje por mercancía no liberada
+
+### Beneficios específicos permitidos
+- liquidación el mismo día hábil
+- proveedor recibe fondos disponibles en horas
+- embarque sale el mismo día del pago
+- eliminación de tiempos muertos bancarios
+- continuidad operativa sin interrupciones
+- relación comercial fortalecida con proveedores
+- operación predecible y controlada
+- sin dependencia de horarios bancarios limitados
+
+### Buenos headlines de referencia
+Úsalos como guía de tono y enfoque. No los copies literalmente salvo que el usuario lo pida.
+- La mercancía no espera la liquidación bancaria.
+- El banco confirma. El proveedor todavía espera.
+- Pagar hoy no significa que cobren hoy.
+- Un pago lento puede frenar una orden completa.
+- Tu cotización puede vencer antes que el pago llegue.
+- Entre enviar y cobrar puede perderse un embarque.
+- Tres días de espera también cuestan inventario.
+- El proveedor no libera con promesas. Libera con fondos.
+- Tu operación no puede esperar el ritmo de tu banco.
+
+### Headlines malos o débiles
+Evita este tipo de salida:
+- Pagos rápidos para tu empresa.
+- Envía dinero al instante.
+- La plataforma más rápida del mercado.
+- Pagos internacionales en segundos.
+- Velocidad garantizada siempre.
+
+### Claims permitidos
+- Liquidación mismo día hábil.
+- Tu proveedor recibe fondos disponibles en horas, no en días.
+- Elimina los 3-5 días de espera bancaria.
+- Operación continua sin interrupciones por pagos en tránsito.
+- Mayor agilidad frente a canales bancarios tradicionales.
+
+### Claims prohibidos
+No uses ni impliques estos claims:
+- Instantáneo garantizado.
+- Siempre mismo día sin excepción.
+- 100% de operaciones en minutos.
+- Cero demoras.
+- Más rápido que cualquier alternativa.
+- Tu pago llega en segundos.
+
+### Fórmulas narrativas recomendadas
+- [Enviar] no significa [que cobren].
+- [Confirmar envío] no es [fondos disponibles].
+- [N días de espera] pueden costarte [consecuencia operativa].
+- La mercancía no espera [proceso bancario].
+- Entre [enviar] y [cobrar] puede perderse [oportunidad].
+- Si el pago tarda [N días], [consecuencia concreta].
+- El problema no es [pagar]. Es [que llegue a tiempo].
+- Un pago lento puede costarte más que [la comisión].
+
+### Lenguaje visual recomendado
+- reloj con indicador de mismo día
+- línea de tiempo: banco (3-5 días) vs Xending (mismo día)
+- contenedor en puerto esperando liberación
+- proveedor revisando confirmación de pago
+- embarque saliendo de almacén
+- dashboard con estatus de pago en tiempo real
+- flechas de velocidad y movimiento
+- comparativa visual de tiempos
+
+### Restricciones específicas de esta rama
+- No centrar la idea en tipo de cambio o ahorro en FX.
+- No centrar la idea en múltiples monedas o cuentas.
+- No centrar la idea en cobertura cambiaria.
+- No centrar la idea en costos ocultos como tema principal.
+- No prometer tiempos exactos garantizados.
+- No decir que el tipo de cambio se mueve mientras el pago viaja (el precio se cierra al pactar).
+- El foco debe estar en TIEMPO, URGENCIA y CONTINUIDAD OPERATIVA.
+
+### Temas prioritarios
+- velocidad de liquidación
+- mismo día hábil
+- proveedor esperando
+- embarque detenido
+- mercancía no liberada
+- continuidad operativa
+- urgencia de pago
+- fondos disponibles vs pago enviado
+- relación con proveedor
+- operación just-in-time
+
+### CTAs recomendados
+- Revisa tu ruta de pago.
+- Compara tiempos de liquidación.
+- Evalúa pagos mismo día.
+- Valida cuándo cobra tu proveedor.
+- Conoce la diferencia entre enviar y cobrar.

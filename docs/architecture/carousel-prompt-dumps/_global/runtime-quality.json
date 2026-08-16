@@ -1,0 +1,16 @@
+{
+  "auditedBranch": "feat/design-studio-content-modes",
+  "auditedCommit": "8fb80f39cf47c6902c63a009b554429ad834238e",
+  "activeWorktree": "F:/ScoryDesign",
+  "activeCarouselQuality": "medium",
+  "activeSource": "src/hooks/useCarouselQueue.ts: imageQuality = medium",
+  "historicalHigh": {
+    "active": false,
+    "commits": [
+      "336b3154cf820a0265ba5e2ef595d1c9840e78ee",
+      "bca6643"
+    ],
+    "reasonRemoved": "high at 1024x1024 did not return within the synchronous 110s ceiling; a multi-slide carousel amplified timeout risk"
+  },
+  "renderCallsExecutedByAudit": 0
+}

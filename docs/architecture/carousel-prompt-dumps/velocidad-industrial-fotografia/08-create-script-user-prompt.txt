@@ -1,0 +1,5 @@
+Copy semilla aprobado por el usuario:
+- Headline: "Las autopartes pueden estar listas antes que el pago"
+- Body: "Paga a proveedores en China el mismo día y mantén tu compra en movimiento."
+- CTA: "Pagos a China, mismo día"
+Escribe el guion de 5 slides y el motivo visual.

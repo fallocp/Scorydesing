@@ -1,0 +1,12 @@
+{
+  "requestedSlug": "banco-vs-xending",
+  "activeDatabaseSlug": "banco-vs-xending",
+  "commercialBranchesPromptKitFound": true,
+  "modernCodeCopyKitSlug": null,
+  "modernCodeCopyKitResolution": {
+    "status": "error",
+    "message": "No hay copy_kit para la rama \"banco-vs-xending\". Disponibles: velocidad, costos-ahorro, coberturas."
+  },
+  "editorialBansLength": 0,
+  "branchContextLength": 7184
+}

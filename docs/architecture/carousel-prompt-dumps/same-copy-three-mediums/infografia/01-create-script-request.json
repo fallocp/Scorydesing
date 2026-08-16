@@ -1,0 +1,77 @@
+{
+  "business_id": "<BUSINESS_ID>",
+  "branch_id": "<BRANCH_ID:ahorro-costos-ocultos>",
+  "vertical_id": null,
+  "seedCopy": {
+    "headline": "Cada motor también mueve tus costos",
+    "body": "El tipo de cambio influye en el precio final de motores y equipos industriales.",
+    "cta": "Cotiza con Xending"
+  },
+  "slides": [
+    {
+      "role": "tension",
+      "brief": "Detiene el scroll y planta el problema. Headline grande desde el copy semilla, escena simple con el producto protagonista y un elemento que introduce la tensión. Poco supporting copy. No resuelvas nada todavía.",
+      "brandElements": [
+        "logo"
+      ],
+      "layoutHint": "editorial_top"
+    },
+    {
+      "role": "shift",
+      "brief": "Muestra el MECANISMO: qué puede cambiar entre hoy y el pago. La escena necesita dos momentos en el cuadro — mismo producto, misma factura, dos fechas, dos resultados. Frase en condicional.",
+      "brandElements": [],
+      "layoutHint": "split_photo"
+    },
+    {
+      "role": "risk",
+      "brief": "Muestra la CONSECUENCIA. Si la línea habla de acumulación, la escena repite: varias compras, varios documentos, impacto agregado. Que el concepto se vea, no que se enuncie.",
+      "brandElements": [],
+      "layoutHint": "editorial_repetition"
+    },
+    {
+      "role": "solution",
+      "brief": "Pasa visualmente de la incertidumbre al control: la escena se siente más ordenada, más estable, con un resultado definido. El sujeto de la frase es el producto, no el cliente.",
+      "brandElements": [],
+      "layoutHint": "document_result"
+    },
+    {
+      "role": "cta",
+      "brief": "Cierre. El CTA aprobado, composición limpia, producto premium y máximo aire. No es otro capítulo educativo.",
+      "brandElements": [],
+      "layoutHint": "hero_clean"
+    }
+  ],
+  "visualMode": "EDITORIAL_FULL_TEXT",
+  "narrativeRules": "1. El slide 1 lleva el headline semilla COMPLETO, casi tal cual. Ese texto ya lo aprobó el usuario: respétalo, no lo \"mejores\". Si son dos oraciones en contraste, van las dos en la misma línea — partir la antítesis entre dos niveles de texto mata el gancho.\n2. Los slides se leen como UNA sola oración cortada en varias. Cada slide continúa el anterior y lo retoma (\"Eso puede…\", \"Ese movimiento…\", \"Y con él…\"). Leer uno solo, fuera de orden, deja la idea incompleta: eso es correcto en esta estructura.",
+  "objective": "vender",
+  "angleName": "general",
+  "industryName": null,
+  "imageType": "infografia",
+  "fxMoments": [
+    {
+      "label": "HOY",
+      "rate": "18.20",
+      "usd": "USD 10,000.00",
+      "mxn": "MXN 182,000.00",
+      "delta": "",
+      "pct": ""
+    },
+    {
+      "label": "MOMENTO 2",
+      "rate": "18.38",
+      "usd": "USD 10,000.00",
+      "mxn": "MXN 183,800.00",
+      "delta": "+MXN 1,800.00",
+      "pct": "+1.0%"
+    },
+    {
+      "label": "PAGO",
+      "rate": "18.56",
+      "usd": "USD 10,000.00",
+      "mxn": "MXN 185,600.00",
+      "delta": "+MXN 3,600.00",
+      "pct": "+2.0%"
+    }
+  ],
+  "fxAccumulated": "+MXN 5,400.00"
+}

@@ -1,0 +1,33 @@
+{
+  "edgeResponse": {
+    "httpStatus": 200,
+    "ok": true,
+    "body": {
+      "prompts": {
+        "infografia": {
+          "prompt_final": "Premium 3D iconography / product-visual system on a pure white background, designed as a corporate B2B comparison layout with two clean vertical columns and a clear left-to-right reading order. The composition should communicate comparison and operational outcome through abstract, polished 3D forms only: one side in neutral grays representing the status quo, the other side in brand colors representing the improved flow. Use a single hero visual hierarchy with 1–3 secondary elements maximum, large areas of negative space, and a clean editorial grid. Camera in a slightly elevated three-quarter view with soft isometric discipline, 45–70 mm equivalent feel, subtle perspective, no dramatic distortion. Materials must feel premium and tactile: matte white ceramic, satin acrylic, brushed light graphite, and refined soft-edge surfaces with precise bevels. Lighting is bright studio softbox, high-key but not overexposed, with gentle contact shadows and controlled reflections. Palette distribution: 80–90% white (#FFFFFF) and very light gray (#F5F5F5), 6–12% navy (#0F1419) for structure, outlines, and checks, 2–5% teal (#2ED4C7) for the active/solved state, and 1–3% coral (#FF7A4A) for the waiting/problem state only. Keep the left side visually restrained and neutral, the right side cleaner and more activated with brand color accents. The layout should feel like a premium comparison table translated into 3D, with crisp alignment, corporate clarity, and a single strong operational result at the end. Typography only if absolutely necessary, and only as exact provided copy; otherwise no text. If text is present, use Montserrat Bold/ExtraBold for headline and Poppins Medium/SemiBold for body and CTA, flat vector-like, matte, clean, and fully legible. Maintain a modern institutional B2B aesthetic, lots of breathing room, minimal secondary detail, no clutter, no decorative excess, and no aggressive contrast.",
+          "negative_instructions": "No text when text_in_image is false, no readable words, letters, numbers, labels, captions, legends, logos, watermarks, invented data, gibberish, misspellings, or third-party brands. No generic Canva infographic, no flat vector look, no three-column layout, no catalog grid, no clutter, no excessive elements, no inconsistent scale, no childish toy look, no inflatable forms, no cheap plastic, no low-poly geometry, no malformed shapes, no overly glossy glass, no neon, no crypto or gamer styling, no cyberpunk, no dark background, no excessive navy, teal, or coral, no thick arrows, no too-many routes or pins, no stock corporate fake aesthetic, no chaotic composition, no overdesigned dashboard, no busy icons, no heavy gradients, no harsh shadows, no black-on-black treatment, no aggressive contrast, no scene-specific objects or props, no invented product mockups, no duplicated elements, no poor alignment, no noisy textures.",
+          "aspect_ratio": "1:1",
+          "creative_rationale": "This infography variant translates the idea into a premium comparison system: two comparable states visually open the sequence, and one clear operational outcome closes it. The system stays abstract and reusable, with a clean two-column corporate layout, neutral-versus-brand color logic, and a single decisive result."
+        }
+      },
+      "aspectRatio": "1:1",
+      "promptMeta": {
+        "source": "code-v2-request",
+        "version": "v2",
+        "backgroundStyle": "white",
+        "corridor": null
+      },
+      "usage": {
+        "next_step": "Call this endpoint again with mode=\"generate\", imageType=<type>, promptFinal=<prompts[type].prompt_final>",
+        "available_types": [
+          "fotografia",
+          "infografia",
+          "mapa_rutas"
+        ]
+      }
+    }
+  },
+  "selectedAnchor": "Premium 3D iconography / product-visual system on a pure white background, designed as a corporate B2B comparison layout with two clean vertical columns and a clear left-to-right reading order. The composition should communicate comparison and operational outcome through abstract, polished 3D forms only: one side in neutral grays representing the status quo, the other side in brand colors representing the improved flow. Use a single hero visual hierarchy with 1–3 secondary elements maximum, large areas of negative space, and a clean editorial grid. Camera in a slightly elevated three-quarter view with soft isometric discipline, 45–70 mm equivalent feel, subtle perspective, no dramatic distortion. Materials must feel premium and tactile: matte white ceramic, satin acrylic, brushed light graphite, and refined soft-edge surfaces with precise bevels. Lighting is bright studio softbox, high-key but not overexposed, with gentle contact shadows and controlled reflections. Palette distribution: 80–90% white (#FFFFFF) and very light gray (#F5F5F5), 6–12% navy (#0F1419) for structure, outlines, and checks, 2–5% teal (#2ED4C7) for the active/solved state, and 1–3% coral (#FF7A4A) for the waiting/problem state only. Keep the left side visually restrained and neutral, the right side cleaner and more activated with brand color accents. The layout should feel like a premium comparison table translated into 3D, with crisp alignment, corporate clarity, and a single strong operational result at the end. Typography only if absolutely necessary, and only as exact provided copy; otherwise no text. If text is present, use Montserrat Bold/ExtraBold for headline and Poppins Medium/SemiBold for body and CTA, flat vector-like, matte, clean, and fully legible. Maintain a modern institutional B2B aesthetic, lots of breathing room, minimal secondary detail, no clutter, no decorative excess, and no aggressive contrast.",
+  "selectedAnchorSource": "deployed style_only response"
+}

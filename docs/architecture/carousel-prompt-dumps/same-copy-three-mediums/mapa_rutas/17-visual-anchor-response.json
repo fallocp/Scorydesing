@@ -1,0 +1,50 @@
+{
+  "edgeResponse": {
+    "httpStatus": 200,
+    "ok": true,
+    "body": {
+      "prompts": {
+        "mapa_rutas": {
+          "prompt_final": "Create a white-background Xending route-system visual for a 1:1 B2B fintech composition, designed as a clean operational route diorama with abstract industrial-economic tension rather than a literal scene. Use a single hero form implied through modular geometry and material contrast, with 1–3 subtle secondary route elements only, leaving extensive negative space. The visual should communicate visible cost versus future variation through a controlled transition along a thin route: navy #0F1419 as structural framework and contour lines (6–12%), teal #2ED4C7 as the primary activation/solution flow and route highlight (2–5%), and coral #FF7A4A as the only tension/shift accent (1–3%), all on an overwhelmingly white #FFFFFF / very light gray field (80–90%). Materials must feel premium and institutional: refined matte white ceramic, satin acrylic, soft-touch light gray interfaces, precise rounded edges, subtle bisels, and realistic contact shadows; no dark mass, no neon, no cyber or crypto styling. Compose with a clear foreground-to-background hierarchy, one continuous route line with 2–4 physically coherent milestones, and a single controlled pause/variation cue represented by one coral status accent only. Camera should feel editorial and slightly elevated, with a smooth three-quarter/isometric perspective, moderate depth of field, and a 45–70 mm equivalent lens look; scale must be consistent and premium, never toy-like. Lighting should be bright studio-white with soft directional softness, clean reflections, and gentle shadow grounding. Typography rule for the system: if any text is present, use Montserrat Bold/ExtraBold for headline and Poppins Medium/SemiBold for body/CTA, but this variant must not include any readable text, labels, numbers, logos, or watermarks because textInImage is false. Keep the composition corporate, modern, technological, international, and B2B, with a restrained, premium route language and a single clear visual idea.",
+          "negative_instructions": "Avoid any readable text, letters, numbers, labels, captions, logos, watermarks, fake brands, invented data, misspellings, or dashboard copy. Avoid clutter, generic Canva-style infographic layouts, three-column grids, catalog grids, excessive pins, too many routes, thick arrows, inconsistent camera angles, inconsistent scale, childish toy look, inflatable forms, cheap plastic, low-poly rendering, malformed geometry, smooth box-like objects without technical detail, excessive navy, excessive teal, excessive coral, neon glow, crypto aesthetic, gamer aesthetic, cyberpunk styling, dark background dominance, black-on-black contrast, and overly busy compositions. Do not introduce a specific scene, product, or named object; do not depict a literal motor, invoice, pallet, or any concrete subject. Do not use construction-crane silhouettes, malformed industrial forms, or generic stock visuals.",
+          "aspect_ratio": "1:1",
+          "creative_rationale": "The route-system approach fits the idea of cost variation over time by turning the message into a controlled flow and shift, using route tension instead of a literal object. The palette and white institutional background keep it premium and B2B, while the single coral accent and teal route preserve Xending’s clear-semantic code without requiring text.",
+          "corridor_analysis": {
+            "mode": "operational_route",
+            "flow_type": "shipment_status",
+            "origin_country": null,
+            "destination_country": null,
+            "direction": null,
+            "confidence": "high",
+            "evidence": "The prompt and constraints explicitly forbid naming a concrete subject or scene and request only the visual system; with no countries, trade lane, or payment corridor specified, the safest corridor resolver is an operational route / status-style abstraction rather than a geographic corridor."
+          }
+        }
+      },
+      "aspectRatio": "1:1",
+      "promptMeta": {
+        "source": "code-v2-request",
+        "version": "v2",
+        "backgroundStyle": "white",
+        "corridor": {
+          "mode": "operational_route",
+          "flow_type": "shipment_status",
+          "origin_country": null,
+          "destination_country": null,
+          "direction": null,
+          "confidence": "high",
+          "evidence": "The prompt and constraints explicitly forbid naming a concrete subject or scene and request only the visual system; with no countries, trade lane, or payment corridor specified, the safest corridor resolver is an operational route / status-style abstraction rather than a geographic corridor."
+        }
+      },
+      "usage": {
+        "next_step": "Call this endpoint again with mode=\"generate\", imageType=<type>, promptFinal=<prompts[type].prompt_final>",
+        "available_types": [
+          "fotografia",
+          "infografia",
+          "mapa_rutas"
+        ]
+      }
+    }
+  },
+  "selectedAnchor": "Create a white-background Xending route-system visual for a 1:1 B2B fintech composition, designed as a clean operational route diorama with abstract industrial-economic tension rather than a literal scene. Use a single hero form implied through modular geometry and material contrast, with 1–3 subtle secondary route elements only, leaving extensive negative space. The visual should communicate visible cost versus future variation through a controlled transition along a thin route: navy #0F1419 as structural framework and contour lines (6–12%), teal #2ED4C7 as the primary activation/solution flow and route highlight (2–5%), and coral #FF7A4A as the only tension/shift accent (1–3%), all on an overwhelmingly white #FFFFFF / very light gray field (80–90%). Materials must feel premium and institutional: refined matte white ceramic, satin acrylic, soft-touch light gray interfaces, precise rounded edges, subtle bisels, and realistic contact shadows; no dark mass, no neon, no cyber or crypto styling. Compose with a clear foreground-to-background hierarchy, one continuous route line with 2–4 physically coherent milestones, and a single controlled pause/variation cue represented by one coral status accent only. Camera should feel editorial and slightly elevated, with a smooth three-quarter/isometric perspective, moderate depth of field, and a 45–70 mm equivalent lens look; scale must be consistent and premium, never toy-like. Lighting should be bright studio-white with soft directional softness, clean reflections, and gentle shadow grounding. Typography rule for the system: if any text is present, use Montserrat Bold/ExtraBold for headline and Poppins Medium/SemiBold for body/CTA, but this variant must not include any readable text, labels, numbers, logos, or watermarks because textInImage is false. Keep the composition corporate, modern, technological, international, and B2B, with a restrained, premium route language and a single clear visual idea.",
+  "selectedAnchorSource": "deployed style_only response"
+}

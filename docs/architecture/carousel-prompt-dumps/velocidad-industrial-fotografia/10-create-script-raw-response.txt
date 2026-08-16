@@ -1,0 +1,3 @@
+NO CAPTURADO EN RUNTIME
+
+La función no persiste la completion raw ni los messages efectivos. No se invocó generate-carousel-script: exige JWT de usuario y membership; service_role no sustituye una sesión de usuario.

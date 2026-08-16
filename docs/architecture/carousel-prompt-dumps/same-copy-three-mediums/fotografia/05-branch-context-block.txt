@@ -1,0 +1,156 @@
+
+## CONTEXTO PRIORITARIO DE RAMA COMERCIAL
+
+La rama seleccionada es: Ahorro / Costos Ocultos
+
+Este contexto tiene prioridad sobre cualquier ejemplo genérico del prompt base.
+
+Regla crítica: Tu tarea no es vender Xending en general. Tu tarea es generar contenido específico para esta rama comercial.
+
+Si la rama seleccionada NO es "Pagos Internacionales", evita generar ideas centradas en pagos internacionales genéricos, velocidad de transferencia, SWIFT, China, proveedor cobrando rápido o tipo de cambio competitivo, salvo que el contexto específico de la rama lo indique.
+
+### Posicionamiento de la rama
+Xending revela y elimina los costos ocultos que los bancos tradicionales esconden en pagos internacionales: spread cambiario inflado, comisiones por corresponsalía, cargos por manejo y fees que nunca aparecen en la cotización inicial.
+
+### Posicionamiento corto
+Descubre cuánto realmente pagas por tus transferencias internacionales.
+
+### Ángulo ejecutivo
+El costo real de un pago internacional no está en la comisión que ves. Está en todo lo que no ves.
+
+### Ángulo provocador
+¿Sabes exactamente cuánto te cuesta cada transferencia internacional? La mayoría de las empresas no.
+
+### Problema principal
+Los bancos tradicionales esconden márgenes en el tipo de cambio (spread), cobran comisiones por corresponsalía, cargos por manejo de cuenta en dólares y fees que no aparecen en la cotización inicial. Las empresas pagan 2-4% más de lo que creen en cada operación.
+
+### Promesa estratégica
+Transparencia total en costos. Con Xending ves exactamente cuánto pagas: tipo de cambio real, sin spread oculto, sin comisiones sorpresa, sin cargos intermedios.
+
+### Audiencia
+- CFOs que buscan optimizar costos operativos
+- Contralores que concilian pagos internacionales
+- Directores financieros con volumen mensual alto en USD
+- Empresas que pagan más de $50K USD mensuales al extranjero
+- Tesoreros que sospechan que pagan de más pero no pueden demostrarlo
+
+### Tensiones clave de esta rama
+- La comisión que ves no es todo lo que pagas.
+- El tipo de cambio que te cotiza tu banco no es el tipo de cambio real.
+- Entre lo que envías y lo que recibe tu proveedor hay costos que nunca presupuestaste.
+- Un spread de 1% en $100K USD son $1,000 que nunca aparecen en tu estado de cuenta como comisión.
+- Los costos ocultos no se ven en una sola operación. Se ven al final del año.
+- Tu banco no te cobra una comisión alta. Te cobra muchas comisiones pequeñas que suman mucho.
+- La transparencia no es un beneficio. Es un derecho que tu banco no te da.
+- Si no puedes desglosar exactamente cuánto pagas por cada transferencia, estás pagando de más.
+
+### Dolores específicos
+Cada idea debe conectar con al menos uno de estos dolores:
+- spread cambiario inflado vs tipo de cambio interbancario
+- comisiones por corresponsalía que aparecen después
+- cargos por manejo de cuenta en dólares
+- fees de recepción que cobra el banco del beneficiario
+- diferencia entre monto enviado y monto recibido
+- imposibilidad de desglosar el costo real de una transferencia
+- costos acumulados que solo se ven al cierre anual
+- cotización que no incluye todos los cargos
+- margen oculto en el tipo de cambio
+- comisiones que varían sin explicación
+- falta de competencia en pricing bancario
+- inercia por no saber cuánto se pierde realmente
+
+### Beneficios específicos permitidos
+- tipo de cambio transparente sin spread oculto
+- desglose completo de costos en cada operación
+- sin comisiones por corresponsalía
+- sin cargos sorpresa post-operación
+- comparativa clara vs costo bancario
+- ahorro estimado visible antes de operar
+- historial de ahorro acumulado
+- pricing competitivo y predecible
+
+### Buenos headlines de referencia
+Úsalos como guía de tono y enfoque. No los copies literalmente salvo que el usuario lo pida.
+- La comisión que ves no es todo lo que pagas.
+- Tu banco no te cobra caro. Te cobra muchas veces.
+- ¿Sabes cuánto cuesta realmente tu transferencia internacional?
+- El spread oculto puede costarte más que la comisión visible.
+- Entre lo que envías y lo que recibe tu proveedor hay costos que nunca presupuestaste.
+- Un 1% de spread en $100K USD son $1,000 que nunca aparecen como comisión.
+- Si no puedes desglosar el costo de tu transferencia, probablemente estás pagando de más.
+- Los costos ocultos no se ven en una operación. Se ven al final del año.
+- Tu banco te cobra comisión de envío, spread cambiario y corresponsalía. ¿Lo sabías?
+
+### Headlines malos o débiles
+Evita este tipo de salida:
+- Ahorra con Xending.
+- Pagos más baratos.
+- Te estamos robando menos que tu banco.
+- Somos más baratos que todos.
+- Cero comisiones.
+- Gratis para siempre.
+
+### Claims permitidos
+- Tipo de cambio transparente y competitivo.
+- Sin spread oculto.
+- Sin comisiones por corresponsalía.
+- Desglose completo de costos en cada operación.
+- Ahorro de hasta 70% vs costos bancarios promedio.
+- Compara tu costo real antes de operar.
+
+### Claims prohibidos
+No uses ni impliques estos claims:
+- Ahorro garantizado del 70%.
+- Siempre más barato que cualquier banco.
+- Gratis.
+- Sin ningún costo.
+- Cero comisiones en todo.
+- El tipo de cambio más bajo del mercado garantizado.
+
+### Fórmulas narrativas recomendadas
+- La [comisión visible] no es [todo lo que pagas].
+- Entre [lo que envías] y [lo que reciben] hay [costos que no ves].
+- Un [porcentaje pequeño] en [volumen alto] son [cantidad significativa].
+- Si no puedes [desglosar el costo], probablemente [estás pagando de más].
+- Tu banco no te cobra [una comisión alta]. Te cobra [muchas pequeñas].
+- Los costos ocultos no se ven en [una operación]. Se ven en [el acumulado].
+- El problema no es [el tipo de cambio]. Es [todo lo que viene después].
+- [Transparencia] no es un beneficio. Es [lo mínimo que deberías exigir].
+
+### Lenguaje visual recomendado
+- desglose de costos: comisión + spread + corresponsalía
+- gráfica comparativa banco vs Xending
+- lupa revelando costos ocultos
+- iceberg: comisión visible arriba, costos ocultos abajo
+- calculadora de ahorro
+- números grandes con porcentajes de ahorro
+- tabla de dos columnas: lo que ves vs lo que realmente pagas
+- acumulado anual de costos ocultos
+
+### Restricciones específicas de esta rama
+- No centrar la idea en velocidad o mismo día.
+- No centrar la idea en múltiples monedas o cuentas.
+- No centrar la idea en cobertura cambiaria.
+- No centrar la idea en control operativo o trazabilidad.
+- No acusar directamente a bancos de robar o estafar.
+- No prometer ahorro exacto garantizado.
+- El foco debe estar en COSTOS OCULTOS, TRANSPARENCIA y AHORRO REAL.
+
+### Temas prioritarios
+- costos ocultos
+- spread cambiario
+- comisiones invisibles
+- corresponsalía
+- transparencia de precios
+- desglose de costos
+- ahorro real
+- comparativa de costos
+- margen oculto
+- pricing bancario
+
+### CTAs recomendados
+- Calcula cuánto pagas realmente.
+- Compara tu costo real vs tu banco.
+- Descubre tu ahorro potencial.
+- Pide un desglose de tu última transferencia.
+- Revisa cuánto te cuesta cada operación.

@@ -1,0 +1,311 @@
+{
+  "requestedSlug": "banco-vs-xending",
+  "activeDatabaseSlug": "banco-vs-xending",
+  "requestedSlugPresentInActiveDatabase": true,
+  "branch": {
+    "id": "<BRANCH_ID:banco-vs-xending>",
+    "business_id": "<BUSINESS_ID>",
+    "category_id": "<CATEGORY_ID>",
+    "name": "Banco vs Xending",
+    "slug": "banco-vs-xending",
+    "strategic_config": {
+      "ctas": [
+        "Comparar experiencias",
+        "Ver tabla comparativa",
+        "Solicitar análisis de costos",
+        "Explorar alternativa"
+      ],
+      "dolor": "Con tu banco: tiempos de 3-5 días, costos que solo conoces después de la operación, horarios limitados y poca visibilidad del estatus del pago. El proceso de pagos internacionales es una caja negra.",
+      "angulos": [
+        "Comparativa",
+        "Dato Duro",
+        "Educativo",
+        "Transparencia"
+      ],
+      "footers": [
+        "Comparativa basada en promedios de mercado. Resultados individuales pueden variar.",
+        "Xending — la alternativa profesional para pagos internacionales."
+      ],
+      "insight": "Las empresas saben que su banco no es ideal para pagos internacionales, pero la inercia y la percepción de seguridad los mantiene. Necesitan ver la comparación objetiva para evaluar alternativas.",
+      "promesa": "Con Xending: liquidación mismo día hábil, costo cerrado al pactar, plataforma con visibilidad completa y asesoría dedicada. Una experiencia diseñada para operaciones internacionales.",
+      "objetivo": "Crear contenido comparativo profesional entre la experiencia bancaria tradicional y Xending, mostrando las diferencias en velocidad, transparencia de costos y experiencia de usuario.",
+      "audiencia": "Tomadores de decisión financiera que están evaluando alternativas a su banco para pagos internacionales.",
+      "guia_visual": "Layouts de dos columnas (Banco vs Xending), tablas comparativas limpias. Lado banco en grises neutros, lado Xending en colores de marca. Contraste visual profesional, no agresivo.",
+      "claims_permitidos": [
+        "Mayor agilidad que tu banco",
+        "Mayor transparencia en costos",
+        "Mejor visibilidad de operaciones",
+        "Costo cerrado vs costo variable"
+      ],
+      "claims_prohibidos": [
+        "Los bancos son malos",
+        "Nunca uses un banco",
+        "Xending es mejor en absolutamente todo",
+        "Tu banco te roba"
+      ],
+      "content_ingredients": {
+        "default": {
+          "ctas": [
+            "Compara ahora",
+            "Haz el switch",
+            "Prueba la diferencia"
+          ],
+          "sublines": [
+            "Más rápido, más transparente, mejor experiencia.",
+            "La diferencia no es sutil — es transformadora."
+          ],
+          "big_stats": [
+            "5x más rápido",
+            "Hasta 70% menos costos",
+            "24/7 disponible"
+          ],
+          "headlines": [
+            "Tu banco vs Xending.",
+            "La alternativa inteligente.",
+            "Haz el switch."
+          ],
+          "benefit_phrases": [
+            "Más rápido que tu banco",
+            "Más transparente",
+            "Mejor experiencia",
+            "Asesor dedicado",
+            "Rastreo en tiempo real"
+          ],
+          "photo_direction": "Dos columnas comparativas, contraste visual entre opaco/vibrante, persona decidiendo"
+        },
+        "dato_duro": {
+          "ctas": [
+            "Compara ahora",
+            "Prueba Xending"
+          ],
+          "sublines": [
+            "Los números hablan. Tu banco no puede competir.",
+            "La diferencia se mide en días, dólares y disponibilidad."
+          ],
+          "big_stats": [
+            "5x más rápido",
+            "70% menos costos",
+            "24/7 disponible",
+            "$0 comisiones ocultas"
+          ],
+          "headlines": [
+            "5x más rápido que tu banco",
+            "70% menos en costos",
+            "24/7 vs horario bancario"
+          ],
+          "benefit_phrases": [
+            "Velocidad superior",
+            "Costos menores",
+            "Disponibilidad total"
+          ],
+          "photo_direction": "Números grandes de impacto, checkmarks verdes vs X rojas, contraste dramático"
+        },
+        "educativo": {
+          "ctas": [
+            "Descubre las razones",
+            "Compara opciones",
+            "Habla con un asesor"
+          ],
+          "sublines": [
+            "Tu banco no fue diseñado para pagos internacionales ágiles.",
+            "Existe una alternativa diseñada específicamente para tu operación."
+          ],
+          "headlines": [
+            "¿Por qué cambiar de banco para pagos internacionales?",
+            "5 razones para hacer el switch",
+            "Lo que tu banco no te dice"
+          ],
+          "benefit_phrases": [
+            "Diseñado para pagos internacionales",
+            "Tecnología vs burocracia",
+            "Transparencia vs costos ocultos",
+            "Velocidad vs espera"
+          ],
+          "photo_direction": "Lista de razones, persona descubriendo información, transición de frustración a satisfacción"
+        },
+        "comparativa": {
+          "ctas": [
+            "Compara ahora",
+            "Calcula tu ahorro vs tu banco",
+            "Haz el switch"
+          ],
+          "sublines": [
+            "3-5 días vs mismo día. Comisiones ocultas vs transparencia total.",
+            "Compara y decide con datos reales."
+          ],
+          "data_sets": [
+            {
+              "banco_costo": "Comisiones ocultas + margen inflado",
+              "banco_horario": "Lunes a viernes, horario bancario",
+              "banco_soporte": "Call center genérico",
+              "xending_costo": "Transparente, sin ocultos",
+              "banco_velocidad": "3-5 días hábiles",
+              "xending_horario": "24/7, plataforma digital",
+              "xending_soporte": "Asesor dedicado",
+              "xending_velocidad": "Mismo día hábil"
+            }
+          ],
+          "headlines": [
+            "Banco vs Xending",
+            "La comparativa que tu CFO necesita",
+            "Lado a lado, la diferencia es clara"
+          ],
+          "benefit_phrases": [
+            "Mismo día vs 3-5 días",
+            "Transparente vs oculto",
+            "24/7 vs horario bancario",
+            "Asesor dedicado vs call center"
+          ],
+          "photo_direction": "Layout de dos columnas, lado banco en grises/opacos, lado Xending en colores vibrantes (coral, turquesa)"
+        }
+      },
+      "diferenciadores_vs_banco": [
+        "Banco: costo final desconocido hasta post-ejecución. Xending: costo cerrado al pactar.",
+        "Banco: tipo de cambio no visible antes de la operación. Xending: TC visible antes de confirmar.",
+        "Banco: 3-5 días hábiles de liquidación. Xending: mismo día hábil.",
+        "Banco: sin rastreo del pago. Xending: visibilidad en tiempo real.",
+        "Banco: atención genérica. Xending: asesor dedicado para operaciones internacionales."
+      ]
+    },
+    "prompt_kit": {
+      "audience": [
+        "Empresas frustradas con su experiencia bancaria en pagos internacionales",
+        "CFOs evaluando alternativas a su banco",
+        "Tesoreros cansados de procesos bancarios lentos y opacos",
+        "Empresas que ya saben que su banco no es ideal pero no han dado el paso",
+        "Directores financieros que buscan especialización en FX"
+      ],
+      "branch_id": "banco_vs_xending",
+      "branch_name": "Banco vs Xending",
+      "branch_type": "comparison",
+      "positioning": "Xending es la alternativa especializada en pagos internacionales que ofrece lo que los bancos tradicionales no pueden: velocidad, transparencia, tecnología y atención personalizada para operaciones de comercio exterior.",
+      "executive_angle": "Tu banco es bueno para muchas cosas. Pagos internacionales no es una de ellas.",
+      "malos_headlines": [
+        "Los bancos son malos.",
+        "Nunca uses un banco.",
+        "Somos mejores en todo.",
+        "Tu banco te roba.",
+        "Deja tu banco hoy.",
+        "La revolución de los pagos."
+      ],
+      "primary_problem": "Los bancos tradicionales no fueron diseñados para pagos internacionales ágiles. Sus procesos son lentos (3-5 días), opacos (costos ocultos en spread y comisiones), limitados (horarios de corte restrictivos) y genéricos (sin asesoría especializada). Las empresas los usan por inercia, no por convicción.",
+      "tensiones_clave": [
+        "Tu banco es bueno para muchas cosas. Pagos internacionales no es una de ellas.",
+        "Los bancos no fueron diseñados para pagos internacionales ágiles.",
+        "La inercia no es una estrategia financiera.",
+        "Usar tu banco para pagos internacionales es como usar un camión de carga para delivery urbano.",
+        "Tu banco te atiende como uno más. Porque para ellos, eres uno más.",
+        "El proceso bancario para pagos internacionales no ha cambiado en 20 años. Tu operación sí.",
+        "No es que tu banco sea malo. Es que no está diseñado para esto.",
+        "La diferencia entre tu banco y una plataforma especializada no es sutil. Es operativa."
+      ],
+      "visual_language": [
+        "tabla comparativa de dos columnas: Banco vs Xending",
+        "checkmarks verdes (Xending) vs X rojas (banco)",
+        "lado banco en grises/opacos, lado Xending en colores vibrantes",
+        "timeline comparativa de tiempos",
+        "experiencia de usuario: formulario bancario vs plataforma moderna",
+        "asesor dedicado vs ventanilla genérica",
+        "reloj: 3-5 días vs mismo día",
+        "proceso manual vs proceso digital"
+      ],
+      "buenos_headlines": [
+        "Tu banco es bueno para muchas cosas. Pagos internacionales no es una.",
+        "Los bancos no fueron diseñados para pagos internacionales ágiles.",
+        "La inercia no es una estrategia financiera.",
+        "Tu banco te atiende como uno más. Porque para ellos, eres uno más.",
+        "El proceso bancario no ha cambiado en 20 años. Tu operación sí.",
+        "No es que tu banco sea malo. Es que no está diseñado para esto.",
+        "¿Por qué usas para pagos internacionales un proceso diseñado hace 20 años?",
+        "La diferencia no es sutil. Es operativa.",
+        "Tu banco resuelve pagos internacionales. Xending los optimiza."
+      ],
+      "cta_recomendados": [
+        "Compara tu experiencia actual.",
+        "Haz el switch a una plataforma especializada.",
+        "Evalúa la diferencia en tu próximo pago.",
+        "Prueba la diferencia sin compromiso.",
+        "Conoce lo que tu banco no te ofrece."
+      ],
+      "claims_permitidos": [
+        "Liquidación mismo día vs 3-5 días bancarios.",
+        "Costos transparentes sin spread oculto.",
+        "Plataforma digital disponible 24/7.",
+        "Asesor dedicado para operaciones internacionales.",
+        "Visibilidad en tiempo real del estatus de cada pago.",
+        "Especialización en pagos internacionales y FX.",
+        "Mayor agilidad frente a procesos bancarios tradicionales."
+      ],
+      "claims_prohibidos": [
+        "Los bancos son malos.",
+        "Nunca uses un banco.",
+        "Xending es mejor en absolutamente todo.",
+        "Cero riesgo con Xending.",
+        "Garantizamos ser siempre más baratos.",
+        "Tu banco te estafa."
+      ],
+      "provocative_angle": "¿Por qué sigues usando para pagos internacionales la misma institución que diseñó su proceso hace 20 años?",
+      "short_positioning": "Lo que tu banco no puede darte en pagos internacionales.",
+      "strategic_promise": "Una plataforma especializada en pagos internacionales que ofrece lo que tu banco no puede: liquidación mismo día, costos transparentes, plataforma digital 24/7, asesor dedicado y visibilidad completa de cada operación.",
+      "temas_prioritarios": [
+        "comparativa banco vs fintech",
+        "inercia bancaria",
+        "especialización vs generalismo",
+        "experiencia de usuario",
+        "proceso moderno vs legacy",
+        "atención personalizada",
+        "transparencia vs opacidad",
+        "tecnología vs procesos manuales",
+        "agilidad vs burocracia"
+      ],
+      "dolores_especificos": [
+        "3-5 días de espera para liquidación",
+        "costos ocultos en spread y comisiones",
+        "horarios de corte restrictivos",
+        "atención genérica sin especialización en FX",
+        "falta de visibilidad del estatus del pago",
+        "proceso manual (llamar, enviar correo, esperar confirmación)",
+        "plataforma bancaria no diseñada para pagos internacionales",
+        "sin asesor dedicado para operaciones de comercio exterior",
+        "inercia: seguir con el banco porque siempre se ha hecho así",
+        "experiencia de usuario obsoleta",
+        "falta de herramientas digitales modernas",
+        "imposibilidad de operar fuera de horario bancario"
+      ],
+      "formulas_narrativas": [
+        "Tu banco es bueno para [X]. [Pagos internacionales] no es una de ellas.",
+        "No es que tu banco sea [malo]. Es que no está [diseñado para esto].",
+        "La [inercia] no es una [estrategia financiera].",
+        "El proceso bancario no ha cambiado en [N años]. Tu [operación] sí.",
+        "Tu banco te atiende como [uno más]. Porque para ellos, [eres uno más].",
+        "[Banco]: [limitación]. [Xending]: [ventaja].",
+        "La diferencia no es [sutil/marginal]. Es [operativa/estructural].",
+        "Usar tu banco para [pagos internacionales] es como usar [analogía de ineficiencia]."
+      ],
+      "restricciones_de_rama": [
+        "No atacar bancos de forma agresiva o despectiva.",
+        "No decir que los bancos son malos o estafan.",
+        "No prometer ser mejor en absolutamente todo.",
+        "No usar tono de superioridad arrogante.",
+        "Mantener tono profesional y basado en hechos.",
+        "La comparación debe ser justa y verificable.",
+        "No centrar la idea en un solo beneficio (velocidad, costo, etc.) — mostrar la diferencia integral.",
+        "El foco debe estar en COMPARACIÓN PROFESIONAL, no en ataque."
+      ],
+      "beneficios_especificos": [
+        "liquidación mismo día vs 3-5 días bancarios",
+        "costos transparentes vs spread oculto",
+        "plataforma digital 24/7 vs horarios bancarios",
+        "asesor dedicado vs atención genérica",
+        "visibilidad en tiempo real vs caja negra",
+        "proceso digital vs proceso manual",
+        "especialización en FX vs servicio genérico",
+        "tecnología moderna vs sistemas legacy"
+      ]
+    },
+    "display_order": 5,
+    "is_active": true,
+    "created_at": "2026-05-01T23:16:21.502678+00:00",
+    "updated_at": "2026-05-23T15:54:58.916012+00:00"
+  }
+}

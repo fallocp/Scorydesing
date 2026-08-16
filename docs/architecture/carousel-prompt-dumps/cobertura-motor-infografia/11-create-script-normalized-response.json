@@ -1,0 +1,600 @@
+{
+  "captureStatus": "NORMALIZED OUTPUT PERSISTED IN RUNTIME",
+  "persistedResponse": {
+    "slides": [
+      {
+        "role": "tension",
+        "headline": "Cada motor\ntambién mueve\ntus costos",
+        "body": "El tipo de cambio influye en el precio final de motores y equipos industriales.",
+        "cta": "",
+        "imageIntent": "Un motor industrial junto a su cotización de compra, con la atención puesta en el documento que todavía no cierra el costo total.",
+        "brief": {
+          "layout": "editorial_top",
+          "highlights": [
+            {
+              "text": "tus costos",
+              "colorRole": "risk"
+            }
+          ],
+          "visualIntent": "Hacer evidente que un motor comprado hoy todavía puede cambiar su costo al pagarse después.",
+          "primaryObjects": [
+            "motor industrial",
+            "cotización impresa",
+            "sello de fecha"
+          ],
+          "visualMetaphor": "Un motor industrial frente a una cotización impresa con sello de fecha y el total visible.",
+          "environmentalText": [
+            "USD",
+            "MXN",
+            "HOY",
+            "PAGO",
+            "TOTAL",
+            "TIPO DE CAMBIO"
+          ]
+        }
+      },
+      {
+        "role": "shift",
+        "headline": "Si pagas después,\nel costo puede moverse",
+        "body": "La misma compra puede cerrarse con un resultado distinto entre hoy y la fecha de pago.",
+        "cta": "",
+        "imageIntent": "Dos momentos de la misma compra industrial en el mismo cuadro: una hoja con fecha de hoy y otra con fecha posterior, mostrando el cambio en el documento.",
+        "brief": {
+          "layout": "split_photo",
+          "documents": [
+            {
+              "date": "13 AGO 2026",
+              "kind": "COTIZACIÓN",
+              "label": "HOY",
+              "total": {
+                "label": "TOTAL",
+                "value": "173,000.00"
+              },
+              "fields": [
+                {
+                  "label": "TOTAL USD",
+                  "value": "10,000.00"
+                },
+                {
+                  "label": "TIPO DE CAMBIO",
+                  "value": "17.30",
+                  "colorRole": "control"
+                },
+                {
+                  "label": "COSTO MXN",
+                  "value": "173,000.00",
+                  "colorRole": "control"
+                }
+              ]
+            },
+            {
+              "date": "12 OCT 2026",
+              "kind": "COTIZACIÓN",
+              "label": "PAGO",
+              "total": {
+                "label": "TOTAL",
+                "value": "176,500.00",
+                "colorRole": "risk"
+              },
+              "fields": [
+                {
+                  "label": "TOTAL USD",
+                  "value": "10,000.00"
+                },
+                {
+                  "label": "TIPO DE CAMBIO",
+                  "value": "17.65",
+                  "colorRole": "risk"
+                },
+                {
+                  "label": "COSTO MXN",
+                  "value": "176,500.00",
+                  "colorRole": "risk"
+                },
+                {
+                  "label": "VARIACIÓN",
+                  "value": "+2.0%",
+                  "colorRole": "risk"
+                }
+              ]
+            }
+          ],
+          "highlights": [
+            {
+              "text": "costo",
+              "colorRole": "risk"
+            }
+          ],
+          "visualIntent": "Mostrar el mecanismo entre dos fechas: el mismo motor, la misma operación, dos costos distintos.",
+          "primaryObjects": [
+            "dos cotizaciones impresas",
+            "motor industrial",
+            "sellos de fecha"
+          ],
+          "visualMetaphor": "Dos hojas de la misma cotización lado a lado, una marcada HOY y otra PAGO, con totales distintos.",
+          "environmentalText": [
+            "HOY",
+            "PAGO",
+            "USD",
+            "MXN",
+            "TOTAL"
+          ]
+        }
+      },
+      {
+        "role": "risk",
+        "headline": "Cada compra\nsuma nueva exposición",
+        "body": "Varias órdenes del mismo equipo pueden acumular una exposición mayor en el cierre del mes.",
+        "cta": "",
+        "imageIntent": "Varias órdenes de compra del mismo equipo apiladas o alineadas, con el total creciendo documento tras documento.",
+        "brief": {
+          "layout": "editorial_repetition",
+          "documents": [
+            {
+              "date": "13 AGO 2026",
+              "kind": "COTIZACIÓN",
+              "label": "COMPRA 1",
+              "total": {
+                "label": "TOTAL",
+                "value": "173,000.00"
+              },
+              "fields": [
+                {
+                  "label": "TOTAL USD",
+                  "value": "10,000.00"
+                },
+                {
+                  "label": "TIPO DE CAMBIO",
+                  "value": "17.30",
+                  "colorRole": "control"
+                },
+                {
+                  "label": "COSTO MXN",
+                  "value": "173,000.00",
+                  "colorRole": "control"
+                }
+              ]
+            },
+            {
+              "date": "17 SEP 2026",
+              "kind": "COTIZACIÓN",
+              "label": "COMPRA 2",
+              "total": {
+                "label": "TOTAL",
+                "value": "174,700.00",
+                "colorRole": "risk"
+              },
+              "fields": [
+                {
+                  "label": "TOTAL USD",
+                  "value": "10,000.00"
+                },
+                {
+                  "label": "TIPO DE CAMBIO",
+                  "value": "17.47",
+                  "colorRole": "risk"
+                },
+                {
+                  "label": "COSTO MXN",
+                  "value": "174,700.00",
+                  "colorRole": "risk"
+                },
+                {
+                  "label": "VARIACIÓN",
+                  "value": "+1.0%",
+                  "colorRole": "risk"
+                }
+              ]
+            },
+            {
+              "date": "22 OCT 2026",
+              "kind": "COTIZACIÓN",
+              "label": "COMPRA 3",
+              "total": {
+                "label": "TOTAL",
+                "value": "176,500.00",
+                "colorRole": "risk"
+              },
+              "fields": [
+                {
+                  "label": "TOTAL USD",
+                  "value": "10,000.00"
+                },
+                {
+                  "label": "TIPO DE CAMBIO",
+                  "value": "17.65",
+                  "colorRole": "risk"
+                },
+                {
+                  "label": "COSTO MXN",
+                  "value": "176,500.00",
+                  "colorRole": "risk"
+                },
+                {
+                  "label": "VARIACIÓN",
+                  "value": "+2.0%",
+                  "colorRole": "risk"
+                }
+              ]
+            }
+          ],
+          "highlights": [
+            {
+              "text": "al total",
+              "colorRole": "risk"
+            }
+          ],
+          "visualIntent": "Volver visible la acumulación: no una sola compra, sino varias sumando presión sobre el total.",
+          "primaryObjects": [
+            "varias órdenes de compra",
+            "documentos repetidos",
+            "motor industrial"
+          ],
+          "visualMetaphor": "Tres documentos sucesivos de compra del mismo motor, uno detrás de otro, con el total ocupando más espacio en cada hoja.",
+          "accumulatedLabel": "+MXN 5,200.00",
+          "environmentalText": [
+            "USD",
+            "MXN",
+            "TOTAL"
+          ]
+        }
+      },
+      {
+        "role": "solution",
+        "headline": "Xending puede ayudar\na definir tu costo",
+        "body": "La operación queda más clara con un resultado único y un desglose que ordena el pago.",
+        "cta": "",
+        "imageIntent": "Un solo documento ordenado con el costo ya definido y el motor asociado a una operación cerrada, sin elementos compitiendo.",
+        "brief": {
+          "layout": "document_result",
+          "highlights": [
+            {
+              "text": "Xending",
+              "colorRole": "control"
+            }
+          ],
+          "visualIntent": "Pasar de la incertidumbre a un resultado definido y visualmente ordenado.",
+          "primaryObjects": [
+            "documento único",
+            "motor industrial",
+            "pantalla o carpeta de soporte"
+          ],
+          "visualMetaphor": "Un documento único, limpio y cerrado, con un total legible y el resto de la escena en calma.",
+          "environmentalText": [
+            "USD",
+            "MXN",
+            "TOTAL",
+            "CONFIRMADO"
+          ]
+        }
+      },
+      {
+        "role": "cta",
+        "headline": "Cotiza con Xending",
+        "body": "",
+        "cta": "",
+        "imageIntent": "El motor industrial vuelve como pieza premium y protagonista, acompañado por una composición limpia que deja todo el aire al CTA y a la marca.",
+        "brief": {
+          "layout": "hero_clean",
+          "highlights": [
+            {
+              "text": "Xending",
+              "colorRole": "control"
+            }
+          ],
+          "visualIntent": "Cerrar con un cuadro limpio, premium y sereno, donde la marca y el motor queden como único foco.",
+          "primaryObjects": [
+            "motor industrial",
+            "marca Xending"
+          ],
+          "visualMetaphor": "Un motor industrial aislado sobre una superficie limpia, con espacio negativo amplio y sin documentos compitiendo.",
+          "environmentalText": []
+        }
+      }
+    ],
+    "visualMotif": "Un motor industrial sobre una cotización de compra, convertido en el objeto que conecta el costo visible con su variación futura."
+  },
+  "controlledAuditInput": {
+    "slides": [
+      {
+        "role": "tension",
+        "headline": "Cada motor\ntambién mueve\ntus costos",
+        "body": "El tipo de cambio influye en el precio final de motores y equipos industriales.",
+        "cta": "",
+        "imageIntent": "Un motor industrial junto a su cotización de compra, con la atención puesta en el documento que todavía no cierra el costo total.",
+        "brief": {
+          "layout": "editorial_top",
+          "highlights": [
+            {
+              "text": "tus costos",
+              "colorRole": "risk"
+            }
+          ],
+          "visualIntent": "Hacer evidente que un motor comprado hoy todavía puede cambiar su costo al pagarse después.",
+          "primaryObjects": [
+            "motor industrial",
+            "cotización impresa",
+            "sello de fecha"
+          ],
+          "visualMetaphor": "Un motor industrial frente a una cotización impresa con sello de fecha y el total visible.",
+          "environmentalText": [
+            "USD",
+            "MXN",
+            "HOY",
+            "PAGO",
+            "TOTAL",
+            "TIPO DE CAMBIO"
+          ]
+        }
+      },
+      {
+        "role": "shift",
+        "headline": "Si pagas después,\nel costo puede moverse",
+        "body": "La misma compra puede cerrarse con un resultado distinto entre hoy y la fecha de pago.",
+        "cta": "",
+        "imageIntent": "Dos momentos de la misma compra industrial en el mismo cuadro: una hoja con fecha de hoy y otra con fecha posterior, mostrando el cambio en el documento.",
+        "brief": {
+          "layout": "split_photo",
+          "documents": [
+            {
+              "label": "HOY",
+              "kind": "COTIZACIÓN",
+              "date": "15 AGO 2026",
+              "fields": [
+                {
+                  "label": "TOTAL USD",
+                  "value": "10,000.00"
+                },
+                {
+                  "label": "TIPO DE CAMBIO",
+                  "value": "18.20",
+                  "colorRole": "control"
+                },
+                {
+                  "label": "COSTO MXN",
+                  "value": "182,000.00",
+                  "colorRole": "control"
+                }
+              ],
+              "total": {
+                "label": "TOTAL",
+                "value": "182,000.00"
+              }
+            },
+            {
+              "label": "PAGO",
+              "kind": "COTIZACIÓN",
+              "date": "14 OCT 2026",
+              "fields": [
+                {
+                  "label": "TOTAL USD",
+                  "value": "10,000.00"
+                },
+                {
+                  "label": "TIPO DE CAMBIO",
+                  "value": "18.56",
+                  "colorRole": "risk"
+                },
+                {
+                  "label": "COSTO MXN",
+                  "value": "185,600.00",
+                  "colorRole": "risk"
+                },
+                {
+                  "label": "VARIACIÓN",
+                  "value": "+2.0%",
+                  "colorRole": "risk"
+                }
+              ],
+              "total": {
+                "label": "TOTAL",
+                "value": "185,600.00",
+                "colorRole": "risk"
+              }
+            }
+          ],
+          "highlights": [
+            {
+              "text": "costo",
+              "colorRole": "risk"
+            }
+          ],
+          "visualIntent": "Mostrar el mecanismo entre dos fechas: el mismo motor, la misma operación, dos costos distintos.",
+          "primaryObjects": [
+            "dos cotizaciones impresas",
+            "motor industrial",
+            "sellos de fecha"
+          ],
+          "visualMetaphor": "Dos hojas de la misma cotización lado a lado, una marcada HOY y otra PAGO, con totales distintos.",
+          "environmentalText": [
+            "HOY",
+            "PAGO",
+            "USD",
+            "MXN",
+            "TOTAL"
+          ]
+        }
+      },
+      {
+        "role": "risk",
+        "headline": "Cada compra\nsuma nueva exposición",
+        "body": "Varias órdenes del mismo equipo pueden acumular una exposición mayor en el cierre del mes.",
+        "cta": "",
+        "imageIntent": "Varias órdenes de compra del mismo equipo apiladas o alineadas, con el total creciendo documento tras documento.",
+        "brief": {
+          "layout": "editorial_repetition",
+          "documents": [
+            {
+              "label": "COMPRA 1",
+              "kind": "COTIZACIÓN",
+              "date": "15 AGO 2026",
+              "fields": [
+                {
+                  "label": "TOTAL USD",
+                  "value": "10,000.00"
+                },
+                {
+                  "label": "TIPO DE CAMBIO",
+                  "value": "18.20",
+                  "colorRole": "control"
+                },
+                {
+                  "label": "COSTO MXN",
+                  "value": "182,000.00",
+                  "colorRole": "control"
+                }
+              ],
+              "total": {
+                "label": "TOTAL",
+                "value": "182,000.00"
+              }
+            },
+            {
+              "label": "COMPRA 2",
+              "kind": "COTIZACIÓN",
+              "date": "19 SEP 2026",
+              "fields": [
+                {
+                  "label": "TOTAL USD",
+                  "value": "10,000.00"
+                },
+                {
+                  "label": "TIPO DE CAMBIO",
+                  "value": "18.38",
+                  "colorRole": "risk"
+                },
+                {
+                  "label": "COSTO MXN",
+                  "value": "183,800.00",
+                  "colorRole": "risk"
+                },
+                {
+                  "label": "VARIACIÓN",
+                  "value": "+1.0%",
+                  "colorRole": "risk"
+                }
+              ],
+              "total": {
+                "label": "TOTAL",
+                "value": "183,800.00",
+                "colorRole": "risk"
+              }
+            },
+            {
+              "label": "COMPRA 3",
+              "kind": "COTIZACIÓN",
+              "date": "24 OCT 2026",
+              "fields": [
+                {
+                  "label": "TOTAL USD",
+                  "value": "10,000.00"
+                },
+                {
+                  "label": "TIPO DE CAMBIO",
+                  "value": "18.56",
+                  "colorRole": "risk"
+                },
+                {
+                  "label": "COSTO MXN",
+                  "value": "185,600.00",
+                  "colorRole": "risk"
+                },
+                {
+                  "label": "VARIACIÓN",
+                  "value": "+2.0%",
+                  "colorRole": "risk"
+                }
+              ],
+              "total": {
+                "label": "TOTAL",
+                "value": "185,600.00",
+                "colorRole": "risk"
+              }
+            }
+          ],
+          "highlights": [
+            {
+              "text": "al total",
+              "colorRole": "risk"
+            }
+          ],
+          "visualIntent": "Volver visible la acumulación: no una sola compra, sino varias sumando presión sobre el total.",
+          "primaryObjects": [
+            "varias órdenes de compra",
+            "documentos repetidos",
+            "motor industrial"
+          ],
+          "visualMetaphor": "Tres documentos sucesivos de compra del mismo motor, uno detrás de otro, con el total ocupando más espacio en cada hoja.",
+          "accumulatedLabel": "+MXN 5,400.00",
+          "environmentalText": [
+            "USD",
+            "MXN",
+            "TOTAL"
+          ]
+        }
+      },
+      {
+        "role": "solution",
+        "headline": "Xending puede ayudar\na definir tu costo",
+        "body": "La operación queda más clara con un resultado único y un desglose que ordena el pago.",
+        "cta": "",
+        "imageIntent": "Un solo documento ordenado con el costo ya definido y el motor asociado a una operación cerrada, sin elementos compitiendo.",
+        "brief": {
+          "layout": "document_result",
+          "highlights": [
+            {
+              "text": "Xending",
+              "colorRole": "control"
+            }
+          ],
+          "visualIntent": "Pasar de la incertidumbre a un resultado definido y visualmente ordenado.",
+          "primaryObjects": [
+            "documento único",
+            "motor industrial",
+            "pantalla o carpeta de soporte"
+          ],
+          "visualMetaphor": "Un documento único, limpio y cerrado, con un total legible y el resto de la escena en calma.",
+          "environmentalText": [
+            "USD",
+            "MXN",
+            "TOTAL",
+            "CONFIRMADO"
+          ]
+        }
+      },
+      {
+        "role": "cta",
+        "headline": "Cotiza con Xending",
+        "body": "",
+        "cta": "",
+        "imageIntent": "El motor industrial vuelve como pieza premium y protagonista, acompañado por una composición limpia que deja todo el aire al CTA y a la marca.",
+        "brief": {
+          "layout": "hero_clean",
+          "highlights": [
+            {
+              "text": "Xending",
+              "colorRole": "control"
+            }
+          ],
+          "visualIntent": "Cerrar con un cuadro limpio, premium y sereno, donde la marca y el motor queden como único foco.",
+          "primaryObjects": [
+            "motor industrial",
+            "marca Xending"
+          ],
+          "visualMetaphor": "Un motor industrial aislado sobre una superficie limpia, con espacio negativo amplio y sin documentos compitiendo.",
+          "environmentalText": []
+        }
+      }
+    ],
+    "visualMotif": "Un motor industrial sobre una cotización de compra, convertido en el objeto que conecta el costo visible con su variación futura."
+  },
+  "controlledOverride": {
+    "baseRate": 18.2,
+    "amountUsd": 10000,
+    "driftPct": [
+      1,
+      2
+    ],
+    "fixedDocumentDate": "2026-08-15T12:00:00.000Z"
+  }
+}

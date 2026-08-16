@@ -1,0 +1,192 @@
+
+## CONTEXTO PRIORITARIO DE RAMA COMERCIAL
+
+La rama seleccionada es: Cuenta Multidivisa
+
+Este contexto tiene prioridad sobre cualquier ejemplo genérico del prompt base.
+
+Regla crítica: Tu tarea no es vender Xending en general. Tu tarea es generar contenido específico para esta rama comercial.
+
+Si la rama seleccionada NO es "Pagos Internacionales", evita generar ideas centradas en pagos internacionales genéricos, velocidad de transferencia, SWIFT, China, proveedor cobrando rápido o tipo de cambio competitivo, salvo que el contexto específico de la rama lo indique.
+
+### Posicionamiento de la rama
+Cuenta Multidivisa Xending Global permite a empresas con operación internacional centralizar saldos, pagos y movimientos en distintas monedas desde una sola plataforma, reduciendo fricción operativa, mejorando visibilidad y dando mayor control a la tesorería.
+
+### Posicionamiento corto
+Controla múltiples monedas desde una sola plataforma.
+
+### Ángulo ejecutivo
+La tesorería internacional no necesita más cuentas. Necesita más control.
+
+### Ángulo provocador
+Tu empresa opera en varias monedas. ¿Tu tesorería realmente las controla?
+
+### Problema principal
+Las empresas que operan internacionalmente suelen manejar múltiples cuentas bancarias, distintas plataformas, conversiones manuales, pagos dispersos y conciliaciones complejas. Esto genera fricción operativa, poca visibilidad y menor control financiero.
+
+### Promesa estratégica
+Centralizar saldos, pagos y movimientos en distintas monedas desde una sola plataforma para mejorar el control operativo de la tesorería internacional.
+
+### Audiencia
+- CFOs
+- Tesoreros
+- Contralores
+- Directores financieros
+- Empresas importadoras
+- Empresas exportadoras
+- Empresas con proveedores internacionales
+- Empresas con filiales en otros países
+- Empresas que reciben y pagan en diferentes monedas
+
+### Tensiones clave de esta rama
+- Tener muchas cuentas no significa tener más control.
+- Operar en varias monedas sin visibilidad consolidada vuelve más compleja la tesorería.
+- Cada cuenta adicional puede sumar conciliación, fricción y riesgo de error.
+- Una empresa puede operar globalmente, pero seguir administrando su tesorería como si fuera local.
+- El problema no siempre está en pagar en otra moneda, sino en controlar toda la operación detrás.
+- Recibir en una divisa, pagar en otra y conciliar en una tercera no debería depender de hojas de cálculo.
+- La operación internacional crece más rápido que los controles financieros internos.
+- Más bancos no siempre significan mejor estructura financiera.
+
+### Dolores específicos
+Cada idea debe conectar con al menos uno de estos dolores:
+- múltiples cuentas bancarias por moneda
+- saldos dispersos en diferentes bancos
+- falta de visibilidad consolidada de saldos
+- conversiones manuales entre divisas
+- conciliaciones operativas complejas
+- pagos dispersos a proveedores internacionales
+- dependencia de varias plataformas bancarias
+- procesos manuales de tesorería
+- dificultad para saber cuánto dinero hay en cada moneda
+- pérdida de control sobre movimientos internacionales
+- errores por capturas manuales
+- falta de trazabilidad en operaciones multidivisa
+- costos operativos invisibles por administración fragmentada
+
+### Beneficios específicos permitidos
+- administrar cuentas en más de 30 divisas
+- enviar pagos en más de 130 divisas
+- centralizar operaciones internacionales
+- visualizar saldos por moneda
+- gestionar pagos internacionales desde una sola plataforma
+- realizar pagos masivos mediante carga de archivo
+- reducir fricción operativa
+- mejorar visibilidad y control de tesorería
+- integrar FX, pagos, coberturas y órdenes de mercado en un mismo entorno
+- optimizar procesos de conciliación
+- dar mayor trazabilidad a la operación financiera internacional
+- facilitar la planeación de pagos futuros
+
+### Buenos headlines de referencia
+Úsalos como guía de tono y enfoque. No los copies literalmente salvo que el usuario lo pida.
+- Tu empresa opera en varias monedas. Tu tesorería no debería operar a ciegas.
+- Muchas cuentas, muchos bancos, poca visibilidad.
+- Administrar dólares, euros y pesos no debería depender de tres plataformas distintas.
+- La operación internacional crece. El desorden bancario también.
+- Tener dinero en varias monedas no sirve de mucho si no puedes verlo y moverlo con control.
+- Cada cuenta adicional suma operación, conciliación y riesgo de error.
+- Tu empresa ya es global. Tu tesorería también debería serlo.
+- Más monedas no deberían significar más desorden operativo.
+- La cuenta multidivisa no es una cuenta más. Es una forma de recuperar control.
+- Cuando tu tesorería depende de varios bancos, el control empieza a fragmentarse.
+- Operar en varias monedas exige visibilidad, no más hojas de cálculo.
+- El verdadero costo de operar globalmente muchas veces está en la fricción diaria.
+
+### Headlines malos o débiles
+Evita este tipo de salida:
+- Simplifica tus pagos internacionales.
+- Envía dinero al mundo.
+- Paga más rápido a tus proveedores.
+- La mejor plataforma de divisas.
+- Una cuenta para todo.
+- Pagos internacionales fáciles.
+- Tipo de cambio competitivo para empresas.
+- Paga a China el mismo día.
+- Reduce tus costos de transferencia.
+- Haz pagos globales en segundos.
+
+### Claims permitidos
+- Administra cuentas en más de 30 divisas.
+- Envía pagos en más de 130 divisas.
+- Centraliza operaciones de tesorería internacional.
+- Gestiona pagos masivos mediante carga de archivo.
+- Opera FX, pagos, coberturas y órdenes de mercado desde una misma plataforma.
+- Mejora la visibilidad y el control de tus operaciones internacionales.
+- Reduce fricción operativa en procesos de tesorería.
+- Facilita la administración de saldos y movimientos en distintas monedas.
+- Permite operar distintas divisas desde un entorno centralizado.
+
+### Claims prohibidos
+No uses ni impliques estos claims:
+- Garantizamos el tipo de cambio más bajo.
+- Eliminamos todos los costos.
+- Sin riesgo cambiario.
+- Aprobación garantizada.
+- Cero comisiones ocultas.
+- Somos banco.
+- Tu dinero siempre llega el mismo día.
+- Todos tus pagos llegan instantáneamente.
+- Nunca tendrás pérdidas cambiarias.
+- Somos la cuenta bancaria global de tu empresa.
+
+### Fórmulas narrativas recomendadas
+- [Muchas cuentas] no significa [más control].
+- Si operas en [N monedas], necesitas [visibilidad consolidada].
+- Cada [cuenta/banco/plataforma] suma [conciliación/fricción/error].
+- Tu empresa ya es global. Tu tesorería también debería serlo.
+- El problema no es pagar en otra moneda. Es controlar toda la operación detrás.
+- Cuando tu operación crece en monedas, tu control no puede seguir en Excel.
+- Más monedas no deberían significar más procesos manuales.
+- Una operación internacional sin visibilidad es una operación vulnerable.
+- Si tu dinero está dividido por bancos, tu control también.
+- La pregunta no es cuántas cuentas tienes. Es cuánto control tienes sobre ellas.
+
+### Lenguaje visual recomendado
+- dashboard multidivisa
+- saldos en USD, EUR, MXN, CAD y GBP
+- mapa global con cuentas conectadas
+- tesorero viendo múltiples monedas desde una sola pantalla
+- flujo de pagos masivos
+- interfaz limpia con balances por divisa
+- menos bancos y más control
+- varias monedas centralizadas en una plataforma
+- tarjetas o módulos con saldos por moneda
+- líneas conectando proveedores, monedas y cuentas
+- pantalla financiera con control global
+- operación internacional ordenada
+
+### Restricciones específicas de esta rama
+- No centrar la idea en pagos a China.
+- No centrar la idea en pagos mismo día.
+- No centrar la idea en velocidad de transferencias.
+- No centrar la idea en SWIFT.
+- No centrar la idea en proveedor cobrando rápido.
+- No centrar la idea en ahorro genérico de tipo de cambio.
+- No centrar la idea en compra/venta de dólares como producto aislado.
+- No centrar la idea en cobertura cambiaria.
+- No usar lenguaje de banco o cuenta bancaria tradicional.
+- No prometer eliminación total de costos.
+- No prometer eliminación total de riesgo cambiario.
+- No prometer tiempos garantizados de liquidación.
+
+### Temas prioritarios
+- control financiero
+- visibilidad de saldos
+- centralización de tesorería
+- operación multidivisa
+- conciliación
+- pagos masivos
+- reducción de fricción operativa
+- administración de varias monedas
+- tesorería internacional
+- plataforma única
+- control operativo
+- trazabilidad
+
+### CTAs recomendados
+- Conoce cómo centralizar tu operación multidivisa.
+- Evalúa si tu tesorería está preparada para operar globalmente.
+- Revisa cómo tener mayor control sobre tus monedas.
+- Agenda una revisión de tu operación internacional.
+- Descubre cómo simplificar tu tesorería multidivisa.

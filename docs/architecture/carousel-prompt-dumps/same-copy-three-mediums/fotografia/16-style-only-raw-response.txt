@@ -1,0 +1,3 @@
+NO CAPTURADO EN RUNTIME
+
+La Edge Function devolvió la variante parseada/normalizada, pero no expone ni persiste choices[0].message.content, usage ni la respuesta raw de OpenAI.

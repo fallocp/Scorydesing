@@ -1,0 +1,292 @@
+{
+  "requestedSlug": "cobertura-cambiaria",
+  "activeDatabaseSlug": "cobertura-cambiaria",
+  "requestedSlugPresentInActiveDatabase": true,
+  "branch": {
+    "id": "<BRANCH_ID:cobertura-cambiaria>",
+    "business_id": "<BUSINESS_ID>",
+    "category_id": "<CATEGORY_ID>",
+    "name": "Cobertura Cambiaria",
+    "slug": "cobertura-cambiaria",
+    "strategic_config": {
+      "ctas": [
+        "Protege tu próxima operación",
+        "Cotiza tu cobertura",
+        "Fija tu tipo de cambio hoy",
+        "Habla con un asesor"
+      ],
+      "dolor": "Cotizaste un producto a $17.50 MXN/USD pero cuando llegó el momento de pagar, el dólar estaba a $18.20. Ese movimiento destruyó tu margen.",
+      "angulos": [
+        "Educativo",
+        "Emocional",
+        "Dato Duro",
+        "Urgencia Operativa"
+      ],
+      "footers": [
+        "Las coberturas cambiarias son instrumentos financieros sujetos a condiciones de mercado.",
+        "Xending — protege tus márgenes, asegura tu operación."
+      ],
+      "insight": "El 80% de las PyMEs mexicanas que importan o exportan no usan ningún instrumento de cobertura cambiaria.",
+      "promesa": "Con Xending, fija tu tipo de cambio hoy para pagos futuros. Protege tus márgenes sin contratos complicados.",
+      "objetivo": "Educar y convencer a empresas sobre la importancia de proteger sus márgenes con coberturas cambiarias.",
+      "audiencia": "Importadores y exportadores PyME con operaciones recurrentes en USD, directores de compras que negocian precios en dólares.",
+      "guia_visual": "Gráficas de tipo de cambio con líneas de protección, escudos y candados como metáforas visuales.",
+      "claims_permitidos": [
+        "Fija tu tipo de cambio",
+        "Protege tus márgenes",
+        "Cobertura sin complicaciones",
+        "Sin montos mínimos prohibitivos"
+      ],
+      "claims_prohibidos": [
+        "Elimina todo riesgo cambiario",
+        "Garantiza tu tipo de cambio para siempre",
+        "Sin ningún costo de cobertura"
+      ],
+      "content_ingredients": {
+        "default": {
+          "ctas": [
+            "Protege tu próxima operación",
+            "Cotiza tu cobertura",
+            "Habla con un asesor"
+          ],
+          "sublines": [
+            "Protege tu operación de la volatilidad cambiaria.",
+            "Sin contratos complicados, sin montos mínimos prohibitivos."
+          ],
+          "big_stats": [
+            "80% de PyMEs sin cobertura",
+            "Hasta 70 centavos de diferencia",
+            "Protección desde hoy"
+          ],
+          "headlines": [
+            "Protege tus márgenes.",
+            "Fija tu tipo de cambio hoy.",
+            "Cobertura sin complicaciones."
+          ],
+          "benefit_phrases": [
+            "Fija tu tipo de cambio",
+            "Sin montos mínimos prohibitivos",
+            "Sin contratos complicados",
+            "Protege tus márgenes de ganancia"
+          ],
+          "photo_direction": "Escudo o candado como metáfora, gráfica de tipo de cambio con línea de protección, sensación de seguridad"
+        },
+        "dato_duro": {
+          "ctas": [
+            "Protege tu operación",
+            "Cotiza ahora"
+          ],
+          "sublines": [
+            "La mayoría de las empresas están expuestas a la volatilidad.",
+            "No necesitas ser experto en derivados."
+          ],
+          "big_stats": [
+            "80% sin cobertura",
+            "$0.70 MXN de riesgo por dólar",
+            "Desde $0 monto mínimo"
+          ],
+          "headlines": [
+            "80% de PyMEs operan sin cobertura",
+            "70 centavos pueden destruir tu margen",
+            "Protección desde $0 de monto mínimo"
+          ],
+          "benefit_phrases": [
+            "Sin montos mínimos",
+            "Sin ser experto en derivados",
+            "Protección inmediata"
+          ],
+          "photo_direction": "Número grande de impacto, gráfica de volatilidad, persona preocupada que encuentra solución"
+        },
+        "educativo": {
+          "ctas": [
+            "Aprende más",
+            "Habla con un asesor",
+            "Cotiza tu primera cobertura"
+          ],
+          "sublines": [
+            "Fija hoy el tipo de cambio para pagos futuros. Así de simple.",
+            "No necesitas ser experto financiero."
+          ],
+          "headlines": [
+            "¿Qué es una cobertura cambiaria?",
+            "Protege tu margen en 3 pasos",
+            "Cobertura explicada simple"
+          ],
+          "benefit_phrases": [
+            "Fija tipo de cambio futuro",
+            "Sin contratos complicados",
+            "Accesible para PyMEs",
+            "Protege cada operación"
+          ],
+          "photo_direction": "Explicación visual simple, pasos numerados, persona aprendiendo con confianza"
+        },
+        "comparativa": {
+          "ctas": [
+            "Fija tu tipo de cambio",
+            "Cotiza tu cobertura"
+          ],
+          "sublines": [
+            "Ese movimiento de 70 centavos destruyó tu margen.",
+            "Con cobertura, tu tipo de cambio está fijo."
+          ],
+          "data_sets": [
+            {
+              "diferencia": "Margen protegido al 100%",
+              "con_cobertura": "Cotizas a $17.50, pagas a $17.50",
+              "sin_cobertura": "Cotizas a $17.50, pagas a $18.20"
+            }
+          ],
+          "headlines": [
+            "Sin cobertura vs con cobertura",
+            "El riesgo que no ves",
+            "Cotizaste a $17.50, pagaste a $18.20"
+          ],
+          "benefit_phrases": [
+            "Tipo de cambio fijo",
+            "Margen protegido",
+            "Sin sorpresas"
+          ],
+          "photo_direction": "Gráfica de tipo de cambio con zona protegida vs zona de riesgo, contraste visual claro"
+        }
+      }
+    },
+    "prompt_kit": {
+      "audience": [
+        "Importadores con pagos recurrentes en USD",
+        "Exportadores que cotizan en pesos y cobran en dólares",
+        "Directores de compras que negocian precios en moneda extranjera",
+        "CFOs de empresas con márgenes ajustados",
+        "Tesoreros que planean presupuestos anuales en divisas",
+        "Empresas con contratos a plazo en moneda extranjera"
+      ],
+      "branch_id": "cobertura_cambiaria",
+      "branch_name": "Cobertura Cambiaria",
+      "branch_type": "product",
+      "positioning": "Xending permite a empresas fijar su tipo de cambio para operaciones futuras, protegiendo márgenes de ganancia contra la volatilidad cambiaria sin contratos complicados ni montos mínimos prohibitivos.",
+      "executive_angle": "La volatilidad cambiaria no es un riesgo externo. Es un costo que puedes controlar.",
+      "malos_headlines": [
+        "Protege tu dinero.",
+        "Cobertura cambiaria para todos.",
+        "Elimina todo riesgo cambiario.",
+        "Nunca pierdas por tipo de cambio.",
+        "Garantizamos tu tipo de cambio para siempre.",
+        "Derivados fáciles."
+      ],
+      "primary_problem": "Las empresas que importan o exportan operan expuestas a la volatilidad del tipo de cambio. Cotizan productos a un precio, pero cuando llega el momento de pagar, el tipo de cambio se movió y el margen de ganancia se redujo o desapareció. La mayoría no usa coberturas porque las perciben como complicadas, caras o solo para grandes corporativos.",
+      "tensiones_clave": [
+        "Cotizar a un precio y pagar a otro no es mala suerte. Es falta de planeación cambiaria.",
+        "La volatilidad no avisa. Pero sí se puede anticipar.",
+        "Un movimiento de 50 centavos en el dólar puede destruir el margen de toda una operación.",
+        "Operar sin cobertura es apostar tu margen al mercado.",
+        "El tipo de cambio no es un dato que revisas al final. Es un riesgo que gestionas desde el inicio.",
+        "Proteger tu margen no requiere ser experto en derivados.",
+        "La cobertura no es un costo. Es la diferencia entre ganar y perder en una operación.",
+        "Si tu presupuesto depende del tipo de cambio, tu presupuesto está en riesgo."
+      ],
+      "visual_language": [
+        "gráfica de tipo de cambio con línea de protección",
+        "escudo protegiendo margen de ganancia",
+        "comparativa: con cobertura vs sin cobertura",
+        "candado sobre tipo de cambio fijo",
+        "presupuesto estable vs presupuesto volátil",
+        "línea de tiempo: cotización → pago → resultado",
+        "dashboard con órdenes de mercado activas",
+        "gráfica de volatilidad con zona protegida"
+      ],
+      "buenos_headlines": [
+        "Cotizaste a un precio. Pagaste a otro. Eso tiene solución.",
+        "La volatilidad no avisa. Pero sí se puede anticipar.",
+        "Un movimiento de 50 centavos puede destruir tu margen completo.",
+        "Operar sin cobertura es apostar tu ganancia al mercado.",
+        "Tu presupuesto depende del tipo de cambio. ¿Lo estás protegiendo?",
+        "La cobertura no es un costo. Es la diferencia entre ganar y perder.",
+        "Si tu margen depende del dólar, tu margen está en riesgo.",
+        "Proteger tu tipo de cambio no requiere ser experto en derivados.",
+        "El tipo de cambio se mueve. Tu margen no tiene por qué moverse con él."
+      ],
+      "cta_recomendados": [
+        "Protege tu próxima operación.",
+        "Fija tu tipo de cambio hoy.",
+        "Evalúa tu exposición cambiaria.",
+        "Cotiza tu cobertura sin compromiso.",
+        "Conoce cómo proteger tu margen."
+      ],
+      "claims_permitidos": [
+        "Fija tu tipo de cambio para operaciones futuras.",
+        "Protege tus márgenes contra volatilidad cambiaria.",
+        "Coberturas accesibles sin montos mínimos prohibitivos.",
+        "Proceso simple sin necesidad de expertise en derivados.",
+        "Planeación financiera con tipo de cambio conocido.",
+        "Órdenes de mercado para aprovechar niveles favorables."
+      ],
+      "claims_prohibidos": [
+        "Elimina todo riesgo cambiario.",
+        "Garantiza tu tipo de cambio para siempre.",
+        "Sin ningún costo de cobertura.",
+        "Cero riesgo.",
+        "Siempre ganarás con tu cobertura.",
+        "Mejor tipo de cambio garantizado."
+      ],
+      "provocative_angle": "Cotizaste a un precio. Pagaste a otro. ¿Cuánto margen perdiste en el camino?",
+      "short_positioning": "Protege tus márgenes fijando tu tipo de cambio hoy.",
+      "strategic_promise": "Fijar el tipo de cambio hoy para pagos futuros. Proteger márgenes sin contratos complicados, sin montos mínimos prohibitivos y sin necesidad de ser experto en derivados financieros.",
+      "temas_prioritarios": [
+        "volatilidad cambiaria",
+        "protección de márgenes",
+        "tipo de cambio fijo",
+        "planeación financiera",
+        "presupuesto en divisas",
+        "riesgo cambiario",
+        "coberturas accesibles",
+        "órdenes de mercado",
+        "hedging empresarial",
+        "certeza presupuestal"
+      ],
+      "dolores_especificos": [
+        "margen de ganancia destruido por movimiento cambiario",
+        "cotización en pesos que no coincide con el costo real en dólares al momento de pagar",
+        "imposibilidad de presupuestar con certeza cuando hay exposición cambiaria",
+        "volatilidad que convierte operaciones rentables en operaciones con pérdida",
+        "percepción de que las coberturas son solo para grandes corporativos",
+        "contratos de cobertura bancarios complicados y con montos mínimos altos",
+        "falta de herramientas accesibles para hedging",
+        "decisiones de compra retrasadas por incertidumbre cambiaria",
+        "presupuesto anual que se descuadra por tipo de cambio",
+        "proveedor que cotiza en USD pero la empresa vende en MXN"
+      ],
+      "formulas_narrativas": [
+        "Cotizaste a [precio A]. Pagaste a [precio B]. Eso es [consecuencia].",
+        "Un movimiento de [centavos] en [volumen] son [pérdida concreta].",
+        "Si tu [presupuesto/margen] depende del [tipo de cambio], está en [riesgo].",
+        "La volatilidad no [avisa/espera/perdona]. Pero sí se puede [anticipar/gestionar].",
+        "Operar sin cobertura es [apostar/arriesgar] tu [margen/ganancia].",
+        "Proteger tu margen no requiere [expertise/contratos complicados/montos altos].",
+        "El tipo de cambio se mueve. Tu [margen/presupuesto] no tiene por qué moverse con él."
+      ],
+      "restricciones_de_rama": [
+        "No centrar la idea en velocidad de pago o mismo día.",
+        "No centrar la idea en múltiples monedas o cuentas.",
+        "No centrar la idea en costos ocultos o comisiones.",
+        "No centrar la idea en control operativo o trazabilidad.",
+        "No prometer eliminación total de riesgo cambiario.",
+        "No confundir cobertura con seguro (no es lo mismo).",
+        "No decir que el tipo de cambio se mueve DESPUÉS de pactar (se cierra al pactar).",
+        "El foco debe estar en VOLATILIDAD, MÁRGENES, PLANEACIÓN y PROTECCIÓN."
+      ],
+      "beneficios_especificos": [
+        "fijar tipo de cambio para operaciones futuras",
+        "proteger márgenes de ganancia contra volatilidad",
+        "presupuestar con certeza el costo en pesos de operaciones en dólares",
+        "coberturas accesibles sin montos mínimos prohibitivos",
+        "proceso simple sin necesidad de expertise en derivados",
+        "planeación financiera con tipo de cambio conocido",
+        "eliminar la incertidumbre cambiaria de operaciones recurrentes",
+        "órdenes de mercado para aprovechar niveles favorables"
+      ]
+    },
+    "display_order": 3,
+    "is_active": true,
+    "created_at": "2026-05-01T23:16:21.502678+00:00",
+    "updated_at": "2026-05-23T15:54:58.916012+00:00"
+  }
+}

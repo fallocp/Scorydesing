@@ -1,0 +1,22 @@
+{
+  "precedence": [
+    "Caller preset fixes slide count, roles, brand placements, narrativeRules and visualMode.",
+    "buildSystemPrompt says preset narrativeRules override generic examples.",
+    "Objective-specific closing rules explicitly override selling examples.",
+    "Editorial bans from modern code copy kit explicitly override the lower commercial_branches context.",
+    "User guidance is labeled priority and appears after angle/industry, immediately before output schema.",
+    "Normalization code restores caller roles/count, clamps lengths, strips unauthorized CTAs and normalizes brief.",
+    "Explicit masterPromptVersion=v2 bypasses DB/global master prompt selection.",
+    "carouselDesignBlock supplied by the caller wins over any designBlock echoed by the model.",
+    "assembleCarouselSlidePrompt states exact copy is authoritative and sceneBlock replaces any concrete scene in the shared design spec.",
+    "mode=generate would use promptFinal verbatim and imageQuality medium from the caller."
+  ],
+  "contextLoss": [
+    "Raw script OpenAI completion and messages are not persisted.",
+    "BusinessContext, branchContext, editorial bans and copy-kit source are not persisted with CarouselMeta.",
+    "Raw style_only and carousel_prompts completions, model usage and parsing repairs are not returned or persisted.",
+    "SceneBlock is not persisted separately; only recoverable by parsing promptFinal.",
+    "Sibling slide copy, scenes, prompts, images and feedback are absent from each per-slide call.",
+    "URLs and mockup IDs exist in persisted CarouselMeta but were sanitized in this audit."
+  ]
+}

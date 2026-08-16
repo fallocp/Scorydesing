@@ -1,0 +1,37 @@
+[
+  {
+    "index": 0,
+    "role": "tension",
+    "source": "extraído del promptFinal real devuelto por carousel_prompts",
+    "sceneBlock": "A premium 3D editorial scene on a pure white background, framed as a top-heavy corporate composition with the subject anchored in the lower two-thirds. Place a refined industrial motor in satin light gray beside a printed purchase quote on the desk, with the quote as the single data surface: visible total, USD/MXN labels, HOY, PAGO, TOTAL, and TIPO DE CAMBIO rendered legibly. Use a date stamp on the paper as the tension cue, with the motor visually linked to the quote through a thin teal structural line and one coral-highlighted total, suggesting the cost is visible now but may shift before payment.",
+    "negativeInstructions": "No extra objects beyond the motor, one printed quote, and one date stamp. No floating data, no duplicated totals on multiple surfaces, no invented numbers, no unreadable text, no logos, no watermark, no clutter, no extra charts, no multiple documents, no people, no hands, no dark background, no neon, no cyberpunk, no toy look, no cheap plastic, no low-poly rendering, no generic Canva composition, no three-column layout, no catalog grid, no excessive teal or coral, no thick arrows, no alarmist styling."
+  },
+  {
+    "index": 1,
+    "role": "shift",
+    "source": "extraído del promptFinal real devuelto por carousel_prompts",
+    "sceneBlock": "A split-photo style premium 3D iconography scene showing two printed industrial purchase quotations side by side on a clean white desk, both tied to the same industrial motor as the recurring hero object. The left sheet is stamped TODAY and shows a shorter total; the right sheet is stamped PAY and shows the same order later, with a visibly larger total. Keep the comparison entirely on the paper surfaces, with a thin teal connector and one coral highlight only on the higher total. Frame the documents in the lower two-thirds, leaving the upper third clean for the headline.",
+    "negativeInstructions": "No extra objects, no additional documents, no floating labels, no invented text beyond TODAY, PAY, USD, MXN, and TOTAL, no charts repeated on multiple surfaces, no clutter, no three-column layout, no generic Canva look, no flat vector design, no dark background, no neon, no crypto or gamer styling, no toy materials, no low-poly forms, no incorrect industrial motor shape, no unreadable gibberish, no watermark, no logos."
+  },
+  {
+    "index": 2,
+    "role": "risk",
+    "source": "extraído del promptFinal real devuelto por carousel_prompts",
+    "sceneBlock": "An editorial 3D composition showing three successive purchase orders for the same industrial motor, staggered diagonally in depth like a growing paper trail. The front document is the cleanest and smallest, while each sheet behind it expands the visible TOTAL area more aggressively, making the accumulation unmistakable. Place the motor as a restrained secondary object partially overlapping the papers in the lower third, with a thin teal connector line and one coral-highlighted total. Keep the top third empty for headline text.",
+    "negativeInstructions": "Do not use more than three objects, no extra props, no collage, no grid of cards, no floating data, no invented labels beyond USD, MXN, and TOTAL, no readable paragraphs, no additional numbers, no charts that repeat the same information, no busy background, no dark scene, no neon, no crypto or gamer styling, no flat vector look, no toy materials, no cheap plastic, no excessive navy, teal, or coral, no clutter, no perspective inconsistency, no duplicated motors, no generic office stock scene, no watermark, no logos."
+  },
+  {
+    "index": 3,
+    "role": "solution",
+    "source": "extraído del promptFinal real devuelto por carousel_prompts",
+    "sceneBlock": "A clean, resolved document-result scene in a premium white 3D iconography style: a single industrial purchase order rests in the center-right lower area, paired with a refined industrial motor as a secondary object, both aligned like a closed operation. The document shows one clear total and a confirmed status, with the motor visually linked to the finalized cost. Keep the upper third empty and bright for overlaid headline text, and let the lower two-thirds carry the orderly, calm closure of the transaction.",
+    "negativeInstructions": "Do not add extra documents, competing objects, duplicated motors, multiple totals, floating labels, busy charts, or any second data surface. No dark background, no clutter, no collage, no flat vector style, no generic Canva layout, no invented numbers beyond the provided labels, no illegible text, no watermark, no logos, no neon, no crypto or gamer aesthetics, no toy-like materials, no malformed industrial motor, no low-poly rendering, no excessive arrows, no three-column composition."
+  },
+  {
+    "index": 4,
+    "role": "cta",
+    "source": "extraído del promptFinal real devuelto por carousel_prompts",
+    "sceneBlock": "A quiet closing hero-clean composition in a bright white institutional studio: the industrial motor returns as the premium focal object, isolated on a refined matte-white surface in the lower two-thirds of the frame, slightly angled in three-quarter view. A single small Xending brand element sits nearby as a restrained corporate cue, while the entire upper third remains open, clean, and text-friendly. No documents compete with the motor; the scene feels serene, premium, and resolved.",
+    "negativeInstructions": "No extra documents, no charts, no second hero object, no clutter, no busy background, no dark set, no neon, no cyberpunk, no stock photo look, no fake logos, no watermark, no gibberish, no invented text, no misspellings, no numbers beyond the supplied CTA if rendered, no thin or thick random arrows, no multiple focal points, no crowded composition, no toys, no plastic look, no low-poly rendering, no malformed industrial motor, no generic Canva layout, no three-column design, no catalog grid."
+  }
+]

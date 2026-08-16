@@ -1,0 +1,32 @@
+[
+  {
+    "index": 0,
+    "role": "tension",
+    "source": "extraído del promptFinal persistido real",
+    "sceneBlock": "An editorial operational-route diorama in a bright white institutional setting: a compact industrial motor sits in the lower left foreground beside a printed purchase quotation, while a second slightly offset quote sheet behind it shows the same order with a later date stamp and a visibly longer final total, making the cost shift tangible. Keep the motor as the recurring hero parens, but secondary and partially cropped; the quote is the true data surface. Place the headline-safe empty zone across the top."
+  },
+  {
+    "index": 1,
+    "role": "shift",
+    "source": "extraído del promptFinal persistido real",
+    "sceneBlock": "Two printed industrial quotation sheets sit side by side on a clean white desk, each showing the same motor purchase but different dates: the left sheet stamped TODAY and the right sheet stamped PAY later. The industrial motor appears as a restrained secondary object at the lower edge, partially cropped, connecting both documents as the same purchase with two different totals. Keep the top third empty and bright for the headline, with the comparison clearly anchored in the lower two thirds."
+  },
+  {
+    "index": 2,
+    "role": "risk",
+    "source": "extraído del promptFinal persistido real",
+    "sceneBlock": "Three successive industrial purchase orders are stacked and slightly offset across a clean white desk, each showing the same motor as the repeated subject while the visible TOTAL grows longer from sheet to sheet, making the accumulation unmistakable. The top two-thirds stay open and quiet for the headline, while the lower two-thirds hold the documents in an editorial repetition layout. A thin teal connector and one coral total highlight mark the rising exposure without clutter."
+  },
+  {
+    "index": 3,
+    "role": "solution",
+    "source": "extraído del promptFinal persistido real",
+    "sceneBlock": "A calm operational-route diorama in a white premium studio: a single industrial motor sits partially wrapped beside one clean purchase document, while a thin teal route line visually connects the document total to a small side monitor showing a rising FX curve. The motor is the hero in the lower two-thirds; the top third stays empty and bright for headline readability. One coral highlight marks the moving cost point, and the document reads as the closed, ordered result."
+  },
+  {
+    "index": 4,
+    "role": "cta",
+    "source": "extraído del promptFinal persistido real",
+    "sceneBlock": "A quiet closing-frame scene in a premium white studio: the industrial motor returns as the lone hero, isolated on a clean matte surface in the lower two-thirds, slightly angled in three-quarter view with refined white ceramic and satin light-gray details. A small Xending brand mark sits discreetly on a minimal base card, while the upper third stays almost empty for the headline. No competing documents, only a faint teal structural line and one subtle coral highlight on the cost-sensitive point."
+  }
+]

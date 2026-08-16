@@ -1,0 +1,33 @@
+{
+  "edgeResponse": {
+    "httpStatus": 200,
+    "ok": true,
+    "body": {
+      "prompts": {
+        "fotografia": {
+          "prompt_final": "Editorial B2B photographic system for a premium international fintech brand, designed as a clean, white, institutional visual language with a single clear hero presence and lots of negative space. High-key studio-like exposure with a soft, natural finish and realistic texture; crisp but gentle contrast, subtle contact shadows, and a refined sense of depth. Use a mostly white field (#FFFFFF / #F5F5F5) for 80–90% of the composition, with navy #0F1419 used only as structural framing, thin visual anchors, or understated graphic balance; teal #2ED4C7 as a small activation accent; coral #FF7A4A as one restrained focal tension cue. Add graceful dynamic lines and very subtle coral-to-teal gradient motion cues to suggest operational flow, speed, and continuity without artificial urgency. Composition should feel corporate, modern, global, and premium, with one dominant visual idea, maximum 1–3 secondary supporting elements, and generous empty space for later copy placement. Camera treatment: realistic editorial photography, medium-wide framing, clean perspective, natural depth of field, no exaggerated angles, no distortion, no clutter, no fake stock-photo staging. Materials and surfaces should feel authentic and high-end, with matte, satin, ceramic-like, paper-like, brushed, or soft industrial finishes rather than glossy plastic. Typography is not present in the image, but the visual system should imply bold headline hierarchy through strong structural contrast and clear spatial organization. Avoid any sense of artificial urgency; the mood should be calm, controlled, and operationally fluid. White background style only, with a luminous, uncluttered, premium B2B look.",
+          "negative_instructions": "No text, no readable words, no letters, no numbers, no labels, no captions, no watermarks, no logos, no invented brands, no gibberish, no misspellings, no fake UI, no fake documents, no stock-photo cliché, no clutter, no Canva-style composition, no three-column layout, no catalog grid, no childish or toy-like look, no inflatable forms, no cheap plastic, no low-poly shapes, no neon, no cyberpunk, no crypto aesthetic, no gamer aesthetic, no excessive navy, no excessive teal, no excessive coral, no dark background dominance, no harsh urgency, no overcomplicated scene, no inconsistent scale, no malformed forms, no distorted perspective, no fake reflections, no oversaturated gradients, no scene-specific named objects.",
+          "aspect_ratio": "1:1",
+          "creative_rationale": "Translates the idea into a premium white B2B photographic system focused on operational flow and controlled speed, with the brand palette used sparingly and structurally."
+        }
+      },
+      "aspectRatio": "1:1",
+      "promptMeta": {
+        "source": "code-v2-request",
+        "version": "v2",
+        "backgroundStyle": "white",
+        "corridor": null
+      },
+      "usage": {
+        "next_step": "Call this endpoint again with mode=\"generate\", imageType=<type>, promptFinal=<prompts[type].prompt_final>",
+        "available_types": [
+          "fotografia",
+          "infografia",
+          "mapa_rutas"
+        ]
+      }
+    }
+  },
+  "selectedAnchor": "Editorial B2B photographic system for a premium international fintech brand, designed as a clean, white, institutional visual language with a single clear hero presence and lots of negative space. High-key studio-like exposure with a soft, natural finish and realistic texture; crisp but gentle contrast, subtle contact shadows, and a refined sense of depth. Use a mostly white field (#FFFFFF / #F5F5F5) for 80–90% of the composition, with navy #0F1419 used only as structural framing, thin visual anchors, or understated graphic balance; teal #2ED4C7 as a small activation accent; coral #FF7A4A as one restrained focal tension cue. Add graceful dynamic lines and very subtle coral-to-teal gradient motion cues to suggest operational flow, speed, and continuity without artificial urgency. Composition should feel corporate, modern, global, and premium, with one dominant visual idea, maximum 1–3 secondary supporting elements, and generous empty space for later copy placement. Camera treatment: realistic editorial photography, medium-wide framing, clean perspective, natural depth of field, no exaggerated angles, no distortion, no clutter, no fake stock-photo staging. Materials and surfaces should feel authentic and high-end, with matte, satin, ceramic-like, paper-like, brushed, or soft industrial finishes rather than glossy plastic. Typography is not present in the image, but the visual system should imply bold headline hierarchy through strong structural contrast and clear spatial organization. Avoid any sense of artificial urgency; the mood should be calm, controlled, and operationally fluid. White background style only, with a luminous, uncluttered, premium B2B look.",
+  "selectedAnchorSource": "deployed style_only response"
+}

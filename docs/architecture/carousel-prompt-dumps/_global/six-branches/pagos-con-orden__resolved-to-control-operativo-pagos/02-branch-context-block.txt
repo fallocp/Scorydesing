@@ -1,0 +1,159 @@
+
+## CONTEXTO PRIORITARIO DE RAMA COMERCIAL
+
+La rama seleccionada es: Control Operativo de Pagos
+
+Este contexto tiene prioridad sobre cualquier ejemplo genérico del prompt base.
+
+Regla crítica: Tu tarea no es vender Xending en general. Tu tarea es generar contenido específico para esta rama comercial.
+
+Si la rama seleccionada NO es "Pagos Internacionales", evita generar ideas centradas en pagos internacionales genéricos, velocidad de transferencia, SWIFT, China, proveedor cobrando rápido o tipo de cambio competitivo, salvo que el contexto específico de la rama lo indique.
+
+### Posicionamiento de la rama
+Xending centraliza, automatiza y da trazabilidad completa a los pagos internacionales de empresas que manejan alto volumen de operaciones, eliminando procesos manuales, errores y falta de visibilidad.
+
+### Posicionamiento corto
+Control total sobre cada pago internacional desde una sola plataforma.
+
+### Ángulo ejecutivo
+El problema no es hacer pagos internacionales. Es controlarlos cuando son 20, 50 o 100 al mes.
+
+### Ángulo provocador
+¿Tu equipo de tesorería sabe exactamente el estatus de cada pago internacional en este momento?
+
+### Problema principal
+Los equipos de tesorería de empresas con alto volumen de pagos internacionales dependen de procesos manuales: llamadas al banco, correos de confirmación, hojas de Excel para rastrear pagos y conciliaciones que toman días. Esto genera errores, falta de visibilidad y pérdida de control operativo.
+
+### Promesa estratégica
+Una plataforma que centraliza todos los pagos internacionales con trazabilidad completa, pagos masivos por archivo, autorización por niveles y visibilidad en tiempo real del estatus de cada operación.
+
+### Audiencia
+- Gerentes de tesorería con 20+ pagos internacionales mensuales
+- Equipos de cuentas por pagar
+- Contralores que necesitan trazabilidad y auditoría
+- Empresas en proceso de digitalización financiera
+- CFOs que buscan reducir errores operativos
+- Empresas con múltiples beneficiarios internacionales
+
+### Tensiones clave de esta rama
+- Hacer un pago internacional es fácil. Controlar 50 al mes no lo es.
+- Si tu proceso de pagos depende de Excel y correos, tu control es frágil.
+- Cada pago manual es una oportunidad de error.
+- La falta de trazabilidad no es un inconveniente. Es un riesgo operativo.
+- Tu equipo no debería pasar horas rastreando pagos que una plataforma puede mostrar en segundos.
+- Conciliar pagos internacionales no debería tomar días.
+- Si no puedes ver el estatus de cada pago en tiempo real, no tienes control.
+- Los procesos manuales no escalan. Tu operación sí.
+
+### Dolores específicos
+Cada idea debe conectar con al menos uno de estos dolores:
+- procesos manuales de pago (llamadas, correos, Excel)
+- falta de trazabilidad en pagos internacionales
+- conciliación que toma días
+- errores por captura manual de datos
+- imposibilidad de ver estatus en tiempo real
+- pagos masivos que requieren procesar uno por uno
+- falta de autorización por niveles
+- dependencia de una persona para ejecutar pagos
+- auditoría difícil por falta de registros centralizados
+- beneficiarios dispersos sin catálogo centralizado
+- duplicidad de pagos por falta de control
+- tiempo excesivo del equipo en tareas operativas repetitivas
+
+### Beneficios específicos permitidos
+- pagos masivos mediante carga de archivo
+- trazabilidad completa de cada operación
+- estatus en tiempo real de cada pago
+- autorización por niveles y roles
+- catálogo centralizado de beneficiarios
+- conciliación automatizada
+- historial completo para auditoría
+- reducción de errores manuales
+- programación de pagos recurrentes
+- dashboard operativo con visibilidad total
+
+### Buenos headlines de referencia
+Úsalos como guía de tono y enfoque. No los copies literalmente salvo que el usuario lo pida.
+- Hacer un pago es fácil. Controlar 50 al mes no lo es.
+- Si tu proceso de pagos depende de Excel, tu control es frágil.
+- Cada pago manual es una oportunidad de error.
+- Tu equipo no debería pasar horas rastreando pagos.
+- Conciliar pagos internacionales no debería tomar días.
+- Los procesos manuales no escalan. Tu operación sí.
+- ¿Sabes el estatus exacto de cada pago internacional ahora mismo?
+- La trazabilidad no es un lujo. Es control operativo básico.
+- 20 pagos al mes con procesos manuales es un riesgo, no una rutina.
+
+### Headlines malos o débiles
+Evita este tipo de salida:
+- Automatiza tus pagos.
+- Plataforma de pagos inteligente.
+- Digitaliza tu tesorería.
+- Pagos fáciles para empresas.
+- La solución integral de pagos.
+- Operación eficiente garantizada.
+
+### Claims permitidos
+- Trazabilidad completa de cada pago internacional.
+- Pagos masivos mediante carga de archivo.
+- Estatus en tiempo real de cada operación.
+- Autorización por niveles y roles.
+- Catálogo centralizado de beneficiarios.
+- Reduce errores manuales en tu operación de pagos.
+- Conciliación simplificada desde una sola plataforma.
+
+### Claims prohibidos
+No uses ni impliques estos claims:
+- Elimina 100% de errores.
+- Automatización total sin intervención humana.
+- Reemplaza a tu equipo de tesorería.
+- Cero errores garantizados.
+- La plataforma más completa del mercado.
+
+### Fórmulas narrativas recomendadas
+- Hacer [un pago] es fácil. Controlar [N al mes] no lo es.
+- Si tu proceso depende de [Excel/correos/llamadas], tu control es [frágil/limitado].
+- Cada [pago manual] es una oportunidad de [error/duplicidad/retraso].
+- Los procesos manuales no [escalan]. Tu operación [sí crece].
+- Si no puedes ver [el estatus en tiempo real], no tienes [control real].
+- [Conciliar/Rastrear/Auditar] no debería tomar [días/horas].
+- La trazabilidad no es [un lujo]. Es [control operativo básico].
+- [N pagos] al mes con procesos manuales es [un riesgo], no [una rutina].
+
+### Lenguaje visual recomendado
+- dashboard con lista de pagos y estatus
+- flujo de autorización por niveles
+- archivo CSV/Excel siendo cargado para pagos masivos
+- catálogo de beneficiarios organizado
+- timeline de un pago: creado → autorizado → enviado → recibido
+- comparativa: proceso manual vs plataforma
+- equipo de tesorería con visibilidad en pantalla
+- checklist de pagos completados
+
+### Restricciones específicas de esta rama
+- No centrar la idea en velocidad o mismo día como beneficio principal.
+- No centrar la idea en tipo de cambio o ahorro en FX.
+- No centrar la idea en múltiples monedas como producto.
+- No centrar la idea en cobertura cambiaria.
+- No centrar la idea en costos ocultos.
+- No prometer eliminación total de errores.
+- El foco debe estar en CONTROL, TRAZABILIDAD, ORDEN y EFICIENCIA OPERATIVA.
+
+### Temas prioritarios
+- control operativo
+- trazabilidad de pagos
+- pagos masivos
+- conciliación
+- autorización por niveles
+- beneficiarios centralizados
+- reducción de errores
+- visibilidad en tiempo real
+- auditoría
+- procesos manuales vs automatizados
+
+### CTAs recomendados
+- Conoce cómo controlar tus pagos desde una plataforma.
+- Evalúa tu proceso actual de pagos internacionales.
+- Solicita una demo de pagos masivos.
+- Revisa cómo simplificar tu conciliación.
+- Descubre trazabilidad completa en cada pago.

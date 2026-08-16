@@ -1,0 +1,95 @@
+{
+  "captureStatus": "NO CAPTURADO EN RUNTIME",
+  "reason": "generate-carousel-script requires a valid end-user JWT plus tenant membership; no usable user session was available. Raw script completions are not persisted.",
+  "controlledDownstreamFixture": {
+    "slides": [
+      {
+        "role": "tension",
+        "headline": "Las autopartes pueden estar listas antes que el pago",
+        "body": "Paga a proveedores en China el mismo día y mantén tu compra en movimiento.",
+        "cta": "",
+        "imageIntent": "Detiene el scroll y planta el problema. Headline grande desde el copy semilla, escena simple con el producto protagonista y un elemento que introduce la tensión. Poco supporting copy. No resuelvas nada todavía. Contexto concreto: orden de pago.",
+        "brief": {
+          "visualIntent": "Volver visible el rol tension mediante orden de pago",
+          "visualMetaphor": "orden de pago como evidencia física de la afirmación",
+          "layout": "editorial_top",
+          "primaryObjects": [
+            "orden de pago"
+          ],
+          "environmentalText": [],
+          "highlights": []
+        }
+      },
+      {
+        "role": "shift",
+        "headline": "Enviar un pago no significa que el proveedor lo reciba.",
+        "body": "",
+        "cta": "",
+        "imageIntent": "Muestra el MECANISMO: qué puede cambiar entre hoy y el pago. La escena necesita dos momentos en el cuadro — mismo producto, misma factura, dos fechas, dos resultados. Frase en condicional. Contexto concreto: reloj operativo.",
+        "brief": {
+          "visualIntent": "Volver visible el rol shift mediante reloj operativo",
+          "visualMetaphor": "reloj operativo como evidencia física de la afirmación",
+          "layout": "split_photo",
+          "primaryObjects": [
+            "reloj operativo"
+          ],
+          "environmentalText": [],
+          "highlights": []
+        }
+      },
+      {
+        "role": "risk",
+        "headline": "proveedor esperando confirmación de fondos para liberar mercancía",
+        "body": "",
+        "cta": "",
+        "imageIntent": "Muestra la CONSECUENCIA. Si la línea habla de acumulación, la escena repite: varias compras, varios documentos, impacto agregado. Que el concepto se vea, no que se enuncie. Contexto concreto: confirmación de proveedor.",
+        "brief": {
+          "visualIntent": "Volver visible el rol risk mediante confirmación de proveedor",
+          "visualMetaphor": "confirmación de proveedor como evidencia física de la afirmación",
+          "layout": "editorial_repetition",
+          "primaryObjects": [
+            "confirmación de proveedor"
+          ],
+          "environmentalText": [],
+          "highlights": []
+        }
+      },
+      {
+        "role": "solution",
+        "headline": "liquidación el mismo día hábil",
+        "body": "",
+        "cta": "",
+        "imageIntent": "Pasa visualmente de la incertidumbre al control: la escena se siente más ordenada, más estable, con un resultado definido. El sujeto de la frase es el producto, no el cliente. Contexto concreto: orden de pago.",
+        "brief": {
+          "visualIntent": "Volver visible el rol solution mediante orden de pago",
+          "visualMetaphor": "orden de pago como evidencia física de la afirmación",
+          "layout": "document_result",
+          "primaryObjects": [
+            "orden de pago"
+          ],
+          "environmentalText": [],
+          "highlights": []
+        }
+      },
+      {
+        "role": "cta",
+        "headline": "Pagos a China, mismo día",
+        "body": "",
+        "cta": "",
+        "imageIntent": "Cierre. El CTA aprobado, composición limpia, producto premium y máximo aire. No es otro capítulo educativo. Contexto concreto: reloj operativo.",
+        "brief": {
+          "visualIntent": "Volver visible el rol cta mediante reloj operativo",
+          "visualMetaphor": "reloj operativo como evidencia física de la afirmación",
+          "layout": "hero_clean",
+          "primaryObjects": [
+            "reloj operativo"
+          ],
+          "environmentalText": [],
+          "highlights": []
+        }
+      }
+    ],
+    "visualMotif": "Un componente industrial listo para embarque funciona como reloj operativo de la serie."
+  },
+  "fixtureProvenance": "copy_bank_items production row"
+}

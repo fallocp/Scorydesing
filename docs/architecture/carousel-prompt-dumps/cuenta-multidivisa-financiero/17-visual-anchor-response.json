@@ -1,0 +1,50 @@
+{
+  "edgeResponse": {
+    "httpStatus": 200,
+    "ok": true,
+    "body": {
+      "prompts": {
+        "mapa_rutas": {
+          "prompt_final": "Create a white-background Xending system visual for a global treasury and multicurrency control concept, using an operational route language without naming any specific subject or scene. The composition must feel corporate, premium, institutional, modern, technological, and B2B, with a single clear visual hierarchy, 80–90% white space, and only 1–3 restrained secondary accents. Use a clean editorial layout with a dominant central flow, subtle structural navy elements (#0F1419) as the control framework, teal (#2ED4C7) as the activation/solution signal, and coral (#FF7A4A) as the only tension or status accent. Keep the palette mostly white (#FFFFFF) with very light gray support (#F5F5F5), no dark background, no heavy gradients, no busy composition, and no decorative clutter. The visual should suggest layered control, separation, and centralization through a minimal route system, with thin curves, small nodes, and a single focal interruption that resolves into a clearer controlled flow. Camera treatment: clean isometric or slightly elevated three-quarter view, premium product-visual clarity, soft studio lighting, realistic soft shadows, sharp edges, subtle depth, and generous negative space. Materiality: refined matte white, satin acrylic, light gray structural surfaces, precise bevels, and clean micro-reflections; no toy look, no plastic sheen, no low-poly geometry, no cyberpunk or neon styling. Typography rules only if text were present: Montserrat Bold or ExtraBold for headline, Poppins Medium or SemiBold for body/CTA, flat vector-like, matte, crisp, vertical axis, slightly tight tracking; however, because textInImage is false, include no readable text, labels, numbers, or logos of any kind. The composition must remain abstract and reusable across multiple pieces, with a restrained route motif that implies multicurrency coordination, visibility, and centralization without depicting any concrete business object or scene.",
+          "negative_instructions": "No readable text, no letters, no numbers, no labels, no captions, no CTA, no dashboard text, no invented data, no watermarks, no logos, no third-party brands, no gibberish, no misspellings. No specific object, product, subject, or scene references. No clutter, no generic Canva infographic, no three-column layout, no catalog grid, no excessive pins, no thick arrows, no too many routes, no inconsistent camera angles, no inconsistent scale. No childish toy look, no inflatable forms, no cheap plastic, no low-poly rendering, no malformed geometry, no excessive navy, no excessive teal, no excessive coral, no neon, no crypto aesthetic, no gamer aesthetic, no dark background, no heavy gradients, no unrealistic glow, no fake UI, no hard shadows, no overcomplicated composition.",
+          "aspect_ratio": "1:1",
+          "creative_rationale": "This route-based system visual translates the idea of multicurrency treasury control into a minimal, abstract corridor language: separation, visibility, and centralization. It preserves Xending’s white institutional premium code while avoiding any concrete object so the asset can be reused across different subjects and campaigns.",
+          "corridor_analysis": {
+            "mode": "global_network",
+            "flow_type": "network",
+            "origin_country": null,
+            "destination_country": null,
+            "direction": null,
+            "confidence": "high",
+            "evidence": "The copy refers to corporate treasury operating in multiple currencies without any country, shipment, payment counterpart, or geographic corridor. The correct resolver is a global network abstraction rather than a country-specific route."
+          }
+        }
+      },
+      "aspectRatio": "1:1",
+      "promptMeta": {
+        "source": "code-v2-request",
+        "version": "v2",
+        "backgroundStyle": "white",
+        "corridor": {
+          "mode": "global_network",
+          "flow_type": "network",
+          "origin_country": null,
+          "destination_country": null,
+          "direction": null,
+          "confidence": "high",
+          "evidence": "The copy refers to corporate treasury operating in multiple currencies without any country, shipment, payment counterpart, or geographic corridor. The correct resolver is a global network abstraction rather than a country-specific route."
+        }
+      },
+      "usage": {
+        "next_step": "Call this endpoint again with mode=\"generate\", imageType=<type>, promptFinal=<prompts[type].prompt_final>",
+        "available_types": [
+          "fotografia",
+          "infografia",
+          "mapa_rutas"
+        ]
+      }
+    }
+  },
+  "selectedAnchor": "Create a white-background Xending system visual for a global treasury and multicurrency control concept, using an operational route language without naming any specific subject or scene. The composition must feel corporate, premium, institutional, modern, technological, and B2B, with a single clear visual hierarchy, 80–90% white space, and only 1–3 restrained secondary accents. Use a clean editorial layout with a dominant central flow, subtle structural navy elements (#0F1419) as the control framework, teal (#2ED4C7) as the activation/solution signal, and coral (#FF7A4A) as the only tension or status accent. Keep the palette mostly white (#FFFFFF) with very light gray support (#F5F5F5), no dark background, no heavy gradients, no busy composition, and no decorative clutter. The visual should suggest layered control, separation, and centralization through a minimal route system, with thin curves, small nodes, and a single focal interruption that resolves into a clearer controlled flow. Camera treatment: clean isometric or slightly elevated three-quarter view, premium product-visual clarity, soft studio lighting, realistic soft shadows, sharp edges, subtle depth, and generous negative space. Materiality: refined matte white, satin acrylic, light gray structural surfaces, precise bevels, and clean micro-reflections; no toy look, no plastic sheen, no low-poly geometry, no cyberpunk or neon styling. Typography rules only if text were present: Montserrat Bold or ExtraBold for headline, Poppins Medium or SemiBold for body/CTA, flat vector-like, matte, crisp, vertical axis, slightly tight tracking; however, because textInImage is false, include no readable text, labels, numbers, or logos of any kind. The composition must remain abstract and reusable across multiple pieces, with a restrained route motif that implies multicurrency coordination, visibility, and centralization without depicting any concrete business object or scene.",
+  "selectedAnchorSource": "deployed style_only response"
+}

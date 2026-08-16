@@ -1,0 +1,420 @@
+===== REQUEST SLIDE 1 =====
+Construye los prompts técnicos en inglés para un CARRUSEL de 5 slides que se leen en orden. En esta llamada te toca 1 slide del set.
+
+Medio visual del set completo: SALIDA fotografia (excepción fotográfica natural). Aplica COMPLETAS sus reglas del ROUTER VISUAL. No mezcles medios entre slides.
+Estilo de fondo: white.
+Formato: 1:1.
+Texto en imagen: true — cada slide hornea su propio texto, exacto.
+Motivo visual recurrente que hilvana el set: Un componente industrial listo para embarque funciona como reloj operativo de la serie.
+
+## SLIDES DE ESTA LLAMADA
+
+Slide 1 (rol "tension"):
+  imageIntent: Detiene el scroll y planta el problema. Headline grande desde el copy semilla, escena simple con el producto protagonista y un elemento que introduce la tensión. Poco supporting copy. No resuelvas nada todavía. Contexto concreto: orden de pago.
+  qué debe volver evidente: Volver visible el rol tension mediante orden de pago
+  recurso que lo demuestra: orden de pago como evidencia física de la afirmación
+  layout: editorial_top
+  objetos en cuadro: orden de pago
+  texto que se hornea: Las autopartes pueden estar listas antes que el pago — Paga a proveedores en China el mismo día y mantén tu compra en movimiento.
+  nota: Lleva logo montados encima después.
+
+## QUÉ DEBES DEVOLVER
+
+El set YA tiene su bloque de diseño y no debes reescribirlo ni "mejorarlo". Se inserta textualmente en este prompt tal como está:
+
+--- DESIGN BLOCK DEL SET (referencia, no lo devuelvas) ---
+Editorial B2B photographic system for a premium international fintech brand, designed as a clean, white, institutional visual language with a single clear hero presence and lots of negative space. High-key studio-like exposure with a soft, natural finish and realistic texture; crisp but gentle contrast, subtle contact shadows, and a refined sense of depth. Use a mostly white field (#FFFFFF / #F5F5F5) for 80–90% of the composition, with navy #0F1419 used only as structural framing, thin visual anchors, or understated graphic balance; teal #2ED4C7 as a small activation accent; coral #FF7A4A as one restrained focal tension cue. Add graceful dynamic lines and very subtle coral-to-teal gradient motion cues to suggest operational flow, speed, and continuity without artificial urgency. Composition should feel corporate, modern, global, and premium, with one dominant visual idea, maximum 1–3 secondary supporting elements, and generous empty space for later copy placement. Camera treatment: realistic editorial photography, medium-wide framing, clean perspective, natural depth of field, no exaggerated angles, no distortion, no clutter, no fake stock-photo staging. Materials and surfaces should feel authentic and high-end, with matte, satin, ceramic-like, paper-like, brushed, or soft industrial finishes rather than glossy plastic. Typography is not present in the image, but the visual system should imply bold headline hierarchy through strong structural contrast and clear spatial organization. Avoid any sense of artificial urgency; the mood should be calm, controlled, and operationally fluid. White background style only, with a luminous, uncluttered, premium B2B look.
+--- FIN DEL DESIGN BLOCK ---
+
+Ese bloque puede venir de una pieza terminada de esta misma campaña, así que puede mencionar un sujeto y una escena concretos. De ahí tomas el sistema visual: medio, materialidad, cámara, luz, paleta y proporciones, densidad y espacio negativo. Su escena NO la copies — tu trabajo es escribir la escena de ESTE slide, que la reemplaza.
+
+Devuelve únicamente slides[]: por cada slide pedido, su sceneBlock — la escena concreta de ESE slide en inglés (sujeto, qué hace el motivo recurrente en este momento de la historia, encuadre). Entre 40 y 90 palabras. Debe encajar sin fricción con el bloque de arriba y ser claramente distinta de las escenas de los demás slides del set, pero obviamente de la misma serie: el motivo recurrente evoluciona, no se reemplaza.
+
+El texto va SIEMPRE en la zona superior del cuadro, igual en los 5 slides — no lo decidas por slide ni lo muevas de lugar, o el titular salta mientras el lector desliza. Compón el sujeto en los dos tercios inferiores y deja la franja superior como fondo limpio con contraste suficiente para leer el texto encima.
+
+## ELEMENTOS DE LA ESCENA Y PALETA
+
+El dato vive en un OBJETO de la escena, no flotando sobre ella. Superficies disponibles:
+- cotización u orden de compra impresa, con su total visible
+- dos hojas de la misma cotización lado a lado, con fechas distintas
+- pantalla en la escena (monitor sobre el escritorio, laptop entreabierta) con una curva de tipo de cambio
+- hoja con una gráfica impresa, tipo reporte
+- sello de fecha, fecha de vencimiento marcada, hoja de calendario
+
+Marcas de cambio, cuando la línea habla de que algo se movió:
+- dos totales de distinta longitud, el segundo más largo
+- el total mayor resaltado
+- la curva de la pantalla subiendo de izquierda a derecha
+
+PALETA COMPLETA, no solo el acento. El sistema visual pide navy para estructura, teal para acentos funcionales y coral como ÚNICO resalte de tensión, en las proporciones del design spec. Una foto sin ningún elemento gráfico no tiene dónde aplicar el teal y el set sale plano: la escena necesita al menos un elemento que lo cargue — una línea que conecta dos documentos, un subrayado sobre una fila, una pestaña o etiqueta en una hoja, el borde de una tarjeta, el trazo de la curva en la pantalla. El coral se reserva para UNA sola cosa en el cuadro: el elemento donde vive la tensión de esa frase (el total mayor, la etiqueta de precio, la fecha que se movió). Navy en los objetos y la estructura.
+
+## TRES REGLAS PARA NO SATURAR
+
+1. UN recurso protagonista por slide: el que carga la idea de esa línea. Todo lo demás es contexto y va desenfocado o cortado por el encuadre.
+2. El dato vive en UNA superficie. Si el total está en la hoja, la pantalla no repite el total. Si la curva está en la pantalla, la hoja no trae otra curva.
+3. Máximo TRES objetos en el cuadro: sujeto, superficie del dato y una pieza de contexto. Nada más.
+
+## LA ESCENA TRADUCE LA FRASE
+
+Cada escena es la traducción visual de la línea de SU slide, no un fondo bonito detrás del texto. La historia se cuenta en imágenes; el texto solo la nombra. Prueba para descartar una escena: si funcionaría igual debajo de la frase de otro slide, está mal — significa que ilustra el tema y no lo que dice esa línea en particular.
+
+## VARIEDAD ENTRE SLIDES (obligatorio)
+
+El sujeto recurrente del set funciona como PARÉNTESIS: es el protagonista en el primer y en el último slide. En los slides de en medio cada escena trae SU PROPIO sujeto, el que exige su línea, y el recurrente aparece como detalle secundario, al fondo, desenfocado, o no aparece. La unidad del set ya la garantiza el bloque de diseño, que es idéntico en todos; repetir el mismo objeto encima de eso produce la misma imagen N veces.
+
+Cambia también la escala y el registro entre slides: plano general, detalle macro, documento de la operación, escena de operación. Dos escenas seguidas con el mismo encuadre del mismo objeto están mal.
+
+Recurso por tipo de momento, como punto de partida:
+- apertura: el objeto de la compra y el documento donde vive su costo
+- algo cambia: DOS ESTADOS DE LO MISMO en el cuadro — dos hojas de la misma cotización, una con fecha o sello posterior, totales visiblemente distintos en longitud y posición
+- riesgo o consecuencia: el efecto hecho visible — el total más largo, el equipo embalado todavía esperando
+- solución: la operación resuelta, un solo documento ordenado
+- cierre: el cuadro más callado, con el sujeto recurrente de vuelta
+
+CIFRAS: los montos y las etiquetas que vengan en el brief se renderizan LEGIBLES y correctos — son lo que hace que la escena explique el concepto. Un comparativo de dos totales sin números legibles no comunica el cambio, solo lo insinúa. Lo que no va: cifras que el brief no pidió, presentar un número como el tipo de cambio vigente o una cotización oficial, y rellenar el resto del documento con dígitos inventados. Los montos son props ilustrativos y tienen que verse plausibles y redondos; el resto de la superficie queda abstracto.
+
+Devuelve SOLO JSON válido, sin fences:
+
+{
+  "slides": [
+    { "index": 0, "sceneBlock": "", "negativeInstructions": "" }
+  ]
+}
+
+El arreglo "slides" trae exactamente 1 elemento(s), con los index tal como se te dieron: 0.
+
+===== REQUEST SLIDE 2 =====
+Construye los prompts técnicos en inglés para un CARRUSEL de 5 slides que se leen en orden. En esta llamada te toca 1 slide del set.
+
+Medio visual del set completo: SALIDA fotografia (excepción fotográfica natural). Aplica COMPLETAS sus reglas del ROUTER VISUAL. No mezcles medios entre slides.
+Estilo de fondo: white.
+Formato: 1:1.
+Texto en imagen: true — cada slide hornea su propio texto, exacto.
+Motivo visual recurrente que hilvana el set: Un componente industrial listo para embarque funciona como reloj operativo de la serie.
+
+## SLIDES DE ESTA LLAMADA
+
+Slide 2 (rol "shift"):
+  imageIntent: Muestra el MECANISMO: qué puede cambiar entre hoy y el pago. La escena necesita dos momentos en el cuadro — mismo producto, misma factura, dos fechas, dos resultados. Frase en condicional. Contexto concreto: reloj operativo.
+  qué debe volver evidente: Volver visible el rol shift mediante reloj operativo
+  recurso que lo demuestra: reloj operativo como evidencia física de la afirmación
+  layout: split_photo
+  objetos en cuadro: reloj operativo
+  texto que se hornea: Enviar un pago no significa que el proveedor lo reciba.
+
+## QUÉ DEBES DEVOLVER
+
+El set YA tiene su bloque de diseño y no debes reescribirlo ni "mejorarlo". Se inserta textualmente en este prompt tal como está:
+
+--- DESIGN BLOCK DEL SET (referencia, no lo devuelvas) ---
+Editorial B2B photographic system for a premium international fintech brand, designed as a clean, white, institutional visual language with a single clear hero presence and lots of negative space. High-key studio-like exposure with a soft, natural finish and realistic texture; crisp but gentle contrast, subtle contact shadows, and a refined sense of depth. Use a mostly white field (#FFFFFF / #F5F5F5) for 80–90% of the composition, with navy #0F1419 used only as structural framing, thin visual anchors, or understated graphic balance; teal #2ED4C7 as a small activation accent; coral #FF7A4A as one restrained focal tension cue. Add graceful dynamic lines and very subtle coral-to-teal gradient motion cues to suggest operational flow, speed, and continuity without artificial urgency. Composition should feel corporate, modern, global, and premium, with one dominant visual idea, maximum 1–3 secondary supporting elements, and generous empty space for later copy placement. Camera treatment: realistic editorial photography, medium-wide framing, clean perspective, natural depth of field, no exaggerated angles, no distortion, no clutter, no fake stock-photo staging. Materials and surfaces should feel authentic and high-end, with matte, satin, ceramic-like, paper-like, brushed, or soft industrial finishes rather than glossy plastic. Typography is not present in the image, but the visual system should imply bold headline hierarchy through strong structural contrast and clear spatial organization. Avoid any sense of artificial urgency; the mood should be calm, controlled, and operationally fluid. White background style only, with a luminous, uncluttered, premium B2B look.
+--- FIN DEL DESIGN BLOCK ---
+
+Ese bloque puede venir de una pieza terminada de esta misma campaña, así que puede mencionar un sujeto y una escena concretos. De ahí tomas el sistema visual: medio, materialidad, cámara, luz, paleta y proporciones, densidad y espacio negativo. Su escena NO la copies — tu trabajo es escribir la escena de ESTE slide, que la reemplaza.
+
+Devuelve únicamente slides[]: por cada slide pedido, su sceneBlock — la escena concreta de ESE slide en inglés (sujeto, qué hace el motivo recurrente en este momento de la historia, encuadre). Entre 40 y 90 palabras. Debe encajar sin fricción con el bloque de arriba y ser claramente distinta de las escenas de los demás slides del set, pero obviamente de la misma serie: el motivo recurrente evoluciona, no se reemplaza.
+
+El texto va SIEMPRE en la zona superior del cuadro, igual en los 5 slides — no lo decidas por slide ni lo muevas de lugar, o el titular salta mientras el lector desliza. Compón el sujeto en los dos tercios inferiores y deja la franja superior como fondo limpio con contraste suficiente para leer el texto encima.
+
+## ELEMENTOS DE LA ESCENA Y PALETA
+
+El dato vive en un OBJETO de la escena, no flotando sobre ella. Superficies disponibles:
+- cotización u orden de compra impresa, con su total visible
+- dos hojas de la misma cotización lado a lado, con fechas distintas
+- pantalla en la escena (monitor sobre el escritorio, laptop entreabierta) con una curva de tipo de cambio
+- hoja con una gráfica impresa, tipo reporte
+- sello de fecha, fecha de vencimiento marcada, hoja de calendario
+
+Marcas de cambio, cuando la línea habla de que algo se movió:
+- dos totales de distinta longitud, el segundo más largo
+- el total mayor resaltado
+- la curva de la pantalla subiendo de izquierda a derecha
+
+PALETA COMPLETA, no solo el acento. El sistema visual pide navy para estructura, teal para acentos funcionales y coral como ÚNICO resalte de tensión, en las proporciones del design spec. Una foto sin ningún elemento gráfico no tiene dónde aplicar el teal y el set sale plano: la escena necesita al menos un elemento que lo cargue — una línea que conecta dos documentos, un subrayado sobre una fila, una pestaña o etiqueta en una hoja, el borde de una tarjeta, el trazo de la curva en la pantalla. El coral se reserva para UNA sola cosa en el cuadro: el elemento donde vive la tensión de esa frase (el total mayor, la etiqueta de precio, la fecha que se movió). Navy en los objetos y la estructura.
+
+## TRES REGLAS PARA NO SATURAR
+
+1. UN recurso protagonista por slide: el que carga la idea de esa línea. Todo lo demás es contexto y va desenfocado o cortado por el encuadre.
+2. El dato vive en UNA superficie. Si el total está en la hoja, la pantalla no repite el total. Si la curva está en la pantalla, la hoja no trae otra curva.
+3. Máximo TRES objetos en el cuadro: sujeto, superficie del dato y una pieza de contexto. Nada más.
+
+## LA ESCENA TRADUCE LA FRASE
+
+Cada escena es la traducción visual de la línea de SU slide, no un fondo bonito detrás del texto. La historia se cuenta en imágenes; el texto solo la nombra. Prueba para descartar una escena: si funcionaría igual debajo de la frase de otro slide, está mal — significa que ilustra el tema y no lo que dice esa línea en particular.
+
+## VARIEDAD ENTRE SLIDES (obligatorio)
+
+El sujeto recurrente del set funciona como PARÉNTESIS: es el protagonista en el primer y en el último slide. En los slides de en medio cada escena trae SU PROPIO sujeto, el que exige su línea, y el recurrente aparece como detalle secundario, al fondo, desenfocado, o no aparece. La unidad del set ya la garantiza el bloque de diseño, que es idéntico en todos; repetir el mismo objeto encima de eso produce la misma imagen N veces.
+
+Cambia también la escala y el registro entre slides: plano general, detalle macro, documento de la operación, escena de operación. Dos escenas seguidas con el mismo encuadre del mismo objeto están mal.
+
+Recurso por tipo de momento, como punto de partida:
+- apertura: el objeto de la compra y el documento donde vive su costo
+- algo cambia: DOS ESTADOS DE LO MISMO en el cuadro — dos hojas de la misma cotización, una con fecha o sello posterior, totales visiblemente distintos en longitud y posición
+- riesgo o consecuencia: el efecto hecho visible — el total más largo, el equipo embalado todavía esperando
+- solución: la operación resuelta, un solo documento ordenado
+- cierre: el cuadro más callado, con el sujeto recurrente de vuelta
+
+CIFRAS: los montos y las etiquetas que vengan en el brief se renderizan LEGIBLES y correctos — son lo que hace que la escena explique el concepto. Un comparativo de dos totales sin números legibles no comunica el cambio, solo lo insinúa. Lo que no va: cifras que el brief no pidió, presentar un número como el tipo de cambio vigente o una cotización oficial, y rellenar el resto del documento con dígitos inventados. Los montos son props ilustrativos y tienen que verse plausibles y redondos; el resto de la superficie queda abstracto.
+
+Devuelve SOLO JSON válido, sin fences:
+
+{
+  "slides": [
+    { "index": 1, "sceneBlock": "", "negativeInstructions": "" }
+  ]
+}
+
+El arreglo "slides" trae exactamente 1 elemento(s), con los index tal como se te dieron: 1.
+
+===== REQUEST SLIDE 3 =====
+Construye los prompts técnicos en inglés para un CARRUSEL de 5 slides que se leen en orden. En esta llamada te toca 1 slide del set.
+
+Medio visual del set completo: SALIDA fotografia (excepción fotográfica natural). Aplica COMPLETAS sus reglas del ROUTER VISUAL. No mezcles medios entre slides.
+Estilo de fondo: white.
+Formato: 1:1.
+Texto en imagen: true — cada slide hornea su propio texto, exacto.
+Motivo visual recurrente que hilvana el set: Un componente industrial listo para embarque funciona como reloj operativo de la serie.
+
+## SLIDES DE ESTA LLAMADA
+
+Slide 3 (rol "risk"):
+  imageIntent: Muestra la CONSECUENCIA. Si la línea habla de acumulación, la escena repite: varias compras, varios documentos, impacto agregado. Que el concepto se vea, no que se enuncie. Contexto concreto: confirmación de proveedor.
+  qué debe volver evidente: Volver visible el rol risk mediante confirmación de proveedor
+  recurso que lo demuestra: confirmación de proveedor como evidencia física de la afirmación
+  layout: editorial_repetition
+  objetos en cuadro: confirmación de proveedor
+  texto que se hornea: proveedor esperando confirmación de fondos para liberar mercancía
+
+## QUÉ DEBES DEVOLVER
+
+El set YA tiene su bloque de diseño y no debes reescribirlo ni "mejorarlo". Se inserta textualmente en este prompt tal como está:
+
+--- DESIGN BLOCK DEL SET (referencia, no lo devuelvas) ---
+Editorial B2B photographic system for a premium international fintech brand, designed as a clean, white, institutional visual language with a single clear hero presence and lots of negative space. High-key studio-like exposure with a soft, natural finish and realistic texture; crisp but gentle contrast, subtle contact shadows, and a refined sense of depth. Use a mostly white field (#FFFFFF / #F5F5F5) for 80–90% of the composition, with navy #0F1419 used only as structural framing, thin visual anchors, or understated graphic balance; teal #2ED4C7 as a small activation accent; coral #FF7A4A as one restrained focal tension cue. Add graceful dynamic lines and very subtle coral-to-teal gradient motion cues to suggest operational flow, speed, and continuity without artificial urgency. Composition should feel corporate, modern, global, and premium, with one dominant visual idea, maximum 1–3 secondary supporting elements, and generous empty space for later copy placement. Camera treatment: realistic editorial photography, medium-wide framing, clean perspective, natural depth of field, no exaggerated angles, no distortion, no clutter, no fake stock-photo staging. Materials and surfaces should feel authentic and high-end, with matte, satin, ceramic-like, paper-like, brushed, or soft industrial finishes rather than glossy plastic. Typography is not present in the image, but the visual system should imply bold headline hierarchy through strong structural contrast and clear spatial organization. Avoid any sense of artificial urgency; the mood should be calm, controlled, and operationally fluid. White background style only, with a luminous, uncluttered, premium B2B look.
+--- FIN DEL DESIGN BLOCK ---
+
+Ese bloque puede venir de una pieza terminada de esta misma campaña, así que puede mencionar un sujeto y una escena concretos. De ahí tomas el sistema visual: medio, materialidad, cámara, luz, paleta y proporciones, densidad y espacio negativo. Su escena NO la copies — tu trabajo es escribir la escena de ESTE slide, que la reemplaza.
+
+Devuelve únicamente slides[]: por cada slide pedido, su sceneBlock — la escena concreta de ESE slide en inglés (sujeto, qué hace el motivo recurrente en este momento de la historia, encuadre). Entre 40 y 90 palabras. Debe encajar sin fricción con el bloque de arriba y ser claramente distinta de las escenas de los demás slides del set, pero obviamente de la misma serie: el motivo recurrente evoluciona, no se reemplaza.
+
+El texto va SIEMPRE en la zona superior del cuadro, igual en los 5 slides — no lo decidas por slide ni lo muevas de lugar, o el titular salta mientras el lector desliza. Compón el sujeto en los dos tercios inferiores y deja la franja superior como fondo limpio con contraste suficiente para leer el texto encima.
+
+## ELEMENTOS DE LA ESCENA Y PALETA
+
+El dato vive en un OBJETO de la escena, no flotando sobre ella. Superficies disponibles:
+- cotización u orden de compra impresa, con su total visible
+- dos hojas de la misma cotización lado a lado, con fechas distintas
+- pantalla en la escena (monitor sobre el escritorio, laptop entreabierta) con una curva de tipo de cambio
+- hoja con una gráfica impresa, tipo reporte
+- sello de fecha, fecha de vencimiento marcada, hoja de calendario
+
+Marcas de cambio, cuando la línea habla de que algo se movió:
+- dos totales de distinta longitud, el segundo más largo
+- el total mayor resaltado
+- la curva de la pantalla subiendo de izquierda a derecha
+
+PALETA COMPLETA, no solo el acento. El sistema visual pide navy para estructura, teal para acentos funcionales y coral como ÚNICO resalte de tensión, en las proporciones del design spec. Una foto sin ningún elemento gráfico no tiene dónde aplicar el teal y el set sale plano: la escena necesita al menos un elemento que lo cargue — una línea que conecta dos documentos, un subrayado sobre una fila, una pestaña o etiqueta en una hoja, el borde de una tarjeta, el trazo de la curva en la pantalla. El coral se reserva para UNA sola cosa en el cuadro: el elemento donde vive la tensión de esa frase (el total mayor, la etiqueta de precio, la fecha que se movió). Navy en los objetos y la estructura.
+
+## TRES REGLAS PARA NO SATURAR
+
+1. UN recurso protagonista por slide: el que carga la idea de esa línea. Todo lo demás es contexto y va desenfocado o cortado por el encuadre.
+2. El dato vive en UNA superficie. Si el total está en la hoja, la pantalla no repite el total. Si la curva está en la pantalla, la hoja no trae otra curva.
+3. Máximo TRES objetos en el cuadro: sujeto, superficie del dato y una pieza de contexto. Nada más.
+
+## LA ESCENA TRADUCE LA FRASE
+
+Cada escena es la traducción visual de la línea de SU slide, no un fondo bonito detrás del texto. La historia se cuenta en imágenes; el texto solo la nombra. Prueba para descartar una escena: si funcionaría igual debajo de la frase de otro slide, está mal — significa que ilustra el tema y no lo que dice esa línea en particular.
+
+## VARIEDAD ENTRE SLIDES (obligatorio)
+
+El sujeto recurrente del set funciona como PARÉNTESIS: es el protagonista en el primer y en el último slide. En los slides de en medio cada escena trae SU PROPIO sujeto, el que exige su línea, y el recurrente aparece como detalle secundario, al fondo, desenfocado, o no aparece. La unidad del set ya la garantiza el bloque de diseño, que es idéntico en todos; repetir el mismo objeto encima de eso produce la misma imagen N veces.
+
+Cambia también la escala y el registro entre slides: plano general, detalle macro, documento de la operación, escena de operación. Dos escenas seguidas con el mismo encuadre del mismo objeto están mal.
+
+Recurso por tipo de momento, como punto de partida:
+- apertura: el objeto de la compra y el documento donde vive su costo
+- algo cambia: DOS ESTADOS DE LO MISMO en el cuadro — dos hojas de la misma cotización, una con fecha o sello posterior, totales visiblemente distintos en longitud y posición
+- riesgo o consecuencia: el efecto hecho visible — el total más largo, el equipo embalado todavía esperando
+- solución: la operación resuelta, un solo documento ordenado
+- cierre: el cuadro más callado, con el sujeto recurrente de vuelta
+
+CIFRAS: los montos y las etiquetas que vengan en el brief se renderizan LEGIBLES y correctos — son lo que hace que la escena explique el concepto. Un comparativo de dos totales sin números legibles no comunica el cambio, solo lo insinúa. Lo que no va: cifras que el brief no pidió, presentar un número como el tipo de cambio vigente o una cotización oficial, y rellenar el resto del documento con dígitos inventados. Los montos son props ilustrativos y tienen que verse plausibles y redondos; el resto de la superficie queda abstracto.
+
+Devuelve SOLO JSON válido, sin fences:
+
+{
+  "slides": [
+    { "index": 2, "sceneBlock": "", "negativeInstructions": "" }
+  ]
+}
+
+El arreglo "slides" trae exactamente 1 elemento(s), con los index tal como se te dieron: 2.
+
+===== REQUEST SLIDE 4 =====
+Construye los prompts técnicos en inglés para un CARRUSEL de 5 slides que se leen en orden. En esta llamada te toca 1 slide del set.
+
+Medio visual del set completo: SALIDA fotografia (excepción fotográfica natural). Aplica COMPLETAS sus reglas del ROUTER VISUAL. No mezcles medios entre slides.
+Estilo de fondo: white.
+Formato: 1:1.
+Texto en imagen: true — cada slide hornea su propio texto, exacto.
+Motivo visual recurrente que hilvana el set: Un componente industrial listo para embarque funciona como reloj operativo de la serie.
+
+## SLIDES DE ESTA LLAMADA
+
+Slide 4 (rol "solution"):
+  imageIntent: Pasa visualmente de la incertidumbre al control: la escena se siente más ordenada, más estable, con un resultado definido. El sujeto de la frase es el producto, no el cliente. Contexto concreto: orden de pago.
+  qué debe volver evidente: Volver visible el rol solution mediante orden de pago
+  recurso que lo demuestra: orden de pago como evidencia física de la afirmación
+  layout: document_result
+  objetos en cuadro: orden de pago
+  texto que se hornea: liquidación el mismo día hábil
+
+## QUÉ DEBES DEVOLVER
+
+El set YA tiene su bloque de diseño y no debes reescribirlo ni "mejorarlo". Se inserta textualmente en este prompt tal como está:
+
+--- DESIGN BLOCK DEL SET (referencia, no lo devuelvas) ---
+Editorial B2B photographic system for a premium international fintech brand, designed as a clean, white, institutional visual language with a single clear hero presence and lots of negative space. High-key studio-like exposure with a soft, natural finish and realistic texture; crisp but gentle contrast, subtle contact shadows, and a refined sense of depth. Use a mostly white field (#FFFFFF / #F5F5F5) for 80–90% of the composition, with navy #0F1419 used only as structural framing, thin visual anchors, or understated graphic balance; teal #2ED4C7 as a small activation accent; coral #FF7A4A as one restrained focal tension cue. Add graceful dynamic lines and very subtle coral-to-teal gradient motion cues to suggest operational flow, speed, and continuity without artificial urgency. Composition should feel corporate, modern, global, and premium, with one dominant visual idea, maximum 1–3 secondary supporting elements, and generous empty space for later copy placement. Camera treatment: realistic editorial photography, medium-wide framing, clean perspective, natural depth of field, no exaggerated angles, no distortion, no clutter, no fake stock-photo staging. Materials and surfaces should feel authentic and high-end, with matte, satin, ceramic-like, paper-like, brushed, or soft industrial finishes rather than glossy plastic. Typography is not present in the image, but the visual system should imply bold headline hierarchy through strong structural contrast and clear spatial organization. Avoid any sense of artificial urgency; the mood should be calm, controlled, and operationally fluid. White background style only, with a luminous, uncluttered, premium B2B look.
+--- FIN DEL DESIGN BLOCK ---
+
+Ese bloque puede venir de una pieza terminada de esta misma campaña, así que puede mencionar un sujeto y una escena concretos. De ahí tomas el sistema visual: medio, materialidad, cámara, luz, paleta y proporciones, densidad y espacio negativo. Su escena NO la copies — tu trabajo es escribir la escena de ESTE slide, que la reemplaza.
+
+Devuelve únicamente slides[]: por cada slide pedido, su sceneBlock — la escena concreta de ESE slide en inglés (sujeto, qué hace el motivo recurrente en este momento de la historia, encuadre). Entre 40 y 90 palabras. Debe encajar sin fricción con el bloque de arriba y ser claramente distinta de las escenas de los demás slides del set, pero obviamente de la misma serie: el motivo recurrente evoluciona, no se reemplaza.
+
+El texto va SIEMPRE en la zona superior del cuadro, igual en los 5 slides — no lo decidas por slide ni lo muevas de lugar, o el titular salta mientras el lector desliza. Compón el sujeto en los dos tercios inferiores y deja la franja superior como fondo limpio con contraste suficiente para leer el texto encima.
+
+## ELEMENTOS DE LA ESCENA Y PALETA
+
+El dato vive en un OBJETO de la escena, no flotando sobre ella. Superficies disponibles:
+- cotización u orden de compra impresa, con su total visible
+- dos hojas de la misma cotización lado a lado, con fechas distintas
+- pantalla en la escena (monitor sobre el escritorio, laptop entreabierta) con una curva de tipo de cambio
+- hoja con una gráfica impresa, tipo reporte
+- sello de fecha, fecha de vencimiento marcada, hoja de calendario
+
+Marcas de cambio, cuando la línea habla de que algo se movió:
+- dos totales de distinta longitud, el segundo más largo
+- el total mayor resaltado
+- la curva de la pantalla subiendo de izquierda a derecha
+
+PALETA COMPLETA, no solo el acento. El sistema visual pide navy para estructura, teal para acentos funcionales y coral como ÚNICO resalte de tensión, en las proporciones del design spec. Una foto sin ningún elemento gráfico no tiene dónde aplicar el teal y el set sale plano: la escena necesita al menos un elemento que lo cargue — una línea que conecta dos documentos, un subrayado sobre una fila, una pestaña o etiqueta en una hoja, el borde de una tarjeta, el trazo de la curva en la pantalla. El coral se reserva para UNA sola cosa en el cuadro: el elemento donde vive la tensión de esa frase (el total mayor, la etiqueta de precio, la fecha que se movió). Navy en los objetos y la estructura.
+
+## TRES REGLAS PARA NO SATURAR
+
+1. UN recurso protagonista por slide: el que carga la idea de esa línea. Todo lo demás es contexto y va desenfocado o cortado por el encuadre.
+2. El dato vive en UNA superficie. Si el total está en la hoja, la pantalla no repite el total. Si la curva está en la pantalla, la hoja no trae otra curva.
+3. Máximo TRES objetos en el cuadro: sujeto, superficie del dato y una pieza de contexto. Nada más.
+
+## LA ESCENA TRADUCE LA FRASE
+
+Cada escena es la traducción visual de la línea de SU slide, no un fondo bonito detrás del texto. La historia se cuenta en imágenes; el texto solo la nombra. Prueba para descartar una escena: si funcionaría igual debajo de la frase de otro slide, está mal — significa que ilustra el tema y no lo que dice esa línea en particular.
+
+## VARIEDAD ENTRE SLIDES (obligatorio)
+
+El sujeto recurrente del set funciona como PARÉNTESIS: es el protagonista en el primer y en el último slide. En los slides de en medio cada escena trae SU PROPIO sujeto, el que exige su línea, y el recurrente aparece como detalle secundario, al fondo, desenfocado, o no aparece. La unidad del set ya la garantiza el bloque de diseño, que es idéntico en todos; repetir el mismo objeto encima de eso produce la misma imagen N veces.
+
+Cambia también la escala y el registro entre slides: plano general, detalle macro, documento de la operación, escena de operación. Dos escenas seguidas con el mismo encuadre del mismo objeto están mal.
+
+Recurso por tipo de momento, como punto de partida:
+- apertura: el objeto de la compra y el documento donde vive su costo
+- algo cambia: DOS ESTADOS DE LO MISMO en el cuadro — dos hojas de la misma cotización, una con fecha o sello posterior, totales visiblemente distintos en longitud y posición
+- riesgo o consecuencia: el efecto hecho visible — el total más largo, el equipo embalado todavía esperando
+- solución: la operación resuelta, un solo documento ordenado
+- cierre: el cuadro más callado, con el sujeto recurrente de vuelta
+
+CIFRAS: los montos y las etiquetas que vengan en el brief se renderizan LEGIBLES y correctos — son lo que hace que la escena explique el concepto. Un comparativo de dos totales sin números legibles no comunica el cambio, solo lo insinúa. Lo que no va: cifras que el brief no pidió, presentar un número como el tipo de cambio vigente o una cotización oficial, y rellenar el resto del documento con dígitos inventados. Los montos son props ilustrativos y tienen que verse plausibles y redondos; el resto de la superficie queda abstracto.
+
+Devuelve SOLO JSON válido, sin fences:
+
+{
+  "slides": [
+    { "index": 3, "sceneBlock": "", "negativeInstructions": "" }
+  ]
+}
+
+El arreglo "slides" trae exactamente 1 elemento(s), con los index tal como se te dieron: 3.
+
+===== REQUEST SLIDE 5 =====
+Construye los prompts técnicos en inglés para un CARRUSEL de 5 slides que se leen en orden. En esta llamada te toca 1 slide del set.
+
+Medio visual del set completo: SALIDA fotografia (excepción fotográfica natural). Aplica COMPLETAS sus reglas del ROUTER VISUAL. No mezcles medios entre slides.
+Estilo de fondo: white.
+Formato: 1:1.
+Texto en imagen: true — cada slide hornea su propio texto, exacto.
+Motivo visual recurrente que hilvana el set: Un componente industrial listo para embarque funciona como reloj operativo de la serie.
+
+## SLIDES DE ESTA LLAMADA
+
+Slide 5 (rol "cta"):
+  imageIntent: Cierre. El CTA aprobado, composición limpia, producto premium y máximo aire. No es otro capítulo educativo. Contexto concreto: reloj operativo.
+  qué debe volver evidente: Volver visible el rol cta mediante reloj operativo
+  recurso que lo demuestra: reloj operativo como evidencia física de la afirmación
+  layout: hero_clean
+  objetos en cuadro: reloj operativo
+  texto que se hornea: Pagos a China, mismo día
+
+## QUÉ DEBES DEVOLVER
+
+El set YA tiene su bloque de diseño y no debes reescribirlo ni "mejorarlo". Se inserta textualmente en este prompt tal como está:
+
+--- DESIGN BLOCK DEL SET (referencia, no lo devuelvas) ---
+Editorial B2B photographic system for a premium international fintech brand, designed as a clean, white, institutional visual language with a single clear hero presence and lots of negative space. High-key studio-like exposure with a soft, natural finish and realistic texture; crisp but gentle contrast, subtle contact shadows, and a refined sense of depth. Use a mostly white field (#FFFFFF / #F5F5F5) for 80–90% of the composition, with navy #0F1419 used only as structural framing, thin visual anchors, or understated graphic balance; teal #2ED4C7 as a small activation accent; coral #FF7A4A as one restrained focal tension cue. Add graceful dynamic lines and very subtle coral-to-teal gradient motion cues to suggest operational flow, speed, and continuity without artificial urgency. Composition should feel corporate, modern, global, and premium, with one dominant visual idea, maximum 1–3 secondary supporting elements, and generous empty space for later copy placement. Camera treatment: realistic editorial photography, medium-wide framing, clean perspective, natural depth of field, no exaggerated angles, no distortion, no clutter, no fake stock-photo staging. Materials and surfaces should feel authentic and high-end, with matte, satin, ceramic-like, paper-like, brushed, or soft industrial finishes rather than glossy plastic. Typography is not present in the image, but the visual system should imply bold headline hierarchy through strong structural contrast and clear spatial organization. Avoid any sense of artificial urgency; the mood should be calm, controlled, and operationally fluid. White background style only, with a luminous, uncluttered, premium B2B look.
+--- FIN DEL DESIGN BLOCK ---
+
+Ese bloque puede venir de una pieza terminada de esta misma campaña, así que puede mencionar un sujeto y una escena concretos. De ahí tomas el sistema visual: medio, materialidad, cámara, luz, paleta y proporciones, densidad y espacio negativo. Su escena NO la copies — tu trabajo es escribir la escena de ESTE slide, que la reemplaza.
+
+Devuelve únicamente slides[]: por cada slide pedido, su sceneBlock — la escena concreta de ESE slide en inglés (sujeto, qué hace el motivo recurrente en este momento de la historia, encuadre). Entre 40 y 90 palabras. Debe encajar sin fricción con el bloque de arriba y ser claramente distinta de las escenas de los demás slides del set, pero obviamente de la misma serie: el motivo recurrente evoluciona, no se reemplaza.
+
+El texto va SIEMPRE en la zona superior del cuadro, igual en los 5 slides — no lo decidas por slide ni lo muevas de lugar, o el titular salta mientras el lector desliza. Compón el sujeto en los dos tercios inferiores y deja la franja superior como fondo limpio con contraste suficiente para leer el texto encima.
+
+## ELEMENTOS DE LA ESCENA Y PALETA
+
+El dato vive en un OBJETO de la escena, no flotando sobre ella. Superficies disponibles:
+- cotización u orden de compra impresa, con su total visible
+- dos hojas de la misma cotización lado a lado, con fechas distintas
+- pantalla en la escena (monitor sobre el escritorio, laptop entreabierta) con una curva de tipo de cambio
+- hoja con una gráfica impresa, tipo reporte
+- sello de fecha, fecha de vencimiento marcada, hoja de calendario
+
+Marcas de cambio, cuando la línea habla de que algo se movió:
+- dos totales de distinta longitud, el segundo más largo
+- el total mayor resaltado
+- la curva de la pantalla subiendo de izquierda a derecha
+
+PALETA COMPLETA, no solo el acento. El sistema visual pide navy para estructura, teal para acentos funcionales y coral como ÚNICO resalte de tensión, en las proporciones del design spec. Una foto sin ningún elemento gráfico no tiene dónde aplicar el teal y el set sale plano: la escena necesita al menos un elemento que lo cargue — una línea que conecta dos documentos, un subrayado sobre una fila, una pestaña o etiqueta en una hoja, el borde de una tarjeta, el trazo de la curva en la pantalla. El coral se reserva para UNA sola cosa en el cuadro: el elemento donde vive la tensión de esa frase (el total mayor, la etiqueta de precio, la fecha que se movió). Navy en los objetos y la estructura.
+
+## TRES REGLAS PARA NO SATURAR
+
+1. UN recurso protagonista por slide: el que carga la idea de esa línea. Todo lo demás es contexto y va desenfocado o cortado por el encuadre.
+2. El dato vive en UNA superficie. Si el total está en la hoja, la pantalla no repite el total. Si la curva está en la pantalla, la hoja no trae otra curva.
+3. Máximo TRES objetos en el cuadro: sujeto, superficie del dato y una pieza de contexto. Nada más.
+
+## LA ESCENA TRADUCE LA FRASE
+
+Cada escena es la traducción visual de la línea de SU slide, no un fondo bonito detrás del texto. La historia se cuenta en imágenes; el texto solo la nombra. Prueba para descartar una escena: si funcionaría igual debajo de la frase de otro slide, está mal — significa que ilustra el tema y no lo que dice esa línea en particular.
+
+## VARIEDAD ENTRE SLIDES (obligatorio)
+
+El sujeto recurrente del set funciona como PARÉNTESIS: es el protagonista en el primer y en el último slide. En los slides de en medio cada escena trae SU PROPIO sujeto, el que exige su línea, y el recurrente aparece como detalle secundario, al fondo, desenfocado, o no aparece. La unidad del set ya la garantiza el bloque de diseño, que es idéntico en todos; repetir el mismo objeto encima de eso produce la misma imagen N veces.
+
+Cambia también la escala y el registro entre slides: plano general, detalle macro, documento de la operación, escena de operación. Dos escenas seguidas con el mismo encuadre del mismo objeto están mal.
+
+Recurso por tipo de momento, como punto de partida:
+- apertura: el objeto de la compra y el documento donde vive su costo
+- algo cambia: DOS ESTADOS DE LO MISMO en el cuadro — dos hojas de la misma cotización, una con fecha o sello posterior, totales visiblemente distintos en longitud y posición
+- riesgo o consecuencia: el efecto hecho visible — el total más largo, el equipo embalado todavía esperando
+- solución: la operación resuelta, un solo documento ordenado
+- cierre: el cuadro más callado, con el sujeto recurrente de vuelta
+
+CIFRAS: los montos y las etiquetas que vengan en el brief se renderizan LEGIBLES y correctos — son lo que hace que la escena explique el concepto. Un comparativo de dos totales sin números legibles no comunica el cambio, solo lo insinúa. Lo que no va: cifras que el brief no pidió, presentar un número como el tipo de cambio vigente o una cotización oficial, y rellenar el resto del documento con dígitos inventados. Los montos son props ilustrativos y tienen que verse plausibles y redondos; el resto de la superficie queda abstracto.
+
+Devuelve SOLO JSON válido, sin fences:
+
+{
+  "slides": [
+    { "index": 4, "sceneBlock": "", "negativeInstructions": "" }
+  ]
+}
+
+El arreglo "slides" trae exactamente 1 elemento(s), con los index tal como se te dieron: 4.

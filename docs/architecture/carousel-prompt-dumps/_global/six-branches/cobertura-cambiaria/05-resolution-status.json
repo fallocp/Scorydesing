@@ -1,0 +1,13 @@
+{
+  "requestedSlug": "cobertura-cambiaria",
+  "activeDatabaseSlug": "cobertura-cambiaria",
+  "commercialBranchesPromptKitFound": true,
+  "modernCodeCopyKitSlug": "coberturas",
+  "modernCodeCopyKitResolution": {
+    "status": "resolved",
+    "source": "code",
+    "slug": "coberturas"
+  },
+  "editorialBansLength": 2072,
+  "branchContextLength": 7385
+}

@@ -1,0 +1,322 @@
+{
+  "id": "<BRANCH_ID:cuenta-multidivisa>",
+  "business_id": "<BUSINESS_ID>",
+  "category_id": "<CATEGORY_ID>",
+  "name": "Cuenta Multidivisa",
+  "slug": "cuenta-multidivisa",
+  "strategic_config": {
+    "ctas": [
+      "Abre tu cuenta multidivisa",
+      "Simplifica tu tesorería hoy",
+      "Conoce las divisas disponibles",
+      "Solicita una demo"
+    ],
+    "dolor": "Manejas dólares en un banco, euros en otro, y pesos en un tercero. Cada cuenta tiene su comisión mensual y su proceso de conciliación.",
+    "angulos": [
+      "Educativo",
+      "Comparativa",
+      "Urgencia Operativa",
+      "Dato Duro"
+    ],
+    "footers": [
+      "Divisas disponibles sujetas a regulación y disponibilidad.",
+      "Xending — tu tesorería internacional, simplificada."
+    ],
+    "insight": "Las empresas que comercian internacionalmente mantienen cuentas en 2-5 bancos diferentes para manejar distintas monedas.",
+    "promesa": "Una sola cuenta Xending para manejar múltiples divisas. Recibe, mantén y envía USD, EUR, MXN y más desde una plataforma unificada.",
+    "objetivo": "Posicionar la cuenta multidivisa de Xending como la herramienta esencial para empresas que operan en múltiples monedas.",
+    "audiencia": "Tesoreros y CFOs de empresas con operaciones multi-país, importadores/exportadores que manejan 3+ monedas.",
+    "guia_visual": "Banderas y símbolos de monedas, interfaz de plataforma limpia, dashboard mockups.",
+    "claims_permitidos": [
+      "Una cuenta, múltiples divisas",
+      "Simplifica tu tesorería",
+      "Recibe y envía en USD, EUR, MXN",
+      "Conciliación unificada"
+    ],
+    "claims_prohibidos": [
+      "Todas las monedas del mundo",
+      "Sin límites de divisas",
+      "Reemplaza completamente a tu banco"
+    ],
+    "content_ingredients": {
+      "default": {
+        "ctas": [
+          "Abre tu cuenta multidivisa",
+          "Simplifica tu tesorería hoy",
+          "Solicita una demo"
+        ],
+        "sublines": [
+          "Recibe, mantén y envía USD, EUR, MXN y más desde un solo lugar.",
+          "Olvídate de múltiples bancos para múltiples monedas."
+        ],
+        "big_stats": [
+          "3+ divisas",
+          "1 sola plataforma",
+          "0 cuentas bancarias extra"
+        ],
+        "headlines": [
+          "Una cuenta, múltiples divisas.",
+          "Simplifica tu tesorería.",
+          "Todo en una plataforma."
+        ],
+        "benefit_phrases": [
+          "USD, EUR, MXN en una cuenta",
+          "Conciliación unificada",
+          "Sin múltiples bancos",
+          "Visibilidad total de saldos"
+        ],
+        "photo_direction": "Interfaz de plataforma limpia, banderas/símbolos de monedas, sensación de orden y simplicidad"
+      },
+      "dato_duro": {
+        "ctas": [
+          "Abre tu cuenta",
+          "Solicita demo"
+        ],
+        "sublines": [
+          "Tu equipo de tesorería pierde horas reconciliando múltiples cuentas.",
+          "Centraliza y ahorra tiempo."
+        ],
+        "big_stats": [
+          "15-20 hrs/semana ahorradas",
+          "3+ divisas disponibles",
+          "1 sola plataforma"
+        ],
+        "headlines": [
+          "1 cuenta. Múltiples divisas.",
+          "15-20 hrs/semana ahorradas",
+          "3 bancos menos que administrar"
+        ],
+        "benefit_phrases": [
+          "Ahorro de tiempo en conciliación",
+          "Múltiples divisas",
+          "Visibilidad unificada"
+        ],
+        "photo_direction": "Dashboard limpio con múltiples monedas, números de impacto, sensación de control"
+      },
+      "educativo": {
+        "ctas": [
+          "Conoce cómo funciona",
+          "Solicita una demo"
+        ],
+        "sublines": [
+          "Recibe en USD, mantén en EUR, envía en MXN. Todo desde una plataforma.",
+          "Sin abrir cuentas en otros países."
+        ],
+        "headlines": [
+          "¿Cómo funciona la cuenta multidivisa?",
+          "Tu tesorería, simplificada",
+          "3 pasos para operar en múltiples monedas"
+        ],
+        "benefit_phrases": [
+          "Recibe en cualquier divisa",
+          "Mantén saldos multi-moneda",
+          "Envía cuando necesites",
+          "Concilia en un solo lugar"
+        ],
+        "photo_direction": "Flujo de proceso simple, interfaz de plataforma, persona usando laptop con tranquilidad"
+      },
+      "comparativa": {
+        "ctas": [
+          "Simplifica hoy",
+          "Conoce las divisas disponibles"
+        ],
+        "sublines": [
+          "Deja de manejar cuentas en 3 bancos diferentes.",
+          "Una sola plataforma para todas tus divisas."
+        ],
+        "data_sets": [
+          {
+            "antes": "3 bancos, 3 comisiones, 3 conciliaciones",
+            "xending": "1 cuenta, múltiples divisas, 1 conciliación",
+            "diferencia": "Simplifica tu operación"
+          }
+        ],
+        "headlines": [
+          "3 bancos vs 1 Xending",
+          "Antes: caos. Ahora: orden.",
+          "Múltiples bancos vs una plataforma."
+        ],
+        "benefit_phrases": [
+          "Una sola conciliación",
+          "Visibilidad total",
+          "Menos comisiones"
+        ],
+        "photo_direction": "Contraste entre complejidad (múltiples pantallas/documentos) y simplicidad (una interfaz limpia)"
+      }
+    }
+  },
+  "prompt_kit": {
+    "audience": [
+      "CFOs",
+      "Tesoreros",
+      "Contralores",
+      "Directores financieros",
+      "Empresas importadoras",
+      "Empresas exportadoras",
+      "Empresas con proveedores internacionales",
+      "Empresas con filiales en otros países",
+      "Empresas que reciben y pagan en diferentes monedas"
+    ],
+    "branch_id": "cuenta_multidivisa",
+    "branch_name": "Cuenta Multidivisa",
+    "positioning": "Cuenta Multidivisa Xending Global permite a empresas con operación internacional centralizar saldos, pagos y movimientos en distintas monedas desde una sola plataforma, reduciendo fricción operativa, mejorando visibilidad y dando mayor control a la tesorería.",
+    "executive_angle": "La tesorería internacional no necesita más cuentas. Necesita más control.",
+    "malos_headlines": [
+      "Simplifica tus pagos internacionales.",
+      "Envía dinero al mundo.",
+      "Paga más rápido a tus proveedores.",
+      "La mejor plataforma de divisas.",
+      "Una cuenta para todo.",
+      "Pagos internacionales fáciles.",
+      "Tipo de cambio competitivo para empresas.",
+      "Paga a China el mismo día.",
+      "Reduce tus costos de transferencia.",
+      "Haz pagos globales en segundos."
+    ],
+    "primary_problem": "Las empresas que operan internacionalmente suelen manejar múltiples cuentas bancarias, distintas plataformas, conversiones manuales, pagos dispersos y conciliaciones complejas. Esto genera fricción operativa, poca visibilidad y menor control financiero.",
+    "tensiones_clave": [
+      "Tener muchas cuentas no significa tener más control.",
+      "Operar en varias monedas sin visibilidad consolidada vuelve más compleja la tesorería.",
+      "Cada cuenta adicional puede sumar conciliación, fricción y riesgo de error.",
+      "Una empresa puede operar globalmente, pero seguir administrando su tesorería como si fuera local.",
+      "El problema no siempre está en pagar en otra moneda, sino en controlar toda la operación detrás.",
+      "Recibir en una divisa, pagar en otra y conciliar en una tercera no debería depender de hojas de cálculo.",
+      "La operación internacional crece más rápido que los controles financieros internos.",
+      "Más bancos no siempre significan mejor estructura financiera."
+    ],
+    "visual_language": [
+      "dashboard multidivisa",
+      "saldos en USD, EUR, MXN, CAD y GBP",
+      "mapa global con cuentas conectadas",
+      "tesorero viendo múltiples monedas desde una sola pantalla",
+      "flujo de pagos masivos",
+      "interfaz limpia con balances por divisa",
+      "menos bancos y más control",
+      "varias monedas centralizadas en una plataforma",
+      "tarjetas o módulos con saldos por moneda",
+      "líneas conectando proveedores, monedas y cuentas",
+      "pantalla financiera con control global",
+      "operación internacional ordenada"
+    ],
+    "buenos_headlines": [
+      "Tu empresa opera en varias monedas. Tu tesorería no debería operar a ciegas.",
+      "Muchas cuentas, muchos bancos, poca visibilidad.",
+      "Administrar dólares, euros y pesos no debería depender de tres plataformas distintas.",
+      "La operación internacional crece. El desorden bancario también.",
+      "Tener dinero en varias monedas no sirve de mucho si no puedes verlo y moverlo con control.",
+      "Cada cuenta adicional suma operación, conciliación y riesgo de error.",
+      "Tu empresa ya es global. Tu tesorería también debería serlo.",
+      "Más monedas no deberían significar más desorden operativo.",
+      "La cuenta multidivisa no es una cuenta más. Es una forma de recuperar control.",
+      "Cuando tu tesorería depende de varios bancos, el control empieza a fragmentarse.",
+      "Operar en varias monedas exige visibilidad, no más hojas de cálculo.",
+      "El verdadero costo de operar globalmente muchas veces está en la fricción diaria."
+    ],
+    "cta_recomendados": [
+      "Conoce cómo centralizar tu operación multidivisa.",
+      "Evalúa si tu tesorería está preparada para operar globalmente.",
+      "Revisa cómo tener mayor control sobre tus monedas.",
+      "Agenda una revisión de tu operación internacional.",
+      "Descubre cómo simplificar tu tesorería multidivisa."
+    ],
+    "claims_permitidos": [
+      "Administra cuentas en más de 30 divisas.",
+      "Envía pagos en más de 130 divisas.",
+      "Centraliza operaciones de tesorería internacional.",
+      "Gestiona pagos masivos mediante carga de archivo.",
+      "Opera FX, pagos, coberturas y órdenes de mercado desde una misma plataforma.",
+      "Mejora la visibilidad y el control de tus operaciones internacionales.",
+      "Reduce fricción operativa en procesos de tesorería.",
+      "Facilita la administración de saldos y movimientos en distintas monedas.",
+      "Permite operar distintas divisas desde un entorno centralizado."
+    ],
+    "claims_prohibidos": [
+      "Garantizamos el tipo de cambio más bajo.",
+      "Eliminamos todos los costos.",
+      "Sin riesgo cambiario.",
+      "Aprobación garantizada.",
+      "Cero comisiones ocultas.",
+      "Somos banco.",
+      "Tu dinero siempre llega el mismo día.",
+      "Todos tus pagos llegan instantáneamente.",
+      "Nunca tendrás pérdidas cambiarias.",
+      "Somos la cuenta bancaria global de tu empresa."
+    ],
+    "provocative_angle": "Tu empresa opera en varias monedas. ¿Tu tesorería realmente las controla?",
+    "short_positioning": "Controla múltiples monedas desde una sola plataforma.",
+    "strategic_promise": "Centralizar saldos, pagos y movimientos en distintas monedas desde una sola plataforma para mejorar el control operativo de la tesorería internacional.",
+    "temas_prioritarios": [
+      "control financiero",
+      "visibilidad de saldos",
+      "centralización de tesorería",
+      "operación multidivisa",
+      "conciliación",
+      "pagos masivos",
+      "reducción de fricción operativa",
+      "administración de varias monedas",
+      "tesorería internacional",
+      "plataforma única",
+      "control operativo",
+      "trazabilidad"
+    ],
+    "dolores_especificos": [
+      "múltiples cuentas bancarias por moneda",
+      "saldos dispersos en diferentes bancos",
+      "falta de visibilidad consolidada de saldos",
+      "conversiones manuales entre divisas",
+      "conciliaciones operativas complejas",
+      "pagos dispersos a proveedores internacionales",
+      "dependencia de varias plataformas bancarias",
+      "procesos manuales de tesorería",
+      "dificultad para saber cuánto dinero hay en cada moneda",
+      "pérdida de control sobre movimientos internacionales",
+      "errores por capturas manuales",
+      "falta de trazabilidad en operaciones multidivisa",
+      "costos operativos invisibles por administración fragmentada"
+    ],
+    "formulas_narrativas": [
+      "[Muchas cuentas] no significa [más control].",
+      "Si operas en [N monedas], necesitas [visibilidad consolidada].",
+      "Cada [cuenta/banco/plataforma] suma [conciliación/fricción/error].",
+      "Tu empresa ya es global. Tu tesorería también debería serlo.",
+      "El problema no es pagar en otra moneda. Es controlar toda la operación detrás.",
+      "Cuando tu operación crece en monedas, tu control no puede seguir en Excel.",
+      "Más monedas no deberían significar más procesos manuales.",
+      "Una operación internacional sin visibilidad es una operación vulnerable.",
+      "Si tu dinero está dividido por bancos, tu control también.",
+      "La pregunta no es cuántas cuentas tienes. Es cuánto control tienes sobre ellas."
+    ],
+    "restricciones_de_rama": [
+      "No centrar la idea en pagos a China.",
+      "No centrar la idea en pagos mismo día.",
+      "No centrar la idea en velocidad de transferencias.",
+      "No centrar la idea en SWIFT.",
+      "No centrar la idea en proveedor cobrando rápido.",
+      "No centrar la idea en ahorro genérico de tipo de cambio.",
+      "No centrar la idea en compra/venta de dólares como producto aislado.",
+      "No centrar la idea en cobertura cambiaria.",
+      "No usar lenguaje de banco o cuenta bancaria tradicional.",
+      "No prometer eliminación total de costos.",
+      "No prometer eliminación total de riesgo cambiario.",
+      "No prometer tiempos garantizados de liquidación."
+    ],
+    "beneficios_especificos": [
+      "administrar cuentas en más de 30 divisas",
+      "enviar pagos en más de 130 divisas",
+      "centralizar operaciones internacionales",
+      "visualizar saldos por moneda",
+      "gestionar pagos internacionales desde una sola plataforma",
+      "realizar pagos masivos mediante carga de archivo",
+      "reducir fricción operativa",
+      "mejorar visibilidad y control de tesorería",
+      "integrar FX, pagos, coberturas y órdenes de mercado en un mismo entorno",
+      "optimizar procesos de conciliación",
+      "dar mayor trazabilidad a la operación financiera internacional",
+      "facilitar la planeación de pagos futuros"
+    ]
+  },
+  "display_order": 2,
+  "is_active": true,
+  "created_at": "2026-05-01T23:16:21.502678+00:00",
+  "updated_at": "2026-05-23T15:54:58.916012+00:00"
+}

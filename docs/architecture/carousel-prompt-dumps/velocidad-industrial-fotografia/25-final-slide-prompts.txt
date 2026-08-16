@@ -1,0 +1,371 @@
+===== SLIDE 1 — tension =====
+CAROUSEL SLIDE 1 OF 5 — narrative role "tension". This image is one piece of a series. The DESIGN SPEC below is identical across every slide on purpose: keep the same visual family, the same recurring subject, the same camera treatment and the same palette. Only the narrative beat changes.
+
+SUBJECT OF THIS SLIDE — it opens or closes the set, so the recurring subject is the protagonist here: Un componente industrial listo para embarque funciona como reloj operativo de la serie.
+
+DESIGN SPEC (shared by the whole set):
+Editorial B2B photographic system for a premium international fintech brand, designed as a clean, white, institutional visual language with a single clear hero presence and lots of negative space. High-key studio-like exposure with a soft, natural finish and realistic texture; crisp but gentle contrast, subtle contact shadows, and a refined sense of depth. Use a mostly white field (#FFFFFF / #F5F5F5) for 80–90% of the composition, with navy #0F1419 used only as structural framing, thin visual anchors, or understated graphic balance; teal #2ED4C7 as a small activation accent; coral #FF7A4A as one restrained focal tension cue. Add graceful dynamic lines and very subtle coral-to-teal gradient motion cues to suggest operational flow, speed, and continuity without artificial urgency. Composition should feel corporate, modern, global, and premium, with one dominant visual idea, maximum 1–3 secondary supporting elements, and generous empty space for later copy placement. Camera treatment: realistic editorial photography, medium-wide framing, clean perspective, natural depth of field, no exaggerated angles, no distortion, no clutter, no fake stock-photo staging. Materials and surfaces should feel authentic and high-end, with matte, satin, ceramic-like, paper-like, brushed, or soft industrial finishes rather than glossy plastic. Typography is not present in the image, but the visual system should imply bold headline hierarchy through strong structural contrast and clear spatial organization. Avoid any sense of artificial urgency; the mood should be calm, controlled, and operationally fluid. White background style only, with a luminous, uncluttered, premium B2B look.
+
+If the spec above names a specific subject, object or scene, treat it ONLY as an example of the style. It does not describe this image. The scene for this slide is the one stated below and it replaces it entirely. What you take from the spec is the medium and materiality, the camera treatment, the lighting, the palette and its proportions, the composition density, the negative space and the system restrictions.
+
+SCENE FOR THIS SLIDE (this is what you render):
+A premium editorial B2B photo of a white industrial auto part or shipping-ready component staged on a clean worktable, with a printed payment order placed prominently beside it as the evidence of the delay. The component sits in the lower two-thirds, partly wrapped and ready for dispatch, while the payment order is the only surface carrying the tension cue: one coral-highlighted due date or total, with a thin teal underline or tab as the sole functional accent. Keep the top third open, bright, and uncluttered for the headline, with a calm, controlled office-logistics atmosphere and no sense of artificial urgency.
+
+ART DIRECTION FOR THIS SLIDE:
+- What this image must make evident: Volver visible el rol tension mediante orden de pago
+- The device that demonstrates it: orden de pago como evidencia física de la afirmación
+- Objects that must be in frame: orden de pago
+
+Do not merely depict the industry the copy mentions. The scene has to demonstrate this specific claim: an image that would work just as well under a different headline is the wrong image.
+
+TEXT IS ENABLED for this piece: it renders its own headline, supporting copy and document labels. Ignore any instruction in the system prompt that applies when text in image is disabled.
+
+BRAND COLOUR SYSTEM — three colours, fixed meanings, no exceptions:
+
+- Navy #0F1419 — neutral information: the original USD obligation, the word TOTAL, field names, general text. Anything that is neither a benefit nor a risk.
+- Xending turquoise #2ED4C7 — the present and what is under control: HOY, current value, starting point, reference, confirmation, planning, Xending itself.
+- Xending coral #FF7A4A — the future and its exposure: PAGO, future date, increase, variation, additional cost, impact.
+
+There is NO fourth colour. Do not introduce a different orange, a red, a yellow or any accent outside these three. A red that is not this coral reads as a different brand.
+
+HOW THE ACCENTS ARE APPLIED — this matters as much as which colour:
+- Stamps and labels are OUTLINED on white: HOY is a turquoise outline with turquoise text on white or transparent; PAGO is a coral outline with coral text on white. Never a solid turquoise or coral fill behind them.
+- A figure that carries risk is coral TYPE, optionally with a thin coral rule under it. Never a solid coral or orange rectangle behind the number — that block belongs to another design system and it is the single most out-of-place element these pieces have produced.
+- Risk can also be carried by a thin line, a small arrow, a percentage, a stamp or a border. Coral used with restraint reads far more sophisticated than coral used as a highlighter.
+
+FIGURE COLOUR GRAMMAR, so numbers read the same way in every campaign:
+- Original obligation (USD 10,000.00): navy.
+- Current exchange rate: turquoise.
+- Future illustrative exchange rate: coral.
+- Current cost in MXN: navy or turquoise.
+- Future cost in MXN: coral.
+- Difference and percentage: coral.
+
+TEXT TO RENDER IN THE IMAGE (exact and authoritative). The quotation marks are NOT part of the copy and must not appear in the image:
+
+HEADLINE — render exactly, keeping these line breaks:
+Las autopartes pueden estar listas antes que el pago
+
+SUPPORTING COPY — render exactly, much smaller than the headline:
+Paga a proveedores en China el mismo día y mantén tu compra en movimiento.
+
+Spell it exactly as written, in Spanish, without translating it, without rewording it and without adding sentences of your own. Do not render quotation marks around any of it.
+TIPOGRAFÍA (obligatoria, es la del sistema de marca Xending): Montserrat Bold o ExtraBold en el headline; Poppins Medium o SemiBold en body, CTA y microcopy. Si no reconoces esas familias, usa Gotham, Proxima Nova o Poppins.
+La letra debe cumplir TODOS estos rasgos: grosor de trazo constante de principio a fin de cada letra; 'O' y 'o' como círculos casi perfectos; altura de x alta; cada asta termina en un corte recto, horizontal o vertical, del mismo grosor que el resto del trazo; anchos de letra normales; eje completamente vertical; tracking ligeramente cerrado en el headline.
+Acabado: letra plana y vectorial, de una sola tinta mate, nítida y de bordes limpios, como diseño editorial digital.
+No paragraph blocks, no bullet lists.
+
+TEXT INSIDE OBJECTS: none on this slide. Documents, screens and labels stay abstract — out of focus, cropped or turned away. No invented words, no filler paragraphs, no pseudo-text.
+
+TEXT COLOUR AND PLACEMENT:
+- HIERARCHY — this is an editorial ad, not a captioned photo. The headline is the DOMINANT element of the composition: large, immediately legible, occupying a substantial share of the frame. The supporting sentence is MUCH smaller, in a clean geometric sans-serif, and explains without competing. The CTA and any label are smaller still. First visual hit is the headline, or the headline and the scene together — never a big image with a small title in a corner.
+- LINE BREAKS: the headline arrives with its line breaks already decided by meaning. Respect them exactly. Do not reflow it to fit, do not join the lines, do not add breaks of your own.
+- HEADLINE EMPHASIS: all text in navy #0F1419, with at most ONE semantic block in coral #FF7A4A if one clearly carries the tension of the line. No accent on the supporting line or the CTA.
+- The subject must never run underneath the letters. Whatever area the headline occupies stays clean, with enough contrast that every word is readable at thumbnail size.
+- LAYOUT editorial_top: headline across the upper area, supporting sentence directly under it, and the scene in the lower two thirds.
+- This slide reserves its top-left corner for the logo, so the text starts BELOW that corner — never beside it, never wrapping around it.
+
+NO BRANDING: do not render any logo, wordmark, brand name (including "Xending"), symbol, watermark or readable signage anywhere. Do not write any legal disclaimer, terms or fine print.
+
+KEEP CLEAR — TOP-LEFT: the background must continue through the top-left corner (roughly the first 22% of the width and 12% of the height) completely unchanged: exact same color, tone, texture and lighting as the surrounding background. Do NOT draw a panel, box, band, card, border, gradient or tonal shift there, and do NOT place objects, text, shadows or edges in it. It simply stays empty background.
+
+Canvas: 1:1, read on a phone while swiping. Text must stay legible at thumbnail size.
+
+AVOID: generic stock-photo composition; a photograph that merely depicts the industry without explaining the claim; decorative financial icons; excessive gradients; clutter; cheap fintech illustration style; crypto or neon aesthetic; overloaded infographic; meaningless or gibberish text; fake paragraphs on documents; several unrelated visual metaphors in one frame; more than two highlighted blocks; any element competing with the headline; deformed machinery; screens full of pseudo-text; unnecessary people; floating objects without support; excessive glow; gratuitous holograms. No extra objects, no extra documents, no stacked paperwork, no visible logos, no invented text, no gibberish, no watermark, no fake stock-photo staging, no people facing camera, no busy warehouse, no dark background, no neon, no cyberpunk, no crypto aesthetic, no cartoon or toy look, no plastic props, no clutter, no three-column layout, no thick arrows, no multiple coral accents, no multiple teal accents, no dramatic urgency, no distorted product shape, no unreadable numbers, no duplicated surfaces, no generic Canva composition.
+
+===== SLIDE 2 — shift =====
+CAROUSEL SLIDE 2 OF 5 — narrative role "shift". This image is one piece of a series. The DESIGN SPEC below is identical across every slide on purpose: keep the same visual family, the same recurring subject, the same camera treatment and the same palette. Only the narrative beat changes.
+
+The set has a recurring subject (Un componente industrial listo para embarque funciona como reloj operativo de la serie.) that belongs to the FIRST and LAST slide only. This is a middle slide: it has its own subject, stated in the scene below. Do NOT make that recurring object the subject here. It may appear as a small secondary detail, out of focus in the background, or not at all.
+
+DESIGN SPEC (shared by the whole set):
+Editorial B2B photographic system for a premium international fintech brand, designed as a clean, white, institutional visual language with a single clear hero presence and lots of negative space. High-key studio-like exposure with a soft, natural finish and realistic texture; crisp but gentle contrast, subtle contact shadows, and a refined sense of depth. Use a mostly white field (#FFFFFF / #F5F5F5) for 80–90% of the composition, with navy #0F1419 used only as structural framing, thin visual anchors, or understated graphic balance; teal #2ED4C7 as a small activation accent; coral #FF7A4A as one restrained focal tension cue. Add graceful dynamic lines and very subtle coral-to-teal gradient motion cues to suggest operational flow, speed, and continuity without artificial urgency. Composition should feel corporate, modern, global, and premium, with one dominant visual idea, maximum 1–3 secondary supporting elements, and generous empty space for later copy placement. Camera treatment: realistic editorial photography, medium-wide framing, clean perspective, natural depth of field, no exaggerated angles, no distortion, no clutter, no fake stock-photo staging. Materials and surfaces should feel authentic and high-end, with matte, satin, ceramic-like, paper-like, brushed, or soft industrial finishes rather than glossy plastic. Typography is not present in the image, but the visual system should imply bold headline hierarchy through strong structural contrast and clear spatial organization. Avoid any sense of artificial urgency; the mood should be calm, controlled, and operationally fluid. White background style only, with a luminous, uncluttered, premium B2B look.
+
+If the spec above names a specific subject, object or scene, treat it ONLY as an example of the style. It does not describe this image. The scene for this slide is the one stated below and it replaces it entirely. What you take from the spec is the medium and materiality, the camera treatment, the lighting, the palette and its proportions, the composition density, the negative space and the system restrictions.
+
+SCENE FOR THIS SLIDE (this is what you render):
+A split-photo editorial scene built around the same industrial component ready for shipment, shown in two adjacent moments within one frame: on the left, the component sits beside an open printed quotation with a visible total and a stamped earlier date; on the right, the same component appears packed and staged for dispatch next to the same quotation updated with a later date and a longer, highlighted total. Keep the operational clock motif as the physical evidence of change, with one clear navy structural line and a single coral tension cue on the later date or total, plus a small teal connector line. Compose the subject in the lower two-thirds, leaving the upper band clean for the headline.
+
+TEXT LAYOUT:
+SINGLE-LINE SLIDE: this line is the whole slide and its focal element. Set it large, in one clear open area, wrapped over 2 or 3 lines if it needs the room. Every wrapped line keeps the SAME size and weight — this is one statement, not a title with a subtitle.
+
+ART DIRECTION FOR THIS SLIDE:
+- What this image must make evident: Volver visible el rol shift mediante reloj operativo
+- The device that demonstrates it: reloj operativo como evidencia física de la afirmación
+- Objects that must be in frame: reloj operativo
+
+Do not merely depict the industry the copy mentions. The scene has to demonstrate this specific claim: an image that would work just as well under a different headline is the wrong image.
+
+TEXT IS ENABLED for this piece: it renders its own headline, supporting copy and document labels. Ignore any instruction in the system prompt that applies when text in image is disabled.
+
+BRAND COLOUR SYSTEM — three colours, fixed meanings, no exceptions:
+
+- Navy #0F1419 — neutral information: the original USD obligation, the word TOTAL, field names, general text. Anything that is neither a benefit nor a risk.
+- Xending turquoise #2ED4C7 — the present and what is under control: HOY, current value, starting point, reference, confirmation, planning, Xending itself.
+- Xending coral #FF7A4A — the future and its exposure: PAGO, future date, increase, variation, additional cost, impact.
+
+There is NO fourth colour. Do not introduce a different orange, a red, a yellow or any accent outside these three. A red that is not this coral reads as a different brand.
+
+HOW THE ACCENTS ARE APPLIED — this matters as much as which colour:
+- Stamps and labels are OUTLINED on white: HOY is a turquoise outline with turquoise text on white or transparent; PAGO is a coral outline with coral text on white. Never a solid turquoise or coral fill behind them.
+- A figure that carries risk is coral TYPE, optionally with a thin coral rule under it. Never a solid coral or orange rectangle behind the number — that block belongs to another design system and it is the single most out-of-place element these pieces have produced.
+- Risk can also be carried by a thin line, a small arrow, a percentage, a stamp or a border. Coral used with restraint reads far more sophisticated than coral used as a highlighter.
+
+FIGURE COLOUR GRAMMAR, so numbers read the same way in every campaign:
+- Original obligation (USD 10,000.00): navy.
+- Current exchange rate: turquoise.
+- Future illustrative exchange rate: coral.
+- Current cost in MXN: navy or turquoise.
+- Future cost in MXN: coral.
+- Difference and percentage: coral.
+
+TEXT TO RENDER IN THE IMAGE (exact and authoritative). The quotation marks are NOT part of the copy and must not appear in the image:
+
+HEADLINE — render exactly, keeping these line breaks:
+Enviar un pago no significa que el proveedor lo reciba.
+
+Spell it exactly as written, in Spanish, without translating it, without rewording it and without adding sentences of your own. Do not render quotation marks around any of it.
+TIPOGRAFÍA (obligatoria, es la del sistema de marca Xending): Montserrat Bold o ExtraBold en el headline; Poppins Medium o SemiBold en body, CTA y microcopy. Si no reconoces esas familias, usa Gotham, Proxima Nova o Poppins.
+La letra debe cumplir TODOS estos rasgos: grosor de trazo constante de principio a fin de cada letra; 'O' y 'o' como círculos casi perfectos; altura de x alta; cada asta termina en un corte recto, horizontal o vertical, del mismo grosor que el resto del trazo; anchos de letra normales; eje completamente vertical; tracking ligeramente cerrado en el headline.
+Acabado: letra plana y vectorial, de una sola tinta mate, nítida y de bordes limpios, como diseño editorial digital.
+No paragraph blocks, no bullet lists.
+
+TEXT INSIDE OBJECTS: none on this slide. Documents, screens and labels stay abstract — out of focus, cropped or turned away. No invented words, no filler paragraphs, no pseudo-text.
+
+TEXT COLOUR AND PLACEMENT:
+- HIERARCHY — this is an editorial ad, not a captioned photo. The headline is the DOMINANT element of the composition: large, immediately legible, occupying a substantial share of the frame. The supporting sentence is MUCH smaller, in a clean geometric sans-serif, and explains without competing. The CTA and any label are smaller still. First visual hit is the headline, or the headline and the scene together — never a big image with a small title in a corner.
+- LINE BREAKS: the headline arrives with its line breaks already decided by meaning. Respect them exactly. Do not reflow it to fit, do not join the lines, do not add breaks of your own.
+- HEADLINE EMPHASIS: all text in navy #0F1419, with at most ONE semantic block in coral #FF7A4A if one clearly carries the tension of the line. No accent on the supporting line or the CTA.
+- The subject must never run underneath the letters. Whatever area the headline occupies stays clean, with enough contrast that every word is readable at thumbnail size.
+- LAYOUT split_photo: headline and supporting copy in the LEFT column, photography holding the right side and the lower right. The two do not overlap — the composition is divided, not layered.
+
+NO BRANDING: do not render any logo, wordmark, brand name (including "Xending"), symbol, watermark or readable signage anywhere. Do not write any legal disclaimer, terms or fine print.
+
+This slide carries no brand element: use the whole frame. Do NOT reserve an empty corner or bottom band.
+
+Canvas: 1:1, read on a phone while swiping. Text must stay legible at thumbnail size.
+
+AVOID: generic stock-photo composition; a photograph that merely depicts the industry without explaining the claim; decorative financial icons; excessive gradients; clutter; cheap fintech illustration style; crypto or neon aesthetic; overloaded infographic; meaningless or gibberish text; fake paragraphs on documents; several unrelated visual metaphors in one frame; more than two highlighted blocks; any element competing with the headline; deformed machinery; screens full of pseudo-text; unnecessary people; floating objects without support; excessive glow; gratuitous holograms. No extra objects, no collage, no three-column layout, no invented text beyond the provided line, no fake logos, no watermark, no gibberish, no unreadable documents, no duplicate data surfaces, no multiple charts, no thick arrows, no clutter, no generic Canva style, no stock-photo posing, no distorted industrial parts, no toy-like packaging, no excessive navy, teal, or coral, no dark background, no cyberpunk or neon look, no people with visible faces, no incorrect split-screen symmetry, no floating text, no messy office scene.
+
+===== SLIDE 3 — risk =====
+CAROUSEL SLIDE 3 OF 5 — narrative role "risk". This image is one piece of a series. The DESIGN SPEC below is identical across every slide on purpose: keep the same visual family, the same recurring subject, the same camera treatment and the same palette. Only the narrative beat changes.
+
+The set has a recurring subject (Un componente industrial listo para embarque funciona como reloj operativo de la serie.) that belongs to the FIRST and LAST slide only. This is a middle slide: it has its own subject, stated in the scene below. Do NOT make that recurring object the subject here. It may appear as a small secondary detail, out of focus in the background, or not at all.
+
+DESIGN SPEC (shared by the whole set):
+Editorial B2B photographic system for a premium international fintech brand, designed as a clean, white, institutional visual language with a single clear hero presence and lots of negative space. High-key studio-like exposure with a soft, natural finish and realistic texture; crisp but gentle contrast, subtle contact shadows, and a refined sense of depth. Use a mostly white field (#FFFFFF / #F5F5F5) for 80–90% of the composition, with navy #0F1419 used only as structural framing, thin visual anchors, or understated graphic balance; teal #2ED4C7 as a small activation accent; coral #FF7A4A as one restrained focal tension cue. Add graceful dynamic lines and very subtle coral-to-teal gradient motion cues to suggest operational flow, speed, and continuity without artificial urgency. Composition should feel corporate, modern, global, and premium, with one dominant visual idea, maximum 1–3 secondary supporting elements, and generous empty space for later copy placement. Camera treatment: realistic editorial photography, medium-wide framing, clean perspective, natural depth of field, no exaggerated angles, no distortion, no clutter, no fake stock-photo staging. Materials and surfaces should feel authentic and high-end, with matte, satin, ceramic-like, paper-like, brushed, or soft industrial finishes rather than glossy plastic. Typography is not present in the image, but the visual system should imply bold headline hierarchy through strong structural contrast and clear spatial organization. Avoid any sense of artificial urgency; the mood should be calm, controlled, and operationally fluid. White background style only, with a luminous, uncluttered, premium B2B look.
+
+If the spec above names a specific subject, object or scene, treat it ONLY as an example of the style. It does not describe this image. The scene for this slide is the one stated below and it replaces it entirely. What you take from the spec is the medium and materiality, the camera treatment, the lighting, the palette and its proportions, the composition density, the negative space and the system restrictions.
+
+SCENE FOR THIS SLIDE (this is what you render):
+Editorial B2B photo of a supplier confirmation moment inside a clean industrial office: a printed supplier confirmation sheet with a visible approval stamp and a second copy slightly behind it, both resting beside a partially opened laptop on a white desk. The industrial component appears in the lower frame, still packed and waiting, acting as the recurring operational timepiece. Keep the top third clean and bright for headline text, with the confirmation document as the single data-bearing surface and a restrained teal line marking the approval path.
+
+TEXT LAYOUT:
+SINGLE-LINE SLIDE: this line is the whole slide and its focal element. Set it large, in one clear open area, wrapped over 2 or 3 lines if it needs the room. Every wrapped line keeps the SAME size and weight — this is one statement, not a title with a subtitle.
+
+ART DIRECTION FOR THIS SLIDE:
+- What this image must make evident: Volver visible el rol risk mediante confirmación de proveedor
+- The device that demonstrates it: confirmación de proveedor como evidencia física de la afirmación
+- Objects that must be in frame: confirmación de proveedor
+
+Do not merely depict the industry the copy mentions. The scene has to demonstrate this specific claim: an image that would work just as well under a different headline is the wrong image.
+
+TEXT IS ENABLED for this piece: it renders its own headline, supporting copy and document labels. Ignore any instruction in the system prompt that applies when text in image is disabled.
+
+BRAND COLOUR SYSTEM — three colours, fixed meanings, no exceptions:
+
+- Navy #0F1419 — neutral information: the original USD obligation, the word TOTAL, field names, general text. Anything that is neither a benefit nor a risk.
+- Xending turquoise #2ED4C7 — the present and what is under control: HOY, current value, starting point, reference, confirmation, planning, Xending itself.
+- Xending coral #FF7A4A — the future and its exposure: PAGO, future date, increase, variation, additional cost, impact.
+
+There is NO fourth colour. Do not introduce a different orange, a red, a yellow or any accent outside these three. A red that is not this coral reads as a different brand.
+
+HOW THE ACCENTS ARE APPLIED — this matters as much as which colour:
+- Stamps and labels are OUTLINED on white: HOY is a turquoise outline with turquoise text on white or transparent; PAGO is a coral outline with coral text on white. Never a solid turquoise or coral fill behind them.
+- A figure that carries risk is coral TYPE, optionally with a thin coral rule under it. Never a solid coral or orange rectangle behind the number — that block belongs to another design system and it is the single most out-of-place element these pieces have produced.
+- Risk can also be carried by a thin line, a small arrow, a percentage, a stamp or a border. Coral used with restraint reads far more sophisticated than coral used as a highlighter.
+
+FIGURE COLOUR GRAMMAR, so numbers read the same way in every campaign:
+- Original obligation (USD 10,000.00): navy.
+- Current exchange rate: turquoise.
+- Future illustrative exchange rate: coral.
+- Current cost in MXN: navy or turquoise.
+- Future cost in MXN: coral.
+- Difference and percentage: coral.
+
+TEXT TO RENDER IN THE IMAGE (exact and authoritative). The quotation marks are NOT part of the copy and must not appear in the image:
+
+HEADLINE — render exactly, keeping these line breaks:
+proveedor esperando confirmación de fondos para liberar mercancía
+
+Spell it exactly as written, in Spanish, without translating it, without rewording it and without adding sentences of your own. Do not render quotation marks around any of it.
+TIPOGRAFÍA (obligatoria, es la del sistema de marca Xending): Montserrat Bold o ExtraBold en el headline; Poppins Medium o SemiBold en body, CTA y microcopy. Si no reconoces esas familias, usa Gotham, Proxima Nova o Poppins.
+La letra debe cumplir TODOS estos rasgos: grosor de trazo constante de principio a fin de cada letra; 'O' y 'o' como círculos casi perfectos; altura de x alta; cada asta termina en un corte recto, horizontal o vertical, del mismo grosor que el resto del trazo; anchos de letra normales; eje completamente vertical; tracking ligeramente cerrado en el headline.
+Acabado: letra plana y vectorial, de una sola tinta mate, nítida y de bordes limpios, como diseño editorial digital.
+No paragraph blocks, no bullet lists.
+
+TEXT INSIDE OBJECTS: none on this slide. Documents, screens and labels stay abstract — out of focus, cropped or turned away. No invented words, no filler paragraphs, no pseudo-text.
+
+TEXT COLOUR AND PLACEMENT:
+- HIERARCHY — this is an editorial ad, not a captioned photo. The headline is the DOMINANT element of the composition: large, immediately legible, occupying a substantial share of the frame. The supporting sentence is MUCH smaller, in a clean geometric sans-serif, and explains without competing. The CTA and any label are smaller still. First visual hit is the headline, or the headline and the scene together — never a big image with a small title in a corner.
+- LINE BREAKS: the headline arrives with its line breaks already decided by meaning. Respect them exactly. Do not reflow it to fit, do not join the lines, do not add breaks of your own.
+- HEADLINE EMPHASIS: all text in navy #0F1419, with at most ONE semantic block in coral #FF7A4A if one clearly carries the tension of the line. No accent on the supporting line or the CTA.
+- The subject must never run underneath the letters. Whatever area the headline occupies stays clean, with enough contrast that every word is readable at thumbnail size.
+- LAYOUT editorial_repetition: headline at the top, and below it the same object and its document REPEATED into depth — three or four instances receding, so the accumulation is the composition itself and not a caption about it.
+
+NO BRANDING: do not render any logo, wordmark, brand name (including "Xending"), symbol, watermark or readable signage anywhere. Do not write any legal disclaimer, terms or fine print.
+
+This slide carries no brand element: use the whole frame. Do NOT reserve an empty corner or bottom band.
+
+Canvas: 1:1, read on a phone while swiping. Text must stay legible at thumbnail size.
+
+AVOID: generic stock-photo composition; a photograph that merely depicts the industry without explaining the claim; decorative financial icons; excessive gradients; clutter; cheap fintech illustration style; crypto or neon aesthetic; overloaded infographic; meaningless or gibberish text; fake paragraphs on documents; several unrelated visual metaphors in one frame; more than two highlighted blocks; any element competing with the headline; deformed machinery; screens full of pseudo-text; unnecessary people; floating objects without support; excessive glow; gratuitous holograms. Avoid extra documents, multiple screens, busy desks, hands covering the paper, readable invented text beyond the provided copy area, fake logos, generic stock-photo smiles, clutter, three-column layouts, neon, crypto styling, gamer aesthetics, glossy plastic, low-quality props, distorted paper, illegible numbers, duplicated totals, overdone urgency, dark backgrounds, and more than three objects in frame.
+
+===== SLIDE 4 — solution =====
+CAROUSEL SLIDE 4 OF 5 — narrative role "solution". This image is one piece of a series. The DESIGN SPEC below is identical across every slide on purpose: keep the same visual family, the same recurring subject, the same camera treatment and the same palette. Only the narrative beat changes.
+
+The set has a recurring subject (Un componente industrial listo para embarque funciona como reloj operativo de la serie.) that belongs to the FIRST and LAST slide only. This is a middle slide: it has its own subject, stated in the scene below. Do NOT make that recurring object the subject here. It may appear as a small secondary detail, out of focus in the background, or not at all.
+
+DESIGN SPEC (shared by the whole set):
+Editorial B2B photographic system for a premium international fintech brand, designed as a clean, white, institutional visual language with a single clear hero presence and lots of negative space. High-key studio-like exposure with a soft, natural finish and realistic texture; crisp but gentle contrast, subtle contact shadows, and a refined sense of depth. Use a mostly white field (#FFFFFF / #F5F5F5) for 80–90% of the composition, with navy #0F1419 used only as structural framing, thin visual anchors, or understated graphic balance; teal #2ED4C7 as a small activation accent; coral #FF7A4A as one restrained focal tension cue. Add graceful dynamic lines and very subtle coral-to-teal gradient motion cues to suggest operational flow, speed, and continuity without artificial urgency. Composition should feel corporate, modern, global, and premium, with one dominant visual idea, maximum 1–3 secondary supporting elements, and generous empty space for later copy placement. Camera treatment: realistic editorial photography, medium-wide framing, clean perspective, natural depth of field, no exaggerated angles, no distortion, no clutter, no fake stock-photo staging. Materials and surfaces should feel authentic and high-end, with matte, satin, ceramic-like, paper-like, brushed, or soft industrial finishes rather than glossy plastic. Typography is not present in the image, but the visual system should imply bold headline hierarchy through strong structural contrast and clear spatial organization. Avoid any sense of artificial urgency; the mood should be calm, controlled, and operationally fluid. White background style only, with a luminous, uncluttered, premium B2B look.
+
+If the spec above names a specific subject, object or scene, treat it ONLY as an example of the style. It does not describe this image. The scene for this slide is the one stated below and it replaces it entirely. What you take from the spec is the medium and materiality, the camera treatment, the lighting, the palette and its proportions, the composition density, the negative space and the system restrictions.
+
+SCENE FOR THIS SLIDE (this is what you render):
+A clean, ordered payment-order document becomes the hero in the lower two-thirds of the frame, shot as a realistic editorial close-up on a bright white desk with a soft shadow and a small amount of blurred industrial context at the edge. The industrial component appears only as a faint, out-of-focus reference in the background, now visually aligned with the document’s calm control. The payment order is the single surface carrying the data, with a teal structural line and one restrained coral highlight marking the resolved status. Leave the upper third almost empty and luminous for the headline.
+
+TEXT LAYOUT:
+SINGLE-LINE SLIDE: this line is the whole slide and its focal element. Set it large, in one clear open area, wrapped over 2 or 3 lines if it needs the room. Every wrapped line keeps the SAME size and weight — this is one statement, not a title with a subtitle.
+
+ART DIRECTION FOR THIS SLIDE:
+- What this image must make evident: Volver visible el rol solution mediante orden de pago
+- The device that demonstrates it: orden de pago como evidencia física de la afirmación
+- Objects that must be in frame: orden de pago
+
+Do not merely depict the industry the copy mentions. The scene has to demonstrate this specific claim: an image that would work just as well under a different headline is the wrong image.
+
+TEXT IS ENABLED for this piece: it renders its own headline, supporting copy and document labels. Ignore any instruction in the system prompt that applies when text in image is disabled.
+
+BRAND COLOUR SYSTEM — three colours, fixed meanings, no exceptions:
+
+- Navy #0F1419 — neutral information: the original USD obligation, the word TOTAL, field names, general text. Anything that is neither a benefit nor a risk.
+- Xending turquoise #2ED4C7 — the present and what is under control: HOY, current value, starting point, reference, confirmation, planning, Xending itself.
+- Xending coral #FF7A4A — the future and its exposure: PAGO, future date, increase, variation, additional cost, impact.
+
+There is NO fourth colour. Do not introduce a different orange, a red, a yellow or any accent outside these three. A red that is not this coral reads as a different brand.
+
+HOW THE ACCENTS ARE APPLIED — this matters as much as which colour:
+- Stamps and labels are OUTLINED on white: HOY is a turquoise outline with turquoise text on white or transparent; PAGO is a coral outline with coral text on white. Never a solid turquoise or coral fill behind them.
+- A figure that carries risk is coral TYPE, optionally with a thin coral rule under it. Never a solid coral or orange rectangle behind the number — that block belongs to another design system and it is the single most out-of-place element these pieces have produced.
+- Risk can also be carried by a thin line, a small arrow, a percentage, a stamp or a border. Coral used with restraint reads far more sophisticated than coral used as a highlighter.
+
+FIGURE COLOUR GRAMMAR, so numbers read the same way in every campaign:
+- Original obligation (USD 10,000.00): navy.
+- Current exchange rate: turquoise.
+- Future illustrative exchange rate: coral.
+- Current cost in MXN: navy or turquoise.
+- Future cost in MXN: coral.
+- Difference and percentage: coral.
+
+TEXT TO RENDER IN THE IMAGE (exact and authoritative). The quotation marks are NOT part of the copy and must not appear in the image:
+
+HEADLINE — render exactly, keeping these line breaks:
+liquidación el mismo día hábil
+
+Spell it exactly as written, in Spanish, without translating it, without rewording it and without adding sentences of your own. Do not render quotation marks around any of it.
+TIPOGRAFÍA (obligatoria, es la del sistema de marca Xending): Montserrat Bold o ExtraBold en el headline; Poppins Medium o SemiBold en body, CTA y microcopy. Si no reconoces esas familias, usa Gotham, Proxima Nova o Poppins.
+La letra debe cumplir TODOS estos rasgos: grosor de trazo constante de principio a fin de cada letra; 'O' y 'o' como círculos casi perfectos; altura de x alta; cada asta termina en un corte recto, horizontal o vertical, del mismo grosor que el resto del trazo; anchos de letra normales; eje completamente vertical; tracking ligeramente cerrado en el headline.
+Acabado: letra plana y vectorial, de una sola tinta mate, nítida y de bordes limpios, como diseño editorial digital.
+No paragraph blocks, no bullet lists.
+
+TEXT INSIDE OBJECTS: none on this slide. Documents, screens and labels stay abstract — out of focus, cropped or turned away. No invented words, no filler paragraphs, no pseudo-text.
+
+TEXT COLOUR AND PLACEMENT:
+- HIERARCHY — this is an editorial ad, not a captioned photo. The headline is the DOMINANT element of the composition: large, immediately legible, occupying a substantial share of the frame. The supporting sentence is MUCH smaller, in a clean geometric sans-serif, and explains without competing. The CTA and any label are smaller still. First visual hit is the headline, or the headline and the scene together — never a big image with a small title in a corner.
+- LINE BREAKS: the headline arrives with its line breaks already decided by meaning. Respect them exactly. Do not reflow it to fit, do not join the lines, do not add breaks of your own.
+- HEADLINE EMPHASIS: all text in navy #0F1419, with at most ONE semantic block in coral #FF7A4A if one clearly carries the tension of the line. No accent on the supporting line or the CTA.
+- The subject must never run underneath the letters. Whatever area the headline occupies stays clean, with enough contrast that every word is readable at thumbnail size.
+- LAYOUT document_result: headline at the top, and a document or a resolved result as the subject in the lower two thirds, shot straighter and more symmetrical than the other slides. The scene should read as settled: orderly desk, aligned geometry, one clear outcome.
+
+NO BRANDING: do not render any logo, wordmark, brand name (including "Xending"), symbol, watermark or readable signage anywhere. Do not write any legal disclaimer, terms or fine print.
+
+This slide carries no brand element: use the whole frame. Do NOT reserve an empty corner or bottom band.
+
+Canvas: 1:1, read on a phone while swiping. Text must stay legible at thumbnail size.
+
+AVOID: generic stock-photo composition; a photograph that merely depicts the industry without explaining the claim; decorative financial icons; excessive gradients; clutter; cheap fintech illustration style; crypto or neon aesthetic; overloaded infographic; meaningless or gibberish text; fake paragraphs on documents; several unrelated visual metaphors in one frame; more than two highlighted blocks; any element competing with the headline; deformed machinery; screens full of pseudo-text; unnecessary people; floating objects without support; excessive glow; gratuitous holograms. Do not add extra documents, screens, hands, people, or duplicate surfaces. No clutter, no multiple totals, no invented figures beyond the provided text, no fake logos, no watermark, no gibberish, no generic Canva layout, no three-column composition, no dark background, no neon, no crypto or gamer styling, no plastic look, no toy-like objects, no distorted paper, no unreadable text, no extra labels, no excessive coral, teal, or navy.
+
+===== SLIDE 5 — cta =====
+CAROUSEL SLIDE 5 OF 5 — narrative role "cta". This image is one piece of a series. The DESIGN SPEC below is identical across every slide on purpose: keep the same visual family, the same recurring subject, the same camera treatment and the same palette. Only the narrative beat changes.
+
+SUBJECT OF THIS SLIDE — it opens or closes the set, so the recurring subject is the protagonist here: Un componente industrial listo para embarque funciona como reloj operativo de la serie.
+
+DESIGN SPEC (shared by the whole set):
+Editorial B2B photographic system for a premium international fintech brand, designed as a clean, white, institutional visual language with a single clear hero presence and lots of negative space. High-key studio-like exposure with a soft, natural finish and realistic texture; crisp but gentle contrast, subtle contact shadows, and a refined sense of depth. Use a mostly white field (#FFFFFF / #F5F5F5) for 80–90% of the composition, with navy #0F1419 used only as structural framing, thin visual anchors, or understated graphic balance; teal #2ED4C7 as a small activation accent; coral #FF7A4A as one restrained focal tension cue. Add graceful dynamic lines and very subtle coral-to-teal gradient motion cues to suggest operational flow, speed, and continuity without artificial urgency. Composition should feel corporate, modern, global, and premium, with one dominant visual idea, maximum 1–3 secondary supporting elements, and generous empty space for later copy placement. Camera treatment: realistic editorial photography, medium-wide framing, clean perspective, natural depth of field, no exaggerated angles, no distortion, no clutter, no fake stock-photo staging. Materials and surfaces should feel authentic and high-end, with matte, satin, ceramic-like, paper-like, brushed, or soft industrial finishes rather than glossy plastic. Typography is not present in the image, but the visual system should imply bold headline hierarchy through strong structural contrast and clear spatial organization. Avoid any sense of artificial urgency; the mood should be calm, controlled, and operationally fluid. White background style only, with a luminous, uncluttered, premium B2B look.
+
+If the spec above names a specific subject, object or scene, treat it ONLY as an example of the style. It does not describe this image. The scene for this slide is the one stated below and it replaces it entirely. What you take from the spec is the medium and materiality, the camera treatment, the lighting, the palette and its proportions, the composition density, the negative space and the system restrictions.
+
+SCENE FOR THIS SLIDE (this is what you render):
+A quiet closing-frame editorial photo of the same industrial component now fully strapped and staged for shipment, placed in the lower two-thirds of a bright white workspace beside a single premium operating clock as the physical proof of the message. The clock is the hero secondary object: clean, technical, and calm, with a subtle teal structural accent and one restrained coral highlight on the active state. Keep the upper third completely open and luminous for the headline, with soft contact shadows, minimal context, and a premium operational-finance mood.
+
+TEXT LAYOUT:
+SINGLE-LINE SLIDE: this line is the whole slide and its focal element. Set it large, in one clear open area, wrapped over 2 or 3 lines if it needs the room. Every wrapped line keeps the SAME size and weight — this is one statement, not a title with a subtitle.
+CLOSING SLIDE: it carries the call to action and nothing else. Quietest scene of the set, maximum negative space, no competing detail around the text.
+
+ART DIRECTION FOR THIS SLIDE:
+- What this image must make evident: Volver visible el rol cta mediante reloj operativo
+- The device that demonstrates it: reloj operativo como evidencia física de la afirmación
+- Objects that must be in frame: reloj operativo
+
+Do not merely depict the industry the copy mentions. The scene has to demonstrate this specific claim: an image that would work just as well under a different headline is the wrong image.
+
+TEXT IS ENABLED for this piece: it renders its own headline, supporting copy and document labels. Ignore any instruction in the system prompt that applies when text in image is disabled.
+
+BRAND COLOUR SYSTEM — three colours, fixed meanings, no exceptions:
+
+- Navy #0F1419 — neutral information: the original USD obligation, the word TOTAL, field names, general text. Anything that is neither a benefit nor a risk.
+- Xending turquoise #2ED4C7 — the present and what is under control: HOY, current value, starting point, reference, confirmation, planning, Xending itself.
+- Xending coral #FF7A4A — the future and its exposure: PAGO, future date, increase, variation, additional cost, impact.
+
+There is NO fourth colour. Do not introduce a different orange, a red, a yellow or any accent outside these three. A red that is not this coral reads as a different brand.
+
+HOW THE ACCENTS ARE APPLIED — this matters as much as which colour:
+- Stamps and labels are OUTLINED on white: HOY is a turquoise outline with turquoise text on white or transparent; PAGO is a coral outline with coral text on white. Never a solid turquoise or coral fill behind them.
+- A figure that carries risk is coral TYPE, optionally with a thin coral rule under it. Never a solid coral or orange rectangle behind the number — that block belongs to another design system and it is the single most out-of-place element these pieces have produced.
+- Risk can also be carried by a thin line, a small arrow, a percentage, a stamp or a border. Coral used with restraint reads far more sophisticated than coral used as a highlighter.
+
+FIGURE COLOUR GRAMMAR, so numbers read the same way in every campaign:
+- Original obligation (USD 10,000.00): navy.
+- Current exchange rate: turquoise.
+- Future illustrative exchange rate: coral.
+- Current cost in MXN: navy or turquoise.
+- Future cost in MXN: coral.
+- Difference and percentage: coral.
+
+TEXT TO RENDER IN THE IMAGE (exact and authoritative). The quotation marks are NOT part of the copy and must not appear in the image:
+
+HEADLINE — render exactly, keeping these line breaks:
+Pagos a China, mismo día
+
+Spell it exactly as written, in Spanish, without translating it, without rewording it and without adding sentences of your own. Do not render quotation marks around any of it.
+TIPOGRAFÍA (obligatoria, es la del sistema de marca Xending): Montserrat Bold o ExtraBold en el headline; Poppins Medium o SemiBold en body, CTA y microcopy. Si no reconoces esas familias, usa Gotham, Proxima Nova o Poppins.
+La letra debe cumplir TODOS estos rasgos: grosor de trazo constante de principio a fin de cada letra; 'O' y 'o' como círculos casi perfectos; altura de x alta; cada asta termina en un corte recto, horizontal o vertical, del mismo grosor que el resto del trazo; anchos de letra normales; eje completamente vertical; tracking ligeramente cerrado en el headline.
+Acabado: letra plana y vectorial, de una sola tinta mate, nítida y de bordes limpios, como diseño editorial digital.
+No paragraph blocks, no bullet lists.
+
+TEXT INSIDE OBJECTS: none on this slide. Documents, screens and labels stay abstract — out of focus, cropped or turned away. No invented words, no filler paragraphs, no pseudo-text.
+
+TEXT COLOUR AND PLACEMENT:
+- HIERARCHY — this is an editorial ad, not a captioned photo. The headline is the DOMINANT element of the composition: large, immediately legible, occupying a substantial share of the frame. The supporting sentence is MUCH smaller, in a clean geometric sans-serif, and explains without competing. The CTA and any label are smaller still. First visual hit is the headline, or the headline and the scene together — never a big image with a small title in a corner.
+- LINE BREAKS: the headline arrives with its line breaks already decided by meaning. Respect them exactly. Do not reflow it to fit, do not join the lines, do not add breaks of your own.
+- HEADLINE EMPHASIS: all text in navy #0F1419, with at most ONE semantic block in coral #FF7A4A if one clearly carries the tension of the line. No accent on the supporting line or the CTA.
+- The subject must never run underneath the letters. Whatever area the headline occupies stays clean, with enough contrast that every word is readable at thumbnail size.
+- LAYOUT hero_clean: closing frame. One hero subject, generous negative space, minimum conceptual complexity. The text is short and the composition is calm — this is the end of the set, not another lesson.
+
+NO BRANDING: do not render any logo, wordmark, brand name (including "Xending"), symbol, watermark or readable signage anywhere. Do not write any legal disclaimer, terms or fine print.
+
+This slide carries no brand element: use the whole frame. Do NOT reserve an empty corner or bottom band.
+
+Canvas: 1:1, read on a phone while swiping. Text must stay legible at thumbnail size.
+
+AVOID: generic stock-photo composition; a photograph that merely depicts the industry without explaining the claim; decorative financial icons; excessive gradients; clutter; cheap fintech illustration style; crypto or neon aesthetic; overloaded infographic; meaningless or gibberish text; fake paragraphs on documents; several unrelated visual metaphors in one frame; more than two highlighted blocks; any element competing with the headline; deformed machinery; screens full of pseudo-text; unnecessary people; floating objects without support; excessive glow; gratuitous holograms. No extra objects, no busy warehouse, no people, no hands, no multiple clocks, no duplicate products, no clutter, no dark background, no artificial urgency, no neon, no crypto or gamer styling, no cartoon look, no plastic toy feel, no fake stock staging, no visible logos, no gibberish text, no invented numbers, no overdone gradients, no thick arrows, no three-column layout, no collage, no inconsistent scale, no distorted industrial parts.

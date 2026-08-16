@@ -1,0 +1,22 @@
+{
+  "currentRuntime": "one carousel_prompts request per slide in reading order",
+  "eachSlideKnows": [
+    "its absolute index and role",
+    "its own headline/body/cta",
+    "its own imageIntent and brief",
+    "visualMotif",
+    "byte-identical carouselDesignBlock",
+    "seed-level headline/body/imageIntent/angle through master interpolation",
+    "total slide count"
+  ],
+  "eachSlideDoesNotKnow": [
+    "sibling headline/body/cta",
+    "sibling roles except total count and its own role",
+    "sibling briefs or imageIntent",
+    "sibling sceneBlock",
+    "sibling promptFinal",
+    "sibling image result",
+    "feedback or failures from prior siblings"
+  ],
+  "evidence": "Every 18-carousel-prompts-request.json contains exactly one carouselSlides element. Files 20 show the literal user messages."
+}

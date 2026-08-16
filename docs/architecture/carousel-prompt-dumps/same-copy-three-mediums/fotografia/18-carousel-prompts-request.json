@@ -1,0 +1,418 @@
+[
+  {
+    "userRequest": "Cada motor también mueve tus costos",
+    "brand": "xending",
+    "business_id": "<BUSINESS_ID>",
+    "branch_id": "<BRANCH_ID:ahorro-costos-ocultos>",
+    "mode": "carousel_prompts",
+    "imageType": "fotografia",
+    "visualMotif": "Un motor industrial sobre una cotización de compra, convertido en el objeto que conecta el costo visible con su variación futura.",
+    "carouselTotalSlides": 5,
+    "headline": "Cada motor también mueve tus costos",
+    "body": "El tipo de cambio influye en el precio final de motores y equipos industriales.",
+    "imageIntent": "Un motor industrial sobre una cotización de compra, convertido en el objeto que conecta el costo visible con su variación futura.",
+    "angle": "general",
+    "backgroundStyle": "white",
+    "masterPromptVersion": "v2",
+    "corridorMode": "auto",
+    "corridorFlowType": "auto",
+    "aspectRatio": "1:1",
+    "imageSize": "1024x1024",
+    "carouselDesignBlock": "Photographic system prompt for a premium B2B fintech brand visual, white institutional background, ultra-clean editorial composition with a single clear hero presence implied only through abstract industrial materiality and cost-to-variation metaphor, not a literal named object. Create a bright studio-like corporate photograph with 80–90% pure white and very light gray negative space, 6–12% deep navy used only for structural accents, contour lines, or subtle directional cues, 2–5% teal as the dominant activation color, and 1–3% coral reserved for a single tension point or future-variation highlight. Use refined real-world materials with believable texture and contact shadows: matte white ceramic, satin acrylic, brushed light metal, paper, and soft translucent overlays. Camera treatment should feel like high-end commercial photography, slightly elevated editorial angle, medium-wide framing, realistic depth of field, soft diffused light, clean reflections, moderate contrast, and precise scale relationships. Composition must be sparse, corporate, modern, international, and B2B, with one hero visual idea and at most 1–3 secondary supporting elements, leaving generous empty space for copy placement. Convey the idea of visible cost versus future variation through layered clarity: a clean, readable foreground structure, a more opaque or muted institutional layer behind it, and a sharper teal-forward solution layer that suggests control and transparency. Keep the visual language calm, premium, and trustworthy; no clutter, no decorative excess, no dramatic shadows, no dark background, no heavy gradients. Typography system only if any micro-labels are present in the design language: Montserrat Bold or ExtraBold for headline, Poppins Medium or SemiBold for supporting copy, flat vector-like matte lettering in navy, with teal and coral used minimally for emphasis. Background style must remain white, luminous, and institutional, with soft contact shadows and precise editorial spacing. Overall feeling: clear, premium, controlled, and financially intelligent, with the brand’s transparency contrasted against opaque legacy banking.",
+    "carouselSlides": [
+      {
+        "index": 0,
+        "role": "tension",
+        "headline": "Cada motor\ntambién mueve\ntus costos",
+        "body": "El tipo de cambio influye en el precio final de motores y equipos industriales.",
+        "cta": "",
+        "imageIntent": "Un motor industrial junto a su cotización de compra, con la atención puesta en el documento que todavía no cierra el costo total.",
+        "brief": {
+          "layout": "editorial_top",
+          "highlights": [
+            {
+              "text": "tus costos",
+              "colorRole": "risk"
+            }
+          ],
+          "visualIntent": "Hacer evidente que un motor comprado hoy todavía puede cambiar su costo al pagarse después.",
+          "primaryObjects": [
+            "motor industrial",
+            "cotización impresa",
+            "sello de fecha"
+          ],
+          "visualMetaphor": "Un motor industrial frente a una cotización impresa con sello de fecha y el total visible.",
+          "environmentalText": [
+            "USD",
+            "MXN",
+            "HOY",
+            "PAGO",
+            "TOTAL",
+            "TIPO DE CAMBIO"
+          ]
+        },
+        "brandElements": [
+          "logo"
+        ]
+      }
+    ]
+  },
+  {
+    "userRequest": "Cada motor también mueve tus costos",
+    "brand": "xending",
+    "business_id": "<BUSINESS_ID>",
+    "branch_id": "<BRANCH_ID:ahorro-costos-ocultos>",
+    "mode": "carousel_prompts",
+    "imageType": "fotografia",
+    "visualMotif": "Un motor industrial sobre una cotización de compra, convertido en el objeto que conecta el costo visible con su variación futura.",
+    "carouselTotalSlides": 5,
+    "headline": "Cada motor también mueve tus costos",
+    "body": "El tipo de cambio influye en el precio final de motores y equipos industriales.",
+    "imageIntent": "Un motor industrial sobre una cotización de compra, convertido en el objeto que conecta el costo visible con su variación futura.",
+    "angle": "general",
+    "backgroundStyle": "white",
+    "masterPromptVersion": "v2",
+    "corridorMode": "auto",
+    "corridorFlowType": "auto",
+    "aspectRatio": "1:1",
+    "imageSize": "1024x1024",
+    "carouselDesignBlock": "Photographic system prompt for a premium B2B fintech brand visual, white institutional background, ultra-clean editorial composition with a single clear hero presence implied only through abstract industrial materiality and cost-to-variation metaphor, not a literal named object. Create a bright studio-like corporate photograph with 80–90% pure white and very light gray negative space, 6–12% deep navy used only for structural accents, contour lines, or subtle directional cues, 2–5% teal as the dominant activation color, and 1–3% coral reserved for a single tension point or future-variation highlight. Use refined real-world materials with believable texture and contact shadows: matte white ceramic, satin acrylic, brushed light metal, paper, and soft translucent overlays. Camera treatment should feel like high-end commercial photography, slightly elevated editorial angle, medium-wide framing, realistic depth of field, soft diffused light, clean reflections, moderate contrast, and precise scale relationships. Composition must be sparse, corporate, modern, international, and B2B, with one hero visual idea and at most 1–3 secondary supporting elements, leaving generous empty space for copy placement. Convey the idea of visible cost versus future variation through layered clarity: a clean, readable foreground structure, a more opaque or muted institutional layer behind it, and a sharper teal-forward solution layer that suggests control and transparency. Keep the visual language calm, premium, and trustworthy; no clutter, no decorative excess, no dramatic shadows, no dark background, no heavy gradients. Typography system only if any micro-labels are present in the design language: Montserrat Bold or ExtraBold for headline, Poppins Medium or SemiBold for supporting copy, flat vector-like matte lettering in navy, with teal and coral used minimally for emphasis. Background style must remain white, luminous, and institutional, with soft contact shadows and precise editorial spacing. Overall feeling: clear, premium, controlled, and financially intelligent, with the brand’s transparency contrasted against opaque legacy banking.",
+    "carouselSlides": [
+      {
+        "index": 1,
+        "role": "shift",
+        "headline": "Si pagas después,\nel costo puede moverse",
+        "body": "La misma compra puede cerrarse con un resultado distinto entre hoy y la fecha de pago.",
+        "cta": "",
+        "imageIntent": "Dos momentos de la misma compra industrial en el mismo cuadro: una hoja con fecha de hoy y otra con fecha posterior, mostrando el cambio en el documento.",
+        "brief": {
+          "layout": "split_photo",
+          "documents": [
+            {
+              "label": "HOY",
+              "kind": "COTIZACIÓN",
+              "date": "15 AGO 2026",
+              "fields": [
+                {
+                  "label": "TOTAL USD",
+                  "value": "10,000.00"
+                },
+                {
+                  "label": "TIPO DE CAMBIO",
+                  "value": "18.20",
+                  "colorRole": "control"
+                },
+                {
+                  "label": "COSTO MXN",
+                  "value": "182,000.00",
+                  "colorRole": "control"
+                }
+              ],
+              "total": {
+                "label": "TOTAL",
+                "value": "182,000.00"
+              }
+            },
+            {
+              "label": "PAGO",
+              "kind": "COTIZACIÓN",
+              "date": "14 OCT 2026",
+              "fields": [
+                {
+                  "label": "TOTAL USD",
+                  "value": "10,000.00"
+                },
+                {
+                  "label": "TIPO DE CAMBIO",
+                  "value": "18.56",
+                  "colorRole": "risk"
+                },
+                {
+                  "label": "COSTO MXN",
+                  "value": "185,600.00",
+                  "colorRole": "risk"
+                },
+                {
+                  "label": "VARIACIÓN",
+                  "value": "+2.0%",
+                  "colorRole": "risk"
+                }
+              ],
+              "total": {
+                "label": "TOTAL",
+                "value": "185,600.00",
+                "colorRole": "risk"
+              }
+            }
+          ],
+          "highlights": [
+            {
+              "text": "costo",
+              "colorRole": "risk"
+            }
+          ],
+          "visualIntent": "Mostrar el mecanismo entre dos fechas: el mismo motor, la misma operación, dos costos distintos.",
+          "primaryObjects": [
+            "dos cotizaciones impresas",
+            "motor industrial",
+            "sellos de fecha"
+          ],
+          "visualMetaphor": "Dos hojas de la misma cotización lado a lado, una marcada HOY y otra PAGO, con totales distintos.",
+          "environmentalText": [
+            "HOY",
+            "PAGO",
+            "USD",
+            "MXN",
+            "TOTAL"
+          ]
+        },
+        "brandElements": []
+      }
+    ]
+  },
+  {
+    "userRequest": "Cada motor también mueve tus costos",
+    "brand": "xending",
+    "business_id": "<BUSINESS_ID>",
+    "branch_id": "<BRANCH_ID:ahorro-costos-ocultos>",
+    "mode": "carousel_prompts",
+    "imageType": "fotografia",
+    "visualMotif": "Un motor industrial sobre una cotización de compra, convertido en el objeto que conecta el costo visible con su variación futura.",
+    "carouselTotalSlides": 5,
+    "headline": "Cada motor también mueve tus costos",
+    "body": "El tipo de cambio influye en el precio final de motores y equipos industriales.",
+    "imageIntent": "Un motor industrial sobre una cotización de compra, convertido en el objeto que conecta el costo visible con su variación futura.",
+    "angle": "general",
+    "backgroundStyle": "white",
+    "masterPromptVersion": "v2",
+    "corridorMode": "auto",
+    "corridorFlowType": "auto",
+    "aspectRatio": "1:1",
+    "imageSize": "1024x1024",
+    "carouselDesignBlock": "Photographic system prompt for a premium B2B fintech brand visual, white institutional background, ultra-clean editorial composition with a single clear hero presence implied only through abstract industrial materiality and cost-to-variation metaphor, not a literal named object. Create a bright studio-like corporate photograph with 80–90% pure white and very light gray negative space, 6–12% deep navy used only for structural accents, contour lines, or subtle directional cues, 2–5% teal as the dominant activation color, and 1–3% coral reserved for a single tension point or future-variation highlight. Use refined real-world materials with believable texture and contact shadows: matte white ceramic, satin acrylic, brushed light metal, paper, and soft translucent overlays. Camera treatment should feel like high-end commercial photography, slightly elevated editorial angle, medium-wide framing, realistic depth of field, soft diffused light, clean reflections, moderate contrast, and precise scale relationships. Composition must be sparse, corporate, modern, international, and B2B, with one hero visual idea and at most 1–3 secondary supporting elements, leaving generous empty space for copy placement. Convey the idea of visible cost versus future variation through layered clarity: a clean, readable foreground structure, a more opaque or muted institutional layer behind it, and a sharper teal-forward solution layer that suggests control and transparency. Keep the visual language calm, premium, and trustworthy; no clutter, no decorative excess, no dramatic shadows, no dark background, no heavy gradients. Typography system only if any micro-labels are present in the design language: Montserrat Bold or ExtraBold for headline, Poppins Medium or SemiBold for supporting copy, flat vector-like matte lettering in navy, with teal and coral used minimally for emphasis. Background style must remain white, luminous, and institutional, with soft contact shadows and precise editorial spacing. Overall feeling: clear, premium, controlled, and financially intelligent, with the brand’s transparency contrasted against opaque legacy banking.",
+    "carouselSlides": [
+      {
+        "index": 2,
+        "role": "risk",
+        "headline": "Cada compra\nsuma nueva exposición",
+        "body": "Varias órdenes del mismo equipo pueden acumular una exposición mayor en el cierre del mes.",
+        "cta": "",
+        "imageIntent": "Varias órdenes de compra del mismo equipo apiladas o alineadas, con el total creciendo documento tras documento.",
+        "brief": {
+          "layout": "editorial_repetition",
+          "documents": [
+            {
+              "label": "COMPRA 1",
+              "kind": "COTIZACIÓN",
+              "date": "15 AGO 2026",
+              "fields": [
+                {
+                  "label": "TOTAL USD",
+                  "value": "10,000.00"
+                },
+                {
+                  "label": "TIPO DE CAMBIO",
+                  "value": "18.20",
+                  "colorRole": "control"
+                },
+                {
+                  "label": "COSTO MXN",
+                  "value": "182,000.00",
+                  "colorRole": "control"
+                }
+              ],
+              "total": {
+                "label": "TOTAL",
+                "value": "182,000.00"
+              }
+            },
+            {
+              "label": "COMPRA 2",
+              "kind": "COTIZACIÓN",
+              "date": "19 SEP 2026",
+              "fields": [
+                {
+                  "label": "TOTAL USD",
+                  "value": "10,000.00"
+                },
+                {
+                  "label": "TIPO DE CAMBIO",
+                  "value": "18.38",
+                  "colorRole": "risk"
+                },
+                {
+                  "label": "COSTO MXN",
+                  "value": "183,800.00",
+                  "colorRole": "risk"
+                },
+                {
+                  "label": "VARIACIÓN",
+                  "value": "+1.0%",
+                  "colorRole": "risk"
+                }
+              ],
+              "total": {
+                "label": "TOTAL",
+                "value": "183,800.00",
+                "colorRole": "risk"
+              }
+            },
+            {
+              "label": "COMPRA 3",
+              "kind": "COTIZACIÓN",
+              "date": "24 OCT 2026",
+              "fields": [
+                {
+                  "label": "TOTAL USD",
+                  "value": "10,000.00"
+                },
+                {
+                  "label": "TIPO DE CAMBIO",
+                  "value": "18.56",
+                  "colorRole": "risk"
+                },
+                {
+                  "label": "COSTO MXN",
+                  "value": "185,600.00",
+                  "colorRole": "risk"
+                },
+                {
+                  "label": "VARIACIÓN",
+                  "value": "+2.0%",
+                  "colorRole": "risk"
+                }
+              ],
+              "total": {
+                "label": "TOTAL",
+                "value": "185,600.00",
+                "colorRole": "risk"
+              }
+            }
+          ],
+          "highlights": [
+            {
+              "text": "al total",
+              "colorRole": "risk"
+            }
+          ],
+          "visualIntent": "Volver visible la acumulación: no una sola compra, sino varias sumando presión sobre el total.",
+          "primaryObjects": [
+            "varias órdenes de compra",
+            "documentos repetidos",
+            "motor industrial"
+          ],
+          "visualMetaphor": "Tres documentos sucesivos de compra del mismo motor, uno detrás de otro, con el total ocupando más espacio en cada hoja.",
+          "accumulatedLabel": "+MXN 5,400.00",
+          "environmentalText": [
+            "USD",
+            "MXN",
+            "TOTAL"
+          ]
+        },
+        "brandElements": []
+      }
+    ]
+  },
+  {
+    "userRequest": "Cada motor también mueve tus costos",
+    "brand": "xending",
+    "business_id": "<BUSINESS_ID>",
+    "branch_id": "<BRANCH_ID:ahorro-costos-ocultos>",
+    "mode": "carousel_prompts",
+    "imageType": "fotografia",
+    "visualMotif": "Un motor industrial sobre una cotización de compra, convertido en el objeto que conecta el costo visible con su variación futura.",
+    "carouselTotalSlides": 5,
+    "headline": "Cada motor también mueve tus costos",
+    "body": "El tipo de cambio influye en el precio final de motores y equipos industriales.",
+    "imageIntent": "Un motor industrial sobre una cotización de compra, convertido en el objeto que conecta el costo visible con su variación futura.",
+    "angle": "general",
+    "backgroundStyle": "white",
+    "masterPromptVersion": "v2",
+    "corridorMode": "auto",
+    "corridorFlowType": "auto",
+    "aspectRatio": "1:1",
+    "imageSize": "1024x1024",
+    "carouselDesignBlock": "Photographic system prompt for a premium B2B fintech brand visual, white institutional background, ultra-clean editorial composition with a single clear hero presence implied only through abstract industrial materiality and cost-to-variation metaphor, not a literal named object. Create a bright studio-like corporate photograph with 80–90% pure white and very light gray negative space, 6–12% deep navy used only for structural accents, contour lines, or subtle directional cues, 2–5% teal as the dominant activation color, and 1–3% coral reserved for a single tension point or future-variation highlight. Use refined real-world materials with believable texture and contact shadows: matte white ceramic, satin acrylic, brushed light metal, paper, and soft translucent overlays. Camera treatment should feel like high-end commercial photography, slightly elevated editorial angle, medium-wide framing, realistic depth of field, soft diffused light, clean reflections, moderate contrast, and precise scale relationships. Composition must be sparse, corporate, modern, international, and B2B, with one hero visual idea and at most 1–3 secondary supporting elements, leaving generous empty space for copy placement. Convey the idea of visible cost versus future variation through layered clarity: a clean, readable foreground structure, a more opaque or muted institutional layer behind it, and a sharper teal-forward solution layer that suggests control and transparency. Keep the visual language calm, premium, and trustworthy; no clutter, no decorative excess, no dramatic shadows, no dark background, no heavy gradients. Typography system only if any micro-labels are present in the design language: Montserrat Bold or ExtraBold for headline, Poppins Medium or SemiBold for supporting copy, flat vector-like matte lettering in navy, with teal and coral used minimally for emphasis. Background style must remain white, luminous, and institutional, with soft contact shadows and precise editorial spacing. Overall feeling: clear, premium, controlled, and financially intelligent, with the brand’s transparency contrasted against opaque legacy banking.",
+    "carouselSlides": [
+      {
+        "index": 3,
+        "role": "solution",
+        "headline": "Xending puede ayudar\na definir tu costo",
+        "body": "La operación queda más clara con un resultado único y un desglose que ordena el pago.",
+        "cta": "",
+        "imageIntent": "Un solo documento ordenado con el costo ya definido y el motor asociado a una operación cerrada, sin elementos compitiendo.",
+        "brief": {
+          "layout": "document_result",
+          "highlights": [
+            {
+              "text": "Xending",
+              "colorRole": "control"
+            }
+          ],
+          "visualIntent": "Pasar de la incertidumbre a un resultado definido y visualmente ordenado.",
+          "primaryObjects": [
+            "documento único",
+            "motor industrial",
+            "pantalla o carpeta de soporte"
+          ],
+          "visualMetaphor": "Un documento único, limpio y cerrado, con un total legible y el resto de la escena en calma.",
+          "environmentalText": [
+            "USD",
+            "MXN",
+            "TOTAL",
+            "CONFIRMADO"
+          ]
+        },
+        "brandElements": []
+      }
+    ]
+  },
+  {
+    "userRequest": "Cada motor también mueve tus costos",
+    "brand": "xending",
+    "business_id": "<BUSINESS_ID>",
+    "branch_id": "<BRANCH_ID:ahorro-costos-ocultos>",
+    "mode": "carousel_prompts",
+    "imageType": "fotografia",
+    "visualMotif": "Un motor industrial sobre una cotización de compra, convertido en el objeto que conecta el costo visible con su variación futura.",
+    "carouselTotalSlides": 5,
+    "headline": "Cada motor también mueve tus costos",
+    "body": "El tipo de cambio influye en el precio final de motores y equipos industriales.",
+    "imageIntent": "Un motor industrial sobre una cotización de compra, convertido en el objeto que conecta el costo visible con su variación futura.",
+    "angle": "general",
+    "backgroundStyle": "white",
+    "masterPromptVersion": "v2",
+    "corridorMode": "auto",
+    "corridorFlowType": "auto",
+    "aspectRatio": "1:1",
+    "imageSize": "1024x1024",
+    "carouselDesignBlock": "Photographic system prompt for a premium B2B fintech brand visual, white institutional background, ultra-clean editorial composition with a single clear hero presence implied only through abstract industrial materiality and cost-to-variation metaphor, not a literal named object. Create a bright studio-like corporate photograph with 80–90% pure white and very light gray negative space, 6–12% deep navy used only for structural accents, contour lines, or subtle directional cues, 2–5% teal as the dominant activation color, and 1–3% coral reserved for a single tension point or future-variation highlight. Use refined real-world materials with believable texture and contact shadows: matte white ceramic, satin acrylic, brushed light metal, paper, and soft translucent overlays. Camera treatment should feel like high-end commercial photography, slightly elevated editorial angle, medium-wide framing, realistic depth of field, soft diffused light, clean reflections, moderate contrast, and precise scale relationships. Composition must be sparse, corporate, modern, international, and B2B, with one hero visual idea and at most 1–3 secondary supporting elements, leaving generous empty space for copy placement. Convey the idea of visible cost versus future variation through layered clarity: a clean, readable foreground structure, a more opaque or muted institutional layer behind it, and a sharper teal-forward solution layer that suggests control and transparency. Keep the visual language calm, premium, and trustworthy; no clutter, no decorative excess, no dramatic shadows, no dark background, no heavy gradients. Typography system only if any micro-labels are present in the design language: Montserrat Bold or ExtraBold for headline, Poppins Medium or SemiBold for supporting copy, flat vector-like matte lettering in navy, with teal and coral used minimally for emphasis. Background style must remain white, luminous, and institutional, with soft contact shadows and precise editorial spacing. Overall feeling: clear, premium, controlled, and financially intelligent, with the brand’s transparency contrasted against opaque legacy banking.",
+    "carouselSlides": [
+      {
+        "index": 4,
+        "role": "cta",
+        "headline": "Cotiza con Xending",
+        "body": "",
+        "cta": "",
+        "imageIntent": "El motor industrial vuelve como pieza premium y protagonista, acompañado por una composición limpia que deja todo el aire al CTA y a la marca.",
+        "brief": {
+          "layout": "hero_clean",
+          "highlights": [
+            {
+              "text": "Xending",
+              "colorRole": "control"
+            }
+          ],
+          "visualIntent": "Cerrar con un cuadro limpio, premium y sereno, donde la marca y el motor queden como único foco.",
+          "primaryObjects": [
+            "motor industrial",
+            "marca Xending"
+          ],
+          "visualMetaphor": "Un motor industrial aislado sobre una superficie limpia, con espacio negativo amplio y sin documentos compitiendo.",
+          "environmentalText": []
+        },
+        "brandElements": []
+      }
+    ]
+  }
+]

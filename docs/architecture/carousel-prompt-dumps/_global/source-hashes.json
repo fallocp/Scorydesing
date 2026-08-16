@@ -1,0 +1,37 @@
+{
+  "carouselScript": {
+    "path": "supabase/functions/generate-carousel-script/index.ts",
+    "sha256": "a9e19ab4e86ad26b7f49e8e5581bec94435c5928af95b33697eec6a33c3f8855",
+    "bytes": 51660
+  },
+  "designImage": {
+    "path": "supabase/functions/generate-design-image/index.ts",
+    "sha256": "8dc9c479547a539dd2ee8674c7c62417a2cd8b3373880213774e67366cf6cf3b",
+    "bytes": 150144
+  },
+  "branchContext": {
+    "path": "supabase/functions/_shared/buildBranchContextBlock.ts",
+    "sha256": "a715ba6452e337b0d7f9c375367ffe042120dd5fa277c10f02dd0be8f4553601",
+    "bytes": 10026
+  },
+  "carouselExamples": {
+    "path": "supabase/functions/_shared/carouselExamples.ts",
+    "sha256": "d76ffcfe6ac6f6a715ebc6b60503ed89f13086176ad9982fc6391c0dd5a6be7d",
+    "bytes": 6900
+  },
+  "brandColors": {
+    "path": "supabase/functions/_shared/brandColorLanguage.ts",
+    "sha256": "11486e49cc4b5d8df3452ec305a7ac92b789ae4afff6d561a8704f030861d904",
+    "bytes": 4490
+  },
+  "interpolate": {
+    "path": "supabase/functions/_shared/interpolateTemplate.ts",
+    "sha256": "18623fa40eaf1ca76e66db13efed575c3ae97b74a90539a81ba12becac614151",
+    "bytes": 1126
+  },
+  "designTypes": {
+    "path": "src/types/design-studio.ts",
+    "sha256": "e3e2fdc67091e9696c991ab2925fb39d0a972c8bbc727e1abdcfcf71137d587b",
+    "bytes": 49517
+  }
+}

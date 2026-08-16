@@ -1,0 +1,167 @@
+{
+  "generatedAt": "2026-08-15T13:23:49.670Z",
+  "git": {
+    "branch": "feat/design-studio-content-modes",
+    "commit": "8fb80f39cf47c6902c63a009b554429ad834238e",
+    "worktree": "F:/ScoryDesign"
+  },
+  "databaseAccess": "Supabase REST GET only, service_role obtained from CLI in memory and never persisted",
+  "functionCalls": [
+    "generate-design-image mode=prompts promptScope=style_only",
+    "generate-design-image mode=carousel_prompts"
+  ],
+  "explicitlyNotExecuted": [
+    "generate-carousel-script (no valid user JWT/membership session)",
+    "generate-design-image mode=generate",
+    "any DB mutation"
+  ],
+  "logicalCases": [
+    "A",
+    "B",
+    "C",
+    "D",
+    "E"
+  ],
+  "technicalExecutions": [
+    {
+      "logicalCase": "A",
+      "folder": "cobertura-motor-infografia",
+      "branch": "ahorro-costos-ocultos",
+      "mediumUi": "infografia",
+      "mediumApi": "infografia",
+      "seedHeadline": "Cada motor también mueve tus costos",
+      "styleOnlyHttpStatus": 200,
+      "carouselPromptStatuses": [
+        200,
+        200,
+        200,
+        200,
+        200
+      ],
+      "finalPromptsCaptured": 5,
+      "totalSlides": 5,
+      "scriptEvidence": "persisted-normalized-real-plus-controlled-18.20-document-override"
+    },
+    {
+      "logicalCase": "B",
+      "folder": "velocidad-industrial-fotografia",
+      "branch": "velocidad-mismo-dia",
+      "mediumUi": "foto",
+      "mediumApi": "fotografia",
+      "seedHeadline": "Las autopartes pueden estar listas antes que el pago",
+      "styleOnlyHttpStatus": 200,
+      "carouselPromptStatuses": [
+        200,
+        200,
+        200,
+        200,
+        200
+      ],
+      "finalPromptsCaptured": 5,
+      "totalSlides": 5,
+      "scriptEvidence": "controlled-fixture-no-script-runtime"
+    },
+    {
+      "logicalCase": "C",
+      "folder": "cuenta-multidivisa-financiero",
+      "branch": "cuenta-multidivisa",
+      "mediumUi": "financiero",
+      "mediumApi": "mapa_rutas",
+      "seedHeadline": "Tu empresa opera en varias monedas. Tu tesorería no debería operar a ciegas.",
+      "styleOnlyHttpStatus": 200,
+      "carouselPromptStatuses": [
+        200,
+        200,
+        200,
+        200,
+        200
+      ],
+      "finalPromptsCaptured": 5,
+      "totalSlides": 5,
+      "scriptEvidence": "controlled-fixture-no-script-runtime"
+    },
+    {
+      "logicalCase": "D",
+      "folder": "banco-vs-xending",
+      "branch": "banco-vs-xending",
+      "mediumUi": "infografia",
+      "mediumApi": "infografia",
+      "seedHeadline": "Tu banco es bueno para muchas cosas. Pagos internacionales no es una.",
+      "styleOnlyHttpStatus": 200,
+      "carouselPromptStatuses": [
+        200,
+        200,
+        200,
+        200,
+        200
+      ],
+      "finalPromptsCaptured": 5,
+      "totalSlides": 5,
+      "scriptEvidence": "controlled-fixture-no-script-runtime"
+    },
+    {
+      "logicalCase": "E",
+      "folder": "same-copy-three-mediums/fotografia",
+      "branch": "ahorro-costos-ocultos",
+      "mediumUi": "foto",
+      "mediumApi": "fotografia",
+      "seedHeadline": "Cada motor también mueve tus costos",
+      "styleOnlyHttpStatus": 200,
+      "carouselPromptStatuses": [
+        200,
+        200,
+        200,
+        200,
+        200
+      ],
+      "finalPromptsCaptured": 5,
+      "totalSlides": 5,
+      "scriptEvidence": "same-controlled-script-as-case-a"
+    },
+    {
+      "logicalCase": "E",
+      "folder": "same-copy-three-mediums/infografia",
+      "branch": "ahorro-costos-ocultos",
+      "mediumUi": "infografia",
+      "mediumApi": "infografia",
+      "seedHeadline": "Cada motor también mueve tus costos",
+      "styleOnlyHttpStatus": 200,
+      "carouselPromptStatuses": [
+        200,
+        200,
+        200,
+        200,
+        200
+      ],
+      "finalPromptsCaptured": 5,
+      "totalSlides": 5,
+      "scriptEvidence": "same-controlled-script-as-case-a"
+    },
+    {
+      "logicalCase": "E",
+      "folder": "same-copy-three-mediums/mapa_rutas",
+      "branch": "ahorro-costos-ocultos",
+      "mediumUi": "financiero",
+      "mediumApi": "mapa_rutas",
+      "seedHeadline": "Cada motor también mueve tus costos",
+      "styleOnlyHttpStatus": 200,
+      "carouselPromptStatuses": [
+        200,
+        200,
+        200,
+        200,
+        200
+      ],
+      "finalPromptsCaptured": 5,
+      "totalSlides": 5,
+      "scriptEvidence": "same-controlled-script-as-case-a"
+    }
+  ],
+  "rawNotCaptured": [
+    "create-script OpenAI completion",
+    "style_only OpenAI completion",
+    "carousel_prompts OpenAI completion",
+    "usage/token metadata"
+  ],
+  "effectiveRenderQuality": "medium"
+}

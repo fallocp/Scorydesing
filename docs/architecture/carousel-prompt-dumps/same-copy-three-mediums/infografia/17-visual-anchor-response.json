@@ -1,0 +1,33 @@
+{
+  "edgeResponse": {
+    "httpStatus": 200,
+    "ok": true,
+    "body": {
+      "prompts": {
+        "infografia": {
+          "prompt_final": "Premium 3D iconography for a corporate B2B financial message, designed as a clean white institutional composition with no specific subject or scene named. Create a single hero form that clearly communicates visible cost versus future variation through abstract industrial-financial symbolism, using refined ceramic white, matte acrylic, satin light gray, and precise rounded bevels. Add at most 1–3 secondary 3D elements that support comparison and flow, arranged in a side-by-side analytical layout with clean comparative charts, subtle breakdown bars, and minimal structural dividers. Use an elevated isometric three-quarter camera with a 45–70 mm lens feel, soft perspective, crisp contact shadows, and generous negative space. Background must be pure white (#FFFFFF) with very light gray accents (#F5F5F5) and a premium editorial finish. Palette: dominant teal (#2ED4C7) for flow/solution and active nodes, small coral (#FF7A4A) highlights for tension or future variation, and navy (#0F1419) only as structural lines, symbols, arrows, or check marks; keep teal dominant, coral minimal, navy restrained. Typography is only if text were allowed, but here text in image is false, so use no readable text, no labels, no numbers, no CTA, no watermark. Composition must feel corporate, modern, international, trustworthy, and highly legible in under 3 seconds, with one clear focal hierarchy, wide breathing room, and a premium product-render look. Emphasize contrast between opacity and clarity through material finish, transparency cues, and clean analytical separation, while maintaining a calm, data-driven, non-alarmist tone.",
+          "negative_instructions": "No readable text, no letters, no numbers, no labels, no logos, no watermarks, no invented data, no fake UI copy, no generic Canva look, no flat vector design, no collage, no catalog grid, no three-column layout, no clutter, no excessive elements, no inconsistent scale, no childish toy look, no inflatable forms, no cheap plastic, no low-poly geometry, no malformed shapes, no busy dashboard, no neon, no crypto, no gamer aesthetic, no cyberpunk, no dark background, no excessive navy, no excessive teal, no excessive coral, no thick arrows, no too many routes or pins, no third-party brands, no gibberish, no misspellings, no scene-specific objects, no stock infographic clichés, no overdesigned charts, no harsh bloom, no metallic overload, no glass-heavy look, no shadows that overpower the white space.",
+          "aspect_ratio": "1:1",
+          "creative_rationale": "The system is translated as a premium 3D infographic language: clean white, analytical, and B2B. It keeps the idea of visible cost versus future variation through abstract comparison and flow cues, without naming any concrete object or scene, and preserves Xending’s clear, institutional, high-trust visual code."
+        }
+      },
+      "aspectRatio": "1:1",
+      "promptMeta": {
+        "source": "code-v2-request",
+        "version": "v2",
+        "backgroundStyle": "white",
+        "corridor": null
+      },
+      "usage": {
+        "next_step": "Call this endpoint again with mode=\"generate\", imageType=<type>, promptFinal=<prompts[type].prompt_final>",
+        "available_types": [
+          "fotografia",
+          "infografia",
+          "mapa_rutas"
+        ]
+      }
+    }
+  },
+  "selectedAnchor": "Premium 3D iconography for a corporate B2B financial message, designed as a clean white institutional composition with no specific subject or scene named. Create a single hero form that clearly communicates visible cost versus future variation through abstract industrial-financial symbolism, using refined ceramic white, matte acrylic, satin light gray, and precise rounded bevels. Add at most 1–3 secondary 3D elements that support comparison and flow, arranged in a side-by-side analytical layout with clean comparative charts, subtle breakdown bars, and minimal structural dividers. Use an elevated isometric three-quarter camera with a 45–70 mm lens feel, soft perspective, crisp contact shadows, and generous negative space. Background must be pure white (#FFFFFF) with very light gray accents (#F5F5F5) and a premium editorial finish. Palette: dominant teal (#2ED4C7) for flow/solution and active nodes, small coral (#FF7A4A) highlights for tension or future variation, and navy (#0F1419) only as structural lines, symbols, arrows, or check marks; keep teal dominant, coral minimal, navy restrained. Typography is only if text were allowed, but here text in image is false, so use no readable text, no labels, no numbers, no CTA, no watermark. Composition must feel corporate, modern, international, trustworthy, and highly legible in under 3 seconds, with one clear focal hierarchy, wide breathing room, and a premium product-render look. Emphasize contrast between opacity and clarity through material finish, transparency cues, and clean analytical separation, while maintaining a calm, data-driven, non-alarmist tone.",
+  "selectedAnchorSource": "deployed style_only response"
+}

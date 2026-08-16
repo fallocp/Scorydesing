@@ -1,0 +1,20 @@
+{
+  "mode": "prompts",
+  "promptVariant": "infografia",
+  "promptScope": "style_only",
+  "userRequest": "Tu banco es bueno para muchas cosas. Pagos internacionales no es una.",
+  "brand": "xending",
+  "business_id": "<BUSINESS_ID>",
+  "branch_id": "<BRANCH_ID:banco-vs-xending>",
+  "headline": "Tu banco es bueno para muchas cosas. Pagos internacionales no es una.",
+  "body": "3-5 días de espera para liquidación",
+  "cta": "Compara tu experiencia actual.",
+  "imageIntent": "Dos estados de cuenta comparables abren la serie y un único resultado operativo la cierra.",
+  "angle": "general",
+  "backgroundStyle": "white",
+  "masterPromptVersion": "v2",
+  "corridorMode": "auto",
+  "corridorFlowType": "auto",
+  "aspectRatio": "1:1",
+  "imageSize": "1024x1024"
+}

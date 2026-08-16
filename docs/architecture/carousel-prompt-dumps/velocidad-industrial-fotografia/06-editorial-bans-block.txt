@@ -1,0 +1,32 @@
+## PROHIBICIONES EDITORIALES DE LA RAMA (no negociable)
+
+Estas reglas MANDAN sobre el contexto de rama de más abajo. Si ese contexto sugiere un ángulo que aquí está prohibido, el ángulo NO se usa — ni en el texto ni en el imageIntent.
+
+FRASES Y ÁNGULOS PROHIBIDOS. No las escribas, no las parafrasees y no construyas la escena de la imagen sobre ellas:
+- "pagos elegibles"
+- "garantiza que llegue hoy"
+- "siempre el mismo día"
+- "garantizado el mismo día"
+- "pago instantáneo"
+- "instantáneo"
+- "inmediato"
+- "sin ningún retraso"
+- "la línea no arranca por tu pago"
+- "el contenedor está detenido por tu culpa"
+- "tu proveedor elegirá a otro"
+- "el proveedor reasigna la mercancía a otro comprador"
+- "estás perdiendo dinero"
+- "el mundo no espera"
+- "no te quedes atrás"
+- "actúa ahora"
+- "aprovecha antes de que sea tarde"
+- "conoce Xending Asia"
+
+Esto incluye sus equivalentes: "el precio real no está a simple vista", "lo oculto queda expuesto", "lo que de verdad pagas" son la misma idea prohibida con otras palabras.
+
+ARRANQUES SATURADOS. Ningún headline de slide empieza así:
+- "no debería esperar"
+- "mantén tu operación en movimiento"
+- "Tu proveedor"
+- "Menos espera"
+- "De México a"

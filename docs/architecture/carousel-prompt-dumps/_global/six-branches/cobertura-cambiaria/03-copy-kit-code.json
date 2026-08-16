@@ -1,0 +1,640 @@
+{
+  "kit_version": "coberturas-v1.0",
+  "branch_slug": "coberturas",
+  "branch_name": "Coberturas cambiarias y forwards",
+  "source": "_contexto-maestro.coberturas.md + 60 copys aprobados (general 30, industria 30)",
+  "editorial_objective": "Comunicar la administración de riesgo cambiario como planeación financiera, no como especulación. El copy debe mostrar qué puede conocer, proteger, planear o definir la empresa ANTES de la fecha de pago. Nunca decirle hacia dónde irá el dólar, ni pedirle que se organice por su cuenta.",
+  "scope": [
+    "pagos futuros en moneda extranjera",
+    "presupuesto en pesos frente a obligación en dólares",
+    "margen entre la cotización y el pago",
+    "exposición cambiaria de una obligación futura",
+    "certidumbre sobre el tipo de cambio aplicable a un pago futuro",
+    "planeación de costos futuros",
+    "tesorería y visibilidad de flujo de efectivo",
+    "forward como herramienta de certidumbre"
+  ],
+  "client_should_think": [
+    "Tengo pagos futuros en dólares y mi presupuesto está en pesos.",
+    "El tipo de cambio puede afectar mi costo final.",
+    "Necesito mayor certidumbre sobre mis obligaciones futuras.",
+    "Puedo planear mejor mis costos y proteger mi margen.",
+    "No necesito adivinar hacia dónde irá el dólar para administrar mi exposición.",
+    "Si ya sé cuánto y cuándo voy a pagar, puedo evaluar cómo administrar el riesgo cambiario.",
+    "Xending entiende pagos internacionales, tesorería y riesgo cambiario."
+  ],
+  "positioning_must_communicate": [
+    "certidumbre",
+    "planeación",
+    "visibilidad financiera",
+    "administración de riesgo",
+    "protección del margen",
+    "disciplina de tesorería",
+    "criterio financiero empresarial"
+  ],
+  "allowed_situations": [
+    "la factura está en dólares y el presupuesto en pesos",
+    "se cotizó hoy y se paga en 30, 60 o 90 días",
+    "el proveedor ya fijó el precio y la moneda sigue abierta",
+    "el margen se calculó antes de la fecha de pago",
+    "el presupuesto ya está aprobado y la exposición sigue abierta",
+    "un proyecto dura meses y el equipo se paga en moneda extranjera",
+    "hay anticipo hoy y saldo después",
+    "varios vencimientos futuros generan exposición recurrente",
+    "el monto y la fecha del pago ya se conocen",
+    "el inventario se repone en distintas fechas"
+  ],
+  "situation_framing_rule": "La necesidad de cobertura existe por INCERTIDUMBRE, no porque Xending prediga el mercado. La tensión señala una variable abierta, nunca un escenario catastrófico ni una culpa del lector. Prohibido el alarmismo y prohibido insinuar una dirección del tipo de cambio. Reencuadre correcto: 'Tu pago es en 90 días. Tu tipo de cambio puede definirse hoy' en vez de 'aprovecha antes de que el dólar suba'.",
+  "tone": {
+    "yes": [
+      "empresarial",
+      "inteligente",
+      "sobrio",
+      "directo",
+      "moderno",
+      "cercano",
+      "confiable",
+      "orientado a decisiones",
+      "tranquilo",
+      "especializado en tesorería y comercio internacional"
+    ],
+    "no": [
+      "trader",
+      "casa de apuestas",
+      "gurú financiero",
+      "vendedor agresivo de derivados",
+      "curso de mercados",
+      "campaña basada en miedo",
+      "clase de finanzas",
+      "alarmista"
+    ],
+    "tension": "moderada",
+    "hedging": "El condicional es obligatorio: 'puede modificar', 'puede definirse', 'puede darte mayor certidumbre', 'todavía puede moverse'. Nunca afirmación absoluta de protección, ahorro o dirección del mercado."
+  },
+  "angle_quota": {
+    "certidumbre_forward": 20,
+    "margen_entre_calculo_y_pago": 18,
+    "presupuesto_mxn_obligacion_usd": 12,
+    "volumen_costo_unitario": 12,
+    "precio_fijo_costo_abierto": 10,
+    "proyecto_largo": 10,
+    "plazo_exposicion": 6,
+    "disciplina_vs_mercado": 5,
+    "calendario_pagos_futuros": 4,
+    "tesoreria_visibilidad": 3
+  },
+  "angle_quota_note": "Distribución objetivo sobre bloques de 30 copys. Suma 100. Medida sobre los 60 copys aprobados: 'certidumbre_forward' concentra los 17 copys que nombran el instrumento y por eso lleva el peso mayor, pero NO debe crecer más: un banco donde la mitad de las piezas dice 'forward' deja de ser educativo y se vuelve catálogo de producto.",
+  "angles": {
+    "presupuesto_mxn_obligacion_usd": {
+      "label": "Presupuesto en pesos, obligación en dólares",
+      "premise": "La empresa planea y mide en pesos, pero debe pagar en moneda extranjera. El desajuste entre las dos monedas es el punto de partida."
+    },
+    "margen_entre_calculo_y_pago": {
+      "label": "El margen se calcula antes de pagar",
+      "premise": "El margen se define al cotizar o al vender; el pago llega después. Entre ambas fechas el tipo de cambio puede moverse.",
+      "note": "Nunca afirmar que la cobertura protege el margen por completo. Reduce incertidumbre, no la elimina."
+    },
+    "precio_fijo_costo_abierto": {
+      "label": "Precio cerrado, costo en pesos abierto",
+      "premise": "El proveedor ya fijó el precio en su moneda. El costo final en pesos sigue siendo una variable hasta el pago."
+    },
+    "plazo_exposicion": {
+      "label": "El plazo de pago es plazo de exposición",
+      "premise": "El crédito que da el proveedor también es tiempo durante el cual la moneda puede moverse. 60 días para pagar son 60 días de exposición."
+    },
+    "certidumbre_forward": {
+      "label": "Certidumbre con forward",
+      "premise": "Cuando el monto y la fecha ya se conocen, es posible definir con anticipación las condiciones cambiarias de esa obligación futura.",
+      "note": "Activa la nota legal. El forward se comunica como certidumbre, NUNCA como ahorro, ganancia o predicción."
+    },
+    "calendario_pagos_futuros": {
+      "label": "Calendario de pagos futuros",
+      "premise": "Varios vencimientos significan varios momentos de exposición. La planeación es del calendario completo, no de un pago aislado."
+    },
+    "tesoreria_visibilidad": {
+      "label": "Tesorería y visibilidad",
+      "premise": "Tesorería necesita saber cuánto costará un pago futuro para proyectar flujo de efectivo sin sorpresas."
+    },
+    "proyecto_largo": {
+      "label": "Proyecto de varios meses",
+      "premise": "El proyecto se cotiza en pesos y se ejecuta durante meses, pero el equipo importado se paga en moneda extranjera más adelante."
+    },
+    "volumen_costo_unitario": {
+      "label": "Volumen y costo unitario",
+      "premise": "Una diferencia de centavos por pieza, caja o envase se vuelve relevante cuando se multiplica por el volumen del pedido."
+    },
+    "disciplina_vs_mercado": {
+      "label": "Disciplina financiera frente al mercado",
+      "premise": "El mercado se mueve todos los días; la planeación de la empresa no debería moverse con él."
+    }
+  },
+  "angle_rotation_note": "Rotar entre estos ángulos y agotar los disponibles antes de repetir uno. No generar copies nuevos cambiando solo '60 días' por '90 días' o 'factura' por 'orden de compra': cada pieza debe aportar una tensión o situación distinta.",
+  "corridor_quota": {
+    "general": 50,
+    "industria": 50
+  },
+  "corridor_quota_note": "Esta rama no se segmenta por geografía como velocidad o costos-ahorro: el riesgo cambiario aplica igual a China, Estados Unidos o Europa. Se segmenta por nivel de concreción — 'general' plantea la tensión financiera sin producto; 'industria' la aterriza en una compra reconocible.",
+  "corridors": {
+    "general": {
+      "label": "Coberturas y forwards — general",
+      "objective": "Plantear la tensión financiera del riesgo cambiario sin anclarla a una industria: presupuesto en pesos frente a obligación en dólares, margen entre cotización y pago, certidumbre sobre un pago futuro.",
+      "allowed_claims": [
+        "administración de riesgo cambiario",
+        "mayor certidumbre sobre el tipo de cambio aplicable a un pago futuro",
+        "planeación de costos futuros",
+        "visibilidad para tesorería",
+        "posibilidad de definir condiciones con anticipación conforme a los términos contratados"
+      ],
+      "hard_limit": "NO afirmar dirección del mercado, ahorro garantizado, protección total ni eliminación del riesgo. La cobertura administra incertidumbre; no la borra.",
+      "structure": [
+        "Headline de 8 a 14 palabras que plantee una tensión empresarial reconocible, normalmente en dos frases breves.",
+        "Subline de 10 a 16 palabras que diga qué se puede administrar, planear, proteger o definir.",
+        "CTA de beneficio o de producto, coherente con el ángulo."
+      ],
+      "vocabulary": [
+        "factura",
+        "presupuesto",
+        "obligación",
+        "pago futuro",
+        "vencimiento",
+        "plazo",
+        "margen",
+        "exposición cambiaria",
+        "tipo de cambio",
+        "certidumbre",
+        "tesorería",
+        "flujo de efectivo",
+        "forward"
+      ],
+      "cta": [
+        "Protege tu margen",
+        "Cuida tu margen",
+        "Protege tus costos",
+        "Planea tus costos",
+        "Planea hoy tus costos futuros",
+        "Define tu costo cambiario",
+        "Conoce hoy tu costo cambiario",
+        "Define hoy. Paga después.",
+        "Define hoy tu tipo de cambio",
+        "Fija hoy tu tipo de cambio",
+        "Define el tipo de cambio de tu próximo pago",
+        "Cotiza un forward",
+        "Cotiza tu cobertura",
+        "Planea tu próximo pago",
+        "Protege tu próximo pago",
+        "Administra tu riesgo cambiario",
+        "Revisa tu exposición cambiaria",
+        "Planea hoy lo que pagarás después",
+        "Da certidumbre a tus costos",
+        "Da certidumbre a tu próximo pago"
+      ],
+      "cta_banned": [
+        "Asegura tus costos",
+        "Asegura tu margen",
+        "Garantiza tu ahorro",
+        "Asegura el mejor dólar",
+        "Elimina tu riesgo",
+        "Gánale al dólar",
+        "Aprovecha el tipo de cambio",
+        "Calcula tu ahorro"
+      ]
+    },
+    "industria": {
+      "label": "Coberturas y forwards por tipo de importación",
+      "objective": "Aterrizar el riesgo cambiario en una compra, pedido, proyecto o insumo reconocible. La industria debe identificarse sin leer la etiqueta, y la idea financiera sigue siendo el mensaje principal.",
+      "structure": [
+        "Partir de un producto, pedido, proyecto, lote o inversión reconocible.",
+        "Nombrar el dolor financiero concreto: margen, presupuesto, costo unitario o costo total.",
+        "Colocar el tipo de cambio como la variable que puede afectar ese resultado.",
+        "Subline muy corta que indique qué administrar, planear, proteger o definir.",
+        "CTA de beneficio o de producto."
+      ],
+      "hard_limit": "El producto industrial es el contexto, no el protagonista. NO convertir la pieza en catálogo. Y como en general: nada de dirección del mercado ni de protección absoluta.",
+      "focus": [
+        "margen por pieza, lote, temporada o proyecto",
+        "presupuesto cotizado en pesos y equipo pagado en dólares",
+        "costo unitario multiplicado por volumen",
+        "tiempo entre la orden y el pago final",
+        "anticipo hoy y saldo después"
+      ],
+      "vocabulary": [
+        "prenda",
+        "tela",
+        "lote",
+        "contenedor",
+        "pedido",
+        "molde",
+        "pieza",
+        "refacción",
+        "maquinaria",
+        "paneles",
+        "luminarias",
+        "empaque",
+        "materia prima",
+        "equipo",
+        "proyecto",
+        "temporada",
+        "inventario"
+      ],
+      "cta": [
+        "Protege tu margen",
+        "Cuida tu margen",
+        "Protege tus costos",
+        "Planea tus costos",
+        "Planea hoy tus costos futuros",
+        "Define tu costo cambiario",
+        "Conoce hoy tu costo cambiario",
+        "Define hoy. Paga después.",
+        "Define hoy tu tipo de cambio",
+        "Fija hoy tu tipo de cambio",
+        "Cotiza un forward",
+        "Cotiza tu cobertura",
+        "Protege tu próximo pago",
+        "Administra tu riesgo cambiario",
+        "Da certidumbre a tus costos"
+      ],
+      "cta_banned": [
+        "Asegura tus costos",
+        "Asegura tu margen",
+        "Garantiza tu ahorro",
+        "Elimina tu riesgo",
+        "Conoce el producto",
+        "Cotiza tu maquinaria"
+      ]
+    }
+  },
+  "industries": {
+    "textiles_calzado": {
+      "angles": [
+        "margen por prenda",
+        "margen de colección",
+        "margen de temporada",
+        "costo de insumos"
+      ]
+    },
+    "electronicos": {
+      "angles": [
+        "margen por lote",
+        "ciclo tecnológico corto",
+        "costo de inventario"
+      ]
+    },
+    "maquinaria": {
+      "angles": [
+        "tiempo entre orden y pago",
+        "anticipo y saldo",
+        "costo total de la inversión"
+      ]
+    },
+    "autopartes": {
+      "angles": [
+        "margen por pieza",
+        "precio cerrado y moneda abierta",
+        "compras recurrentes"
+      ]
+    },
+    "empaques_envases": {
+      "angles": [
+        "costo unitario",
+        "centavos multiplicados por volumen"
+      ]
+    },
+    "insumos_industriales": {
+      "angles": [
+        "costo de producción",
+        "costo de materia prima"
+      ]
+    },
+    "moldes_herramientas": {
+      "angles": [
+        "pedido de volumen",
+        "riesgo cambiario amplificado"
+      ]
+    },
+    "solar_iluminacion_electrico": {
+      "angles": [
+        "proyecto de varios meses",
+        "certidumbre del pago de equipo",
+        "margen del proyecto"
+      ]
+    },
+    "plasticos_resinas": {
+      "angles": [
+        "costo por pieza",
+        "costo de materia prima"
+      ]
+    },
+    "motores_variadores": {
+      "angles": [
+        "costo de la línea de producción",
+        "reposición de equipo"
+      ]
+    },
+    "equipo_medico": {
+      "angles": [
+        "presupuesto de equipamiento",
+        "compra planeada y pago posterior"
+      ]
+    },
+    "hvac_climatizacion": {
+      "angles": [
+        "proyecto cotizado en pesos",
+        "equipo pagado en dólares",
+        "margen de instalación"
+      ]
+    },
+    "construccion": {
+      "angles": [
+        "proyecto largo",
+        "presupuesto expuesto",
+        "importaciones por etapa"
+      ]
+    },
+    "mobiliario": {
+      "angles": [
+        "precio de fábrica y costo final en pesos",
+        "pedido de volumen"
+      ]
+    },
+    "equipo_agricola": {
+      "angles": [
+        "entrega futura",
+        "pago diferido",
+        "certidumbre del saldo"
+      ]
+    },
+    "tecnologia_servidores": {
+      "angles": [
+        "presupuesto de renovación",
+        "infraestructura importada"
+      ]
+    },
+    "equipo_laboratorio": {
+      "angles": [
+        "presupuesto en pesos frente a equipo en dólares"
+      ]
+    },
+    "alimentos_importados": {
+      "angles": [
+        "margen por contenedor",
+        "compras recurrentes"
+      ]
+    },
+    "equipamiento_hotelero": {
+      "angles": [
+        "proyecto de apertura",
+        "equipo importado expuesto"
+      ]
+    },
+    "seguridad_electronica": {
+      "angles": [
+        "margen de instalación",
+        "costo por unidad importada"
+      ]
+    }
+  },
+  "formulas_allowed": [
+    "[A] está en dólares. [B], en pesos",
+    "[A] tiene precio. [B] todavía puede moverse",
+    "Cotizaste [hoy]. Pagarás [en N días]",
+    "[A] se calcula hoy. [B] puede llegar meses después",
+    "Define hoy. Paga después",
+    "[A] está aprobado. [B] sigue abierto",
+    "[Plazo] para pagar. También son [plazo] de exposición cambiaria",
+    "[A] da plazo. [B] no",
+    "[Tiempo] pueden cambiar el costo de [activo]",
+    "[Cantidad pequeña] por [unidad] se convierten en [cantidad grande] por volumen",
+    "[Producto o industria] + [consecuencia sobre margen, presupuesto o costo]",
+    "[A] no tiene que [sorprenderte / ser una incógnita]"
+  ],
+  "banned_openings": [
+    "Tu",
+    "El tipo de cambio",
+    "Un dólar distinto",
+    "Una variación en el dólar",
+    "El dólar"
+  ],
+  "banned_openings_note": "Arranques saturados, medidos sobre los 60 copys aprobados: 10 de los 30 headlines generales abren con 'Tu' y 5 de los 60 con 'El tipo de cambio'. 'Un dólar distinto' y 'Una variación en el dólar' se repiten dos veces cada uno en industria. Cambiar el arranque, NO la fórmula: 'El presupuesto está aprobado. El tipo de cambio sigue abierto' usa la misma fórmula sin abrir con 'Tu'.",
+  "banned_phrases": [
+    "el dólar va a subir",
+    "el peso va a caer",
+    "aprovecha antes de que suba",
+    "gánale al dólar",
+    "gana con el tipo de cambio",
+    "vence al mercado",
+    "predice el tipo de cambio",
+    "garantiza tu ahorro",
+    "ahorro garantizado",
+    "asegura tus costos",
+    "asegura tu margen",
+    "garantiza tu margen",
+    "asegura el mejor dólar",
+    "el mejor dólar",
+    "protección total",
+    "riesgo cero",
+    "sin riesgo",
+    "elimina tu riesgo",
+    "elimina todo el riesgo",
+    "cobertura gratis",
+    "el tipo de cambio se cose",
+    "abre un hueco"
+  ],
+  "banned_phrases_note": "Los primeros siete son predicciones o promesas de ganancia: la campaña no vende especulación. Los siguientes son garantías que el producto no puede dar. 'sin riesgo' y 'riesgo cero' están prohibidos incluso como figura retórica. Los dos últimos vienen de la lista de metáforas rechazadas del contexto maestro.",
+  "legal_note": {
+    "text": "Productos sujetos a disponibilidad, condiciones de mercado, documentación, aprobación y términos de contratación.",
+    "trigger": "Toda pieza que nombre un forward o que comunique la posibilidad de definir hoy condiciones cambiarias para una obligación futura.",
+    "style": "Nota discreta al pie de la pieza.",
+    "detect": [
+      "\\bforwards?\\b",
+      "defin\\w* hoy",
+      "definido hoy",
+      "fija\\w* hoy",
+      "hoy las condiciones"
+    ],
+    "detect_note": "Solo lenguaje de instrumento y de definición anticipada. DELIBERADAMENTE sin '\\\\d': en esta rama los números son plazos ('60 días', 'tres meses'), no cifras cambiarias, y no requieren nota. Para contenido educativo y para ejemplos numéricos el contexto maestro define dos notas distintas, sembradas como presets en brand_disclaimers."
+  },
+  "numbers_policy": {
+    "allowed": "Plazos y horizontes de tiempo ('60 días', '90 días', 'tres meses'). Una operación aritmética verificable solo si se presenta como ejemplo ilustrativo con la nota 'Ejemplo ilustrativo. No representa una cotización.'",
+    "banned": [
+      "niveles o pronósticos de tipo de cambio",
+      "cotizaciones, puntos forward o precios inventados",
+      "porcentajes de ahorro o de protección",
+      "afirmar cuánto habría ahorrado el cliente con una cobertura"
+    ],
+    "principle": "Un plazo es un hecho de la operación. Un nivel de tipo de cambio es un pronóstico. El primero se permite; el segundo nunca."
+  },
+  "hard_business_rules": [
+    "Xending NO predice el mercado. La necesidad de cobertura existe por incertidumbre, no por una expectativa de movimiento.",
+    "NO asumir que Xending ofrece directamente cualquier instrumento mencionado. Todo copy que nombre un forward depende de disponibilidad, contraparte, jurisdicción, elegibilidad, términos de contratación y disclosures aplicables.",
+    "Una cobertura NO genera ahorro: da certidumbre. Prohibido presentarla como forma de ganar dinero.",
+    "El forward define condiciones cambiarias para una obligación futura conforme a los términos contratados. No es apuesta, predicción ni ganancia garantizada.",
+    "Los copies de cobertura general pueden hablar del territorio (certidumbre, presupuesto, margen, exposición) sin explicar un instrumento específico.",
+    "Xending NO es banco ni casa de bolsa. Es una solución empresarial de pagos internacionales."
+  ],
+  "cta_selection_rule": [
+    "Si el copy habla del margen: 'Protege tu margen' o 'Cuida tu margen'.",
+    "Si habla del presupuesto o del costo futuro: 'Planea hoy tus costos futuros' o 'Protege tus costos'.",
+    "Si nombra explícitamente un forward: 'Cotiza un forward', 'Define hoy tu tipo de cambio' o 'Fija hoy tu tipo de cambio'.",
+    "Si habla del costo en pesos de una compra ya acordada: 'Define tu costo cambiario'.",
+    "Si habla de calendario o de pagos recurrentes: 'Revisa tu exposición cambiaria'.",
+    "Si habla de tesorería, flujo o visibilidad: 'Conoce hoy tu costo cambiario' o 'Da certidumbre a tus costos'.",
+    "El CTA NO debe limitarse siempre a 'Cotiza tu cobertura'. Puede vender el beneficio buscado —margen, costos, certidumbre o planeación— siempre que no prometa resultados absolutos.",
+    "Los CTA más fuertes de la rama son 'Protege tu margen', 'Define hoy tu tipo de cambio', 'Define hoy. Paga después.', 'Planea hoy tus costos futuros' y 'Cotiza un forward'."
+  ],
+  "gold_examples": [
+    {
+      "headline": "Tu factura está en dólares. Tu presupuesto, en pesos",
+      "subcopy": "Administra el riesgo cambiario antes de que llegue la fecha de pago.",
+      "cta": "Protege tu margen",
+      "angleTag": "presupuesto_mxn_obligacion_usd",
+      "angleLabel": "Presupuesto MXN vs. obligación USD",
+      "corridor": "general",
+      "needsLegalNote": false
+    },
+    {
+      "headline": "El margen que calculaste hoy puede ser distinto cuando pagues",
+      "subcopy": "Reduce la incertidumbre de tus pagos futuros.",
+      "cta": "Protege tu margen",
+      "angleTag": "margen_entre_calculo_y_pago",
+      "angleLabel": "Margen calculado vs. fecha de pago",
+      "corridor": "general",
+      "needsLegalNote": false
+    },
+    {
+      "headline": "Define hoy. Paga después",
+      "subcopy": "Con un forward puedes establecer hoy el tipo de cambio aplicable a un pago futuro.",
+      "cta": "Cotiza un forward",
+      "angleTag": "certidumbre_forward",
+      "angleLabel": "Simplicidad y beneficio del forward",
+      "corridor": "general",
+      "needsLegalNote": true
+    },
+    {
+      "headline": "El presupuesto está aprobado. El tipo de cambio sigue abierto",
+      "subcopy": "Planea hoy el costo de tu próximo pago.",
+      "cta": "Planea hoy tus costos futuros",
+      "angleTag": "precio_fijo_costo_abierto",
+      "angleLabel": "Presupuesto aprobado y exposición abierta",
+      "corridor": "general",
+      "needsLegalNote": false
+    },
+    {
+      "headline": "El proveedor da plazo. El mercado no",
+      "subcopy": "Define hoy el tipo de cambio de una obligación futura.",
+      "cta": "Fija hoy tu tipo de cambio",
+      "angleTag": "plazo_exposicion",
+      "angleLabel": "Crédito de proveedor vs. mercado",
+      "corridor": "general",
+      "needsLegalNote": true
+    },
+    {
+      "headline": "Varios pagos futuros significan varios momentos de exposición cambiaria",
+      "subcopy": "Planea tu calendario antes de cada vencimiento.",
+      "cta": "Revisa tu exposición cambiaria",
+      "angleTag": "calendario_pagos_futuros",
+      "angleLabel": "Pagos recurrentes y calendario cambiario",
+      "corridor": "general",
+      "needsLegalNote": false
+    },
+    {
+      "headline": "Tu flujo de efectivo necesita visibilidad, no sorpresas cambiarias",
+      "subcopy": "Conoce una alternativa para planear el costo de un pago futuro.",
+      "cta": "Conoce hoy tu costo cambiario",
+      "angleTag": "tesoreria_visibilidad",
+      "angleLabel": "Tesorería y flujo de efectivo",
+      "corridor": "general",
+      "needsLegalNote": true
+    },
+    {
+      "headline": "El mercado cambia todos los días. Tu planeación no debería hacerlo",
+      "subcopy": "Administra la exposición cambiaria de tus obligaciones futuras.",
+      "cta": "Da certidumbre a tus costos",
+      "angleTag": "disciplina_vs_mercado",
+      "angleLabel": "Disciplina financiera vs. mercado",
+      "corridor": "general",
+      "needsLegalNote": false
+    },
+    {
+      "headline": "Cotizaste la instalación en pesos. El equipo se paga en dólares",
+      "subcopy": "Protege el margen antes de comprar.",
+      "cta": "Protege tu margen",
+      "angleTag": "presupuesto_mxn_obligacion_usd",
+      "angleLabel": "HVAC, proyecto y moneda",
+      "corridor": "industria",
+      "industry": "hvac_climatizacion",
+      "needsLegalNote": false
+    },
+    {
+      "headline": "Tres meses pueden cambiar el costo de una máquina",
+      "subcopy": "Planea el tipo de cambio desde hoy.",
+      "cta": "Protege tus costos",
+      "angleTag": "proyecto_largo",
+      "angleLabel": "Maquinaria, tiempo y costo",
+      "corridor": "industria",
+      "industry": "maquinaria",
+      "needsLegalNote": false
+    },
+    {
+      "headline": "Un pedido grande de herramientas también amplifica el riesgo cambiario",
+      "subcopy": "Planea el costo de tu compra.",
+      "cta": "Define tu costo cambiario",
+      "angleTag": "volumen_costo_unitario",
+      "angleLabel": "Herramientas, volumen y riesgo cambiario",
+      "corridor": "industria",
+      "industry": "moldes_herramientas",
+      "needsLegalNote": false
+    },
+    {
+      "headline": "La pieza ya tiene precio. El tipo de cambio todavía no",
+      "subcopy": "Define hoy las condiciones de tu pago.",
+      "cta": "Cotiza un forward",
+      "angleTag": "certidumbre_forward",
+      "angleLabel": "Autopartes, precio y forward",
+      "corridor": "industria",
+      "industry": "autopartes",
+      "needsLegalNote": true
+    }
+  ],
+  "rejected_examples": [
+    {
+      "text": "Aprovecha antes de que el dólar suba",
+      "reason": "predice el mercado; la campaña no vende especulación"
+    },
+    {
+      "text": "Cobertura sin riesgo para tu empresa",
+      "reason": "promete ausencia de riesgo, que ningún instrumento puede dar"
+    },
+    {
+      "text": "Un forward te garantiza el mejor tipo de cambio",
+      "reason": "garantía inexistente y comparación imposible de sustentar"
+    },
+    {
+      "text": "Asegura tus costos",
+      "reason": "CTA rechazado: 'asegurar' promete un resultado absoluto"
+    },
+    {
+      "text": "Calcula cuánto habrías ahorrado con una cobertura",
+      "reason": "presenta la cobertura como ahorro y no existe tal calculadora"
+    },
+    {
+      "text": "El tipo de cambio abre un hueco en tu margen",
+      "reason": "metáfora dramática que pierde seriedad empresarial"
+    },
+    {
+      "text": "Administra la exposición cambiaria de la obligación subyacente",
+      "reason": "lenguaje académico; suena a definición de derivados"
+    },
+    {
+      "text": "¿Sabes qué es un forward? Te lo explicamos",
+      "reason": "convierte la pieza en clase de finanzas en vez de plantear una tensión de negocio"
+    },
+    {
+      "text": "Protege tus márgenes con nuestra plataforma líder",
+      "reason": "autoelogio genérico sin situación empresarial reconocible"
+    },
+    {
+      "text": "El dólar no perdona",
+      "reason": "alarmista y con dirección implícita del mercado"
+    }
+  ]
+}

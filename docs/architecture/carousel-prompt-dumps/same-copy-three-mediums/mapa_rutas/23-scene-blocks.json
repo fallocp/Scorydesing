@@ -1,0 +1,37 @@
+[
+  {
+    "index": 0,
+    "role": "tension",
+    "source": "extraído del promptFinal real devuelto por carousel_prompts",
+    "sceneBlock": "A clean editorial operational-route diorama in a white institutional setting: an industrial motor sits in the lower left foreground beside a printed purchase quotation on the desk, with the quotation as the only surface carrying the readable data. Show the visible total and a date stamp on the paper, with a second subtle teal route line linking the quote to the motor and a single coral emphasis on the later-moving total or date. Keep the upper third empty and bright for overlaid headline text; compose everything else in the lower two-thirds, with only one small contextual industrial detail.",
+    "negativeInstructions": "No extra objects, no second document with duplicate data, no floating numbers, no invented labels beyond the provided text, no clutter, no multiple routes, no thick arrows, no generic infographic layout, no dark background, no neon, no crypto or gamer styling, no logos or watermarks, no toy-like motor, no malformed industrial equipment, no illegible gibberish, no misspellings, no excessive teal or coral, no collage, no centered hero blocking the top text area."
+  },
+  {
+    "index": 1,
+    "role": "shift",
+    "source": "extraído del promptFinal real devuelto por carousel_prompts",
+    "sceneBlock": "Split-photo operational route diorama on a white institutional background: two printed industrial purchase quotations placed side by side in the lower two-thirds, each showing the same industrial motor order but different dates and totals, with the left sheet stamped TODAY and the right sheet stamped PAYMENT. The motor sits as the shared hero element bridging both documents, while a thin teal route line connects the papers and a single coral accent marks the later, higher total. Leave the upper third clean for the headline.",
+    "negativeInstructions": "No extra objects, no third document, no people, no hands, no floating text, no invented labels beyond TODAY, PAYMENT, USD, MXN, TOTAL, no logos, no watermarks, no clutter, no catalog layout, no three-column composition, no dark background, no neon, no crypto or gamer aesthetics, no thick arrows, no multiple routes, no duplicated totals, no unreadable gibberish, no misspellings, no fake brand marks, no excessive teal or coral."
+  },
+  {
+    "index": 2,
+    "role": "risk",
+    "source": "extraído del promptFinal real devuelto por carousel_prompts",
+    "sceneBlock": "Three successive industrial purchase orders for the same motor are layered in a shallow editorial stack across the lower two-thirds of the frame, each sheet slightly offset so the total line grows longer and more dominant from the back document to the front one. The motor appears as a restrained contextual object near the stack, while a thin teal connector and one coral-highlighted total make the accumulation unmistakable. Keep the upper third clean and white for the headline.",
+    "negativeInstructions": "No extra documents, no four-column layout, no clutter, no floating data, no invented numbers beyond the provided labels, no repeated totals on multiple surfaces, no additional coral accents, no neon, no dark background, no generic infographic look, no stock office scene, no people, no logos, no watermark, no gibberish, no misspellings, no toy-like motor, no low-poly forms, no thick arrows, no multiple routes, no excessive teal, no excessive navy, no excessive coral, no camera inconsistency, no mismatched scale, no childish or crypto styling."
+  },
+  {
+    "index": 3,
+    "role": "solution",
+    "source": "extraído del promptFinal real devuelto por carousel_prompts",
+    "sceneBlock": "A calm operational route diorama on a white institutional surface: a single industrial motor sits partially wrapped and aligned beside one clean purchase-order document, while a thin teal route line connects the document’s cost section to the motor as the visible price anchor. In the lower two-thirds, the document shows one legible, orderly total and a small confirmed status cue, with the motor settled and no competing elements. Keep the upper third empty and bright for the headline.",
+    "negativeInstructions": "Do not add extra documents, duplicate motors, multiple totals, busy charts, people, hands, warehouse clutter, or any secondary hero object. No floating text, invented labels, unreadable gibberish, logos, watermarks, neon, crypto styling, dark backgrounds, thick arrows, or crowded infographic layouts. Avoid showing two competing routes, multiple status badges, excessive coral, excessive teal, toy-like materials, or anything that contradicts a single resolved operation."
+  },
+  {
+    "index": 4,
+    "role": "cta",
+    "source": "extraído del promptFinal real devuelto por carousel_prompts",
+    "sceneBlock": "A serene closing composition in a bright white studio-like setting: the industrial motor returns as the premium hero, isolated on a clean matte surface in the lower two-thirds of the frame, angled in three-quarter view with refined white ceramic and satin acrylic finishes. Keep only one subtle contextual companion, a minimal Xending brand cue integrated as a small premium plaque or edge detail, while the top third stays completely open and uncluttered for the CTA. No documents compete with the motor; the scene should feel calm, institutional, and decisive.",
+    "negativeInstructions": "No extra documents, no second hero object, no clutter, no busy background, no readable text except the exact CTA handled by the layout system, no fake logos, no watermark, no gibberish, no invented data, no generic Canva look, no three-column layout, no catalog grid, no dark background, no neon, no crypto or gamer styling, no toy-like motor, no malformed industrial parts, no excessive teal or coral, no thick arrows, no multiple routes, no duplicated objects, no inconsistent scale."
+  }
+]

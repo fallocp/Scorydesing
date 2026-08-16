@@ -1,0 +1,3 @@
+NO CAPTURADO EN RUNTIME
+
+Las 5 llamadas desplegadas se ejecutaron por slide. La Edge Function descarta la completion raw después de parsearla y solo devuelve designBlock, promptFinal y negativeInstructions normalizados.

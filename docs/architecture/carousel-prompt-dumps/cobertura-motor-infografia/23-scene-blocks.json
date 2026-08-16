@@ -1,0 +1,37 @@
+[
+  {
+    "index": 0,
+    "role": "tension",
+    "source": "extraído del promptFinal real devuelto por carousel_prompts",
+    "sceneBlock": "A premium 3D corporate tabletop scene in a white institutional studio: an industrial motor sits in the lower left foreground, partially cropped and physically heavy, beside a printed purchase quotation angled toward the viewer. The quotation is the only data surface and shows a visible total, a stamped date, and small legible labels like USD, MXN, HOY, PAGO, TOTAL, and TIPO DE CAMBIO. A single thin teal connector line and one restrained coral highlight mark the tension between today’s quote and the future payment cost. Keep the top third clean and bright for headline text.",
+    "negativeInstructions": "No extra objects, no second document, no duplicate totals, no floating data, no invented labels, no logos, no watermark, no gibberish, no misspellings, no fake brands, no generic Canva layout, no flat vector look, no collage, no three-column composition, no dark background, no neon, no crypto or gamer styling, no toy-like motor, no malformed industrial parts, no excessive arrows, no clutter, no unreadable text, no wrong typography, no overuse of coral or teal, no busy scene, no perspective distortion."
+  },
+  {
+    "index": 1,
+    "role": "shift",
+    "source": "extraído del promptFinal real devuelto por carousel_prompts",
+    "sceneBlock": "Premium 3D corporate iconography on a pure white institutional background, composed as a split-photo style comparison inside one clean isometric arrangement. In the lower two-thirds, show two printed industrial purchase quotes side by side for the same industrial motor: one stamped TODAY and one stamped PAYMENT, each on a separate sheet with clearly different total lengths and a subtle upward shift in the later total. Keep the motor as the shared hero object bridging both documents, with a thin teal connector line and one restrained coral highlight on the changed total. Leave the upper third clean for headline text.",
+    "negativeInstructions": "No extra documents, no third quote, no floating labels outside the sheets, no invented data beyond the allowed labels, no clutter, no flat vector look, no collage, no three-column layout, no generic Canva infographic, no dark background, no neon, no crypto or gamer styling, no toy or low-poly materials, no messy typography, no illegible gibberish, no logos or watermarks, no excessive teal or coral, no thick arrows, no multiple routes, no inconsistent scale, no duplicated motors, no malformed paper edges, no unreadable numbers, no text outside the permitted object surfaces."
+  },
+  {
+    "index": 2,
+    "role": "risk",
+    "source": "extraído del promptFinal real devuelto por carousel_prompts",
+    "sceneBlock": "Three successive industrial purchase orders are stacked in a staggered editorial repetition, each sheet showing the same motor quotation with the TOTAL area growing visibly larger from front to back, making the accumulation unmistakable. The industrial motor sits partially on the front document as the recurring anchor, while a thin teal connector line links the sheets and one coral highlight marks the largest final total. Upper third remains clean white space for the headline; subject and documents occupy the lower two thirds.",
+    "negativeInstructions": "No extra objects beyond the motor, repeated purchase orders, and one subtle context piece; no clutter, no generic infographic grid, no three-column layout, no floating text, no invented numbers, no gibberish, no logos, no watermarks, no misspellings, no third-party brands, no dark background, no neon, no crypto or gamer aesthetics, no toy-like or low-poly materials, no cheap plastic, no malformed documents, no unreadable fake data, no excessive teal or coral, no thick arrows, no duplicated wheels or mechanical deformation."
+  },
+  {
+    "index": 3,
+    "role": "solution",
+    "source": "extraído del promptFinal real devuelto por carousel_prompts",
+    "sceneBlock": "A single orderly purchase document dominates the lower two-thirds, shown on a clean white desk with the industrial motor resting beside it as the recurring motif, now calm and integrated rather than tense. The document is the only data surface: USD, MXN, TOTAL, and CONFIRMADO appear clearly on the sheet, with one teal underline and one restrained coral emphasis on the final total. A slim laptop or folder support sits partially cropped in the background, while the top third stays empty and bright for the headline.",
+    "negativeInstructions": "Do not add a second document, extra sheets, duplicate totals, floating labels, or any other competing data surface. No clutter, no three-column layout, no catalog composition, no dark background, no neon, no crypto or gamer styling, no fake logos, no watermark, no gibberish, no invented text beyond the allowed labels, no misspellings, no unreadable numbers, no excessive teal or coral, no thick arrows, no multiple routes, no childish toy look, no cheap plastic, no low-poly rendering, no malformed motor, no generic Canva infographic, no inconsistent scale or camera angle."
+  },
+  {
+    "index": 4,
+    "role": "cta",
+    "source": "extraído del promptFinal real devuelto por carousel_prompts",
+    "sceneBlock": "A premium 3D industrial motor returns as the quiet hero, isolated on a pristine white surface with a small purchase quotation sheet partially visible beside it. The motor sits in the lower two-thirds, angled three-quarter view, while the top third stays empty and clean for the headline. The quotation shows a clear cost comparison on one surface only, with a teal connector line and one restrained coral highlight on the higher total, suggesting future variation without clutter.",
+    "negativeInstructions": "Do not add extra documents, screens, charts, people, warehouse clutter, or multiple comparison surfaces. No readable invented data beyond the provided text, no fake logos, no watermarks, no gibberish, no third-party brands. Avoid dark backgrounds, neon, crypto, gamer, toy-like materials, cheap plastic, low-poly shapes, exaggerated reflections, or busy infographic layouts. Keep only one hero motor, one quotation sheet, and one minimal context element, with generous negative space and the text area reserved at the top."
+  }
+]

@@ -1,0 +1,33 @@
+{
+  "edgeResponse": {
+    "httpStatus": 200,
+    "ok": true,
+    "body": {
+      "prompts": {
+        "infografia": {
+          "prompt_final": "Premium 3D iconography system for a corporate B2B fintech message, rendered as a single clean hero arrangement with one dominant abstract industrial-financial form and at most 1–3 supporting elements, designed for a white institutional background. Translate the idea of visible cost versus future variation through layered material contrast, a clear separation between a stable present layer and a subtle forward-moving layer, and a precise visual tension resolved by a teal flow line and one restrained coral highlight. Use refined ceramic white, matte/satin acrylic white, light gray, and brushed aluminum details; navy only as structural outlines, symbols, arrows, and typography accents; teal as the main activation color; coral only as a single focal tension point. Camera: three-quarter elevated isometric product view, 45–70 mm equivalent, soft perspective, premium editorial spacing, no dramatic distortion. Composition must feel corporate, modern, international, and highly legible in under 3 seconds, with a lot of negative space and a single clear hierarchy: hero volume first, then one comparison cue, then one minimal solution cue. Lighting: bright studio softbox, clean contact shadows, subtle directional depth, no heavy bloom, no dark environment. Visual language: clean comparative charts implied through minimal bars, aligned layers, split-cost structure, and side-by-side balance cues without readable data. Typography only if needed for system labels: Montserrat Bold or ExtraBold for headline, Poppins Medium or SemiBold for body and CTA, flat vector-like matte lettering, navy headline, with at most one coral phrase and one teal phrase; however, because textInImage is false, no readable text, numbers, labels, logos, or dashboard copy may appear. Background must remain pure white or near-white, with an ultra-clean institutional finish, refined materials, precise edges, soft shadows, and generous empty space.",
+          "negative_instructions": "No readable text, numbers, labels, titles, CTA, logos, watermarks, invented data, gibberish, misspellings, third-party brands, fake UI, fake charts with text, generic Canva infographic, collage, catalog grid, three-column layout, clutter, excessive elements, inconsistent scale, childish toy look, inflatable forms, cheap plastic, low-poly geometry, neon, crypto, gamer aesthetic, dark background, excessive navy, excessive teal, excessive coral, thick arrows, too many nodes, too many routes, 2D flat vector look, overly decorative ornaments, stock corporate cliché, dramatic shadows, black-on-black, messy composition, malformed 3D materials, unrealistic reflections, overexposed white clipping, and any scene-specific object naming or literal product depiction.",
+          "aspect_ratio": "1:1",
+          "creative_rationale": "This translation preserves the idea of a visible present cost and its future variation through a premium 3D corporate system, using layered comparison cues, restrained color hierarchy, and a clean white fintech aesthetic."
+        }
+      },
+      "aspectRatio": "1:1",
+      "promptMeta": {
+        "source": "code-v2-request",
+        "version": "v2",
+        "backgroundStyle": "white",
+        "corridor": null
+      },
+      "usage": {
+        "next_step": "Call this endpoint again with mode=\"generate\", imageType=<type>, promptFinal=<prompts[type].prompt_final>",
+        "available_types": [
+          "fotografia",
+          "infografia",
+          "mapa_rutas"
+        ]
+      }
+    }
+  },
+  "selectedAnchor": "Premium 3D iconography system for a corporate B2B fintech message, rendered as a single clean hero arrangement with one dominant abstract industrial-financial form and at most 1–3 supporting elements, designed for a white institutional background. Translate the idea of visible cost versus future variation through layered material contrast, a clear separation between a stable present layer and a subtle forward-moving layer, and a precise visual tension resolved by a teal flow line and one restrained coral highlight. Use refined ceramic white, matte/satin acrylic white, light gray, and brushed aluminum details; navy only as structural outlines, symbols, arrows, and typography accents; teal as the main activation color; coral only as a single focal tension point. Camera: three-quarter elevated isometric product view, 45–70 mm equivalent, soft perspective, premium editorial spacing, no dramatic distortion. Composition must feel corporate, modern, international, and highly legible in under 3 seconds, with a lot of negative space and a single clear hierarchy: hero volume first, then one comparison cue, then one minimal solution cue. Lighting: bright studio softbox, clean contact shadows, subtle directional depth, no heavy bloom, no dark environment. Visual language: clean comparative charts implied through minimal bars, aligned layers, split-cost structure, and side-by-side balance cues without readable data. Typography only if needed for system labels: Montserrat Bold or ExtraBold for headline, Poppins Medium or SemiBold for body and CTA, flat vector-like matte lettering, navy headline, with at most one coral phrase and one teal phrase; however, because textInImage is false, no readable text, numbers, labels, logos, or dashboard copy may appear. Background must remain pure white or near-white, with an ultra-clean institutional finish, refined materials, precise edges, soft shadows, and generous empty space.",
+  "selectedAnchorSource": "deployed style_only response"
+}

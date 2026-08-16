@@ -1,0 +1,9 @@
+{
+  "totalRowsRead": 240,
+  "countsByBranch": {
+    "coberturas": 60,
+    "costos-ahorro": 90,
+    "velocidad": 90
+  },
+  "note": "GET read-only; image_meta excluded from the broad inventory. The exact motor row was queried separately."
+}

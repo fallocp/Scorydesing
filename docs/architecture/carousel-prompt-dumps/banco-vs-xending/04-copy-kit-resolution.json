@@ -1,0 +1,5 @@
+{
+  "status": "error",
+  "message": "No hay copy_kit para la rama \"banco-vs-xending\". Disponibles: velocidad, costos-ahorro, coberturas.",
+  "dbPromptKitStillUsedForBranchContext": true
+}

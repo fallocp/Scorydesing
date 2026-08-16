@@ -1,0 +1,13 @@
+{
+  "requestedSlug": "velocidad-mismo-dia",
+  "activeDatabaseSlug": "velocidad-mismo-dia",
+  "commercialBranchesPromptKitFound": true,
+  "modernCodeCopyKitSlug": "velocidad",
+  "modernCodeCopyKitResolution": {
+    "status": "resolved",
+    "source": "code",
+    "slug": "velocidad"
+  },
+  "editorialBansLength": 1193,
+  "branchContextLength": 6468
+}

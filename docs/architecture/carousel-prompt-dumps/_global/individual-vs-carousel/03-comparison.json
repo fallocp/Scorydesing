@@ -1,0 +1,17 @@
+{
+  "individualFull": {
+    "systemContext": "MASTER_IMAGE_PROMPT_V2 interpolated with textInImage=false",
+    "userContext": "seed imageIntent + headline/body/cta; promptScope full permits a concrete subject and scene",
+    "output": "one prompt_final for the selected medium"
+  },
+  "visualAnchorStyleOnly": {
+    "systemContext": "same MASTER_IMAGE_PROMPT_V2 interpolation with textInImage=false",
+    "userContext": "same seed fields plus an explicit prohibition on concrete subjects/objects/scenes",
+    "output": "one prompt_final reused verbatim as carouselDesignBlock"
+  },
+  "carouselPerSlide": {
+    "systemContext": "MASTER_IMAGE_PROMPT_V2 interpolated again, now with textInImage=true",
+    "userContext": "one slide only + shared anchor + motif + seed-level master variables",
+    "output": "one sceneBlock normalized into one self-contained promptFinal"
+  }
+}

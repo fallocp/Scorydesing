@@ -1,0 +1,13 @@
+{
+  "requestedSlug": "ahorro-costos-ocultos",
+  "activeDatabaseSlug": "ahorro-costos-ocultos",
+  "commercialBranchesPromptKitFound": true,
+  "modernCodeCopyKitSlug": "costos-ahorro",
+  "modernCodeCopyKitResolution": {
+    "status": "resolved",
+    "source": "code",
+    "slug": "costos-ahorro"
+  },
+  "editorialBansLength": 1951,
+  "branchContextLength": 7004
+}

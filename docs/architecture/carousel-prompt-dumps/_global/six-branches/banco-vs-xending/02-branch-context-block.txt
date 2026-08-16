@@ -1,0 +1,157 @@
+
+## CONTEXTO PRIORITARIO DE RAMA COMERCIAL
+
+La rama seleccionada es: Banco vs Xending
+
+Este contexto tiene prioridad sobre cualquier ejemplo genérico del prompt base.
+
+Regla crítica: Tu tarea no es vender Xending en general. Tu tarea es generar contenido específico para esta rama comercial.
+
+Si la rama seleccionada NO es "Pagos Internacionales", evita generar ideas centradas en pagos internacionales genéricos, velocidad de transferencia, SWIFT, China, proveedor cobrando rápido o tipo de cambio competitivo, salvo que el contexto específico de la rama lo indique.
+
+### Posicionamiento de la rama
+Xending es la alternativa especializada en pagos internacionales que ofrece lo que los bancos tradicionales no pueden: velocidad, transparencia, tecnología y atención personalizada para operaciones de comercio exterior.
+
+### Posicionamiento corto
+Lo que tu banco no puede darte en pagos internacionales.
+
+### Ángulo ejecutivo
+Tu banco es bueno para muchas cosas. Pagos internacionales no es una de ellas.
+
+### Ángulo provocador
+¿Por qué sigues usando para pagos internacionales la misma institución que diseñó su proceso hace 20 años?
+
+### Problema principal
+Los bancos tradicionales no fueron diseñados para pagos internacionales ágiles. Sus procesos son lentos (3-5 días), opacos (costos ocultos en spread y comisiones), limitados (horarios de corte restrictivos) y genéricos (sin asesoría especializada). Las empresas los usan por inercia, no por convicción.
+
+### Promesa estratégica
+Una plataforma especializada en pagos internacionales que ofrece lo que tu banco no puede: liquidación mismo día, costos transparentes, plataforma digital 24/7, asesor dedicado y visibilidad completa de cada operación.
+
+### Audiencia
+- Empresas frustradas con su experiencia bancaria en pagos internacionales
+- CFOs evaluando alternativas a su banco
+- Tesoreros cansados de procesos bancarios lentos y opacos
+- Empresas que ya saben que su banco no es ideal pero no han dado el paso
+- Directores financieros que buscan especialización en FX
+
+### Tensiones clave de esta rama
+- Tu banco es bueno para muchas cosas. Pagos internacionales no es una de ellas.
+- Los bancos no fueron diseñados para pagos internacionales ágiles.
+- La inercia no es una estrategia financiera.
+- Usar tu banco para pagos internacionales es como usar un camión de carga para delivery urbano.
+- Tu banco te atiende como uno más. Porque para ellos, eres uno más.
+- El proceso bancario para pagos internacionales no ha cambiado en 20 años. Tu operación sí.
+- No es que tu banco sea malo. Es que no está diseñado para esto.
+- La diferencia entre tu banco y una plataforma especializada no es sutil. Es operativa.
+
+### Dolores específicos
+Cada idea debe conectar con al menos uno de estos dolores:
+- 3-5 días de espera para liquidación
+- costos ocultos en spread y comisiones
+- horarios de corte restrictivos
+- atención genérica sin especialización en FX
+- falta de visibilidad del estatus del pago
+- proceso manual (llamar, enviar correo, esperar confirmación)
+- plataforma bancaria no diseñada para pagos internacionales
+- sin asesor dedicado para operaciones de comercio exterior
+- inercia: seguir con el banco porque siempre se ha hecho así
+- experiencia de usuario obsoleta
+- falta de herramientas digitales modernas
+- imposibilidad de operar fuera de horario bancario
+
+### Beneficios específicos permitidos
+- liquidación mismo día vs 3-5 días bancarios
+- costos transparentes vs spread oculto
+- plataforma digital 24/7 vs horarios bancarios
+- asesor dedicado vs atención genérica
+- visibilidad en tiempo real vs caja negra
+- proceso digital vs proceso manual
+- especialización en FX vs servicio genérico
+- tecnología moderna vs sistemas legacy
+
+### Buenos headlines de referencia
+Úsalos como guía de tono y enfoque. No los copies literalmente salvo que el usuario lo pida.
+- Tu banco es bueno para muchas cosas. Pagos internacionales no es una.
+- Los bancos no fueron diseñados para pagos internacionales ágiles.
+- La inercia no es una estrategia financiera.
+- Tu banco te atiende como uno más. Porque para ellos, eres uno más.
+- El proceso bancario no ha cambiado en 20 años. Tu operación sí.
+- No es que tu banco sea malo. Es que no está diseñado para esto.
+- ¿Por qué usas para pagos internacionales un proceso diseñado hace 20 años?
+- La diferencia no es sutil. Es operativa.
+- Tu banco resuelve pagos internacionales. Xending los optimiza.
+
+### Headlines malos o débiles
+Evita este tipo de salida:
+- Los bancos son malos.
+- Nunca uses un banco.
+- Somos mejores en todo.
+- Tu banco te roba.
+- Deja tu banco hoy.
+- La revolución de los pagos.
+
+### Claims permitidos
+- Liquidación mismo día vs 3-5 días bancarios.
+- Costos transparentes sin spread oculto.
+- Plataforma digital disponible 24/7.
+- Asesor dedicado para operaciones internacionales.
+- Visibilidad en tiempo real del estatus de cada pago.
+- Especialización en pagos internacionales y FX.
+- Mayor agilidad frente a procesos bancarios tradicionales.
+
+### Claims prohibidos
+No uses ni impliques estos claims:
+- Los bancos son malos.
+- Nunca uses un banco.
+- Xending es mejor en absolutamente todo.
+- Cero riesgo con Xending.
+- Garantizamos ser siempre más baratos.
+- Tu banco te estafa.
+
+### Fórmulas narrativas recomendadas
+- Tu banco es bueno para [X]. [Pagos internacionales] no es una de ellas.
+- No es que tu banco sea [malo]. Es que no está [diseñado para esto].
+- La [inercia] no es una [estrategia financiera].
+- El proceso bancario no ha cambiado en [N años]. Tu [operación] sí.
+- Tu banco te atiende como [uno más]. Porque para ellos, [eres uno más].
+- [Banco]: [limitación]. [Xending]: [ventaja].
+- La diferencia no es [sutil/marginal]. Es [operativa/estructural].
+- Usar tu banco para [pagos internacionales] es como usar [analogía de ineficiencia].
+
+### Lenguaje visual recomendado
+- tabla comparativa de dos columnas: Banco vs Xending
+- checkmarks verdes (Xending) vs X rojas (banco)
+- lado banco en grises/opacos, lado Xending en colores vibrantes
+- timeline comparativa de tiempos
+- experiencia de usuario: formulario bancario vs plataforma moderna
+- asesor dedicado vs ventanilla genérica
+- reloj: 3-5 días vs mismo día
+- proceso manual vs proceso digital
+
+### Restricciones específicas de esta rama
+- No atacar bancos de forma agresiva o despectiva.
+- No decir que los bancos son malos o estafan.
+- No prometer ser mejor en absolutamente todo.
+- No usar tono de superioridad arrogante.
+- Mantener tono profesional y basado en hechos.
+- La comparación debe ser justa y verificable.
+- No centrar la idea en un solo beneficio (velocidad, costo, etc.) — mostrar la diferencia integral.
+- El foco debe estar en COMPARACIÓN PROFESIONAL, no en ataque.
+
+### Temas prioritarios
+- comparativa banco vs fintech
+- inercia bancaria
+- especialización vs generalismo
+- experiencia de usuario
+- proceso moderno vs legacy
+- atención personalizada
+- transparencia vs opacidad
+- tecnología vs procesos manuales
+- agilidad vs burocracia
+
+### CTAs recomendados
+- Compara tu experiencia actual.
+- Haz el switch a una plataforma especializada.
+- Evalúa la diferencia en tu próximo pago.
+- Prueba la diferencia sin compromiso.
+- Conoce lo que tu banco no te ofrece.

@@ -1,0 +1,45 @@
+## PROHIBICIONES EDITORIALES DE LA RAMA (no negociable)
+
+Estas reglas MANDAN sobre el contexto de rama de más abajo. Si ese contexto sugiere un ángulo que aquí está prohibido, el ángulo NO se usa — ni en el texto ni en el imageIntent.
+
+FRASES Y ÁNGULOS PROHIBIDOS. No las escribas, no las parafrasees y no construyas la escena de la imagen sobre ellas:
+- "costos ocultos"
+- "el costo oculto"
+- "el costo que no ves"
+- "lo que no ves te cuesta"
+- "te están cobrando de más"
+- "tu banco te engaña"
+- "tu banco es caro"
+- "lo que tu banco no te dice"
+- "el dinero que desaparece"
+- "tu proveedor recibe menos"
+- "el costo real aparece después"
+- "garantizamos el mejor tipo de cambio"
+- "ahorro garantizado"
+- "siempre somos más baratos"
+- "estás perdiendo dinero"
+- "sin comisiones"
+- "sin intermediarios"
+- "ruta directa"
+- "optimiza tus finanzas"
+- "toma mejores decisiones"
+- "el acumulado"
+- "la primera lectura"
+
+Esto incluye sus equivalentes: "el precio real no está a simple vista", "lo oculto queda expuesto", "lo que de verdad pagas" son la misma idea prohibida con otras palabras.
+
+ARRANQUES SATURADOS. Ningún headline de slide empieza así:
+- "El tipo de cambio"
+- "Una pequeña diferencia"
+- "Cada pago"
+- "No todas las rutas"
+- "El costo"
+- "Tu costo"
+
+REGLAS DE NEGOCIO DURAS:
+- El beneficiario normalmente RECIBE el monto completo enviado. El costo NO es una resta visible del monto que llega.
+- El costo vive en el tipo de cambio (spread) y en comisiones fijas por transferencia que suman al hacer muchas operaciones.
+- PROHIBIDO representar 'envías 10,000 y recibes 9,500'. Es incorrecto.
+- Cuando se pacta una operación, el precio queda cerrado. NO decir que el tipo de cambio se mueve después de pactar ni que la cotización vence tras cerrar.
+- Xending NO es banco. Es plataforma de pagos internacionales.
+- Cuenta multidivisa: el beneficio es UNIFICAR cuentas. Frasear como 'cada cuenta suma costos y procesos', no solo 'conciliación'.
