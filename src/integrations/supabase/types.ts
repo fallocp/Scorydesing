@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "12.2.12 (cd3cf9e)"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       ai_queue: {
@@ -200,6 +225,169 @@ export type Database = {
         }
         Relationships: []
       }
+      brand_assets: {
+        Row: {
+          business_id: string
+          category: string
+          confidence: number | null
+          created_at: string | null
+          extraction_output: Json | null
+          filename: string
+          id: string
+          mime_type: string
+          onboarding_session_id: string | null
+          size_bytes: number
+          storage_path: string
+        }
+        Insert: {
+          business_id: string
+          category: string
+          confidence?: number | null
+          created_at?: string | null
+          extraction_output?: Json | null
+          filename: string
+          id?: string
+          mime_type: string
+          onboarding_session_id?: string | null
+          size_bytes: number
+          storage_path: string
+        }
+        Update: {
+          business_id?: string
+          category?: string
+          confidence?: number | null
+          created_at?: string | null
+          extraction_output?: Json | null
+          filename?: string
+          id?: string
+          mime_type?: string
+          onboarding_session_id?: string | null
+          size_bytes?: number
+          storage_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_assets_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "business_tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_assets_onboarding_session_id_fkey"
+            columns: ["onboarding_session_id"]
+            isOneToOne: false
+            referencedRelation: "brand_onboarding_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      brand_disclaimers: {
+        Row: {
+          body: string
+          brand_key: string
+          business_id: string
+          created_at: string | null
+          id: string
+          is_active: boolean
+          is_default: boolean
+          label: string
+          sort_order: number
+          updated_at: string | null
+        }
+        Insert: {
+          body: string
+          brand_key: string
+          business_id: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          label: string
+          sort_order?: number
+          updated_at?: string | null
+        }
+        Update: {
+          body?: string
+          brand_key?: string
+          business_id?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean
+          is_default?: boolean
+          label?: string
+          sort_order?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_disclaimers_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "business_tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      brand_onboarding_sessions: {
+        Row: {
+          approved_at: string | null
+          approved_brand: Json | null
+          business_id: string
+          created_at: string | null
+          extracted_at: string | null
+          extracted_brand: Json | null
+          field_confidence: Json | null
+          id: string
+          needs_user_input: string[] | null
+          overall_confidence: number | null
+          route: string
+          status: string
+          uploaded_files: Json
+          user_corrections: Json | null
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_brand?: Json | null
+          business_id: string
+          created_at?: string | null
+          extracted_at?: string | null
+          extracted_brand?: Json | null
+          field_confidence?: Json | null
+          id?: string
+          needs_user_input?: string[] | null
+          overall_confidence?: number | null
+          route: string
+          status?: string
+          uploaded_files?: Json
+          user_corrections?: Json | null
+        }
+        Update: {
+          approved_at?: string | null
+          approved_brand?: Json | null
+          business_id?: string
+          created_at?: string | null
+          extracted_at?: string | null
+          extracted_brand?: Json | null
+          field_confidence?: Json | null
+          id?: string
+          needs_user_input?: string[] | null
+          overall_confidence?: number | null
+          route?: string
+          status?: string
+          uploaded_files?: Json
+          user_corrections?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_onboarding_sessions_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "business_tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       business_angles: {
         Row: {
           business_id: string
@@ -286,6 +474,7 @@ export type Database = {
         Row: {
           accent_color: string | null
           calendar_horizon_months: number | null
+          claim_validation_enabled: boolean | null
           compliance_rules: Json | null
           created_at: string | null
           disclaimer: string | null
@@ -306,6 +495,7 @@ export type Database = {
         Insert: {
           accent_color?: string | null
           calendar_horizon_months?: number | null
+          claim_validation_enabled?: boolean | null
           compliance_rules?: Json | null
           created_at?: string | null
           disclaimer?: string | null
@@ -326,6 +516,7 @@ export type Database = {
         Update: {
           accent_color?: string | null
           calendar_horizon_months?: number | null
+          claim_validation_enabled?: boolean | null
           compliance_rules?: Json | null
           created_at?: string | null
           disclaimer?: string | null
@@ -562,6 +753,140 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "campaign_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      compliance_messages: {
+        Row: {
+          content: string
+          created_at: string | null
+          id: string
+          metadata: Json | null
+          role: string
+          session_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          role: string
+          session_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          role?: string
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compliance_messages_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "compliance_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      compliance_rejected_suggestions: {
+        Row: {
+          business_id: string
+          id: string
+          pattern: string
+          rejected_at: string | null
+        }
+        Insert: {
+          business_id: string
+          id?: string
+          pattern: string
+          rejected_at?: string | null
+        }
+        Update: {
+          business_id?: string
+          id?: string
+          pattern?: string
+          rejected_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compliance_rejected_suggestions_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "business_tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      compliance_rule_versions: {
+        Row: {
+          business_id: string
+          change_summary: string
+          created_at: string | null
+          created_by: string
+          id: string
+          rules_snapshot: Json
+          version_number: number
+        }
+        Insert: {
+          business_id: string
+          change_summary?: string
+          created_at?: string | null
+          created_by: string
+          id?: string
+          rules_snapshot: Json
+          version_number: number
+        }
+        Update: {
+          business_id?: string
+          change_summary?: string
+          created_at?: string | null
+          created_by?: string
+          id?: string
+          rules_snapshot?: Json
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compliance_rule_versions_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "business_tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      compliance_sessions: {
+        Row: {
+          business_id: string
+          created_at: string | null
+          id: string
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          business_id: string
+          created_at?: string | null
+          id?: string
+          status?: string
+          updated_at?: string | null
+        }
+        Update: {
+          business_id?: string
+          created_at?: string | null
+          id?: string
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compliance_sessions_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "business_tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -861,6 +1186,163 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      copy_bank_items: {
+        Row: {
+          angle_label: string | null
+          angle_tag: string | null
+          branch_slug: string
+          business_id: string
+          corridor: string | null
+          created_at: string
+          created_by: string | null
+          cta: string
+          cta_alt: string[]
+          formula: string | null
+          headline: string
+          id: string
+          image_meta: Json | null
+          industry: string | null
+          kit_version: string | null
+          legal_note: string | null
+          lint: Json | null
+          model: string | null
+          needs_legal_note: boolean
+          prompt_revision: string | null
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          source: string
+          status: string
+          subcopy: string
+          tone_bucket: string | null
+          updated_at: string
+          used_at: string | null
+          used_by: string | null
+          used_note: string | null
+          week_batch: string | null
+        }
+        Insert: {
+          angle_label?: string | null
+          angle_tag?: string | null
+          branch_slug: string
+          business_id: string
+          corridor?: string | null
+          created_at?: string
+          created_by?: string | null
+          cta: string
+          cta_alt?: string[]
+          formula?: string | null
+          headline: string
+          id?: string
+          image_meta?: Json | null
+          industry?: string | null
+          kit_version?: string | null
+          legal_note?: string | null
+          lint?: Json | null
+          model?: string | null
+          needs_legal_note?: boolean
+          prompt_revision?: string | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          source?: string
+          status?: string
+          subcopy: string
+          tone_bucket?: string | null
+          updated_at?: string
+          used_at?: string | null
+          used_by?: string | null
+          used_note?: string | null
+          week_batch?: string | null
+        }
+        Update: {
+          angle_label?: string | null
+          angle_tag?: string | null
+          branch_slug?: string
+          business_id?: string
+          corridor?: string | null
+          created_at?: string
+          created_by?: string | null
+          cta?: string
+          cta_alt?: string[]
+          formula?: string | null
+          headline?: string
+          id?: string
+          image_meta?: Json | null
+          industry?: string | null
+          kit_version?: string | null
+          legal_note?: string | null
+          lint?: Json | null
+          model?: string | null
+          needs_legal_note?: boolean
+          prompt_revision?: string | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          source?: string
+          status?: string
+          subcopy?: string
+          tone_bucket?: string | null
+          updated_at?: string
+          used_at?: string | null
+          used_by?: string | null
+          used_note?: string | null
+          week_batch?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "copy_bank_items_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "business_tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      copy_kits: {
+        Row: {
+          branch_slug: string
+          business_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          kit: Json
+          kit_version: string
+          notes: string | null
+        }
+        Insert: {
+          branch_slug: string
+          business_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          kit: Json
+          kit_version: string
+          notes?: string | null
+        }
+        Update: {
+          branch_slug?: string
+          business_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          kit?: Json
+          kit_version?: string
+          notes?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "copy_kits_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "business_tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       crm_prospect_actions: {
         Row: {
@@ -1411,6 +1893,60 @@ export type Database = {
           },
         ]
       }
+      design_feedback: {
+        Row: {
+          business_id: string
+          created_at: string | null
+          created_by: string
+          feedback_type: string
+          id: string
+          interpreted_changes: Json | null
+          message: string | null
+          mockup_id: string | null
+          prompt_used: string | null
+          selections: Json | null
+        }
+        Insert: {
+          business_id: string
+          created_at?: string | null
+          created_by: string
+          feedback_type: string
+          id?: string
+          interpreted_changes?: Json | null
+          message?: string | null
+          mockup_id?: string | null
+          prompt_used?: string | null
+          selections?: Json | null
+        }
+        Update: {
+          business_id?: string
+          created_at?: string | null
+          created_by?: string
+          feedback_type?: string
+          id?: string
+          interpreted_changes?: Json | null
+          message?: string | null
+          mockup_id?: string | null
+          prompt_used?: string | null
+          selections?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "design_feedback_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "business_tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "design_feedback_mockup_id_fkey"
+            columns: ["mockup_id"]
+            isOneToOne: false
+            referencedRelation: "design_mockups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       design_images: {
         Row: {
           brand: string
@@ -1595,6 +2131,69 @@ export type Database = {
           },
         ]
       }
+      design_mockups: {
+        Row: {
+          business_id: string
+          carousel_group_id: string | null
+          carousel_index: number | null
+          created_at: string | null
+          created_by: string
+          id: string
+          image_url: string
+          iteration_feedback: string | null
+          parent_mockup_id: string | null
+          platform: string
+          prompt_used: string | null
+          selections: Json | null
+          status: string
+        }
+        Insert: {
+          business_id: string
+          carousel_group_id?: string | null
+          carousel_index?: number | null
+          created_at?: string | null
+          created_by: string
+          id?: string
+          image_url: string
+          iteration_feedback?: string | null
+          parent_mockup_id?: string | null
+          platform: string
+          prompt_used?: string | null
+          selections?: Json | null
+          status?: string
+        }
+        Update: {
+          business_id?: string
+          carousel_group_id?: string | null
+          carousel_index?: number | null
+          created_at?: string | null
+          created_by?: string
+          id?: string
+          image_url?: string
+          iteration_feedback?: string | null
+          parent_mockup_id?: string | null
+          platform?: string
+          prompt_used?: string | null
+          selections?: Json | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "design_mockups_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "business_tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "design_mockups_parent_mockup_id_fkey"
+            columns: ["parent_mockup_id"]
+            isOneToOne: false
+            referencedRelation: "design_mockups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       design_pieces: {
         Row: {
           business_id: string | null
@@ -1654,6 +2253,71 @@ export type Database = {
             columns: ["campaign_id"]
             isOneToOne: false
             referencedRelation: "design_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      design_sessions: {
+        Row: {
+          business_id: string
+          created_at: string | null
+          current_html: string | null
+          html_history: Json | null
+          id: string
+          input_mode: string
+          iteration_count: number | null
+          mockups: Json | null
+          platform: string | null
+          reference_description: string | null
+          reference_image_url: string | null
+          selected_mockup_index: number | null
+          selections: Json | null
+          status: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          business_id: string
+          created_at?: string | null
+          current_html?: string | null
+          html_history?: Json | null
+          id?: string
+          input_mode?: string
+          iteration_count?: number | null
+          mockups?: Json | null
+          platform?: string | null
+          reference_description?: string | null
+          reference_image_url?: string | null
+          selected_mockup_index?: number | null
+          selections?: Json | null
+          status?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          business_id?: string
+          created_at?: string | null
+          current_html?: string | null
+          html_history?: Json | null
+          id?: string
+          input_mode?: string
+          iteration_count?: number | null
+          mockups?: Json | null
+          platform?: string | null
+          reference_description?: string | null
+          reference_image_url?: string | null
+          selected_mockup_index?: number | null
+          selections?: Json | null
+          status?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "design_sessions_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "business_tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -1928,6 +2592,7 @@ export type Database = {
           id: string
           image_suggestion: string | null
           moment_id: string | null
+          piece_v2: Json | null
           status: string
           subcopy: string
           vertical_id: string | null
@@ -1943,6 +2608,7 @@ export type Database = {
           id?: string
           image_suggestion?: string | null
           moment_id?: string | null
+          piece_v2?: Json | null
           status?: string
           subcopy: string
           vertical_id?: string | null
@@ -1958,6 +2624,7 @@ export type Database = {
           id?: string
           image_suggestion?: string | null
           moment_id?: string | null
+          piece_v2?: Json | null
           status?: string
           subcopy?: string
           vertical_id?: string | null
@@ -2004,6 +2671,7 @@ export type Database = {
           image_intent: string | null
           image_type: string | null
           image_url: string | null
+          mockup_id: string | null
           pipeline_run_id: string | null
         }
         Insert: {
@@ -2016,6 +2684,7 @@ export type Database = {
           image_intent?: string | null
           image_type?: string | null
           image_url?: string | null
+          mockup_id?: string | null
           pipeline_run_id?: string | null
         }
         Update: {
@@ -2028,6 +2697,7 @@ export type Database = {
           image_intent?: string | null
           image_type?: string | null
           image_url?: string | null
+          mockup_id?: string | null
           pipeline_run_id?: string | null
         }
         Relationships: [
@@ -2043,6 +2713,13 @@ export type Database = {
             columns: ["commercial_branch_id"]
             isOneToOne: false
             referencedRelation: "commercial_branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "image_library_mockup_id_fkey"
+            columns: ["mockup_id"]
+            isOneToOne: false
+            referencedRelation: "design_mockups"
             referencedColumns: ["id"]
           },
         ]
@@ -2690,6 +3367,247 @@ export type Database = {
           parent_user_id?: string | null
         }
         Relationships: []
+      }
+      pipeline_pieces: {
+        Row: {
+          angle: string | null
+          body: string | null
+          business_id: string
+          caption_body: string | null
+          caption_bullets: Json | null
+          caption_hashtags: Json | null
+          compliance_notes: Json | null
+          compliance_status: string | null
+          created_at: string | null
+          cta: string | null
+          data_badge: string | null
+          footer: string | null
+          funnel_stage: string | null
+          headline: string
+          html_content: string | null
+          id: string
+          idea_id: string
+          image_intent: string | null
+          image_iterations: Json | null
+          image_prompt: string | null
+          image_storage_path: string | null
+          image_type: string | null
+          layout_variation: string | null
+          narrative_angle: string | null
+          overlay_variant: string | null
+          piece_status: string
+          pipeline_run_id: string
+          platform: string
+          png_storage_path: string | null
+          status_pill: string | null
+          template_type: string | null
+          updated_at: string | null
+          visual_tone: string | null
+        }
+        Insert: {
+          angle?: string | null
+          body?: string | null
+          business_id: string
+          caption_body?: string | null
+          caption_bullets?: Json | null
+          caption_hashtags?: Json | null
+          compliance_notes?: Json | null
+          compliance_status?: string | null
+          created_at?: string | null
+          cta?: string | null
+          data_badge?: string | null
+          footer?: string | null
+          funnel_stage?: string | null
+          headline: string
+          html_content?: string | null
+          id?: string
+          idea_id: string
+          image_intent?: string | null
+          image_iterations?: Json | null
+          image_prompt?: string | null
+          image_storage_path?: string | null
+          image_type?: string | null
+          layout_variation?: string | null
+          narrative_angle?: string | null
+          overlay_variant?: string | null
+          piece_status?: string
+          pipeline_run_id: string
+          platform: string
+          png_storage_path?: string | null
+          status_pill?: string | null
+          template_type?: string | null
+          updated_at?: string | null
+          visual_tone?: string | null
+        }
+        Update: {
+          angle?: string | null
+          body?: string | null
+          business_id?: string
+          caption_body?: string | null
+          caption_bullets?: Json | null
+          caption_hashtags?: Json | null
+          compliance_notes?: Json | null
+          compliance_status?: string | null
+          created_at?: string | null
+          cta?: string | null
+          data_badge?: string | null
+          footer?: string | null
+          funnel_stage?: string | null
+          headline?: string
+          html_content?: string | null
+          id?: string
+          idea_id?: string
+          image_intent?: string | null
+          image_iterations?: Json | null
+          image_prompt?: string | null
+          image_storage_path?: string | null
+          image_type?: string | null
+          layout_variation?: string | null
+          narrative_angle?: string | null
+          overlay_variant?: string | null
+          piece_status?: string
+          pipeline_run_id?: string
+          platform?: string
+          png_storage_path?: string | null
+          status_pill?: string | null
+          template_type?: string | null
+          updated_at?: string | null
+          visual_tone?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pipeline_pieces_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "business_tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pipeline_pieces_pipeline_run_id_fkey"
+            columns: ["pipeline_run_id"]
+            isOneToOne: false
+            referencedRelation: "pipeline_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pipeline_runs: {
+        Row: {
+          approved_idea_ids: string[] | null
+          brief: Json
+          business_id: string
+          completed_at: string | null
+          content_output: Json | null
+          created_at: string | null
+          current_step: number
+          error: Json | null
+          id: string
+          options: Json
+          retry_count: number | null
+          status: string
+          strategy_output: Json | null
+          total_steps: number
+          updated_at: string | null
+          validation_output: Json | null
+        }
+        Insert: {
+          approved_idea_ids?: string[] | null
+          brief: Json
+          business_id: string
+          completed_at?: string | null
+          content_output?: Json | null
+          created_at?: string | null
+          current_step?: number
+          error?: Json | null
+          id?: string
+          options?: Json
+          retry_count?: number | null
+          status?: string
+          strategy_output?: Json | null
+          total_steps?: number
+          updated_at?: string | null
+          validation_output?: Json | null
+        }
+        Update: {
+          approved_idea_ids?: string[] | null
+          brief?: Json
+          business_id?: string
+          completed_at?: string | null
+          content_output?: Json | null
+          created_at?: string | null
+          current_step?: number
+          error?: Json | null
+          id?: string
+          options?: Json
+          retry_count?: number | null
+          status?: string
+          strategy_output?: Json | null
+          total_steps?: number
+          updated_at?: string | null
+          validation_output?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pipeline_runs_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "business_tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pipeline_steps: {
+        Row: {
+          agent_name: string
+          completed_at: string | null
+          duration_ms: number | null
+          error: Json | null
+          id: string
+          input: Json | null
+          output: Json | null
+          pipeline_run_id: string
+          retry_count: number | null
+          started_at: string | null
+          status: string
+          step_number: number
+        }
+        Insert: {
+          agent_name: string
+          completed_at?: string | null
+          duration_ms?: number | null
+          error?: Json | null
+          id?: string
+          input?: Json | null
+          output?: Json | null
+          pipeline_run_id: string
+          retry_count?: number | null
+          started_at?: string | null
+          status?: string
+          step_number: number
+        }
+        Update: {
+          agent_name?: string
+          completed_at?: string | null
+          duration_ms?: number | null
+          error?: Json | null
+          id?: string
+          input?: Json | null
+          output?: Json | null
+          pipeline_run_id?: string
+          retry_count?: number | null
+          started_at?: string | null
+          status?: string
+          step_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pipeline_steps_pipeline_run_id_fkey"
+            columns: ["pipeline_run_id"]
+            isOneToOne: false
+            referencedRelation: "pipeline_runs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       pld_alerts: {
         Row: {
@@ -4300,6 +5218,41 @@ export type Database = {
         }
         Relationships: []
       }
+      presentations: {
+        Row: {
+          business_id: string
+          created_at: string | null
+          id: string
+          name: string
+          slides: Json
+          updated_at: string | null
+        }
+        Insert: {
+          business_id: string
+          created_at?: string | null
+          id?: string
+          name?: string
+          slides?: Json
+          updated_at?: string | null
+        }
+        Update: {
+          business_id?: string
+          created_at?: string | null
+          id?: string
+          name?: string
+          slides?: Json
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "presentations_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "business_tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -4352,6 +5305,59 @@ export type Database = {
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      promoters: {
+        Row: {
+          business_id: string
+          created_at: string | null
+          email: string | null
+          full_name: string
+          id: string
+          is_active: boolean
+          phone: string | null
+          photo_url: string | null
+          qr_url: string | null
+          role: string | null
+          sort_order: number
+          updated_at: string | null
+        }
+        Insert: {
+          business_id: string
+          created_at?: string | null
+          email?: string | null
+          full_name: string
+          id?: string
+          is_active?: boolean
+          phone?: string | null
+          photo_url?: string | null
+          qr_url?: string | null
+          role?: string | null
+          sort_order?: number
+          updated_at?: string | null
+        }
+        Update: {
+          business_id?: string
+          created_at?: string | null
+          email?: string | null
+          full_name?: string
+          id?: string
+          is_active?: boolean
+          phone?: string | null
+          photo_url?: string | null
+          qr_url?: string | null
+          role?: string | null
+          sort_order?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promoters_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "business_tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -4661,19 +5667,19 @@ export type Database = {
       }
       scory2: {
         Row: {
-          "Acepto declaraci├│n de veracidad y responsabilidad sobre los da":
+          "Acepto declaración de veracidad y responsabilidad sobre los da":
             | string
             | null
           "Acta constitutiva -Poderes": string | null
           "Asamblea actualizada": string | null
-          "C├│mo conociste al cliente": string | null
+          "Cómo conociste al cliente": string | null
           "Comprobante Domicilio": string | null
           "Conocimiento ampliado cliente ( Explica a detalle el modelo de ":
             | string
             | null
           "Constancia CSF Accionista": string | null
           "Constancia situacion fiscal empresa": string | null
-          "Correo electr├│nico": string | null
+          "Correo electrónico": string | null
           "Creado por": string | null
           created_at: string
           "Domicilio fiscal de la empresa": string | null
@@ -4700,19 +5706,19 @@ export type Database = {
           "Ubicacion google maps": string | null
         }
         Insert: {
-          "Acepto declaraci├│n de veracidad y responsabilidad sobre los da"?:
+          "Acepto declaración de veracidad y responsabilidad sobre los da"?:
             | string
             | null
           "Acta constitutiva -Poderes"?: string | null
           "Asamblea actualizada"?: string | null
-          "C├│mo conociste al cliente"?: string | null
+          "Cómo conociste al cliente"?: string | null
           "Comprobante Domicilio"?: string | null
           "Conocimiento ampliado cliente ( Explica a detalle el modelo de "?:
             | string
             | null
           "Constancia CSF Accionista"?: string | null
           "Constancia situacion fiscal empresa"?: string | null
-          "Correo electr├│nico"?: string | null
+          "Correo electrónico"?: string | null
           "Creado por"?: string | null
           created_at?: string
           "Domicilio fiscal de la empresa"?: string | null
@@ -4739,19 +5745,19 @@ export type Database = {
           "Ubicacion google maps"?: string | null
         }
         Update: {
-          "Acepto declaraci├│n de veracidad y responsabilidad sobre los da"?:
+          "Acepto declaración de veracidad y responsabilidad sobre los da"?:
             | string
             | null
           "Acta constitutiva -Poderes"?: string | null
           "Asamblea actualizada"?: string | null
-          "C├│mo conociste al cliente"?: string | null
+          "Cómo conociste al cliente"?: string | null
           "Comprobante Domicilio"?: string | null
           "Conocimiento ampliado cliente ( Explica a detalle el modelo de "?:
             | string
             | null
           "Constancia CSF Accionista"?: string | null
           "Constancia situacion fiscal empresa"?: string | null
-          "Correo electr├│nico"?: string | null
+          "Correo electrónico"?: string | null
           "Creado por"?: string | null
           created_at?: string
           "Domicilio fiscal de la empresa"?: string | null
@@ -5180,6 +6186,92 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      validation_disputes: {
+        Row: {
+          business_id: string
+          created_at: string | null
+          created_by: string
+          id: string
+          reason: string
+          resolved_at: string | null
+          status: string
+          validation_id: string
+        }
+        Insert: {
+          business_id: string
+          created_at?: string | null
+          created_by: string
+          id?: string
+          reason?: string
+          resolved_at?: string | null
+          status?: string
+          validation_id: string
+        }
+        Update: {
+          business_id?: string
+          created_at?: string | null
+          created_by?: string
+          id?: string
+          reason?: string
+          resolved_at?: string | null
+          status?: string
+          validation_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "validation_disputes_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "business_tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "validation_disputes_validation_id_fkey"
+            columns: ["validation_id"]
+            isOneToOne: false
+            referencedRelation: "validation_history"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      validation_history: {
+        Row: {
+          business_id: string
+          created_at: string | null
+          id: string
+          issues: Json
+          piece_content: Json
+          risk_level: string
+          validation_level: string
+        }
+        Insert: {
+          business_id: string
+          created_at?: string | null
+          id?: string
+          issues?: Json
+          piece_content: Json
+          risk_level: string
+          validation_level: string
+        }
+        Update: {
+          business_id?: string
+          created_at?: string | null
+          id?: string
+          issues?: Json
+          piece_content?: Json
+          risk_level?: string
+          validation_level?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "validation_history_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "business_tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       workspaces: {
         Row: {
@@ -7821,6 +8913,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       accion_tipo: [
