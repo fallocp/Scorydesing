@@ -462,7 +462,7 @@ function autoAccentText(text: string, maxAccents: number = 2): string {
   });
 
   // Pick positions: HIGH first, then LOW to fill remaining slots
-  let selectedPositions = [
+  const selectedPositions = [
     ...highPositions.slice(0, maxAccents),
     ...lowPositions.slice(0, Math.max(0, maxAccents - highPositions.length)),
   ].slice(0, maxAccents);

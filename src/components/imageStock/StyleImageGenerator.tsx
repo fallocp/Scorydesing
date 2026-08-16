@@ -57,7 +57,6 @@ export function StyleImageGenerator({ style }: StyleImageGeneratorProps) {
   // Sync draft when the saved prompt loads/changes.
   useEffect(() => {
     setPromptDraft(savedPromptText);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [savedPromptText]);
 
   const isPromptDirty = promptDraft.trim() !== savedPromptText.trim();

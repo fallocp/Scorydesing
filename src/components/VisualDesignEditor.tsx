@@ -361,7 +361,7 @@ function replaceNthHtmlFragment(source: string, oldHTML: string, newHTML: string
   if (n <= 0) return replaceHtmlFragment(source, oldHTML, newHTML);
 
   // Camino literal: buscar la n-ésima aparición exacta del fragmento.
-  let idx = -1;
+  let idx: number;
   let from = 0;
   let count = 0;
   while ((idx = source.indexOf(oldHTML, from)) !== -1) {
@@ -1385,7 +1385,7 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
         const next = { ...prev };
         for (const key of Object.keys(prev)) {
           if (/^\[data-eid="/.test(key)) continue; // ya canónico
-          let node: Element | null = null;
+          let node: Element | null;
           try { node = doc.querySelector(key); } catch { node = null; }
           if (!node) continue;
 
@@ -1422,7 +1422,7 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
     const named = [...(editableElements ?? EDITABLE_ELEMENTS), ...insertedElements];
     const namedMatches = named
       .map((def) => {
-        let node: Element | null = null;
+        let node: Element | null;
         try { node = doc.querySelector(def.selector); } catch { node = null; }
         return { def, node };
       })
@@ -3424,7 +3424,7 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
   const findElForOverlay = useCallback((selector: string, id: string): HTMLElement | null => {
     const doc = iframeRef.current?.contentDocument;
     if (!doc) return null;
-    let el: HTMLElement | null = null;
+    let el: HTMLElement | null;
     try { el = doc.querySelector(selector) as HTMLElement | null; } catch { el = null; }
     if (el) return el;
     for (const [node, oid] of elementOverlayMapRef.current) {
