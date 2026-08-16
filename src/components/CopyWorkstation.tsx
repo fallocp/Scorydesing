@@ -34,12 +34,26 @@ import { ImageLightbox } from './ImageLightbox';
 import { MultichannelRenderer } from './multichannel/MultichannelRenderer';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
+import type { Json } from '@/integrations/supabase/types';
 
 interface GeneratedVariant {
   id: string;
   imageUrl: string;
   prompt: string;
   base64?: string;
+}
+
+/**
+ * A rendered version of one copy, already persisted as a pipeline piece.
+ *
+ * Several designs can exist for the same copy: each render is kept so the user
+ * can go back to an earlier version instead of regenerating it.
+ */
+interface SavedDesign {
+  id: string;
+  html: string;
+  pngUrl: string | null;
+  createdAt: string;
 }
 
 interface CopyState {
@@ -51,6 +65,10 @@ interface CopyState {
   renderedPng: string | null;
   savedPieceId: string | null;
   isRendering: boolean;
+  /** Every version rendered for this copy, oldest first. */
+  savedDesigns: SavedDesign[];
+  /** Which of them is currently loaded in the preview. */
+  activeDesignId: string | null;
 }
 
 /**
@@ -206,7 +224,7 @@ export function CopyWorkstation({ branch, branchName, initialBrainstormOpen = fa
             status: 'in_progress',
             partner: 'none',
             commercial_branch_id: (branch as any).commercial_branch_id || null,
-            branch_data: branch as unknown as Record<string, unknown>,
+            branch_data: branch as unknown as Json,
           })
           .select()
           .single();
@@ -411,6 +429,7 @@ export function CopyWorkstation({ branch, branchName, initialBrainstormOpen = fa
                 variants: [], selectedVariantId: null,
                 prompt: bestPrompt,
                 isGenerating: false, html: null, renderedPng: null,
+                savedPieceId: null,
                 savedDesigns: [], activeDesignId: null, isRendering: false,
               };
             } else {
@@ -467,6 +486,7 @@ export function CopyWorkstation({ branch, branchName, initialBrainstormOpen = fa
         isGenerating: false,
         html: null,
         renderedPng: null,
+        savedPieceId: null,
         savedDesigns: [],
         activeDesignId: null,
         isRendering: false,
@@ -493,6 +513,7 @@ export function CopyWorkstation({ branch, branchName, initialBrainstormOpen = fa
           isGenerating: false,
           html: null,
           renderedPng: null,
+          savedPieceId: null,
           savedDesigns: [],
           activeDesignId: null,
           isRendering: false,
@@ -577,9 +598,14 @@ export function CopyWorkstation({ branch, branchName, initialBrainstormOpen = fa
     return variant?.imageUrl || null;
   };
 
-  // --- Helper to call generate-ideas edge function ---
-  const callGenerateIdeas = async (body: Record<string, unknown>) => {
-    return invokeWithRetry('generate-ideas', { body });
+  /**
+   * Helper to call the generate-ideas edge function.
+   *
+   * Generic because `ideas` carries a different shape per request `type`:
+   * `image` returns prompt strings, `copy` returns headline/subcopy/cta objects.
+   */
+  const callGenerateIdeas = async <T,>(body: Record<string, unknown>) => {
+    return invokeWithRetry<{ ideas?: T[] }>('generate-ideas', { body });
   };
 
   // --- Suggest image prompt ideas (via Claude) ---
@@ -593,7 +619,7 @@ export function CopyWorkstation({ branch, branchName, initialBrainstormOpen = fa
     const previousIdeas = suggestions[index] || [];
 
     try {
-      const data = await callGenerateIdeas({
+      const data = await callGenerateIdeas<string>({
         type: 'image',
         brand: selectedBrand,
         business_id: activeBusiness?.id || undefined,
@@ -693,7 +719,7 @@ export function CopyWorkstation({ branch, branchName, initialBrainstormOpen = fa
     setSuggestingCopyIndex(index);
 
     try {
-      const data = await callGenerateIdeas({
+      const data = await callGenerateIdeas<{ headline: string; subcopy: string; cta: string }>({
         type: 'copy',
         brand: selectedBrand,
         business_id: activeBusiness?.id || undefined,
@@ -723,7 +749,7 @@ export function CopyWorkstation({ branch, branchName, initialBrainstormOpen = fa
     setSuggestingPunchlineIndex(index);
 
     try {
-      const data = await callGenerateIdeas({
+      const data = await callGenerateIdeas<string>({
         type: 'punchline',
         brand: selectedBrand,
         business_id: activeBusiness?.id || undefined,
@@ -1589,6 +1615,7 @@ export function CopyWorkstation({ branch, branchName, initialBrainstormOpen = fa
         isGenerating: false,
         html: null,
         renderedPng: null,
+        savedPieceId: null,
         savedDesigns: [],
         activeDesignId: null,
         isRendering: false,
@@ -1894,7 +1921,8 @@ export function CopyWorkstation({ branch, branchName, initialBrainstormOpen = fa
                                 updated[i] = prev[i < index ? i : i + 1] || {
                                   variants: [], selectedVariantId: null,
                                   prompt: '', isGenerating: false, html: null,
-                                  renderedPng: null, savedDesigns: [], activeDesignId: null, isRendering: false,
+                                  renderedPng: null, savedPieceId: null,
+                                  savedDesigns: [], activeDesignId: null, isRendering: false,
                                 };
                               });
                               return updated;
@@ -2047,6 +2075,7 @@ export function CopyWorkstation({ branch, branchName, initialBrainstormOpen = fa
                                   isGenerating: false,
                                   html: null,
                                   renderedPng: null,
+                                  savedPieceId: null,
                                   savedDesigns: [],
                                   activeDesignId: null,
                                   isRendering: false,
@@ -2921,6 +2950,7 @@ export function CopyWorkstation({ branch, branchName, initialBrainstormOpen = fa
               [newIndex]: {
                 variants: [], selectedVariantId: null, prompt: '',
                 isGenerating: false, html: null, renderedPng: null,
+                savedPieceId: null,
                 savedDesigns: [], activeDesignId: null, isRendering: false,
               },
             }));
