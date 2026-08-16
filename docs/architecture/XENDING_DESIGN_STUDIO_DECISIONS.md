@@ -38,19 +38,96 @@ sin errores nuevos", que hoy no es verificable.
 **Pendiente de acordar:** versiones exactas a fijar y si el umbral arranca en
 `--max-warnings 0` sobre una base que nunca pasó por lint.
 
-## D3 — Las tres ramas sin kit se completarán, pero no en esta branch
+## D3 — Las tres ramas sin kit siguen operativas, marcadas como draft
 
-**Decisión:** `cuenta-multidivisa`, `control-operativo-pagos` y `banco-vs-xending` se
-completarán con contexto maestro, banco de copys y kit aprobado más adelante. Esta branch
-solo construye el andamiaje: schema, estado `draft` y bloqueo.
+**Decisión:** `cuenta-multidivisa`, `control-operativo-pagos` y `banco-vs-xending` **no se
+bloquean**. Se quedan visibles y generando como hoy. Se les agrega el estado `draft` tipado y
+una etiqueta visible de "kit pendiente" para que su editorial incompleto sea evidente en la
+interfaz. Se completarán con contexto maestro, banco de copys y kit aprobado más adelante,
+fuera de esta branch.
 
-**Razón:** el TO-BE §7.6 prohíbe llenar huecos con claims inferidos. Hoy las tres están
-activas en el selector y generan carrusel apoyadas solo en `prompt_kit` legacy;
-`banco-vs-xending` genera comparativas sin ningún bloque de prohibiciones moderno.
+**Razón:** son ramas en uso y bloquearlas retiraba tres opciones del selector sin que exista
+todavía el reemplazo editorial.
 
-**Efecto:** los criterios §41.9 y §41.10 se cumplen con las seis ramas tipadas y tres en
-`draft`. La branch queda lista para activarlas al pegar los bancos aprobados, sin volver a
-tocar el agente.
+**Efecto en los criterios:**
+
+- §41.9 ("las seis ramas canónicas existen como kits tipados") se cumple.
+- §41.10 ("las ramas incompletas están draft y no inventan claims") se cumple **a medias y a
+  propósito**: quedan marcadas draft, pero sí generan.
+- §7.6 ("impedir generación productiva desde una rama incompleta") queda **anulado**.
+
+**Riesgo residual aceptado:** `banco-vs-xending` sigue produciendo comparativas contra bancos
+sin ningún `editorialBansBlock` moderno, apoyada solo en su `prompt_kit` legacy. Es el caso
+más expuesto de los tres y el que conviene atender primero cuando se completen los kits.
+
+## D5 — Los 152 errores de tipos: regenerar los tipos de Supabase
+
+**Decisión:** regenerar `src/integrations/supabase/types.ts` antes de empezar la Fase 1, y
+después triar lo que quede.
+
+**Diagnóstico:** los 152 errores no son 152 problemas. De las 32 tablas que `src/` consulta,
+**14 no existen en el archivo de tipos generados**:
+
+```
+asset_snapshots      copy_bank_items    creative_profiles   custom_templates
+design_feedback      design_mockups     design_sessions     learning_deltas
+pipeline_pieces      pipeline_runs      pipeline_steps      presentations
+template_registry    trigger_templates
+```
+
+La distribución de códigos confirma la causa: 36 `TS2339` (propiedad inexistente), 29
+`TS2345` (no asignable a `never`), 13 `TS2769` (ningún overload coincide), 11 `TS2352`. Es el
+patrón de consultar una tabla que el tipo `Database` no conoce: Postgrest resuelve a `never`
+y todo lo posterior cascadea.
+
+**Por qué antes y no al final:** la Fase 2 migra el Design Studio a `copy_bank_items`, una de
+las tablas ausentes. Es la razón por la que `useCopyBankV2` usa un cliente destipado. Escribir
+los contratos nuevos sobre tablas sin tipos obliga a `as any` y deja la Fase 3 sin
+verificación.
+
+**Comando:**
+
+```powershell
+supabase gen types typescript --linked > src/integrations/supabase/types.ts
+```
+
+**Pendiente después de regenerar:** medir la caída y triar el resto. Se esperan tres grupos
+genuinos: `CampaignCategory` sin importar en `src/types/xendingDesign.ts`, fixtures de test
+que construyen `VisualSelections` sin los campos de narrativa y embudo, y `chart.tsx` /
+`resizable.tsx`, probable desajuste de versión de `recharts` y `react-resizable-panels`.
+
+## D6 — La migración de slugs se aplica junto con el cambio de código
+
+**Decisión:** `20260816_xending_branch_slug_identity.sql` no se aplica por separado. Corre en
+el mismo deploy que el cambio que deja de inyectar `prompt_kit` legacy cuando existe kit
+moderno.
+
+**Razón:** por sí sola la migración no cambia nada visible; el texto con "costos ocultos"
+sigue llegando al agente desde `prompt_kit`. Juntas dejan la rama de costos limpia en una sola
+pasada.
+
+**Alcance medido:** 2 filas de `commercial_branches`, 0 de `design_sessions`, 17 de
+`design_mockups` y 2 de `design_feedback`. Solo `design_sessions` tenía impacto funcional y no
+tiene filas afectadas. Todo son `UPDATE`, con rollback en el archivo.
+
+## Hallazgo — la migración `20260811` nunca tuvo efecto
+
+No es una decisión, es un defecto que la Fase 1 debe corregir.
+
+`20260811_fix_costos_branch_editorial_compliance.sql` reescribió `strategic_config` para quitar
+el ángulo de costos ocultos. Pero `buildBranchContextBlock` usa `prompt_kit` cuando existe y
+**nunca** cae a `strategic_config`. La rama de costos tiene `prompt_kit`, así que el fix está
+inerte desde que se aplicó: el bloque de 7,004 caracteres que llega hoy a los agentes sigue
+conteniendo "Xending revela y elimina los costos ocultos que los bancos tradicionales
+esconden", "Las empresas pagan 2-4% más de lo que creen en cada operación" y "La transparencia
+no es un beneficio. Es un derecho que tu banco no te da".
+
+El comentario final de esa migración justifica no cambiar el nombre de la rama porque
+"rompería `resolveBranchForKitSlug`". Es incorrecto: esa función busca `/costo/` por regex, que
+"Costos y Ahorro" cumple igual, y tras el rename acierta por slug exacto.
+
+La corrección es por código (dejar de inyectar `prompt_kit` cuando hay kit moderno), no por
+otra reescritura de datos que el código tampoco leería.
 
 ## D4 — Identidad de rama: el slug de la base absorbe el slug del kit
 
@@ -82,9 +159,4 @@ que ninguna relación se rompe. Se toca:
 **Efecto en los criterios:** el alias `pagos-con-orden → control-operativo-pagos` del §7.4 se
 retira: la base activa ya usa `control-operativo-pagos` y nunca contuvo `pagos-con-orden`.
 
-## D5 — Errores de tipos preexistentes
 
-**Pendiente de decisión.** La base tiene 152 errores de `tsc -b` (ver `BRANCH_BASELINE.md`),
-mientras el DoD §42 pide "TypeScript sin errores". Opciones: declararlos deuda y medir solo
-que no aumenten, o limpiar al menos `templateAssembler.ts` y `VisualSelections`, que se
-cruzan con los contratos nuevos.
