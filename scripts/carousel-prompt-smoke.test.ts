@@ -36,7 +36,20 @@ import { carouselMechanicsExamples } from "../supabase/functions/_shared/carouse
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const KIT_DIR = resolve(HERE, "../supabase/functions/_shared/copy-kits");
-const DUMP_DIR = resolve(HERE, "../docs/architecture/carousel-prompt-dumps");
+
+/**
+ * Dumps del bloque legacy, indexados por SLUG DE RAMA.
+ *
+ * Se usa este directorio y no las carpetas por escenario (`cobertura-motor-
+ * infografia`, `velocidad-industrial-fotografia`) porque esos nombres describen el
+ * tema del carrusel, no la rama: `cobertura-motor-infografia` corrió sobre la rama
+ * `ahorro-costos-ocultos`, y tomar su dump como el de coberturas atribuye 7,004
+ * caracteres a la rama equivocada. Aquí el nombre de la carpeta ES el slug.
+ */
+const LEGACY_DIR = resolve(
+  HERE,
+  "../docs/architecture/carousel-prompt-dumps/_global/six-branches",
+);
 
 function loadKit(slug: string): CopyKit {
   return JSON.parse(readFileSync(resolve(KIT_DIR, `${slug}.json`), "utf8")) as CopyKit;
@@ -52,26 +65,28 @@ const norm = (s: string) =>
  * frontend manda `angle_label ?? angle_tag`, así que las dos formas llegan en
  * producción y el resolutor tiene que aceptar las dos.
  *
- * `legacyDump` es el bloque que este bloque reemplaza, medido en una corrida real.
+ * `branchSlug` es el slug de la rama en `commercial_branches`, que NO coincide con
+ * el del kit: es justo la desalineación que la migración 20260816 viene a cerrar.
+ * Aquí sirve para encontrar el dump del bloque legacy que cada bloque reemplaza.
  */
 const SCENARIOS = [
   {
     slug: "velocidad",
     angleName: "Producto listo",
     industryName: "autopartes",
-    legacyDump: "velocidad-industrial-fotografia/05-branch-context-block.txt",
+    branchSlug: "velocidad-mismo-dia",
   },
   {
     slug: "costos-ahorro",
     angleName: "impacto_acumulado",
     industryName: "maquinaria",
-    legacyDump: null,
+    branchSlug: "ahorro-costos-ocultos",
   },
   {
     slug: "coberturas",
     angleName: "Certidumbre con forward",
     industryName: "textiles_calzado",
-    legacyDump: "cobertura-motor-infografia/05-branch-context-block.txt",
+    branchSlug: "cobertura-cambiaria",
   },
 ] as const;
 
@@ -91,10 +106,8 @@ describe("bloque de rama desde el copy kit", () => {
 
     expect(block.length).toBeGreaterThan(1000);
 
-    const legacyPath = scenario.legacyDump ? resolve(DUMP_DIR, scenario.legacyDump) : null;
-    const legacy = legacyPath && existsSync(legacyPath)
-      ? readFileSync(legacyPath, "utf8").length
-      : null;
+    const legacyPath = resolve(LEGACY_DIR, scenario.branchSlug, "02-branch-context-block.txt");
+    const legacy = existsSync(legacyPath) ? readFileSync(legacyPath, "utf8").length : null;
 
     console.log(
       `  [${scenario.slug}] kit ${kit.kit_version}: bloque ${block.length} chars` +
