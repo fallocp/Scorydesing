@@ -24,6 +24,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.53.0";
 import { callOpenAI } from '../_shared/callOpenAI.ts';
 import { fetchBusinessContext } from '../_shared/fetchBusinessContext.ts';
 import { buildBranchContextBlock } from '../_shared/buildBranchContextBlock.ts';
+import { buildBranchContextFromKit } from '../_shared/buildBranchContextFromKit.ts';
 import { carouselMechanicsExamples } from '../_shared/carouselExamples.ts';
 import { getCopyKit } from '../_shared/copyKitRegistry.ts';
 import { parseModelJson } from '../_shared/parseModelJson.ts';
@@ -251,6 +252,13 @@ function buildSystemPrompt(params: {
   narrativeRules?: string;
   compliance: { forbidden_terms: string[]; required_qualifiers: string[]; max_values: Record<string, string> };
   branchContext: string;
+  /**
+   * Kit slug of the branch, or null when it has none.
+   *
+   * Only the few-shot needs it: the approved carousel bank belongs to one branch,
+   * so its literal lines go to that branch and nowhere else.
+   */
+  branchSlug?: string | null;
   verticalKeywords: string[];
   industryName?: string | null;
   angleName?: string | null;
@@ -264,8 +272,9 @@ function buildSystemPrompt(params: {
   guidance?: string;
 }): string {
   const {
-    brandName, objective, compliance, branchContext, verticalKeywords, industryName,
-    angleName, imageType, slides, editorialBans, fxMoments, fxAccumulated, guidance,
+    brandName, objective, compliance, branchContext, branchSlug, verticalKeywords,
+    industryName, angleName, imageType, slides, editorialBans, fxMoments,
+    fxAccumulated, guidance,
   } = params;
 
   /**
@@ -444,6 +453,7 @@ ${lengthRules}
 Pasarte de ahí rompe la pieza. Si no cabe la idea, recórtala, no la comprimas con abreviaturas.
 
 ${carouselMechanicsExamples(
+  branchSlug ?? null,
   objective === 'explicar' || objective === 'vender' ? objective : 'conectar',
 )}
 
@@ -842,6 +852,8 @@ serve(async (req) => {
 
     let branchContext = '';
     let editorialBans = '';
+    /** Kit slug of the branch, or null when it has none. Decides the few-shot. */
+    let branchSlug: string | null = null;
     if (body.branch_id) {
       const { data: branch } = await serviceClient
         .from('commercial_branches')
@@ -851,35 +863,51 @@ serve(async (req) => {
         .single();
 
       if (branch) {
-        branchContext = buildBranchContextBlock(
-          branch.prompt_kit as Record<string, unknown> | null,
-          branch.strategic_config as Record<string, unknown> | null,
-          branch.name,
-        );
-
         /**
-         * The branch's editorial bans, from the copy kit.
+         * The kit is resolved FIRST because it decides where the context comes from.
          *
-         * This exists because the two context sources contradict each other. The
-         * block above comes from `commercial_branches`, which for the costs branch
-         * still instructs the agent to "evidenciar los costos ocultos que los
-         * bancos tradicionales cobran" — an angle the copy kit bans outright. The
-         * kit is the newer editorial truth, and until now it only reached the copy
-         * agent, so the carousel obeyed the older instruction and produced slides
-         * about exposing what someone hides.
+         * The two sources contradicted each other. `commercial_branches.prompt_kit`
+         * predates the copy kits and for the costs branch still instructs the agent
+         * to reveal "los costos ocultos que los bancos tradicionales esconden" — the
+         * phrase the kit lists first in `banned_phrases`. Both blocks reached this
+         * same prompt, the legacy one about 7,000 characters against roughly 2,000
+         * of prohibitions arguing back, and the legacy one won often enough to
+         * produce slides about exposing what someone hides.
          *
-         * Non-fatal on purpose: an unmappable branch loses the bans, not the
-         * carousel.
+         * The fix is not to rewrite the column: migration 20260811 already tried
+         * that and had no effect, because this code path never falls through to
+         * `strategic_config` when `prompt_kit` exists. The fix is to stop reading it
+         * when the branch has a kit.
+         *
+         * Non-fatal on purpose, and that is what the fallback below is for: the
+         * three draft branches (cuenta-multidivisa, control-operativo-pagos,
+         * banco-vs-xending) map to no kit, and `prompt_kit` is the only context
+         * they have.
          */
         try {
-          const { kit } = await getCopyKit(
+          const { kit, slug } = await getCopyKit(
             branch.slug ?? branch.name,
             serviceClient,
             body.business_id,
           );
+          branchSlug = slug;
           editorialBans = buildEditorialBansBlock(kit as unknown as Record<string, unknown>);
+          branchContext = buildBranchContextFromKit({
+            kit,
+            angleName: body.angleName,
+            industryName: body.industryName,
+            objective: body.objective,
+          });
         } catch (err) {
           console.warn('No se pudo resolver el copy kit de la rama:', err);
+        }
+
+        if (!branchContext) {
+          branchContext = buildBranchContextBlock(
+            branch.prompt_kit as Record<string, unknown> | null,
+            branch.strategic_config as Record<string, unknown> | null,
+            branch.name,
+          );
         }
       }
     }
@@ -901,6 +929,7 @@ serve(async (req) => {
       brandName: businessCtx.brandIdentity.name,
       compliance: businessCtx.complianceRules,
       branchContext,
+      branchSlug,
       verticalKeywords,
       industryName: body.industryName,
       objective: body.objective,
