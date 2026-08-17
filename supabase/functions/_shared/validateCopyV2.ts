@@ -109,6 +109,44 @@ const TASK_IMPERATIVES = [
 ];
 
 /**
+ * Frases de una lista del kit que se pueden buscar literalmente en el texto.
+ *
+ * Las listas del v3 mezclan dos cosas: frases cortas y distintivas
+ * ("garantizado", "la ruta más rápida") y entradas largas que son ejemplos
+ * completos ("Xending siempre es más rápido.") o descripciones de un tipo de
+ * afirmación ("comparación explícita con un banco o competidor"). Buscar las
+ * largas como substring no encuentra nada, porque el modelo no las escribe
+ * verbatim, y buscarlas por palabras suelta falsos positivos.
+ *
+ * Así que solo se verifican las cortas. Las largas siguen trabajando en el
+ * prompt, que es donde sirven: ahí el modelo las lee como guía.
+ */
+function matchablePhrases(entries: string[] | undefined, maxWords = 5): string[] {
+  if (!entries?.length) return [];
+  return entries
+    .map((e) => e.replace(/[.]$/, "").trim())
+    .filter((e) => e.length >= 6 && e.split(/\s+/).length <= maxWords);
+}
+
+/**
+ * Verbos de capacidad que la rama declara, en forma de raíz.
+ *
+ * `capability_rule.valid_capabilities` trae frases en infinitivo ("procesar
+ * pagos el mismo día en corredores confirmados"), y el subline las escribe
+ * conjugadas ("procesa tu pago"). Se toma el primer verbo y se le quita la
+ * terminación para que la raíz coincida con cualquier conjugación.
+ *
+ * Antes esta lista era solo global, así que una capacidad propia de una rama
+ * —"dar seguimiento" en velocidad— no contaba como capacidad.
+ */
+function capabilityStemsFromKit(kit: CopyKit): string[] {
+  return (kit.capability_rule?.valid_capabilities ?? [])
+    .map((c) => c.trim().split(/\s+/)[0].toLowerCase())
+    .map((verb) => verb.replace(/(ar|er|ir)$/, ""))
+    .filter((stem) => stem.length >= 4);
+}
+
+/**
  * Signals that the subline names a brand capability rather than only assigning
  * homework. Derived from the 180 approved copies.
  */
@@ -271,19 +309,15 @@ function ctaBankFor(kit: CopyKit, corridor: string): string[] {
   return kit.corridors[corridor]?.cta ?? [];
 }
 
+/**
+ * CTA prohibidos que aplican a un corredor.
+ *
+ * Los de rama son el piso y los del corredor lo endurecen: un CTA vetado por la
+ * rama lo está en todos sus corredores, y un corredor puede vetar además los
+ * suyos. Se suman, no se reemplazan.
+ */
 function ctaBannedFor(kit: CopyKit, corridor: string): string[] {
-  return kit.corridors[corridor]?.cta_banned ?? [];
-}
-
-function matchesAnyPattern(text: string, patterns: string[] | undefined): boolean {
-  if (!patterns?.length) return false;
-  return patterns.some((p) => {
-    try {
-      return new RegExp(p, "i").test(text);
-    } catch {
-      return text.toLowerCase().includes(p.toLowerCase());
-    }
-  });
+  return [...(kit.cta_banned ?? []), ...(kit.corridors[corridor]?.cta_banned ?? [])];
 }
 
 // ---------------------------------------------------------------------------
@@ -321,6 +355,18 @@ export function validateCopyV2(params: ValidateCopyV2Params): ValidateCopyV2Resu
     const cta = (c.cta ?? "").trim();
     const allText = `${headline} ${subcopy} ${cta}`;
     const allNorm = norm(allText);
+    /*
+     * Texto redactado por el agente, sin el CTA.
+     *
+     * El CTA sale de un banco CERRADO y ya aprobado por corredor, y
+     * `cta_not_in_bank` lo verifica aparte. Escanearlo buscando afirmaciones que
+     * requieren validación produce falsos positivos por construcción: el CTA
+     * aprobado "Paga sin demoras a tu proveedor" contiene "sin demoras", y la
+     * regla dura de la rama lo permite exactamente ahí y solo ahí — "puede
+     * utilizarse como CTA aprobado, no como garantía factual dentro del subline".
+     * Medido: disparaba en 15 de los 90 copys aprobados de velocidad.
+     */
+    const redactado = norm(`${headline} ${subcopy}`);
 
     // --- CONTRATO: word limits -------------------------------------------
     const hw = wordCount(headline);
@@ -444,24 +490,104 @@ export function validateCopyV2(params: ValidateCopyV2Params): ValidateCopyV2Resu
     // --- PRINCIPIO CENTRAL: capacidad de marca, no tarea ------------------
     const subNorm = norm(subcopy);
     const opensWithTask = TASK_IMPERATIVES.some((v) => subNorm.startsWith(norm(v)));
-    const namesCapability = BRAND_CAPABILITY_SIGNALS.some((s) => subNorm.includes(norm(s)));
+    const capabilitySignals = [...BRAND_CAPABILITY_SIGNALS, ...capabilityStemsFromKit(kit)];
+    /*
+     * La capacidad puede vivir en el subline o en el CTA.
+     *
+     * La regla miraba solo el subline, y por eso rechazaba copys correctos donde
+     * la capacidad está en el CTA: "La diferencia cambiaria también viaja a China"
+     * + "Cotiza tu pago a China". El propio kit lo dice en `element_roles.cta`:
+     * el CTA es donde va la acción concreta con la marca.
+     *
+     * Medido contra el banco aprobado: mirando solo el subline fallaban 37 de los
+     * 90 copys de costos y 3 de los 90 de velocidad.
+     */
+    const ctaNorm = norm(cta);
+    const namesCapability = capabilitySignals.some(
+      (s) => subNorm.includes(norm(s)) || ctaNorm.includes(norm(s)),
+    );
     if (!namesCapability) {
       add(i, "error", "no_brand_capability", `El subline no nombra ninguna capacidad de la marca. Solo describe un problema o asigna tarea.`);
     } else if (opensWithTask) {
       add(i, "warn", "opens_with_task", `El subline abre con un imperativo de tarea. Verifica que igual comunique cómo ayuda la marca.`);
     }
 
-    // --- Nota legal -------------------------------------------------------
-    const detect = kit.legal_note?.detect;
-    const triggers = matchesAnyPattern(allText, detect);
-    if (triggers && !c.needsLegalNote) {
-      add(i, "error", "legal_note_missing", `El texto activa la nota legal de la rama pero needsLegalNote=false.`);
+    /**
+     * Nota legal: el motor creativo no la produce.
+     *
+     * El disclaimer se monta fuera, en la capa de marca, porque su texto cambia
+     * por pieza. Antes se validaba que el copy trajera el texto exacto del kit;
+     * ahora se valida lo contrario, que no lo traiga.
+     *
+     * Aviso y no error: los copys ya guardados con la marca puesta siguen siendo
+     * válidos, solo quedan señalados.
+     */
+    if (c.needsLegalNote || (c.legalNote ?? "").trim()) {
+      add(
+        i,
+        "warn",
+        "legal_note_generated",
+        `El disclaimer se monta fuera del motor creativo: needsLegalNote y legalNote deben venir en false y null.`,
+      );
     }
-    if (c.needsLegalNote) {
-      if (!kit.legal_note) {
-        add(i, "warn", "legal_note_undefined", `needsLegalNote=true pero la rama no define nota legal.`);
-      } else if ((c.legalNote ?? "").trim() !== kit.legal_note.text) {
-        add(i, "error", "legal_note_text", `legalNote no coincide con el texto exacto del kit.`);
+
+    /*
+     * --- Comparativos y afirmaciones que requieren validación --------------
+     *
+     * Tres niveles, no dos: prohibido, requiere validación, y permitido. El nivel
+     * intermedio existe porque la afirmación puede ser cierta pero hay que
+     * demostrarla antes de publicarla, y el agente no debe producirla por su
+     * cuenta.
+     */
+    for (const phrase of matchablePhrases(kit.comparative_rule?.not_allowed)) {
+      if (redactado.includes(norm(phrase))) {
+        add(i, "error", "comparative_banned", `Contiene un comparativo prohibido: "${phrase}".`);
+        break;
+      }
+    }
+    for (const phrase of matchablePhrases(kit.comparative_rule?.requires_review)) {
+      if (redactado.includes(norm(phrase))) {
+        add(i, "warn", "comparative_needs_review", `Usa "${phrase}", que requiere demostración antes de publicarse.`);
+        break;
+      }
+    }
+    const claimTriggers = [
+      ...matchablePhrases(kit.claim_review_trigger?.legal_triggers),
+      ...matchablePhrases(kit.claim_review_trigger?.both_triggers),
+    ];
+    for (const phrase of claimTriggers) {
+      if (redactado.includes(norm(phrase))) {
+        add(i, "error", "claim_needs_review", `Contiene "${phrase}", una afirmación que requiere validación previa y que el agente no debe generar.`);
+        break;
+      }
+    }
+
+    /*
+     * --- Headline, subline y CTA diciendo lo mismo -------------------------
+     *
+     * El caso del kit: headline "Compara tu tipo de cambio", subline "Compara el
+     * tipo de cambio de tu operación", CTA "Compara antes de pagar". Los tres
+     * repiten sin desarrollar una idea.
+     *
+     * Se mide por palabras de contenido compartidas: si el subline no aporta
+     * ninguna palabra nueva de peso, no está explicando, está repitiendo.
+     */
+    if (kit.element_roles) {
+      const content = (s: string) =>
+        new Set(
+          norm(s)
+            .split(/\s+/)
+            .filter((w) => w.length > 4),
+        );
+      const h = content(headline);
+      const s = content(subcopy);
+      if (s.size > 0) {
+        const nuevas = [...s].filter((w) => !h.has(w));
+        if (nuevas.length === 0) {
+          add(i, "error", "elements_echo", `El subline no aporta ninguna palabra nueva respecto al headline: repite en vez de explicar.`);
+        } else if (nuevas.length === 1 && s.size >= 3) {
+          add(i, "warn", "elements_echo", `El subline aporta una sola palabra nueva respecto al headline. Verifica que explique y no repita.`);
+        }
       }
     }
 
@@ -473,6 +599,47 @@ export function validateCopyV2(params: ValidateCopyV2Params): ValidateCopyV2Resu
       seenHeadlines.set(key, i);
     }
   });
+
+  /*
+   * --- Topes duros por ángulo, a nivel tanda ------------------------------
+   *
+   * `angle_limits` es un techo, distinto de la cuota, que es un objetivo. Costos
+   * ya tenía la distinción para `ejemplo_numerico` —cuota 3, tope 5— pero escrita
+   * en prosa dentro de `angle_quota_note`, donde ningún código podía leerla.
+   *
+   * Se verifica sobre la tanda entregada, no sobre el banco: es el único punto
+   * donde se puede impedir que una sola respuesta rompa el techo.
+   */
+  if (kit.angle_limits && copies.length > 0) {
+    const porAngulo = new Map<string, number>();
+    for (const c of copies) {
+      if (!c.angleTag) continue;
+      porAngulo.set(c.angleTag, (porAngulo.get(c.angleTag) ?? 0) + 1);
+    }
+    for (const [slug, limit] of Object.entries(kit.angle_limits)) {
+      const n = porAngulo.get(slug) ?? 0;
+      if (n === 0) continue;
+      const share = (n / copies.length) * 100;
+      /*
+       * Solo el tope absoluto, nunca el de tanda mixta.
+       *
+       * `validateCopyV2` recibe UN corredor, así que la tanda que ve nunca es
+       * mixta. Aplicar aquí `hard_cap_mixed_batch` marcaba como exceso algo
+       * legítimo: en velocidad, los 30 copys aprobados de china_asia tienen 10 de
+       * `oportunidad_mismo_dia`, un 33%, que supera el tope mixto de 20% pero cae
+       * dentro del 25-30% que el propio kit recomienda para campañas de China.
+       */
+      const cap = limit.hard_cap;
+      if (typeof cap === "number" && share > cap) {
+        findings.push({
+          index: -1,
+          severity: "error",
+          rule: "angle_cap_exceeded",
+          message: `El ángulo "${slug}" ocupa ${share.toFixed(0)}% de la tanda (${n} de ${copies.length}) y su tope duro es ${cap}%.`,
+        });
+      }
+    }
+  }
 
   const errorCount = findings.filter((f) => f.severity === "error").length;
   const warnCount = findings.filter((f) => f.severity === "warn").length;
@@ -535,9 +702,10 @@ export function validateKit(kit: CopyKit): Finding[] {
       findings.push({ index: i, severity: "warn", rule: "gold_subcopy_length", message: `gold_example ${i}: subline de ${sw} palabras, fuera del contrato.` });
     }
 
-    const detect = kit.legal_note?.detect;
-    if (matchesAnyPattern(`${headline} ${subcopy}`, detect) && !g.needsLegalNote) {
-      findings.push({ index: i, severity: "warn", rule: "gold_legal_note", message: `gold_example ${i}: activa la nota legal pero needsLegalNote no es true.` });
+    // La nota legal ya no se valida: el disclaimer se monta fuera del motor
+    // creativo, así que un gold example no debería declararla.
+    if (g.needsLegalNote) {
+      findings.push({ index: i, severity: "warn", rule: "gold_legal_note", message: `gold_example ${i}: declara needsLegalNote, pero el disclaimer se monta fuera del motor creativo.` });
     }
   });
 
