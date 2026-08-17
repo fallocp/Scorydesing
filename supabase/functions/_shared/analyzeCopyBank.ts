@@ -128,8 +128,25 @@ export function assignTargetAngles(
     remaining -= 1;
   }
 
-  // Still slots left (small quota list, or nothing under quota): keep cycling
-  // through the deficit order, topping up one at a time.
+  /*
+   * Quedan espacios. Antes de darle un segundo a cualquier ángulo, se le da el
+   * primero a los que todavía no tienen ninguno, aunque estén sobre cuota.
+   *
+   * Una tanda se revisa y se publica completa, así que doce ángulos distintos se
+   * leen como doce ideas y dos copys del mismo ángulo se leen como una idea con
+   * una variación. Con un banco desbalanceado —el de costos tiene 32% en un solo
+   * ángulo— solo 9 de 12 ángulos quedan en déficit, y sin esto el décimo espacio
+   * de una tanda de 10 repetía el primero en vez de estrenar uno.
+   */
+  for (const d of deficits) {
+    if (remaining === 0) break;
+    if (assignment.some((a) => a.angleTag === d.tag)) continue;
+    assignment.push({ angleTag: d.tag, count: 1 });
+    remaining -= 1;
+  }
+
+  // Ya no hay ángulos sin estrenar: recién ahí se apila, ciclando en orden de
+  // déficit para que el más atrasado reciba el refuerzo primero.
   let i = 0;
   while (remaining > 0 && deficits.length > 0) {
     const tag = deficits[i % deficits.length].tag;

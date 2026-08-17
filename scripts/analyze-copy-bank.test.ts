@@ -127,6 +127,59 @@ describe("assignTargetAngles", () => {
     const out = assignTargetAngles({ a: 100 }, { a: 10 }, 2);
     expect(out.reduce((s, x) => s + x.count, 0)).toBe(2);
   });
+
+  /**
+   * Una tanda se revisa y se publica completa, así que N ángulos distintos se
+   * leen como N ideas y dos copys del mismo ángulo se leen como una idea con una
+   * variación.
+   *
+   * El caso real: el banco de costos tiene 32% en un solo ángulo, así que con la
+   * cuota v3 solo 9 de 12 ángulos quedan en déficit. Antes, el décimo espacio de
+   * una tanda de 10 repetía el ángulo más atrasado en vez de estrenar uno de los
+   * que están sobre cuota.
+   */
+  it("estrena todos los ángulos antes de repetir, aunque estén sobre cuota", () => {
+    const quotaV3 = {
+      impacto_acumulado: 15,
+      tipo_de_cambio_costo_importacion: 13,
+      costo_velocidad: 10,
+      simplificacion_cuentas: 10,
+      segunda_cotizacion: 9,
+      margen_importacion: 9,
+      comparacion_integral: 7,
+      diferencias_mercado: 7,
+      diversificacion_proveedores: 6,
+      proteccion_margen: 6,
+      costumbre_proveedor: 5,
+      ejemplo_numerico: 3,
+    };
+    // Banco real: tres ángulos sobre cuota, tres ángulos nuevos en cero.
+    const banco = {
+      tipo_de_cambio_costo_importacion: 29,
+      segunda_cotizacion: 16,
+      comparacion_integral: 13,
+      impacto_acumulado: 10,
+      margen_importacion: 7,
+      simplificacion_cuentas: 7,
+      diferencias_mercado: 4,
+      costumbre_proveedor: 2,
+      ejemplo_numerico: 2,
+    };
+
+    const diez = assignTargetAngles(quotaV3, banco, 10);
+    expect(new Set(diez.map((a) => a.angleTag)).size).toBe(10);
+    expect(diez.every((a) => a.count === 1)).toBe(true);
+
+    // Con tantos espacios como ángulos, uno de cada uno y ninguno repetido.
+    const doce = assignTargetAngles(quotaV3, banco, 12);
+    expect(new Set(doce.map((a) => a.angleTag)).size).toBe(12);
+    expect(doce.every((a) => a.count === 1)).toBe(true);
+
+    // Recién al pedir más que el número de ángulos se apila.
+    const trece = assignTargetAngles(quotaV3, banco, 13);
+    expect(trece.reduce((s, x) => s + x.count, 0)).toBe(13);
+    expect(new Set(trece.map((a) => a.angleTag)).size).toBe(12);
+  });
 });
 
 describe("suggestCorridor", () => {
