@@ -49,7 +49,15 @@ Tú asignas un ROL semántico, no un color. El color lo resuelve el sistema.
 
 Un mismo concepto lleva siempre el mismo rol en todas las piezas. Eso es lo que vuelve el color reconocible: después de varias campañas el lector entiende que el coral significa exposición futura sin que nadie se lo explique.`;
 
-/** Bloque para el prompt del modelo de imagen: cómo se aplica ese lenguaje. */
+/**
+ * Bloque para el prompt del modelo de imagen: cómo se aplica ese lenguaje.
+ *
+ * Solo el sistema de color, que es universal. La gramática de CIFRAS vive aparte en
+ * `FIGURE_COLOR_GRAMMAR_EN` porque no lo es: habla de la obligación en USD, del
+ * tipo de cambio actual y del futuro, y estaba entrando en todos los slides de
+ * todas las ramas. Un set de velocidad recibía una gramática de color escrita para
+ * una mecánica de divisa que su pieza no tiene.
+ */
 export const BRAND_COLOR_LANGUAGE_EN = `BRAND COLOUR SYSTEM — three colours, fixed meanings, no exceptions:
 
 - Navy ${BRAND_COLORS.navy} — neutral information: the original USD obligation, the word TOTAL, field names, general text. Anything that is neither a benefit nor a risk.
@@ -61,12 +69,23 @@ There is NO fourth colour. Do not introduce a different orange, a red, a yellow 
 HOW THE ACCENTS ARE APPLIED — this matters as much as which colour:
 - Stamps and labels are OUTLINED on white: HOY is a turquoise outline with turquoise text on white or transparent; PAGO is a coral outline with coral text on white. Never a solid turquoise or coral fill behind them.
 - A figure that carries risk is coral TYPE, optionally with a thin coral rule under it. Never a solid coral or orange rectangle behind the number — that block belongs to another design system and it is the single most out-of-place element these pieces have produced.
-- Risk can also be carried by a thin line, a small arrow, a percentage, a stamp or a border. Coral used with restraint reads far more sophisticated than coral used as a highlighter.
+- Risk can also be carried by a thin line, a small arrow, a percentage, a stamp or a border. Coral used with restraint reads far more sophisticated than coral used as a highlighter.`;
 
-FIGURE COLOUR GRAMMAR, so numbers read the same way in every campaign:
-- Original obligation (USD 10,000.00): navy.
-- Current exchange rate: turquoise.
-- Future illustrative exchange rate: coral.
-- Current cost in MXN: navy or turquoise.
-- Future cost in MXN: coral.
+/**
+ * Cómo se colorean las cifras de una operación en divisa.
+ *
+ * Se inyecta ÚNICAMENTE cuando el slide lleva documentos con valores, y eso solo
+ * pasa en las ramas cuya mecánica es de dos momentos de un tipo de cambio. Vivía
+ * dentro de `BRAND_COLOR_LANGUAGE_EN`, así que llegaba también a piezas sin una
+ * sola cifra en cuadro: nombrar "the original USD obligation" y "the future
+ * illustrative exchange rate" en un set de velocidad le sugiere al modelo una
+ * cotización que la pieza no pidió.
+ *
+ * El mapeo concepto → rol es el mismo de `BRAND_COLOR_LANGUAGE_ES`: presente y
+ * control en turquesa, futuro y exposición en coral, la obligación en navy.
+ */
+export const FIGURE_COLOR_GRAMMAR_EN = `FIGURE COLOUR GRAMMAR, so numbers read the same way in every campaign:
+- The original obligation in foreign currency: navy. It is neither the benefit nor the risk, and it is the value that must read as identical across every document.
+- Current rate, and the current cost in local currency: turquoise, or navy for the cost.
+- Future illustrative rate, and the future cost in local currency: coral.
 - Difference and percentage: coral.`;

@@ -5,7 +5,12 @@ import { fetchBusinessContext, fetchMasterPromptByType } from "../_shared/fetchB
 import { interpolateTemplate } from "../_shared/interpolateTemplate.ts";
 import { validateImagePromptResponse } from "../_shared/validateResponse.ts";
 import { parseModelJson } from "../_shared/parseModelJson.ts";
-import { BRAND_COLORS, BRAND_COLOR_LANGUAGE_EN } from "../_shared/brandColorLanguage.ts";
+import {
+  BRAND_COLORS,
+  BRAND_COLOR_LANGUAGE_EN,
+  FIGURE_COLOR_GRAMMAR_EN,
+} from "../_shared/brandColorLanguage.ts";
+import { buildSceneRepertoireBlock, getSceneKit } from "../_shared/sceneKitRegistry.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -909,7 +914,7 @@ serve(async (req) => {
 // ---------------------------------------------------------------------------
 
 /**
- * Variety rules for the scene writer.
+ * Variety rules for the scene writer — the UNIVERSAL half.
  *
  * This agent is the one the image model actually reads, and it was missing what
  * the script agent already knew. Two failures came from that: every slide framed
@@ -919,20 +924,18 @@ serve(async (req) => {
  * The recurring subject is a bookend rather than a constant because the shared
  * design block already pins palette, light, camera and background across the set —
  * cohesion is covered, so repeating the object on top of it only costs variety.
+ *
+ * What used to be here and is NOT any more: the list of surfaces where the data
+ * lives, the change markers, the repertoire per narrative beat and the figures
+ * paragraph. All four were written for the costs branch — printed quotes, two dated
+ * copies of the same sheet, a screen with an exchange-rate curve — and reached every
+ * branch, so a velocidad set was handed the props of a currency operation and a
+ * coberturas set was handed a comparison of suppliers. They now come from
+ * `sceneKitRegistry`, per branch. This constant keeps only what is true of any
+ * carousel: the palette, the saturation limits, that the scene translates its own
+ * line, and that the slides may not look alike.
  */
-const CAROUSEL_SCENE_VARIETY = `## ELEMENTOS DE LA ESCENA Y PALETA
-
-El dato vive en un OBJETO de la escena, no flotando sobre ella. Superficies disponibles:
-- cotización u orden de compra impresa, con su total visible
-- dos hojas de la misma cotización lado a lado, con fechas distintas
-- pantalla en la escena (monitor sobre el escritorio, laptop entreabierta) con una curva de tipo de cambio
-- hoja con una gráfica impresa, tipo reporte
-- sello de fecha, fecha de vencimiento marcada, hoja de calendario
-
-Marcas de cambio, cuando la línea habla de que algo se movió:
-- dos totales de distinta longitud, el segundo más largo
-- el total mayor resaltado
-- la curva de la pantalla subiendo de izquierda a derecha
+const CAROUSEL_SCENE_VARIETY = `## PALETA Y COMPOSICIÓN DE LA ESCENA
 
 PALETA COMPLETA, no solo el acento. El sistema visual pide navy para estructura, teal para acentos funcionales y coral como ÚNICO resalte de tensión, en las proporciones del design spec. Una foto sin ningún elemento gráfico no tiene dónde aplicar el teal y el set sale plano: la escena necesita al menos un elemento que lo cargue — una línea que conecta dos documentos, un subrayado sobre una fila, una pestaña o etiqueta en una hoja, el borde de una tarjeta, el trazo de la curva en la pantalla. El coral se reserva para UNA sola cosa en el cuadro: el elemento donde vive la tensión de esa frase (el total mayor, la etiqueta de precio, la fecha que se movió). Navy en los objetos y la estructura.
 
@@ -950,16 +953,7 @@ Cada escena es la traducción visual de la línea de SU slide, no un fondo bonit
 
 El sujeto recurrente del set funciona como PARÉNTESIS: es el protagonista en el primer y en el último slide. En los slides de en medio cada escena trae SU PROPIO sujeto, el que exige su línea, y el recurrente aparece como detalle secundario, al fondo, desenfocado, o no aparece. La unidad del set ya la garantiza el bloque de diseño, que es idéntico en todos; repetir el mismo objeto encima de eso produce la misma imagen N veces.
 
-Cambia también la escala y el registro entre slides: plano general, detalle macro, documento de la operación, escena de operación. Dos escenas seguidas con el mismo encuadre del mismo objeto están mal.
-
-Recurso por tipo de momento, como punto de partida:
-- apertura: el objeto de la compra y el documento donde vive su costo
-- algo cambia: DOS ESTADOS DE LO MISMO en el cuadro — dos hojas de la misma cotización, una con fecha o sello posterior, totales visiblemente distintos en longitud y posición
-- riesgo o consecuencia: el efecto hecho visible — el total más largo, el equipo embalado todavía esperando
-- solución: la operación resuelta, un solo documento ordenado
-- cierre: el cuadro más callado, con el sujeto recurrente de vuelta
-
-CIFRAS: los montos y las etiquetas que vengan en el brief se renderizan LEGIBLES y correctos — son lo que hace que la escena explique el concepto. Un comparativo de dos totales sin números legibles no comunica el cambio, solo lo insinúa. Lo que no va: cifras que el brief no pidió, presentar un número como el tipo de cambio vigente o una cotización oficial, y rellenar el resto del documento con dígitos inventados. Los montos son props ilustrativos y tienen que verse plausibles y redondos; el resto de la superficie queda abstracto.`;
+Cambia también la escala y el registro entre slides: plano general, detalle macro, documento de la operación, escena de operación. Dos escenas seguidas con el mismo encuadre del mismo objeto están mal.`;
 
 /** Master-prompt router section that governs each medium. */
 const CAROUSEL_MEDIUM_SECTION: Record<string, string> = {
@@ -1154,6 +1148,23 @@ function layoutRule(layout?: string): string {
 }
 
 /**
+ * Where the baked text lives, decided per slide.
+ *
+ * This instruction used to say the text went ALWAYS in the upper band, identical
+ * across the N slides, with the subject composed in the lower two thirds. It had a
+ * real reason — the headline jumped around while the reader swiped — but it
+ * cancelled the five compositions of `layoutRule` in practice: `split_photo` asks
+ * for the copy in a left column and the scene came back with the top band anyway.
+ * Two opposite orders in the same prompt, and the one that won produced the same
+ * architecture five times.
+ *
+ * The text zone now belongs to each slide's composition, which travels in its own
+ * line. What still belongs to the SET is the visual system, and the design block
+ * already pins that.
+ */
+const CAROUSEL_TEXT_ZONE_RULE = `La zona de texto NO es la misma en todos los slides: cada slide trae su composición en su línea y ahí dice dónde vive su texto. Compón la escena para ESA zona — el área del texto de ese slide queda limpia y con contraste suficiente para leerlo encima, y el sujeto va donde su composición lo pida. Dos slides del set no repiten la misma arquitectura: es lo que evita que el set se lea como una plantilla rellenada varias veces.`;
+
+/**
  * Colour and placement of the baked text.
  *
  * Both were weaker here than in the single-image path, which is why the slides
@@ -1161,11 +1172,13 @@ function layoutRule(layout?: string): string {
  * short phrase in an accent color", and "at most" permits zero. The master prompt
  * states the brand pattern as a requirement, so this mirrors it.
  *
- * Placement matters more in a carousel than in a standalone piece. Each slide's
- * scene is written separately, so left to itself the text lands wherever that
- * scene suggests and the headline jumps around the frame while you swipe. Pinning
- * the same zone across the set is what makes it read as one piece, and it also
- * keeps the copy out of the corners reserved for the logo and the legal note.
+ * Placement comes from the slide's own composition, via `layoutRule`. It used to be
+ * pinned to the same band across the set — every slide with the text on top — which
+ * did keep the headline from jumping while you swipe, but bought that at the price
+ * of five slides with one architecture. Cohesion is already carried by the design
+ * spec, which is identical across the set; the composition is where the variety has
+ * to live. What placement still has to respect are the corners reserved for the
+ * logo and the legal note, and those are stated separately below.
  */
 function carouselTextRules(slide: CarouselPromptSlideInput): string {
   const carriesLogo = (slide.brandElements ?? []).includes('logo');
@@ -1314,7 +1327,17 @@ function assembleCarouselSlidePrompt(params: {
   }
 
   return [
-    `CAROUSEL SLIDE ${slide.index + 1} OF ${totalSlides} — narrative role "${slide.role}". This image is one piece of a series. The DESIGN SPEC below is identical across every slide on purpose: keep the same visual family, the same recurring subject, the same camera treatment and the same palette. Only the narrative beat changes.`,
+    /**
+     * What the set shares, stated without smuggling the subject in.
+     *
+     * This line used to end "keep the same visual family, the same recurring
+     * subject, the same camera treatment and the same palette", and it went out on
+     * every slide — including the middle ones, where `motifLine` four lines below
+     * says the opposite. The prompt the image model actually reads was ordering the
+     * same object into every frame and then telling it not to. What the set shares
+     * is the visual SYSTEM; the subject belongs to each slide.
+     */
+    `CAROUSEL SLIDE ${slide.index + 1} OF ${totalSlides} — narrative role "${slide.role}". This image is one piece of a series. The DESIGN SPEC below is identical across every slide on purpose: keep the same visual family, the same camera treatment and the same palette. The SUBJECT and the COMPOSITION are this slide's own — they are stated below and they change from slide to slide.`,
     /**
      * The recurring subject is asserted only where it belongs.
      *
@@ -1342,6 +1365,10 @@ function assembleCarouselSlidePrompt(params: {
      */
     'TEXT IS ENABLED for this piece: it renders its own headline, supporting copy and document labels. Ignore any instruction in the system prompt that applies when text in image is disabled.',
     BRAND_COLOR_LANGUAGE_EN,
+    // La gramática de cifras solo donde hay cifras, y lo decide el mismo dato que
+    // produce el bloque de documentos: si el slide no lleva ninguno, no hay nada
+    // que colorear y nombrarlo solo le sugiere al modelo una cotización de más.
+    (slide.brief?.documents ?? []).length > 0 ? FIGURE_COLOR_GRAMMAR_EN : '',
     documentDataBlock(slide),
     `TEXT TO RENDER IN THE IMAGE (exact and authoritative). The quotation marks are NOT part of the copy and must not appear in the image:\n\n${textLines.join('\n\n')}\n\nSpell it exactly as written, in Spanish, without translating it, without rewording it and without adding sentences of your own. Do not render quotation marks around any of it.\n${BRAND_TYPOGRAPHY}\nNo paragraph blocks, no bullet lists.`,
     environmentalTextBlock(slide),
@@ -1376,9 +1403,20 @@ function buildCarouselUserMessage(params: {
   aspectRatio: string;
   designBlock?: string;
   totalSlides?: number;
+  /**
+   * Repertorio visual de la rama activa. Vacío cuando la rama no tiene kit — las
+   * tres draft — y entonces el escritor de escena recibe solo la parte universal.
+   * Antes recibía el repertorio de costos, que no era neutral.
+   */
+  sceneRepertoire?: string;
 }): string {
   const { slides, visualMotif, imageType, backgroundStyle, aspectRatio } = params;
   const sharedBlock = params.designBlock?.trim() ?? '';
+  // El de la rama primero: es el que decide de qué está hecha la escena. Las reglas
+  // universales van después porque acotan lo que ya se eligió.
+  const sceneRules = [params.sceneRepertoire?.trim(), CAROUSEL_SCENE_VARIETY]
+    .filter(Boolean)
+    .join('\n\n');
   const setSize = params.totalSlides ?? slides.length;
   const mediumSection = CAROUSEL_MEDIUM_SECTION[imageType] ?? imageType;
 
@@ -1393,7 +1431,10 @@ function buildCarouselUserMessage(params: {
         `  imageIntent: ${s.imageIntent}`,
         brief?.visualIntent ? `  qué debe volver evidente: ${brief.visualIntent}` : '',
         brief?.visualMetaphor ? `  recurso que lo demuestra: ${brief.visualMetaphor}` : '',
-        brief?.layout ? `  layout: ${brief.layout}` : '',
+        // La regla completa, no el slug: es la misma cadena que va al prompt final,
+        // así que el escritor de escena y el modelo de imagen leen exactamente la
+        // misma composición. Con el slug suelto la escena tenía que adivinarla.
+        brief?.layout ? `  composición: ${layoutRule(brief.layout)}` : '',
         (brief?.primaryObjects ?? []).length > 0
           ? `  objetos en cuadro: ${brief!.primaryObjects!.join(', ')}`
           : '',
@@ -1417,16 +1458,16 @@ Ese bloque puede venir de una pieza terminada de esta misma campaña, así que p
 
 Devuelve únicamente slides[]: por cada slide pedido, su sceneBlock — la escena concreta de ESE slide en inglés (sujeto, qué hace el motivo recurrente en este momento de la historia, encuadre). Entre 40 y 90 palabras. Debe encajar sin fricción con el bloque de arriba y ser claramente distinta de las escenas de los demás slides del set, pero obviamente de la misma serie: el motivo recurrente evoluciona, no se reemplaza.
 
-El texto va SIEMPRE en la zona superior del cuadro, igual en los ${setSize} slides — no lo decidas por slide ni lo muevas de lugar, o el titular salta mientras el lector desliza. Compón el sujeto en los dos tercios inferiores y deja la franja superior como fondo limpio con contraste suficiente para leer el texto encima.
+${CAROUSEL_TEXT_ZONE_RULE}
 
-${CAROUSEL_SCENE_VARIETY}`
+${sceneRules}`
     : `1. designBlock — UN bloque de diseño en inglés, compartido por los ${setSize} slides del set. Se va a insertar textualmente e idéntico en cada prompt, así que escríbelo una sola vez y que sea completo y autosuficiente: medio y materialidad, tratamiento de cámara y escala, iluminación, paleta con hex y sus proporciones, tipografía, densidad de composición, espacio negativo y restricciones del sistema visual. NO metas aquí nada específico de un slide.
 
 2. slides[] — por cada slide pedido, su sceneBlock: la escena concreta de ESE slide en inglés (sujeto, qué hace el motivo recurrente en este momento de la historia, encuadre). Entre 40 y 90 palabras. El motivo recurrente evoluciona a lo largo del set, no se reemplaza.
 
-El texto va SIEMPRE en la zona superior del cuadro, igual en los ${setSize} slides — no lo decidas por slide ni lo muevas de lugar, o el titular salta mientras el lector desliza. Compón el sujeto en los dos tercios inferiores y deja la franja superior como fondo limpio con contraste suficiente para leer el texto encima.
+${CAROUSEL_TEXT_ZONE_RULE}
 
-${CAROUSEL_SCENE_VARIETY}`;
+${sceneRules}`;
 
   return `Construye los prompts técnicos en inglés para un CARRUSEL de ${setSize} slides que se leen en orden. En esta llamada te toca${slides.length === 1 ? ' 1 slide' : `n ${slides.length} slides`} del set.
 
@@ -1604,16 +1645,25 @@ async function handleMasterImagePath(
 
   // 2. Fetch branch strategic config
   let branchName: string | null = null;
+  /**
+   * Slug de la rama. Resuelve el repertorio visual del carrusel.
+   *
+   * Se pide en el mismo select que ya se hacía: el repertorio por rama no cuesta
+   * una lectura extra. El slug se prefiere al nombre porque después de la migración
+   * 20260816 coincide con el del kit, y el resolutor acepta los dos igual.
+   */
+  let branchSlug: string | null = null;
   let strategicConfig: Record<string, unknown> | null = null;
   if (branch_id) {
     const { data: branch } = await supabase
       .from('commercial_branches')
-      .select('name, strategic_config')
+      .select('name, slug, strategic_config')
       .eq('id', branch_id)
       .eq('business_id', business_id!)
       .single();
 
     branchName = branch?.name ?? null;
+    branchSlug = branch?.slug ?? null;
     strategicConfig = branch?.strategic_config as Record<string, unknown> | null;
   }
 
@@ -1703,6 +1753,7 @@ async function handleMasterImagePath(
       interpolatedPrompt,
       effectiveBackgroundStyle,
       { source: promptSource, version: selectedMasterPromptVersion },
+      branchSlug ?? branchName,
     );
   }
 
@@ -1876,6 +1927,13 @@ async function buildCarouselPrompts(
   systemPrompt: string,
   backgroundStyle: string,
   promptMeta: { source: string; version: string },
+  /**
+   * Nombre o slug de la rama, ya leído de `commercial_branches` por el llamador.
+   *
+   * Sirve para resolver el repertorio visual. Va como parámetro y no se vuelve a
+   * consultar porque `handleMasterImagePath` ya trajo la fila.
+   */
+  branchIdentifier: string | null,
 ): Promise<Response> {
   const rawSlides = requestBody.carouselSlides ?? [];
   if (rawSlides.length === 0) {
@@ -1910,6 +1968,8 @@ async function buildCarouselPrompts(
   const visualMotif = requestBody.visualMotif?.trim() ?? '';
   const providedDesignBlock = requestBody.carouselDesignBlock?.trim() ?? '';
 
+  const sceneKit = getSceneKit(branchIdentifier);
+
   const userMessage = buildCarouselUserMessage({
     slides,
     visualMotif,
@@ -1918,10 +1978,11 @@ async function buildCarouselPrompts(
     aspectRatio,
     designBlock: providedDesignBlock,
     totalSlides,
+    sceneRepertoire: buildSceneRepertoireBlock(sceneKit),
   });
 
   console.log(
-    `carousel_prompts: building ${slides.length}/${totalSlides} prompt(s) (medium=${imageType}, designBlock=${providedDesignBlock ? 'reused' : 'new'})...`,
+    `carousel_prompts: building ${slides.length}/${totalSlides} prompt(s) (medium=${imageType}, designBlock=${providedDesignBlock ? 'reused' : 'new'}, sceneKit=${sceneKit?.version ?? 'none'})...`,
   );
 
   const response = await fetchWithRetry(

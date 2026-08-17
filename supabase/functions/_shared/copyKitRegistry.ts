@@ -16,6 +16,17 @@
 
 import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.53.0";
 import type { CopyKit } from "./buildCopyPromptV2.ts";
+import { BRANCH_KIT_SLUGS, resolveKitSlug } from "./branchSlug.ts";
+
+/**
+ * `resolveKitSlug` se movió a `branchSlug.ts` y se reexporta desde aquí.
+ *
+ * Este módulo importa el cliente de Supabase desde esm.sh, así que no lo puede
+ * importar el frontend, y la resolución de rama sí la necesita ahí. Se reexporta
+ * para no cambiarle la API pública a nadie.
+ */
+export { resolveKitSlug };
+export type { BranchKitSlug } from "./branchSlug.ts";
 
 import velocidadKit from "./copy-kits/velocidad.json" with { type: "json" };
 import costosAhorroKit from "./copy-kits/costos-ahorro.json" with { type: "json" };
@@ -31,48 +42,8 @@ const KITS: Record<string, CopyKit> = {
   coberturas: coberturasKit as unknown as CopyKit,
 };
 
-/** Branch slugs a caller may pass. Aliases map real branch names onto a kit. */
-const ALIASES: Record<string, string> = {
-  velocidad: "velocidad",
-  "velocidad-mismo-dia": "velocidad",
-  "velocidad-same-day": "velocidad",
-  "costos-ahorro": "costos-ahorro",
-  costos: "costos-ahorro",
-  ahorro: "costos-ahorro",
-  "ahorro-costos-ocultos": "costos-ahorro",
-  "costos-ocultos": "costos-ahorro",
-  coberturas: "coberturas",
-  cobertura: "coberturas",
-  "cobertura-cambiaria": "coberturas",
-  "coberturas-cambiarias": "coberturas",
-  forward: "coberturas",
-  forwards: "coberturas",
-};
-
 export function listCopyKitSlugs(): string[] {
-  return Object.keys(KITS);
-}
-
-/** Normalizes a free-form branch slug or name onto a kit slug. */
-export function resolveKitSlug(input: string): string | null {
-  const key = input
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[\s_]+/g, "-");
-
-  if (KITS[key]) return key;
-  if (ALIASES[key]) return ALIASES[key];
-
-  // Loose contains match, so "Ahorro / Costos Ocultos" resolves.
-  if (/velocidad|mismo\s*dia|rapidez|same\s*day/.test(key)) return "velocidad";
-  // Before the costos test on purpose: a branch named "Cobertura de Tipo de
-  // Cambio" contains "tipo-de-cambio" and would otherwise land on costos-ahorro.
-  if (/cobertura|forward|hedg|riesgo-cambiario/.test(key)) return "coberturas";
-  if (/costo|ahorro|tipo-de-cambio|fx|spread/.test(key)) return "costos-ahorro";
-
-  return null;
+  return [...BRANCH_KIT_SLUGS];
 }
 
 export interface GetCopyKitResult {

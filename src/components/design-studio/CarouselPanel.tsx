@@ -63,6 +63,12 @@ interface CarouselPanelProps {
   bankItem: CopyBankItem | null;
   branchId: string | null;
   /**
+   * Slug o nombre de la rama. Resuelve el repertorio visual y la mecánica de
+   * cifras del set: costos y coberturas llevan documentos de dos momentos,
+   * velocidad no lleva cifras.
+   */
+  branchSlug: string | null;
+  /**
    * "Fondo" chosen in Stage B, used as the starting point. The carousel owns its
    * own choice from there: inheriting it silently meant a set could be rendered
    * under the plainest background without the panel ever showing which one.
@@ -124,6 +130,7 @@ const CAROUSEL_BACKGROUNDS: { value: string; label: string }[] = [
 export function CarouselPanel({
   bankItem,
   branchId,
+  branchSlug,
   background,
   imageType,
   brandSlug,
@@ -183,6 +190,7 @@ export function CarouselPanel({
   const queue = useCarouselQueue({
     bankItem,
     branchId,
+    branchSlug,
     background: setBackground,
     imageType: setImageType,
     brandSlug,

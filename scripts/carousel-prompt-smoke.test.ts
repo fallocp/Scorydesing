@@ -33,6 +33,12 @@ import {
   resolveKitAngle,
 } from "../supabase/functions/_shared/buildBranchContextFromKit.ts";
 import { carouselMechanicsExamples } from "../supabase/functions/_shared/carouselExamples.ts";
+import {
+  branchUsesFigures,
+  buildSceneRepertoireBlock,
+  figureScenarioForRole,
+  getSceneKit,
+} from "../supabase/functions/_shared/sceneKitRegistry.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const KIT_DIR = resolve(HERE, "../supabase/functions/_shared/copy-kits");
@@ -313,6 +319,127 @@ describe.runIf(process.env.CAROUSEL_DUMP === "1")("dump de los bloques compuesto
       console.log(
         `  escrito: ${path} (rama ${block.length} + ejemplos ${examples.length} chars)`,
       );
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 6. Repertorio visual por rama
+// ---------------------------------------------------------------------------
+
+describe("scene kits por rama", () => {
+  it.each(SCENARIOS)("$slug: resuelve su repertorio y lo compone", (scenario) => {
+    const kit = getSceneKit(scenario.slug);
+    expect(kit, `sin scene kit para ${scenario.slug}`).not.toBeNull();
+    expect(kit!.branchSlug).toBe(scenario.slug);
+
+    const block = buildSceneRepertoireBlock(kit);
+    expect(block).toContain("## REPERTORIO VISUAL DE LA RAMA");
+    expect(block).toContain("## CIFRAS");
+    console.log(`  [${scenario.slug}] repertorio ${block.length} chars (${kit!.version})`);
+  });
+
+  it("el slug de rama anterior a la migración 20260816 sigue resolviendo", () => {
+    // Un carrusel guardado antes de aplicarla puede traer el viejo en `selections`,
+    // y una rama que no resuelve pierde su repertorio sin decir por qué.
+    expect(getSceneKit("ahorro-costos-ocultos")?.branchSlug).toBe("costos-ahorro");
+    expect(getSceneKit("cobertura-cambiaria")?.branchSlug).toBe("coberturas");
+    expect(getSceneKit("velocidad-mismo-dia")?.branchSlug).toBe("velocidad");
+    expect(getSceneKit("Ahorro / Costos Ocultos")?.branchSlug).toBe("costos-ahorro");
+  });
+
+  it("una rama draft no recibe el repertorio de otra", () => {
+    // Es el punto entero del cambio: antes las tres draft recibían el catálogo
+    // global, que era el de costos. Vacío es correcto; prestado no.
+    expect(getSceneKit("cuenta-multidivisa")).toBeNull();
+    expect(getSceneKit(null)).toBeNull();
+    expect(buildSceneRepertoireBlock(null)).toBe("");
+  });
+});
+
+describe("mecánica de cifras por rama", () => {
+  it("velocidad no lleva documentos con cifras en ningún rol", () => {
+    const kit = getSceneKit("velocidad")!;
+    expect(branchUsesFigures(kit)).toBe(false);
+    for (const role of ["tension", "shift", "risk", "problem", "example", "solution", "cta"]) {
+      expect(figureScenarioForRole(kit, role), `rol ${role}`).toBeNull();
+    }
+  });
+
+  it.each(["costos-ahorro", "coberturas"])("%s lleva la mecánica de dos momentos", (slug) => {
+    const kit = getSceneKit(slug)!;
+    expect(branchUsesFigures(kit)).toBe(true);
+    expect(figureScenarioForRole(kit, "shift")).toBe("two_moment");
+    expect(figureScenarioForRole(kit, "risk")).toBe("repeated_purchases");
+    // Los tiempos sin cifras siguen sin cifras: la guía es un slide numérico por
+    // set, dos como máximo.
+    expect(figureScenarioForRole(kit, "tension")).toBeNull();
+    expect(figureScenarioForRole(kit, "solution")).toBeNull();
+    expect(figureScenarioForRole(kit, "cta")).toBeNull();
+  });
+
+  it("el bloque dice explícitamente que no hay cifras cuando no hay", () => {
+    const block = buildSceneRepertoireBlock(getSceneKit("velocidad"));
+    expect(block).toContain("Este set NO lleva cifras");
+    // Callarse no alcanza: sin decirlo, el modelo asume que debería haber un monto
+    // en el documento y lo inventa.
+    expect(block).not.toContain("se renderizan LEGIBLES");
+  });
+});
+
+describe("el vocabulario de una rama no se filtra a otra", () => {
+  /**
+   * Términos que pertenecen a una rama y no deben aparecer en el repertorio de las
+   * otras. Es la regresión concreta que este cambio vino a cerrar: el catálogo
+   * global le daba cotizaciones y curvas de tipo de cambio a las tres.
+   *
+   * Se excluye `bannedProps` de la búsqueda a propósito: ahí el término aparece
+   * justamente para prohibirlo, y es donde tiene que estar.
+   */
+  const OWNED_TERMS: Record<string, string[]> = {
+    "costos-ahorro": ["curva de tipo de cambio", "spread", "proveedores de pago distintos"],
+    velocidad: ["hora de corte", "reloj", "EN PROCESO", "andén"],
+    coberturas: ["forward", "vencimiento", "certidumbre"],
+  };
+
+  const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+  it.each(SCENARIOS)("$slug: solo usa vocabulario propio", (scenario) => {
+    const kit = getSceneKit(scenario.slug)!;
+    // Todo menos los props prohibidos, que nombran a las otras ramas por diseño.
+    const own = norm(
+      [
+        ...kit.dataSurfaces,
+        ...kit.changeMarkers,
+        ...Object.values(kit.moments),
+        kit.figurePolicy.note,
+      ].join(" | "),
+    );
+
+    const leaks: string[] = [];
+    for (const [owner, terms] of Object.entries(OWNED_TERMS)) {
+      if (owner === scenario.slug) continue;
+      for (const term of terms) {
+        if (own.includes(norm(term))) leaks.push(`"${term}" (de ${owner})`);
+      }
+    }
+    expect(leaks, `vocabulario prestado: ${leaks.join(", ")}`).toEqual([]);
+  });
+
+  it("cada rama nombra los props de las otras para prohibirlos", () => {
+    // El repertorio positivo no alcanza: el modelo llega con la utilería financiera
+    // genérica de su entrenamiento, y el catálogo global le había enseñado además
+    // que una cotización sirve para cualquier pieza.
+    for (const scenario of SCENARIOS) {
+      const kit = getSceneKit(scenario.slug)!;
+      expect(kit.bannedProps.length, scenario.slug).toBeGreaterThanOrEqual(3);
+      const banned = norm(kit.bannedProps.join(" | "));
+      const others = SCENARIOS.filter((s) => s.slug !== scenario.slug).map((s) => s.slug);
+      const named = others.filter((other) => {
+        const kitName = norm(getSceneKit(other)!.branchSlug.split("-")[0]);
+        return banned.includes(kitName);
+      });
+      expect(named.length, `${scenario.slug} no nombra ninguna otra rama`).toBeGreaterThan(0);
     }
   });
 });

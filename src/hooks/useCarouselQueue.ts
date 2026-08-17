@@ -16,8 +16,25 @@
  * every copy-bank query.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+/**
+ * El registro de repertorios visuales, compartido con las edge functions.
+ *
+ * Se importa desde `_shared` a propósito, igual que `brand-onboarding-types`: la
+ * mecánica de cifras la deciden el frontend (que arma los documentos, porque la
+ * aritmética va en código) y el escritor de escena (que arma la utilería), y las dos
+ * tienen que estar de acuerdo. Dos tablas separadas divergen.
+ *
+ * `sceneKitRegistry` no importa nada por URL, que es lo que impide importar
+ * `copyKitRegistry` desde aquí.
+ */
+import {
+  branchUsesFigures,
+  figureScenarioForRole,
+  getSceneKit,
+  type SceneKit,
+} from '../../supabase/functions/_shared/sceneKitRegistry';
 import { useActiveBusiness } from './useActiveBusiness';
 import { useSaveMockup } from './useDesignMockups';
 import { useUpdateBankMeta, type CopyBankItem } from './useDesignCopyBank';
@@ -58,6 +75,14 @@ export interface UseCarouselQueueParams {
   /** The approved bank copy this carousel derives from. */
   bankItem: CopyBankItem | null;
   branchId: string | null;
+  /**
+   * Slug o nombre de la rama, para resolver su scene kit.
+   *
+   * Separado de `branchId` porque el kit se indexa por slug y el `row` del bankItem
+   * viene de `generated_ideas`, que no tiene esa columna. El resolutor acepta slug
+   * o nombre, y los slugs anteriores a la migración 20260816 siguen mapeando.
+   */
+  branchSlug: string | null;
   /** Visible "Fondo" choice, resolved to a master prompt snapshot. */
   background: string | null;
   /** Medium for the whole set. Mixing mediums breaks the set. */
@@ -91,19 +116,24 @@ const IMAGE_SIZE = `${CAROUSEL_DIMENSIONS.width}x${CAROUSEL_DIMENSIONS.height}`;
 const FX_MOMENT_LABELS = ['MOMENTO BASE', 'MOMENTO INTERMEDIO', 'MOMENTO FINAL'];
 
 /**
- * Which slides carry figure documents, and which numeric story each one tells.
+ * Qué slides llevan documentos con cifras: lo decide la RAMA, no solo el rol.
  *
- * Only two beats need numbers: the one explaining the mechanism, which needs the
- * same operation at two moments, and the one about repetition, which needs the same
- * operation several times. The rest communicate without figures — the guidance is
- * one numeric slide per set, two at most.
+ * Esto era `FIGURE_SCENARIO_BY_ROLE`, una tabla global indexada solo por rol, así
+ * que un set de velocidad con rol `shift` recibía los documentos de una operación en
+ * divisa —COTIZACIÓN, TOTAL USD, TIPO DE CAMBIO, HOY y PAGO— en una pieza cuya
+ * historia es una hora de corte. Y como los montos salían de `DEFAULT_CAROUSEL_FX`,
+ * todo set renderizaba los mismos USD 10,000 a 18.20.
+ *
+ * Ahora la mecánica sale del scene kit de la rama: costos y coberturas comparten la
+ * de dos momentos, velocidad no lleva cifras porque las suyas serían afirmaciones
+ * operativas que su kit editorial manda no inventar.
  */
-const FIGURE_SCENARIO_BY_ROLE: Partial<Record<CarouselSlideRole, CarouselFigureScenario>> = {
-  shift: 'two_moment',
-  risk: 'repeated_purchases',
-  problem: 'two_moment',
-  example: 'repeated_purchases',
-};
+function figureScenarioFor(
+  sceneKit: SceneKit | null,
+  role: CarouselSlideRole,
+): CarouselFigureScenario | null {
+  return figureScenarioForRole(sceneKit, role) as CarouselFigureScenario | null;
+}
 
 /**
  * Platform recorded on the saved mockups. Carousel slides use the same square
@@ -123,6 +153,7 @@ function toPersisted(slots: CarouselSlotRuntime[]): CarouselSlot[] {
 export function useCarouselQueue({
   bankItem,
   branchId,
+  branchSlug,
   background,
   imageType,
   brandSlug,
@@ -131,6 +162,15 @@ export function useCarouselQueue({
   const { activeBusinessId } = useActiveBusiness();
   const saveMockup = useSaveMockup();
   const updateBankMeta = useUpdateBankMeta();
+
+  /**
+   * Repertorio visual de la rama. `null` en las tres ramas draft, que no tienen.
+   *
+   * De aquí sale la mecánica de cifras del set. La versión anterior la decidía una
+   * tabla global por rol, así que un set de velocidad recibía documentos de
+   * cotización con USD 10,000 a 18.20 en una pieza sobre una hora de corte.
+   */
+  const sceneKit = useMemo(() => getSceneKit(branchSlug), [branchSlug]);
 
   const [slots, setSlots] = useState<CarouselSlotRuntime[]>([]);
   /**
@@ -275,7 +315,20 @@ export function useCarouselQueue({
        * the very first script — the one case where getting it wrong is most visible.
        */
       const nextObjective = params.objective ?? objective;
-      const fxMoments = computeCarouselFx(params.fx ?? DEFAULT_CAROUSEL_FX);
+      /**
+       * Las cifras solo existen si la rama las usa.
+       *
+       * Antes se calculaban y se enviaban siempre, así que el agente de guion recibía
+       * una mecánica de tipo de cambio —18.20 → 18.56 sobre USD 10,000— con la
+       * instrucción de escribir un texto compatible con ella, incluso en un set de
+       * velocidad cuya historia es una hora de corte. El prompt ya tiene su rama
+       * alternativa ("CIFRAS: no uses ninguna"); nunca se activaba porque el arreglo
+       * siempre llegaba lleno.
+       */
+      const usesFigures = branchUsesFigures(sceneKit);
+      const fxMoments = usesFigures
+        ? computeCarouselFx(params.fx ?? DEFAULT_CAROUSEL_FX)
+        : [];
       setIsScripting(true);
       setError(null);
 
@@ -324,8 +377,16 @@ export function useCarouselQueue({
                 label: FX_MOMENT_LABELS[i] ?? `MOMENTO ${i + 1}`,
                 ...m.labels,
               })),
-              /** The number the repetition slide is about: the gaps adding up. */
-              fxAccumulated: accumulatedFxImpact(fxMoments).label,
+              /**
+               * The number the repetition slide is about: the gaps adding up.
+               *
+               * `undefined` and not the empty string when the branch carries no
+               * figures: the prompt tests for truthiness, and an empty label would
+               * render "IMPACTO ACUMULADO" followed by nothing.
+               */
+              fxAccumulated: usesFigures
+                ? accumulatedFxImpact(fxMoments).label
+                : undefined,
               guidance: params.guidance?.trim() || undefined,
             },
           },
@@ -369,7 +430,7 @@ export function useCarouselQueue({
          * no way to say which value goes where.
          */
         const withFigures = nextSlots.map((slot) => {
-          const scenario = FIGURE_SCENARIO_BY_ROLE[slot.role];
+          const scenario = figureScenarioFor(sceneKit, slot.role);
           if (!scenario || !slot.brief) return slot;
 
           const documents = buildFigureDocuments(scenario, fxMoments);
@@ -412,7 +473,7 @@ export function useCarouselQueue({
         setIsScripting(false);
       }
     },
-    [bankItem, activeBusinessId, branchId, imageType, objective, persist, applySlots],
+    [bankItem, activeBusinessId, branchId, sceneKit, imageType, objective, persist, applySlots],
   );
 
   // -------------------------------------------------------------------------

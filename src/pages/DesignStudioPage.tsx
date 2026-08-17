@@ -201,6 +201,21 @@ export default function DesignStudioPage() {
     );
   }, [activeSource, activeV2Row, branches, selectedBranch?.id]);
 
+  /**
+   * Slug de la rama del carrusel, para resolver su repertorio visual.
+   *
+   * Sale del mismo lugar que `carouselBranchId` y por la misma razón: el copy manda
+   * sobre el selector. Del banco v2 se toma `branch_slug`, que ya ES el slug del
+   * kit; del v1, el de la rama seleccionada, que el resolutor normaliza igual.
+   *
+   * Va como prop en vez de leerse del `bankItem` porque su `row` es de
+   * `generated_ideas`, que no tiene esta columna.
+   */
+  const carouselBranchSlug = useMemo(() => {
+    if (activeSource === 'v2' && activeV2Row) return activeV2Row.branch_slug;
+    return selectedBranch?.slug ?? selectedBranch?.name ?? null;
+  }, [activeSource, activeV2Row, selectedBranch?.slug, selectedBranch?.name]);
+
   const activeCarouselItem = useMemo<CopyBankItem | null>(() => {
     if (activeSource === 'v1') {
       return copyBank.items.find((it) => it.row.id === store.activeCandidateId) ?? null;
@@ -1359,6 +1374,7 @@ export default function DesignStudioPage() {
                       bankItem={activeCarouselItem}
                       persistMeta={carouselPersistMeta}
                       branchId={carouselBranchId}
+                      branchSlug={carouselBranchSlug}
                       background={store.selections.background}
                       // Solo semilla: el panel del carrusel elige su propio medio.
                       imageType={store.selections.pieceImagePrompt?.type ?? null}
