@@ -8,8 +8,10 @@
  * del v2 se pierde: `corridors`, `industries` y `gold_examples` suman más de
  * 10 KB y se copian verbatim, no se retipean.
  *
- * Escribe a un archivo NUEVO (`costos-ahorro.v3.json`) para poder comparar antes
- * de reemplazar el activo.
+ * Escribía a un archivo NUEVO (`costos-ahorro.v3.json`) para poder comparar antes
+ * de reemplazar el activo. Ya se comparó y el v3 es el kit activo, así que ese
+ * archivo intermedio se retiró y este script no debe volver a correrse. Ver el
+ * guard de abajo.
  *
  * Uso:
  *   node scripts/build-kit-v3-costos.mjs
@@ -21,6 +23,18 @@ const SRC = 'supabase/functions/_shared/copy-kits/costos-ahorro.json';
 const OUT = 'supabase/functions/_shared/copy-kits/costos-ahorro.v3.json';
 
 const v2 = JSON.parse(readFileSync(SRC, 'utf8'));
+
+/**
+ * SRC es el kit ACTIVO y la transformación no es idempotente: ahora que el activo
+ * es v3, correr esto otra vez aplicaría los campos dos veces. Se conserva como
+ * documentación ejecutable de la migración, no como paso del build.
+ */
+if (!/-v2\.\d/.test(v2.kit_version ?? '')) {
+  console.error(
+    `El kit activo ya es ${v2.kit_version}. Este conversor solo transforma v2 -> v3 y no es idempotente.`,
+  );
+  process.exit(1);
+}
 
 // ---------------------------------------------------------------------------
 // §6 Territorio editorial — 9 -> 21 entradas

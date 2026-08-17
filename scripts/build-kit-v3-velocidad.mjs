@@ -33,6 +33,25 @@ const OUT = 'supabase/functions/_shared/copy-kits/velocidad.v3.json';
 
 const v2 = JSON.parse(readFileSync(SRC, 'utf8'));
 
+/**
+ * Este conversor ya corrió y su salida es el kit activo.
+ *
+ * SRC es el kit ACTIVO y la transformación no es idempotente, así que ahora que
+ * el activo es v3 volver a correrlo leería v3 como entrada y produciría un kit
+ * con los campos aplicados dos veces. Se conserva como documentación ejecutable
+ * de la migración —las cuatro desviaciones de arriba y las premisas corregidas
+ * de los ángulos se decidieron aquí— pero no debe volver a ejecutarse.
+ *
+ * Para rehacer la migración desde cero: `git show <commit>:${SRC}` del último
+ * commit anterior a la activación.
+ */
+if (!/-v2\.\d/.test(v2.kit_version ?? '')) {
+  console.error(
+    `El kit activo ya es ${v2.kit_version}. Este conversor solo transforma v2 -> v3 y no es idempotente.`,
+  );
+  process.exit(1);
+}
+
 // ---------------------------------------------------------------------------
 // §6 Territorio editorial — velocidad no lo tenía
 // ---------------------------------------------------------------------------
