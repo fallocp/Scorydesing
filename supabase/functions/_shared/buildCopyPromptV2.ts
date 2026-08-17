@@ -40,6 +40,182 @@ export interface CopyKitAngle {
   note?: string;
 }
 
+// ---------------------------------------------------------------------------
+// Kit v3 — reglas editoriales que el v2 no tenía
+// ---------------------------------------------------------------------------
+// Todos opcionales: un kit v2 sigue siendo un CopyKit válido, y el constructor
+// omite lo que no existe. Ver docs/prompts/copy-banks/_contexto-editorial.*.v3.md
+// para el documento fuente y la sección de la que sale cada campo.
+
+/** A quién le habla la rama. (§5) */
+export interface CopyKitAudience {
+  roles?: string[];
+  company_profile?: string[];
+  seeks?: string[];
+}
+
+/** Qué puede señalar la tensión y qué nunca. (§8) */
+export interface CopyKitTensionPolicy {
+  level?: string;
+  may_signal?: string[];
+  must_never?: string[];
+  note?: string;
+}
+
+/** Cómo se habla de ahorro, impacto y resultados. (§10) */
+export interface CopyKitHedgingPolicy {
+  prefer?: string[];
+  avoid?: string[];
+  note?: string;
+}
+
+/**
+ * Todo copy debe cerrar en una capacidad real de Xending. (§11)
+ *
+ * Es la regla que evita el copy que solo le asigna tarea al cliente
+ * ("revisa tu costo total") sin decir qué hace Xending al respecto.
+ */
+export interface CopyKitCapabilityRule {
+  required_elements?: string[];
+  valid_capabilities?: string[];
+  weak_examples?: string[];
+  correct_examples?: string[];
+  note?: string;
+}
+
+/**
+ * Producto concreto → efecto financiero → capacidad. (§14, §15)
+ *
+ * `default_share_pct` es un eje APARTE de `angle_quota`: verticalizar es un
+ * tratamiento que cruza todos los ángulos, no un ángulo más. Darle cuota de
+ * ángulo consumiría puntos que ningún ángulo puede reclamar.
+ */
+export interface CopyKitVerticalization {
+  rule?: string;
+  products_by_industry?: Record<string, string[]>;
+  example?: { headline: string; subline: string; cta: string };
+  guard?: string;
+  default_share_pct?: number;
+  import_campaign_share_pct?: string;
+}
+
+/** Sustantivos concretos preferidos y abstracciones a vigilar. (§16) */
+export interface CopyKitConcretenessRule {
+  preferred_nouns?: string[];
+  use_with_care?: string[];
+  note?: string;
+}
+
+/** Headline, subline y CTA cumplen funciones distintas. (§20) */
+export interface CopyKitElementRoles {
+  headline?: string;
+  subline?: string;
+  cta?: string;
+  correct_example?: { headline: string; subline: string; cta: string };
+  incorrect_example?: { headline: string; subline: string; cta: string; why: string };
+}
+
+/**
+ * "Mejor" solo como posibilidad, nunca como promesa de desempeño. (§22)
+ *
+ * `requires_review` es un tercer nivel entre permitido y prohibido: la afirmación
+ * puede ser cierta, pero hay que demostrarla antes de publicarla. Velocidad lo
+ * necesita para las comparaciones de tiempo contra terceros.
+ */
+export interface CopyKitComparativeRule {
+  allowed?: string[];
+  requires_review?: string[];
+  not_allowed?: string[];
+  principle?: string;
+}
+
+/**
+ * Tope duro por ángulo, distinto de su cuota. (§18)
+ *
+ * La cuota es un objetivo; el tope es un techo. Costos ya tenía esta distinción
+ * para `ejemplo_numerico` —cuota 3, tope 5— pero escrita en prosa dentro de
+ * `angle_quota_note`, donde ningún código podía leerla.
+ */
+export interface CopyKitAngleLimit {
+  hard_cap?: number;
+  hard_cap_mixed_batch?: number;
+  note?: string;
+}
+
+/**
+ * Afirmaciones que dependen de condiciones confirmadas. (§24)
+ *
+ * Trabaja como prohibición dentro del prompt, no como metadata por pieza: nada
+ * persiste un nivel de revisión, así que pedirle al agente que clasifique sería
+ * un campo que se pierde al guardar.
+ */
+export interface CopyKitClaimReviewTrigger {
+  enabled?: boolean;
+  default_status?: string;
+  statuses?: string[];
+  operational_triggers?: string[];
+  legal_triggers?: string[];
+  both_triggers?: string[];
+  approved_template_rule?: string;
+}
+
+/**
+ * Qué tipo de afirmación hace un copy, y la regla de que una no se convierte en
+ * otra. Procesar el mismo día no equivale a que el beneficiario reciba ese día.
+ *
+ * La matriz operativa real —corredor, moneda, hora de corte, zona horaria— NO
+ * vive en el kit: tiene dueño de operaciones y fecha de verificación, y un
+ * horario vencido dentro del kit se convierte en un claim publicado.
+ */
+export interface CopyKitClaimSemantics {
+  allowed?: string[];
+  rule?: string;
+  source_of_truth?: string;
+}
+
+/** Criterio de calidad de un elemento. (§30, §31) */
+export interface CopyKitElementQuality {
+  must?: string[];
+  word_range?: string;
+  note?: string;
+}
+
+/** Qué debe y qué no debe sentir el lector. (§32) */
+export interface CopyKitCoreCriterion {
+  must_not_feel?: string;
+  must_feel?: string;
+  sells_capabilities?: string[];
+  never?: string[];
+}
+
+/**
+ * Reglas de composición de una TANDA. (§13, §18, §19)
+ *
+ * Solo para el agente de copys. El de carrusel no las recibe: un carrusel son
+ * cinco slides derivados de un copy ya aprobado, así que una cuota del 20% o un
+ * límite de "3 headlines consecutivos" no significan nada ahí y el agente
+ * intentaría obedecerlos igual.
+ */
+export interface CopyKitBatchPolicy {
+  creative_families?: Record<string, { territory?: string[]; examples?: string[]; note?: string }>;
+  variety_distribution?: Record<string, number>;
+  variety_note?: string;
+  anti_repetition?: string[];
+}
+
+/**
+ * Verificación de un copy antes de aceptarlo. (§33)
+ *
+ * `automatable` marca las comprobaciones mecánicas, que se implementan en código
+ * después de la respuesta del modelo. Doce preguntas al final de un prompt largo
+ * compiten con todo lo anterior; en código se verifican de verdad.
+ */
+export interface CopyKitFinalTestItem {
+  question: string;
+  on_fail: string;
+  automatable?: boolean;
+}
+
 export interface CopyKit {
   kit_version: string;
   branch_slug: string;
@@ -82,6 +258,46 @@ export interface CopyKit {
   cta_selection_rule?: string[];
   gold_examples?: Record<string, unknown>[];
   rejected_examples?: { text: string; reason: string }[];
+
+  // --- Campos que los JSON ya traían y el tipo no declaraba ---
+  // Pasaban silenciosos porque el registry castea con `as unknown as CopyKit`.
+  // `scope` en particular nunca llegó a ningún prompt: estaba en el JSON, no en
+  // el tipo, y ningún constructor lo leía.
+  /** Procedencia del kit: contexto maestro y banco del que se derivó. */
+  source?: string;
+  /** Territorio editorial de la rama: de qué puede hablar. (§6) */
+  scope?: string[];
+  /** Por qué la cuota de ángulos tiene esos pesos. */
+  angle_quota_rationale?: string;
+
+  // --- Kit v3 ---
+  /** Qué NO debe parecer la marca en esta rama. (§3) */
+  positioning_must_not_be?: string[];
+  audience?: CopyKitAudience;
+  tension_policy?: CopyKitTensionPolicy;
+  hedging_policy?: CopyKitHedgingPolicy;
+  capability_rule?: CopyKitCapabilityRule;
+  verticalization?: CopyKitVerticalization;
+  concreteness_rule?: CopyKitConcretenessRule;
+  element_roles?: CopyKitElementRoles;
+  comparative_rule?: CopyKitComparativeRule;
+  headline_quality?: CopyKitElementQuality;
+  subline_quality?: CopyKitElementQuality;
+  branch_core_criterion?: CopyKitCoreCriterion;
+  final_test?: CopyKitFinalTestItem[];
+  closing_principle?: string;
+  /** Solo agente de copys. Ver CopyKitBatchPolicy. */
+  batch_policy?: CopyKitBatchPolicy;
+  angle_limits?: Record<string, CopyKitAngleLimit>;
+  claim_review_trigger?: CopyKitClaimReviewTrigger;
+  claim_semantics?: CopyKitClaimSemantics;
+  /**
+   * CTA prohibidos a nivel RAMA. (§26)
+   *
+   * Se SUMA al `cta_banned` del corredor, no lo reemplaza: el de rama es el piso
+   * y el de corredor lo endurece.
+   */
+  cta_banned?: string[];
 }
 
 /** Live state of the copy bank, used to steer variety deterministically. */
@@ -208,7 +424,7 @@ No generar toda la tanda con la misma fórmula. Alterna.
 NUNCA un porcentaje de ahorro, un tiempo garantizado ni una tarifa inventada.
 Prohibidos siempre: "ahorra hasta 50%", "reduce tus costos 30%", "hasta 80% menos", tarifas o plazos que no estén en los claims permitidos, "garantizamos el mejor tipo de cambio", "ahorro garantizado", "siempre somos más baratos".
 
-Si alguna cifra está permitida, la política editorial de la rama define cuál, con qué nota legal y con qué cuota. Sin autorización explícita, no van cifras.
+Si alguna cifra está permitida, la política editorial de la rama define cuál y con qué cuota. Sin autorización explícita, no van cifras. La nota legal que acompaña a una cifra al publicarse se monta fuera del motor creativo: no la redactes ni la propongas.
 
 # REGLAS DE PRECISIÓN (duras)
 
@@ -295,6 +511,45 @@ function bullets(items: string[] | undefined): string {
   return items.map((i) => `- ${i}`).join("\n");
 }
 
+/** Una lista de strings o un string suelto, como viñetas. */
+function bulletsOrText(value: unknown): string {
+  if (Array.isArray(value)) return bullets(value.filter((v): v is string => typeof v === "string"));
+  return typeof value === "string" ? `- ${value}` : "";
+}
+
+/**
+ * Política de cifras, en prosa.
+ *
+ * Antes se inyectaba como `JSON.stringify(kit.numbers_policy)`: un volcado crudo
+ * en medio de un prompt en español. Y con el v3 empeoraba, porque Velocidad usa
+ * arrays donde Costos usa strings, así que el volcado quedaba con dos formas
+ * distintas en la misma sección del prompt según la rama.
+ */
+function buildNumbersPolicySection(policy: unknown): string {
+  if (!policy || typeof policy !== "object") return "";
+  const p = policy as Record<string, unknown>;
+  const parts: string[] = ["## Política de cifras de la rama"];
+
+  if (p.allowed) parts.push("", "PERMITIDO:", bulletsOrText(p.allowed));
+  if (p.requires) parts.push("", "REQUIERE:", bulletsOrText(p.requires));
+  if (p.quota) parts.push("", `CUOTA: ${String(p.quota)}`);
+  if (p.banned) parts.push("", "PROHIBIDO:", bulletsOrText(p.banned));
+  if (p.principle) parts.push("", `PRINCIPIO: ${String(p.principle)}`);
+
+  return parts.join("\n");
+}
+
+/**
+ * Editorial de la rama.
+ *
+ * El orden es deliberado y no acumulado, porque el prompt anterior llegó al suyo
+ * por sedimentación: primero qué ES la rama, luego cómo se escribe, luego qué
+ * puede decir, luego qué no, y al final los ejemplos y el cierre. Una regla vale
+ * lo que vale su posición: la de capacidad va antes de los ángulos porque
+ * condiciona cómo se usa cualquiera de ellos.
+ *
+ * Todo campo es opcional: un kit v2 rinde exactamente lo que rendía antes.
+ */
 function buildBranchSection(kit: CopyKit): string {
   const parts: string[] = [
     `# EDITORIAL DE LA RAMA: ${kit.branch_name}`,
@@ -305,18 +560,48 @@ function buildBranchSection(kit: CopyKit): string {
     kit.editorial_objective,
   ];
 
-  if (kit.client_should_think?.length) {
-    parts.push("", "## El lector debe pensar", bullets(kit.client_should_think));
-  }
+  // ── 1. Qué ES la rama ────────────────────────────────────────────────────
   if (kit.positioning_must_communicate?.length) {
     parts.push("", "## Debe comunicar", bullets(kit.positioning_must_communicate));
   }
-  if (kit.allowed_situations?.length) {
-    parts.push("", "## Situaciones permitidas", bullets(kit.allowed_situations));
+  if (kit.positioning_must_not_be?.length) {
+    parts.push(
+      "",
+      "## Qué NO debe parecer la marca en esta rama",
+      bullets(kit.positioning_must_not_be),
+    );
   }
-  if (kit.situation_framing_rule) {
-    parts.push("", "## Encuadre obligatorio de las situaciones", kit.situation_framing_rule);
+  if (kit.audience) {
+    const a = kit.audience;
+    const lines: string[] = [];
+    if (a.roles?.length) lines.push(`Roles: ${a.roles.join(", ")}.`);
+    if (a.company_profile?.length) lines.push(`Perfil de empresa: ${a.company_profile.join(", ")}.`);
+    if (a.seeks?.length) lines.push(`Busca: ${a.seeks.join(", ")}.`);
+    if (lines.length) parts.push("", "## Audiencia", lines.join("\n"));
   }
+  if (kit.scope?.length) {
+    parts.push(
+      "",
+      "## Territorio editorial (de esto puede hablar la rama)",
+      bullets(kit.scope),
+    );
+  }
+  if (kit.client_should_think?.length) {
+    parts.push("", "## El lector debe pensar", bullets(kit.client_should_think));
+  }
+  if (kit.branch_core_criterion) {
+    const c = kit.branch_core_criterion;
+    const lines: string[] = [];
+    if (c.must_not_feel) lines.push(`El lector NO debe sentir: "${c.must_not_feel}"`);
+    if (c.must_feel) lines.push(`El lector SÍ debe sentir: "${c.must_feel}"`);
+    if (c.sells_capabilities?.length) {
+      lines.push(`La rama vende estas capacidades: ${c.sells_capabilities.join(", ")}.`);
+    }
+    if (c.never?.length) lines.push(`Nunca: ${c.never.join(", ")}.`);
+    if (lines.length) parts.push("", "## Criterio central de la rama", lines.join("\n"));
+  }
+
+  // ── 2. Cómo se escribe ───────────────────────────────────────────────────
   if (kit.tone) {
     const t = kit.tone;
     const lines: string[] = [];
@@ -326,12 +611,96 @@ function buildBranchSection(kit: CopyKit): string {
     if (t.hedging) lines.push(t.hedging);
     parts.push("", "## Tono de la rama", lines.join("\n"));
   }
-  if (kit.hard_business_rules?.length) {
-    parts.push(
-      "",
-      "## Reglas duras de negocio (nunca contradecir)",
-      bullets(kit.hard_business_rules),
-    );
+  if (kit.tension_policy) {
+    const tp = kit.tension_policy;
+    const lines: string[] = [];
+    if (tp.level) lines.push(`Nivel: ${tp.level}.`);
+    if (tp.may_signal?.length) lines.push(`Puede señalar:\n${bullets(tp.may_signal)}`);
+    if (tp.must_never?.length) lines.push(`Nunca debe presentar:\n${bullets(tp.must_never)}`);
+    if (tp.note) lines.push(tp.note);
+    if (lines.length) parts.push("", "## Filosofía de tensión", lines.join("\n"));
+  }
+  if (kit.hedging_policy) {
+    const h = kit.hedging_policy;
+    const lines: string[] = [];
+    if (h.prefer?.length) lines.push(`Preferir: ${h.prefer.join(", ")}.`);
+    if (h.avoid?.length) lines.push(`Evitar: ${h.avoid.join(", ")}.`);
+    if (h.note) lines.push(h.note);
+    if (lines.length) parts.push("", "## Uso del condicional", lines.join("\n"));
+  }
+  /*
+   * La regla de capacidad va aquí, antes de los ángulos, no después.
+   *
+   * Es la que impide el copy que solo le asigna tarea al cliente —"revisa tu
+   * costo total", "prepara tu transferencia"— y condiciona cómo se usa cualquier
+   * ángulo. Puesta después de los ángulos se lee como un detalle; puesta antes,
+   * como el contrato.
+   */
+  if (kit.capability_rule) {
+    const cr = kit.capability_rule;
+    const lines: string[] = [];
+    if (cr.required_elements?.length) {
+      lines.push(`Todo copy debe contener, explícita o implícitamente:\n${bullets(cr.required_elements)}`);
+    }
+    if (cr.valid_capabilities?.length) {
+      lines.push(`Capacidades válidas de la marca:\n${bullets(cr.valid_capabilities)}`);
+    }
+    if (cr.weak_examples?.length) {
+      lines.push(`DÉBIL (no basta con identificar el problema):\n${bullets(cr.weak_examples)}`);
+    }
+    if (cr.correct_examples?.length) {
+      lines.push(`CORRECTO:\n${bullets(cr.correct_examples)}`);
+    }
+    if (cr.note) lines.push(cr.note);
+    if (lines.length) {
+      parts.push("", "## Regla central: problema → capacidad concreta", lines.join("\n\n"));
+    }
+  }
+  if (kit.element_roles) {
+    const e = kit.element_roles;
+    const lines: string[] = [];
+    if (e.headline) lines.push(`Headline: ${e.headline}`);
+    if (e.subline) lines.push(`Subline: ${e.subline}`);
+    if (e.cta) lines.push(`CTA: ${e.cta}`);
+    lines.push("Los tres cumplen funciones distintas y no deben repetir la misma idea.");
+    if (e.correct_example) {
+      lines.push(
+        `CORRECTO:\n  Headline: "${e.correct_example.headline}"\n  Subline: "${e.correct_example.subline}"\n  CTA: "${e.correct_example.cta}"`,
+      );
+    }
+    if (e.incorrect_example) {
+      lines.push(
+        `INCORRECTO (${e.incorrect_example.why}):\n  Headline: "${e.incorrect_example.headline}"\n  Subline: "${e.incorrect_example.subline}"\n  CTA: "${e.incorrect_example.cta}"`,
+      );
+    }
+    parts.push("", "## Funciones de headline, subline y CTA", lines.join("\n"));
+  }
+  if (kit.concreteness_rule) {
+    const c = kit.concreteness_rule;
+    const lines: string[] = [];
+    if (c.preferred_nouns?.length) lines.push(`Sustantivos preferidos: ${c.preferred_nouns.join(", ")}.`);
+    if (c.use_with_care?.length) lines.push(`Usar con cautela: ${c.use_with_care.join(", ")}.`);
+    if (c.note) lines.push(c.note);
+    if (lines.length) parts.push("", "## Regla de concreción", lines.join("\n"));
+  }
+  for (const [label, q] of [
+    ["headline", kit.headline_quality],
+    ["subline", kit.subline_quality],
+  ] as const) {
+    if (!q) continue;
+    const lines: string[] = [];
+    if (q.must?.length) lines.push(bullets(q.must));
+    if (q.word_range) lines.push(`Extensión: ${q.word_range}.`);
+    if (q.note) lines.push(q.note);
+    if (lines.length) parts.push("", `## Calidad del ${label}`, lines.join("\n"));
+  }
+
+  // ── 3. Qué PUEDE decir ───────────────────────────────────────────────────
+  if (kit.allowed_situations?.length) {
+    parts.push("", "## Situaciones permitidas", bullets(kit.allowed_situations));
+  }
+  if (kit.situation_framing_rule) {
+    parts.push("", "## Encuadre obligatorio de las situaciones", kit.situation_framing_rule);
   }
   if (kit.angles && Object.keys(kit.angles).length > 0) {
     const lines = Object.entries(kit.angles).map(([slug, a]) => {
@@ -339,6 +708,35 @@ function buildBranchSection(kit: CopyKit): string {
       return `- \`${slug}\` — ${a.label}: ${a.premise}${note}`;
     });
     parts.push("", "## Ángulos disponibles (usa el slug en angleTag)", lines.join("\n"));
+  }
+  if (kit.angle_limits && Object.keys(kit.angle_limits).length > 0) {
+    const lines = Object.entries(kit.angle_limits).map(([slug, l]) => {
+      const caps: string[] = [];
+      if (typeof l.hard_cap === "number") caps.push(`tope ${l.hard_cap}% de la tanda`);
+      if (typeof l.hard_cap_mixed_batch === "number") {
+        caps.push(`tope ${l.hard_cap_mixed_batch}% en tanda mixta`);
+      }
+      return `- \`${slug}\`: ${caps.join(", ")}${l.note ? `. ${l.note}` : ""}`;
+    });
+    parts.push("", "## Topes duros por ángulo (no exceder)", lines.join("\n"));
+  }
+  if (kit.verticalization) {
+    const v = kit.verticalization;
+    const lines: string[] = [];
+    if (v.rule) lines.push(`Lógica: ${v.rule}`);
+    if (v.products_by_industry && Object.keys(v.products_by_industry).length > 0) {
+      const prods = Object.entries(v.products_by_industry)
+        .map(([ind, items]) => `- ${ind}: ${items.join(", ")}`)
+        .join("\n");
+      lines.push(`Productos por industria:\n${prods}`);
+    }
+    if (v.example) {
+      lines.push(
+        `Ejemplo:\n  Headline: "${v.example.headline}"\n  Subline: "${v.example.subline}"\n  CTA: "${v.example.cta}"`,
+      );
+    }
+    if (v.guard) lines.push(v.guard);
+    if (lines.length) parts.push("", "## Verticalización por producto", lines.join("\n\n"));
   }
   if (kit.angle_rotation?.length) {
     parts.push(
@@ -350,6 +748,65 @@ function buildBranchSection(kit: CopyKit): string {
   }
   if (kit.formulas_allowed?.length) {
     parts.push("", "## Fórmulas permitidas para esta rama", bullets(kit.formulas_allowed));
+  }
+  if (kit.cta_selection_rule?.length) {
+    parts.push("", "## Regla de selección de CTA", bullets(kit.cta_selection_rule));
+  }
+
+  // ── 4. Qué NO puede decir ────────────────────────────────────────────────
+  if (kit.hard_business_rules?.length) {
+    parts.push(
+      "",
+      "## Reglas duras de negocio (nunca contradecir)",
+      bullets(kit.hard_business_rules),
+    );
+  }
+  if (kit.comparative_rule) {
+    const c = kit.comparative_rule;
+    const lines: string[] = [];
+    if (c.allowed?.length) lines.push(`PERMITIDO:\n${bullets(c.allowed)}`);
+    if (c.requires_review?.length) {
+      lines.push(
+        `REQUIERE VALIDACIÓN antes de publicarse — no lo generes salvo que el usuario lo pida explícitamente:\n${bullets(c.requires_review)}`,
+      );
+    }
+    if (c.not_allowed?.length) lines.push(`PROHIBIDO:\n${bullets(c.not_allowed)}`);
+    if (c.principle) lines.push(c.principle);
+    if (lines.length) parts.push("", "## Comparativos y superlativos", lines.join("\n\n"));
+  }
+  const numbersSection = buildNumbersPolicySection(kit.numbers_policy);
+  if (numbersSection) parts.push("", numbersSection);
+  /*
+   * Disparadores de revisión: aquí trabajan como PROHIBICIÓN, no como metadata.
+   *
+   * Nada persiste un nivel de revisión por pieza —`copy_bank_items` no tiene
+   * columna y el disclaimer se monta a mano—, así que pedirle al agente que
+   * clasifique sería un campo que se pierde al guardar. Lo que sí hace trabajo es
+   * decirle qué afirmaciones no puede producir por su cuenta.
+   */
+  if (kit.claim_review_trigger?.enabled) {
+    const t = kit.claim_review_trigger;
+    const lines: string[] = [];
+    if (t.operational_triggers?.length) {
+      lines.push(
+        `Estas afirmaciones dependen de condiciones operativas confirmadas. Úsalas solo en forma condicional y nunca inventes el dato:\n${bullets(t.operational_triggers)}`,
+      );
+    }
+    if (t.legal_triggers?.length) {
+      lines.push(`Estas NO las generes: requieren validación legal previa.\n${bullets(t.legal_triggers)}`);
+    }
+    if (t.both_triggers?.length) {
+      lines.push(`Estas tampoco: requieren validación operativa y legal.\n${bullets(t.both_triggers)}`);
+    }
+    if (lines.length) parts.push("", "## Afirmaciones que requieren validación", lines.join("\n\n"));
+  }
+  if (kit.claim_semantics) {
+    const s = kit.claim_semantics;
+    const lines: string[] = [];
+    if (s.allowed?.length) lines.push(`Semánticas posibles: ${s.allowed.join(", ")}.`);
+    if (s.rule) lines.push(s.rule);
+    if (s.source_of_truth) lines.push(s.source_of_truth);
+    if (lines.length) parts.push("", "## Semántica de la afirmación", lines.join("\n"));
   }
   if (kit.banned_openings?.length) {
     parts.push(
@@ -367,28 +824,51 @@ function buildBranchSection(kit: CopyKit): string {
       kit.banned_phrases_note ?? "",
     );
   }
-  if (kit.numbers_policy) {
-    parts.push("", "## Política de cifras de la rama", JSON.stringify(kit.numbers_policy, null, 2));
-  }
-  if (kit.legal_note) {
+  if (kit.cta_banned?.length) {
     parts.push(
       "",
-      "## Nota legal",
-      `Texto exacto: "${kit.legal_note.text}"`,
-      `Se activa cuando: ${kit.legal_note.trigger}`,
-      kit.legal_note.style ? `Estilo: ${kit.legal_note.style}` : "",
-      `Cuando aplique, pon needsLegalNote=true y legalNote con el texto exacto.`,
+      "## CTA prohibidos en esta rama",
+      bullets(kit.cta_banned),
+      "No comunican qué hará el cliente.",
     );
   }
-  if (kit.cta_selection_rule?.length) {
-    parts.push("", "## Regla de selección de CTA", bullets(kit.cta_selection_rule));
-  }
+  /**
+   * La nota legal NO se inyecta.
+   *
+   * El disclaimer se monta fuera del motor creativo, en la capa de marca, porque
+   * su texto cambia por pieza y por momento. Dejar que el agente lo redacte
+   * producía dos fuentes para el mismo texto legal.
+   *
+   * `kit.legal_note` queda en el tipo mientras los kits de velocidad y coberturas
+   * todavía lo declaren; deja de leerse aquí. Ver el inventario de legacy.
+   */
+
+  // ── 5. Ejemplos y cierre ─────────────────────────────────────────────────
   if (kit.rejected_examples?.length) {
     parts.push(
       "",
       "## Ejemplos RECHAZADOS (no generes nada parecido)",
       kit.rejected_examples.map((r) => `- "${r.text}" — ${r.reason}`).join("\n"),
     );
+  }
+  /*
+   * Del test final solo van las preguntas de criterio.
+   *
+   * Las marcadas `automatable` se verifican en código después de la respuesta
+   * (ver validateCopyV2): una comprobación mecánica al final de un prompt largo
+   * compite con todo lo anterior, y en código falla o pasa de verdad. Repetirlas
+   * aquí solo gastaría espacio.
+   */
+  const criterio = (kit.final_test ?? []).filter((t) => !t.automatable);
+  if (criterio.length) {
+    parts.push(
+      "",
+      "## Autochequeo de la rama (antes de entregar)",
+      criterio.map((t) => `- ${t.question} → si falla: ${t.on_fail}.`).join("\n"),
+    );
+  }
+  if (kit.closing_principle) {
+    parts.push("", "## Principio de cierre de la rama", kit.closing_principle);
   }
 
   return parts.filter((p) => p !== "").join("\n");
@@ -475,6 +955,39 @@ function buildQuotaSection(
   if (kit.tone_quota) {
     const lines = Object.entries(kit.tone_quota).map(([slug, pct]) => `- \`${slug}\`: ${pct}%`);
     parts.push("", "## Cuota por tono (usa el slug en toneBucket)", lines.join("\n"));
+  }
+  /*
+   * `batch_policy` vive aquí y NO en la sección de rama.
+   *
+   * Gobierna la composición de una TANDA: familias creativas a alternar,
+   * distribución de variedad y límites de repetición. El agente de carrusel no la
+   * recibe, porque un carrusel se deriva de un copy ya aprobado y una cuota del
+   * 20% no significa nada para cinco slides.
+   */
+  if (kit.batch_policy) {
+    const b = kit.batch_policy;
+    if (b.creative_families && Object.keys(b.creative_families).length > 0) {
+      const lines = Object.entries(b.creative_families).map(([name, f]) => {
+        const bits: string[] = [`- **${name}**`];
+        if (f.territory?.length) bits.push(`territorio: ${f.territory.join(", ")}`);
+        if (f.examples?.length) bits.push(`ejemplos: ${f.examples.map((e) => `"${e}"`).join(" · ")}`);
+        if (f.note) bits.push(f.note);
+        return bits.join(" — ");
+      });
+      parts.push(
+        "",
+        "## Familias creativas (alterna entre ellas dentro de la tanda)",
+        lines.join("\n"),
+      );
+    }
+    if (b.variety_distribution && Object.keys(b.variety_distribution).length > 0) {
+      const lines = Object.entries(b.variety_distribution).map(([k, pct]) => `- ${k}: ${pct}%`);
+      parts.push("", "## Distribución de variedad de la tanda", lines.join("\n"));
+      if (b.variety_note) parts.push(b.variety_note);
+    }
+    if (b.anti_repetition?.length) {
+      parts.push("", "## Límites de repetición dentro de la tanda", bullets(b.anti_repetition));
+    }
   }
 
   if (!bankState) {
@@ -571,10 +1084,10 @@ function buildGoldSection(
       "",
       pool
         .slice(0, 12)
-        .map((g) => {
-          const legal = g.needsLegalNote ? " [con nota legal]" : "";
-          return `- Headline: "${g.headline}"\n  Subline: "${g.subcopy}"\n  CTA: "${g.cta}"\n  Ángulo: ${g.angleLabel}${legal}`;
-        })
+        .map(
+          (g) =>
+            `- Headline: "${g.headline}"\n  Subline: "${g.subcopy}"\n  CTA: "${g.cta}"\n  Ángulo: ${g.angleLabel}`,
+        )
         .join("\n"),
     );
   }
@@ -624,6 +1137,8 @@ Genera exactamente ${quantity} copys. Responde SOLO con JSON válido, sin texto 
     }
   ]
 }
+
+"needsLegalNote" y "legalNote" van SIEMPRE en false y null: el disclaimer se monta fuera del motor creativo y su texto se decide por pieza. No los llenes.
 
 UN solo bloque de texto por copy. NO generes variantes por plataforma, captions de LinkedIn/Facebook/Instagram, hashtags ni quality scores.`;
 }

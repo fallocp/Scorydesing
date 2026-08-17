@@ -176,7 +176,9 @@ No generar toda la tanda con la misma fórmula. Alterna.
 - Tarifas, spreads, comisiones o plazos que no estén en los claims permitidos → prohibidos siempre.
 - "Garantizamos el mejor tipo de cambio" · "Ahorro garantizado" · "Siempre somos más baratos" → prohibidos siempre.
 
-Si alguna cifra está permitida, **el `copy_kit` de la rama define cuál, con qué nota legal y con qué cuota.** Sin autorización explícita del kit, no van cifras.
+Si alguna cifra está permitida, **el `copy_kit` de la rama define cuál y con qué cuota.** Sin autorización explícita del kit, no van cifras.
+
+La nota legal que acompaña a una cifra **no se escribe aquí**: se monta fuera del motor creativo, en la capa de marca, porque su texto cambia por pieza y por momento. No la redactes ni la propongas.
 
 ---
 
@@ -238,12 +240,16 @@ Genera exactamente `{{quantity}}` copys. Responde SOLO con JSON válido, sin tex
       "corridor": "string — slug del corredor del copy_kit",
       "industry": "string | null — slug de industria si aplica",
       "toneBucket": "string | null — bucket de tono si el kit define cuota",
-      "needsLegalNote": true,
-      "legalNote": "string | null — texto exacto del copy_kit"
+      "needsLegalNote": false,
+      "legalNote": null
     }
   ]
 }
 ```
+
+`needsLegalNote` y `legalNote` van **siempre** en `false` y `null`. Se conservan en el contrato
+para no romper el esquema que ya consumen el validador y el panel del banco, pero el disclaimer
+se monta fuera del motor creativo y su texto se decide por pieza. No los llenes.
 
 Un solo bloque de texto por copy. **No** generar variantes por plataforma, captions de LinkedIn/Facebook/Instagram, hashtags ni quality scores. Eso se pide en una llamada aparte cuando se necesite.
 
