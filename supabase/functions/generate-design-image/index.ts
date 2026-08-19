@@ -10,6 +10,14 @@ import {
   BRAND_COLOR_LANGUAGE_EN,
   FIGURE_COLOR_GRAMMAR_EN,
 } from "../_shared/brandColorLanguage.ts";
+/**
+ * El techo del acento, del mismo archivo que lo hace cumplir aguas arriba.
+ *
+ * Importado y no reescrito aquí: el número que el prompt le anuncia al modelo de imagen
+ * tiene que ser el que el normalizador aplicó, si no el prompt promete un límite que el
+ * dato ya violó o al revés.
+ */
+import { HIGHLIGHT_CEILING_EN } from "../_shared/carouselHighlights.ts";
 import { buildSceneRepertoireBlock, getSceneKit } from "../_shared/sceneKitRegistry.ts";
 
 const corsHeaders = {
@@ -1204,8 +1212,8 @@ function carouselTextRules(slide: CarouselPromptSlideInput): string {
                 : `coral ${BRAND_COLORS.coral}`
             }`,
         )
-        .join('\n')}\nColour each block whole, exactly as written, and nothing else. A stray accent elsewhere breaks the reading. No accent on the supporting line or the CTA.`
-    : `HEADLINE EMPHASIS: all text in navy ${BRAND_COLORS.navy}, with at most ONE semantic block in coral ${BRAND_COLORS.coral} if one clearly carries the tension of the line. No accent on the supporting line or the CTA.`;
+        .join('\n')}\nColour each block whole, exactly as written, and nothing else. A stray accent elsewhere breaks the reading. No accent on the supporting line or the CTA.\n${HIGHLIGHT_CEILING_EN}`
+    : `HEADLINE EMPHASIS: all text in navy ${BRAND_COLORS.navy}, with at most ONE short semantic block in coral ${BRAND_COLORS.coral} if one clearly carries the tension of the line. No accent on the supporting line or the CTA.\n${HIGHLIGHT_CEILING_EN}`;
 
   const rules: string[] = [
     'HIERARCHY — this is an editorial ad, not a captioned photo. The headline is the DOMINANT element of the composition: large, immediately legible, occupying a substantial share of the frame. The supporting sentence is MUCH smaller, in a clean geometric sans-serif, and explains without competing. The CTA and any label are smaller still. First visual hit is the headline, or the headline and the scene together — never a big image with a small title in a corner.',
