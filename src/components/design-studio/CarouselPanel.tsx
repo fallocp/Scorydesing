@@ -39,10 +39,14 @@ import {
   type CarouselSlotRuntime,
   type UseCarouselQueueParams,
 } from '@/hooks/useCarouselQueue';
+import { useCarouselPlan } from '@/hooks/useCarouselPlan';
 import type { CopyBankItem } from '@/hooks/useDesignCopyBank';
 import {
+  buildPlanFigureDocuments,
   computeCarouselFx,
   DEFAULT_CAROUSEL_FX,
+  DEFAULT_MARGIN_PCT,
+  illustrativeAmountUsd,
   CAROUSEL_DIMENSIONS,
   CAROUSEL_LAYOUT_LABELS,
   CAROUSEL_OBJECTIVES,
@@ -56,7 +60,12 @@ import {
   type DesignImageType,
 } from '@/types/design-studio';
 import { exportCarouselPdf, exportCarouselPngs } from '@/utils/design-studio/exportCarousel';
+import {
+  DESIGN_BACKGROUND_OPTIONS,
+  DESIGN_IMAGE_TYPE_OPTIONS,
+} from '@/utils/design-studio/masterImagePrompt';
 import { CollapsibleSection } from './CollapsibleSection';
+import { CarouselStoryboardPreview } from './CarouselStoryboardPreview';
 
 interface CarouselPanelProps {
   /** The approved bank copy this carousel derives from. */
@@ -97,35 +106,13 @@ const BRAND_ELEMENT_LABELS: Record<CarouselBrandElement, string> = {
 };
 
 /**
- * Media the set can be rendered in, with what each one actually does to the look.
- * The hint matters: `foto` reads like the safe default and is the one that drops
- * the visual system.
+ * Los mismos medios y fondos que ofrece la imagen individual, leídos de la lista
+ * compartida. Antes eran copias con otras etiquetas para los mismos valores, lo que
+ * hacía imposible saber, con los dos selectores separados en la página, cuál de los
+ * dos estabas cambiando.
  */
-const CAROUSEL_IMAGE_TYPES: { value: DesignImageType; label: string; hint: string }[] = [
-  {
-    value: 'infografia',
-    label: 'Infografía 3D',
-    hint: 'Iconografía 3D Xending, acentos turquesa y coral. Es el que trae el sistema visual completo.',
-  },
-  {
-    value: 'foto',
-    label: 'Fotografía',
-    hint: 'Excepción fotográfica natural: foto real, con el sistema visual relajado a propósito.',
-  },
-  {
-    value: 'financiero',
-    label: 'Financiero',
-    hint: 'Visualización financiera: dashboards, gráficas y ruta de la operación.',
-  },
-];
-
-/** Same "Fondo" options the single-image selector offers, so ambos coinciden. */
-const CAROUSEL_BACKGROUNDS: { value: string; label: string }[] = [
-  { value: 'white-xending-v2', label: 'Blanco Xending V2' },
-  { value: 'white-2', label: 'Blanco 2.0' },
-  { value: 'white-classic', label: 'Blanco V1' },
-  { value: 'dark-navy', label: 'Navy' },
-];
+const CAROUSEL_IMAGE_TYPES = DESIGN_IMAGE_TYPE_OPTIONS;
+const CAROUSEL_BACKGROUNDS = DESIGN_BACKGROUND_OPTIONS;
 
 export function CarouselPanel({
   bankItem,
@@ -175,16 +162,56 @@ export function CarouselPanel({
    * these two so the arithmetic on the image holds up.
    */
   const [fxRate, setFxRate] = useState(String(DEFAULT_CAROUSEL_FX.baseRate));
-  const [fxAmount, setFxAmount] = useState(String(DEFAULT_CAROUSEL_FX.amountUsd));
-
-  const fxPreview = useMemo(
+  /**
+   * El monto de la operación, deducido de la historia.
+   *
+   * Antes era `10000` fijo para todo, y diez mil dólares es una compra creíble de
+   * mobiliario y una cifra absurda para una línea de producción: la mitad de las piezas se
+   * leían como un ejemplo de plantilla. Ahora la industria decide el orden de magnitud y
+   * el copy semilla decide dónde cae dentro de él, así que dos piezas de la misma
+   * industria no cotizan lo mismo y la misma pieza cotiza siempre igual.
+   */
+  const derivedAmountUsd = useMemo(
     () =>
-      computeCarouselFx({
-        ...DEFAULT_CAROUSEL_FX,
-        baseRate: Number(fxRate) || DEFAULT_CAROUSEL_FX.baseRate,
-        amountUsd: Number(fxAmount) || DEFAULT_CAROUSEL_FX.amountUsd,
+      illustrativeAmountUsd({
+        industryName: bankItem?.meta.industryName,
+        seed: bankItem?.row.headline,
       }),
-    [fxRate, fxAmount],
+    [bankItem?.meta.industryName, bankItem?.row.headline],
+  );
+  /**
+   * Override del usuario, vacío por defecto.
+   *
+   * Es un override y no un valor inicial porque el monto derivado tiene que seguir a la
+   * historia: sembrar el estado una sola vez dejaría la cifra de la primera pieza pegada
+   * al cambiar de copy en el banco, que es el mismo fallo con otro número.
+   */
+  const [fxAmountOverride, setFxAmountOverride] = useState('');
+  /** Margen objetivo sobre costo. De aquí sale el precio de venta de la hoja de margen. */
+  const [fxMargin, setFxMargin] = useState(String(DEFAULT_MARGIN_PCT));
+
+  const fxAssumptions = useMemo(
+    () => ({
+      ...DEFAULT_CAROUSEL_FX,
+      baseRate: Number(fxRate) || DEFAULT_CAROUSEL_FX.baseRate,
+      amountUsd: Number(fxAmountOverride) || derivedAmountUsd,
+      marginPct: Number(fxMargin) || DEFAULT_MARGIN_PCT,
+    }),
+    [fxRate, fxAmountOverride, derivedAmountUsd, fxMargin],
+  );
+
+  const fxPreview = useMemo(() => computeCarouselFx(fxAssumptions), [fxAssumptions]);
+
+  /**
+   * La hoja de margen, para poder revisar la aritmética antes de renderizarla.
+   *
+   * Es el escenario nuevo y el único cuya cuenta no es una multiplicación: el precio de
+   * venta se fija sobre el costo base y no se mueve, así que lo que cede entre los dos
+   * documentos es el margen. Verlo aquí evita descubrir un margen absurdo en la imagen.
+   */
+  const marginPreview = useMemo(
+    () => buildPlanFigureDocuments('margin_sensitivity', fxAssumptions).documents,
+    [fxAssumptions],
   );
 
   const queue = useCarouselQueue({
@@ -196,6 +223,16 @@ export function CarouselPanel({
     brandSlug,
     persistMeta,
   });
+
+  /**
+   * El planificador: decide la historia antes de que exista una línea de copy.
+   *
+   * Genera varias y el usuario elige. La elegida viaja a `createScript`, que deja de
+   * inventar estructura y solo redacta; sin elegir ninguna, el guion sigue funcionando
+   * como siempre. Las dos cosas conviven porque el camino sin plan es el que hoy produce
+   * carruseles y quitarlo de golpe los dejaría sin fuente de contenido.
+   */
+  const planner = useCarouselPlan({ bankItem, branchId });
 
   const {
     slots,
@@ -227,15 +264,22 @@ export function CarouselPanel({
   const exportableSlides = slots.filter((s) => s.imageUrl);
 
   const handleCreateScript = async () => {
+    const chosen = planner.selectedAttempt;
+
     const ok = await queue.createScript({
       presetSlug,
       objective,
       guidance,
-      fx: {
-        ...DEFAULT_CAROUSEL_FX,
-        baseRate: Number(fxRate) || DEFAULT_CAROUSEL_FX.baseRate,
-        amountUsd: Number(fxAmount) || DEFAULT_CAROUSEL_FX.amountUsd,
-      },
+      fx: fxAssumptions,
+      /**
+       * La historia elegida, si hay una.
+       *
+       * El digest va con ella y no se deriva después: es lo que permite pedir "otra
+       * historia" más adelante sin volver a generar las anteriores, y recalcularlo
+       * requeriría duplicar `digestPlan` en el frontend.
+       */
+      plan: chosen?.plan ?? null,
+      planDigest: chosen?.digest ?? null,
     });
     if (!ok) return;
 
@@ -252,7 +296,9 @@ export function CarouselPanel({
 
     toast({
       title: 'Guion listo',
-      description: 'Revisa y ajusta el copy de cada slide antes de generar los prompts.',
+      description: chosen
+        ? `Escrito desde "${chosen.plan.routeTitle}". Revisa el copy antes de generar los prompts.`
+        : 'Revisa y ajusta el copy de cada slide antes de generar los prompts.',
     });
   };
 
@@ -470,12 +516,25 @@ export function CarouselPanel({
               </div>
               <div className="space-y-1">
                 <Label className="text-[10px] text-muted-foreground">Monto USD</Label>
+                {/* El placeholder es el monto que la historia sugiere; escribir aquí lo
+                    sustituye. Vacío no es "sin monto": es "usa el de la historia". */}
                 <Input
-                  value={fxAmount}
-                  onChange={(e) => setFxAmount(e.target.value)}
+                  value={fxAmountOverride}
+                  onChange={(e) => setFxAmountOverride(e.target.value)}
                   disabled={busy}
                   inputMode="numeric"
+                  placeholder={String(derivedAmountUsd)}
                   className="h-8 w-28 text-sm"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[10px] text-muted-foreground">Margen %</Label>
+                <Input
+                  value={fxMargin}
+                  onChange={(e) => setFxMargin(e.target.value)}
+                  disabled={busy}
+                  inputMode="numeric"
+                  className="h-8 w-20 text-sm"
                 />
               </div>
             </div>
@@ -487,11 +546,26 @@ export function CarouselPanel({
                   {m.labels.delta ? ` · ${m.labels.delta}` : ''}
                 </div>
               ))}
+              {/* La hoja de margen, que es la única cuenta que no es una multiplicación. */}
+              {marginPreview.map((doc) => (
+                <div key={doc.label}>
+                  {doc.label} — precio {doc.fields[0]?.value} · costo {doc.fields[1]?.value} ·{' '}
+                  margen {doc.total.value}
+                </div>
+              ))}
             </div>
             <p className="text-[10px] text-muted-foreground">
               El monto en USD es el mismo en los tres momentos: lo que se mueve es el tipo de
-              cambio, no el tamaño de la compra.
+              cambio, no el tamaño de la compra. El precio de venta se fija sobre el costo de
+              hoy y tampoco se mueve — lo que cede es el margen.
             </p>
+            {!fxAmountOverride && (
+              <p className="text-[10px] text-muted-foreground">
+                El monto lo sugiere la historia
+                {bankItem?.meta.industryName ? ` (${bankItem.meta.industryName})` : ''}. Escribe
+                uno para sustituirlo.
+              </p>
+            )}
           </div>
 
           <div className="space-y-1.5">
@@ -508,6 +582,98 @@ export function CarouselPanel({
             />
           </div>
 
+          {/* ---------- Plan narrativo ----------
+
+              Va ARRIBA del botón del guion porque ese es el orden de las decisiones:
+              primero qué historia se cuenta, después cómo se redacta. Estaba abajo
+              mientras el plan no se consumía; dejarlo ahí ahora sugeriría que el guion
+              se escribe primero y el plan lo comenta, que es al revés.
+
+              Elegir una historia es opcional: sin elegir ninguna, el guion decide su
+              propia estructura como siempre. */}
+          <div className="space-y-2 rounded-md border border-dashed border-border p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="space-y-0.5">
+                <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Plan narrativo
+                </Label>
+                <p className="text-[10px] text-muted-foreground">
+                  Decide la historia antes de escribir copy. Cada intento usa una ruta
+                  distinta; elige una y el guion la redacta en vez de inventar la suya.
+                </p>
+              </div>
+              {planner.attempts.length > 0 && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={planner.clearPlans}
+                  disabled={planner.isPlanning}
+                  className="h-7 text-[11px]"
+                >
+                  Limpiar
+                </Button>
+              )}
+            </div>
+
+            {planner.error && (
+              <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-2">
+                <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-destructive" />
+                <p className="text-[11px] text-destructive">{planner.error}</p>
+              </div>
+            )}
+
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="w-full"
+              disabled={busy || planner.isPlanning}
+              onClick={() =>
+                planner.createPlan({
+                  presetSlug,
+                  objective,
+                  imageType: setImageType,
+                  guidance,
+                })
+              }
+            >
+              {planner.isPlanning ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Armando la historia...
+                </>
+              ) : (
+                <>
+                  <FileText className="mr-2 h-4 w-4" />
+                  {planner.attempts.length === 0
+                    ? 'Generar plan narrativo'
+                    : 'Generar otra historia'}
+                </>
+              )}
+            </Button>
+
+            {planner.attempts.length > 0 && (
+              <p className="text-[10px] text-muted-foreground">
+                {planner.attempts.length} historia(s) generada(s).{' '}
+                {planner.remainingRoutes.length > 0
+                  ? `Quedan ${planner.remainingRoutes.length} rutas sin probar.`
+                  : 'Ya se probaron todas las rutas compatibles.'}
+              </p>
+            )}
+
+            {planner.attempts.map((attempt, i) => (
+              <CarouselStoryboardPreview
+                key={attempt.plan.planId}
+                plan={attempt.plan}
+                preflight={attempt.preflight}
+                ordinal={i + 1}
+                selected={planner.selectedPlanId === attempt.plan.planId}
+                onSelect={() => planner.selectPlan(attempt.plan.planId)}
+              />
+            ))}
+          </div>
+
           <Button type="button" onClick={handleCreateScript} disabled={busy} className="w-full">
             {isScripting ? (
               <>
@@ -517,16 +683,60 @@ export function CarouselPanel({
             ) : (
               <>
                 <Sparkles className="mr-2 h-4 w-4" />
-                Generar idea carrusel
+                {planner.selectedAttempt
+                  ? 'Escribir el guion de esta historia'
+                  : 'Generar guion del carrusel'}
               </>
             )}
           </Button>
+
+          {/* Dicho aquí y no solo en el botón: es la diferencia entre un set que sigue
+              el storyboard que el usuario acaba de leer y uno donde el guionista vuelve
+              a decidir la estructura, y desde fuera los dos se ven igual. */}
+          <p className="text-[10px] text-muted-foreground">
+            {planner.selectedAttempt
+              ? `El guion va a redactar "${planner.selectedAttempt.plan.routeTitle}": los beats, la evidencia y la composición ya están decididos.`
+              : 'Sin historia elegida, el guion decide su propia estructura.'}
+          </p>
         </div>
       )}
 
       {/* ---------- Step 2: copy per slide ---------- */}
       {slots.length > 0 && (
         <div className="space-y-3">
+          {/* El storyboard del set ya escrito, plegado.
+              Se muestra porque un plan que se persiste y no se ve es indepurable: si un
+              slide sale contra lo que decía su beat, sin esto no hay forma de saber si
+              falló el guionista o el planificador. Cerrado por defecto — es referencia,
+              no trabajo pendiente. */}
+          {queue.plan && (
+            <CollapsibleSection
+              title="Historia de este set"
+              Icon={FileText}
+              subtitle={queue.plan.routeTitle}
+              defaultOpen={false}
+              bodyClassName="p-3"
+            >
+              <CarouselStoryboardPreview
+                plan={queue.plan}
+                preflight={{
+                  /*
+                   * El preflight no se persiste: es el resultado de validar el plan en el
+                   * momento de generarlo, no una propiedad del plan. Un plan guardado ya
+                   * pasó por él —es requisito para poder elegirlo—, así que aquí se
+                   * declara aprobado en vez de guardar un objeto que nadie vuelve a leer.
+                   */
+                  passed: true,
+                  attempts: 0,
+                  appliedRepairs: [],
+                  remainingIssues: [],
+                  repairHistory: [],
+                  selectable: true,
+                }}
+              />
+            </CollapsibleSection>
+          )}
+
           <div className="flex items-center justify-between gap-2">
             <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Copy de cada slide

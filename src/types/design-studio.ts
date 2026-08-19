@@ -1,6 +1,34 @@
 // Types and interfaces for the Design Studio feature
 // Enables creation of new templates using AI-powered generation
 
+/**
+ * Las cuatro banderas que describen cómo se lee un preset.
+ *
+ * Se importan de `_shared` y no se redeclaran aquí porque el validador del plan las lee
+ * del otro lado: dos definiciones de "beats independientes" acabarían discrepando, que
+ * es exactamente lo que pasó entre el copy kit y `prompt_kit`. El módulo no importa nada
+ * por URL, así que el bundler lo resuelve igual que Deno.
+ */
+import type {
+  CarouselCreativePlan,
+  CarouselFigureScenarioId,
+  CarouselPlanDigest,
+  PresetBeatCoupling,
+  PresetClosingPolicy,
+  PresetLayoutPolicy,
+  PresetSeedUsage,
+} from '../../supabase/functions/_shared/carousel-plan-types';
+
+export type {
+  CarouselCreativePlan,
+  CarouselFigureScenarioId,
+  CarouselPlanDigest,
+  PresetBeatCoupling,
+  PresetClosingPolicy,
+  PresetLayoutPolicy,
+  PresetSeedUsage,
+};
+
 // --- Platform Format ---
 
 /**
@@ -423,6 +451,28 @@ export interface CarouselMeta {
   /** Medium picked for the whole set — mixing mediums breaks the set. */
   imageType: DesignImageType;
   slots: CarouselSlot[];
+  /**
+   * La historia que el usuario eligió antes de escribir una línea.
+   *
+   * Va aquí y no en una tabla nueva: el plan pertenece a este carrusel, y una segunda
+   * fuente de verdad sobre lo mismo se desincroniza el día que alguien edita un slide.
+   * Es la misma decisión que ya rige el resto de este objeto.
+   *
+   * Se persiste porque el guion se puede volver a pedir —cambia el objetivo, cambia la
+   * guía— y sin el plan guardado ese segundo guion inventaría su propia estructura y el
+   * set quedaría escrito contra dos historias distintas.
+   *
+   * Opcional: los carruseles anteriores al planificador no tienen ninguno, y los que se
+   * generan sin elegir historia tampoco.
+   */
+  plan?: CarouselCreativePlan;
+  /**
+   * El resumen semántico del plan.
+   *
+   * Es lo que permite pedir "otra historia" más adelante sin volver a generar las
+   * anteriores: el planificador compara contra digests, no contra planes completos.
+   */
+  planDigest?: CarouselPlanDigest;
   createdAt: string;
 }
 
@@ -451,6 +501,27 @@ export interface CarouselPreset {
   brandPlacement: Partial<Record<CarouselBrandElement, CarouselSlideRole>>;
   /** How much text the pieces are designed around. */
   visualMode: CarouselVisualMode;
+  /**
+   * Si los beats se necesitan entre sí.
+   *
+   * El validador del plan asumía `chained` en todas las estructuras, y con eso castigaba
+   * a este mismo checklist por hacer lo que sus propias reglas mandan: "los ítems son
+   * INDEPENDIENTES entre sí, prohibido encadenarlos". Un preset cuyos beats son
+   * independientes no puede declarar qué retoma del anterior, porque no retoma nada.
+   */
+  beatCoupling: PresetBeatCoupling;
+  /**
+   * Cómo se comporta la composición a lo largo del set.
+   *
+   * `repeated` y `progressive` son los casos donde compartir encuadre es la intención y
+   * no un descuido: una lista se lee como serie porque sus fichas están compuestas
+   * igual, y una cronología es la misma escena avanzando.
+   */
+  layoutPolicy: PresetLayoutPolicy;
+  /** Qué hace el set con el copy semilla. */
+  seedUsage: PresetSeedUsage;
+  /** Quién es dueño de la última frase. */
+  closingPolicy: PresetClosingPolicy;
   /**
    * How this structure is read, in the agent's own instructions.
    *
@@ -490,6 +561,18 @@ export const CAROUSEL_ROLE_LABELS: Record<CarouselSlideRole, string> = {
  * are worded defensively now: the opening slide kept getting split in half, and
  * the third slide kept inventing a bare figure because its brief asked for
  * "numbers".
+ *
+ * SOLO PARA EL CAMINO SIN CREATIVE PLAN.
+ *
+ * Describen CONTENIDO, no trabajo: `risk` dice "la escena repite: varias compras,
+ * varios documentos", `cta` pide "producto premium y máximo aire". Con el contenido
+ * dictado por rol, tres rutas narrativas distintas devolvían los mismos beats 3, 4 y 5,
+ * y por eso el planificador dejó de recibirlos. Cuando el usuario elige una historia,
+ * el guion tampoco los recibe: el contenido lo declara el beat y la redacción la
+ * gobierna `SCRIPT_BEAT_RULES` en la edge function.
+ *
+ * Siguen aquí porque sin plan seleccionado son la única fuente de contenido que tiene
+ * el guion, y ese es el camino que hoy produce carruseles.
  */
 export const CAROUSEL_ROLE_BRIEFS: Record<CarouselSlideRole, string> = {
   tension:
@@ -523,6 +606,11 @@ export const CAROUSEL_ROLE_BRIEFS: Record<CarouselSlideRole, string> = {
  * A suggestion rather than a rule: the agent picks what the message needs, and the
  * only hard constraint is that the set does not repeat one. Without a starting
  * point, though, every slide converges on the same composition.
+ *
+ * SOLO PARA EL CAMINO SIN CREATIVE PLAN, y por la razón más literal de las dos: esta
+ * tabla es una hoja de respuestas. Cuando se le mandaba al planificador, dos de tres
+ * historias devolvieron su secuencia exacta. Con plan, la composición la decide el beat
+ * y viaja en `compositionFamily`, derivada de los cinco atributos del `CompositionSpec`.
  */
 export const CAROUSEL_ROLE_LAYOUT_HINT: Record<CarouselSlideRole, CarouselLayout> = {
   tension: 'editorial_top',
@@ -575,6 +663,10 @@ export const CAROUSEL_PRESETS: CarouselPreset[] = [
     // is published, so reserving space for one here would leave an empty strip.
     brandPlacement: { logo: 'tension' },
     visualMode: 'EDITORIAL_FULL_TEXT',
+    beatCoupling: 'chained',
+    layoutPolicy: 'varied',
+    seedUsage: 'cover',
+    closingPolicy: 'cta',
     narrativeRules: CHAINED_ARC_RULES,
   },
   {
@@ -585,6 +677,10 @@ export const CAROUSEL_PRESETS: CarouselPreset[] = [
     roles: ['hook', 'problem', 'example', 'solution'],
     brandPlacement: { logo: 'hook' },
     visualMode: 'EDITORIAL_FULL_TEXT',
+    beatCoupling: 'chained',
+    layoutPolicy: 'varied',
+    seedUsage: 'cover',
+    closingPolicy: 'cta',
     narrativeRules: CHAINED_ARC_RULES,
   },
   {
@@ -595,6 +691,12 @@ export const CAROUSEL_PRESETS: CarouselPreset[] = [
     roles: ['promise', 'signal', 'signal', 'signal', 'close'],
     brandPlacement: { logo: 'promise' },
     visualMode: 'EDITORIAL_FULL_TEXT',
+    // Los ítems no se encadenan y comparten composición a propósito: las dos cosas
+    // están en CHECKLIST_RULES y ahora también en un campo que el código puede leer.
+    beatCoupling: 'independent',
+    layoutPolicy: 'repeated',
+    seedUsage: 'source_material',
+    closingPolicy: 'idea',
     narrativeRules: CHECKLIST_RULES,
   },
   {
@@ -605,6 +707,12 @@ export const CAROUSEL_PRESETS: CarouselPreset[] = [
     roles: ['moment', 'moment', 'moment', 'outcome', 'close'],
     brandPlacement: { logo: 'moment' },
     visualMode: 'EDITORIAL_FULL_TEXT',
+    // Los momentos avanzan en el tiempo y comparten escena: "el mismo expediente, el
+    // mismo encuadre, lo que cambia es la fecha".
+    beatCoupling: 'temporal',
+    layoutPolicy: 'progressive',
+    seedUsage: 'source_material',
+    closingPolicy: 'idea',
     narrativeRules: TIMELINE_RULES,
   },
 ];
@@ -642,6 +750,173 @@ export interface CarouselFxAssumptions {
    * repeated adds up, not that the purchases got bigger.
    */
   driftPct: number[];
+  /**
+   * Margen objetivo sobre el costo importado, en porcentaje.
+   *
+   * De aquí sale el precio de venta, y el precio de venta es lo que le faltaba al motor
+   * para poder contar una historia de margen: margen = precio − costo, y el precio no
+   * existía en ninguna parte.
+   *
+   * Se declara como porcentaje y no como un monto porque es como se piensa el negocio
+   * —"vendo con 35% sobre costo"— y porque un monto fijo dejaría de tener sentido en
+   * cuanto cambiara el tamaño de la operación.
+   *
+   * El precio se calcula UNA vez, sobre el costo del momento base, y no se mueve entre
+   * documentos. Eso no es una simplificación: es el argumento. La historia de margen
+   * existe porque el precio ya se publicó y lo único que se mueve después es el costo.
+   *
+   * Opcional porque solo un escenario de seis lo usa. `computeCarouselFx` no lo toca, y
+   * obligar a declararlo haría que cada llamador que solo quiere los momentos del tipo de
+   * cambio tuviera que inventar un margen que su historia no menciona.
+   */
+  marginPct?: number;
+}
+
+/**
+ * Margen objetivo cuando el llamador no declara ninguno.
+ *
+ * 35% sobre costo es un margen de reventa creíble para un importador de producto
+ * terminado, y está elegido para que la historia funcione: con un margen muy alto, un
+ * movimiento del 2% en el costo no se nota en el cuadro y la pieza no demuestra nada; con
+ * uno muy bajo el margen queda casi en cero y se lee como una afirmación de pérdida, que
+ * el kit editorial prohíbe.
+ */
+export const DEFAULT_MARGIN_PCT = 35;
+
+// ---------------------------------------------------------------------------
+// El monto de la operación ilustrativa
+// ---------------------------------------------------------------------------
+
+/**
+ * Piso y techo de una operación ilustrativa, en USD.
+ *
+ * Existían de facto en un solo valor: `amountUsd: 10000`, en todos los sets de todas
+ * las industrias. Diez mil dólares es una compra creíble de mobiliario y es una cifra
+ * absurda para una línea de producción, así que la pieza se leía como un ejemplo de
+ * plantilla en la mitad de los casos.
+ */
+export const MIN_ILLUSTRATIVE_USD = 10_000;
+export const MAX_ILLUSTRATIVE_USD = 150_000;
+
+/**
+ * El techo sube solo para obra e infraestructura.
+ *
+ * Es la excepción explícita: un proyecto de planta o de generación no se cotiza en el
+ * mismo orden de magnitud que un contenedor de producto terminado, y forzarlo al techo
+ * general produciría el mismo problema al revés.
+ */
+export const MAX_MEGA_PROJECT_USD = 250_000;
+
+/** Sin acentos ni mayúsculas, para emparejar el nombre de la industria. */
+function normalizeForMatch(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
+/**
+ * Orden de magnitud de una compra, por industria.
+ *
+ * Bandas y no valores exactos: lo que la pieza necesita es una cifra PLAUSIBLE para
+ * quien la lee, y dentro de la banda cualquiera lo es. Lo que no es plausible es la
+ * misma cifra para todos.
+ *
+ * Las bandas van de más específica a más general y se evalúan en orden, porque
+ * "maquinaria para planta solar" tiene que caer en obra y no en maquinaria.
+ */
+const ORDER_BANDS: { match: RegExp; min: number; max: number; label: string }[] = [
+  {
+    match: /obra|infraestructura|planta|construccion|energia|solar|eolic|mineria|refineria/,
+    min: 90_000,
+    max: MAX_MEGA_PROJECT_USD,
+    label: 'proyecto de infraestructura',
+  },
+  {
+    match: /maquinaria|industrial|equipo pesado|manufactura|cnc|torno|inyeccion|linea de produccion/,
+    min: 55_000,
+    max: MAX_ILLUSTRATIVE_USD,
+    label: 'maquinaria industrial',
+  },
+  { match: /autoparte|automotriz|refaccion|ensamble/, min: 30_000, max: 90_000, label: 'autopartes' },
+  {
+    match: /electronic|componente|tecnolog|semiconductor|hardware|computo/,
+    min: 25_000,
+    max: 80_000,
+    label: 'electrónica',
+  },
+  {
+    match: /farmac|medic|salud|laboratorio|hospital/,
+    min: 20_000,
+    max: 70_000,
+    label: 'insumos médicos',
+  },
+  { match: /alimento|agro|bebida|abarrote|empaque/, min: 18_000, max: 55_000, label: 'alimentos' },
+  {
+    match: /mueble|mobiliario|decorac|interiorismo|hogar/,
+    min: 15_000,
+    max: 45_000,
+    label: 'mobiliario',
+  },
+  { match: /textil|ropa|calzado|moda|confeccion/, min: 12_000, max: 40_000, label: 'textil' },
+];
+
+/** Cuando la industria no se reconoce o no hay ninguna. */
+const DEFAULT_ORDER_BAND = {
+  min: 15_000,
+  max: 60_000,
+  label: 'importacion general',
+} as const;
+
+function orderBandFor(industryName?: string | null) {
+  const name = normalizeForMatch(industryName?.trim() ?? '');
+  if (!name) return DEFAULT_ORDER_BAND;
+  return ORDER_BANDS.find((b) => b.match.test(name)) ?? DEFAULT_ORDER_BAND;
+}
+
+/**
+ * Hash estable de una cadena. FNV-1a de 32 bits.
+ *
+ * Determinista a propósito, y es el punto: el mismo copy tiene que producir siempre la
+ * misma cifra. Con un aleatorio, regenerar los prompts de un set ya renderizado
+ * cambiaría los montos y dos slides del mismo carrusel cotizarían operaciones distintas.
+ */
+function stableSeed(text: string): number {
+  let hash = 2166136261;
+  for (let i = 0; i < text.length; i++) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return Math.abs(hash | 0);
+}
+
+/**
+ * El monto de la operación ilustrativa, deducido de la historia.
+ *
+ * Reemplaza al 10,000 fijo. La industria decide el orden de magnitud y el copy semilla
+ * decide dónde cae dentro de esa banda, así que dos piezas de la misma industria no
+ * cotizan lo mismo y la misma pieza cotiza siempre igual.
+ *
+ * Sigue siendo un valor ILUSTRATIVO y editable en el panel: esto solo cambia de qué
+ * parte se arranca. Una cotización inventada no se presenta nunca como vigente ni como
+ * oficial — eso ya lo dicen los prompts, y no cambia porque el monto ahora sea creíble.
+ *
+ * Se redondea a múltiplos de 500 porque una cotización real no termina en 37,412: un
+ * monto con esa precisión invita a buscarle una fuente que no existe.
+ */
+export function illustrativeAmountUsd(params: {
+  industryName?: string | null;
+  /** El copy semilla. Es lo que hace que dos piezas de la misma industria difieran. */
+  seed?: string | null;
+}): number {
+  const band = orderBandFor(params.industryName);
+  const span = Math.max(0, band.max - band.min);
+  const seed = stableSeed(params.seed?.trim() || band.label);
+
+  const raw = band.min + (span === 0 ? 0 : seed % (span + 1));
+  const rounded = Math.round(raw / 500) * 500;
+
+  return Math.min(Math.max(rounded, MIN_ILLUSTRATIVE_USD), band.max);
 }
 
 /**
@@ -655,9 +930,15 @@ export interface CarouselFxAssumptions {
  */
 export const DEFAULT_CAROUSEL_FX: CarouselFxAssumptions = {
   baseRate: 18.2,
+  /**
+   * Solo el respaldo. El monto real lo deduce `illustrativeAmountUsd` de la industria y
+   * del copy: este valor es lo que se usa cuando el llamador no pasa nada, y quedarse en
+   * él en producción es el fallo que la deducción vino a quitar.
+   */
   amountUsd: 10000,
   /** Against the base: +1% and +2%. Not compounded — see `computeCarouselFx`. */
   driftPct: [1, 2],
+  marginPct: DEFAULT_MARGIN_PCT,
 };
 
 /** One moment of the illustrative operation, with its text ready to render. */
@@ -866,6 +1147,234 @@ export function accumulatedFxImpact(moments: CarouselFxMoment[]): {
     amount,
     label: amount === 0 ? '' : `+MXN ${formatAmount(amount)}`,
   };
+}
+
+// ---------------------------------------------------------------------------
+// El motor que consume el Creative Plan
+// ---------------------------------------------------------------------------
+
+/**
+ * Los documentos que un beat pide, con su acumulado cuando la historia lo necesita.
+ *
+ * Se devuelven juntos porque son una sola decisión: el acumulado no es una propiedad del
+ * slide, es la conclusión de una secuencia de documentos. Separarlos permitiría un slide
+ * con acumulado y sin documentos que lo sustenten.
+ */
+export interface CarouselPlanFigures {
+  documents: CarouselFigureDocument[];
+  /** La suma de las diferencias. Solo en la historia que trata de eso. */
+  accumulatedLabel?: string;
+}
+
+/**
+ * Piso y techo del margen objetivo.
+ *
+ * No son cosméticos. Con un margen muy chico, un movimiento del 2% en el costo deja el
+ * margen del segundo documento casi en cero o negativo, y una hoja que muestra un margen
+ * negativo es una afirmación de pérdida — prohibida en las tres ramas, que exigen el
+ * riesgo en condicional. Con uno muy grande el movimiento del costo no se nota en el
+ * cuadro y la pieza no demuestra nada.
+ */
+export const MIN_MARGIN_PCT = 10;
+export const MAX_MARGIN_PCT = 200;
+
+/** El precio de venta que la historia de margen da por comprometido. */
+function committedSalePrice(a: CarouselFxAssumptions, baseCostMxn: number): number {
+  const declared = a.marginPct ?? DEFAULT_MARGIN_PCT;
+  const pct = Math.min(Math.max(declared, MIN_MARGIN_PCT), MAX_MARGIN_PCT);
+  return Math.round(baseCostMxn * (1 + pct / 100) * 100) / 100;
+}
+
+/**
+ * Los documentos de un beat, a partir del escenario que declaró el Creative Plan.
+ *
+ * Es el reemplazo de `figureScenarioFor(sceneKit, role)`, que asignaba cifras por ROL
+ * desde una tabla de la rama y por eso contradecía la historia: en una ruta de margen
+ * —que prohíbe explícitamente apilar documentos— el rol `risk` recibía tres compras
+ * sucesivas, que son la evidencia de la ruta de acumulación. El slide renderizaba una
+ * historia distinta de la que el plan había decidido.
+ *
+ * Los dos vocabularios tampoco se cruzaban: el plan habla en `CarouselFigureScenarioId`
+ * —seis escenarios— y el scene kit en `CarouselFigureScenario`, que tiene dos y los dos
+ * fueron escritos para la mecánica de dos momentos del tipo de cambio. Aquí se cierra esa
+ * traducción y se escriben los tres que faltaban.
+ *
+ * Nada de esto lo decide un modelo. El plan declara CUÁL escenario, y toda la aritmética
+ * vive aquí, porque la aritmética ES el mensaje: una pieza que muestra un tipo de cambio
+ * y un total tiene que satisfacer USD × TC = MXN cuando el lector multiplica.
+ */
+export function buildPlanFigureDocuments(
+  scenarioId: CarouselFigureScenarioId,
+  assumptions: CarouselFxAssumptions,
+  today: Date = new Date(),
+): CarouselPlanFigures {
+  if (scenarioId === 'none') return { documents: [] };
+
+  const moments = computeCarouselFx(assumptions);
+  if (moments.length === 0) return { documents: [] };
+
+  const first = moments[0];
+  const last = moments[moments.length - 1];
+  const bare = (label: string) => label.replace(/^(USD|MXN)\s+/, '');
+
+  switch (scenarioId) {
+    /*
+     * La misma obligación con dos tipos de cambio. HOY contra el día del pago.
+     *
+     * Reusa la mecánica de dos momentos en vez de reescribirla: es exactamente la misma
+     * historia numérica que ya se renderizaba bien, y dos implementaciones de la misma
+     * comparación acabarían discrepando en los campos o en las fechas.
+     */
+    case 'rate_comparison':
+      return { documents: buildFigureDocuments('two_moment', moments, today) };
+
+    /* La misma operación varias veces, sin sumarlas: eso es el otro escenario. */
+    case 'repeated_operations':
+      return { documents: buildFigureDocuments('repeated_purchases', moments, today) };
+
+    /* Las mismas operaciones, y la suma de sus diferencias, que es de lo que trata. */
+    case 'accumulated_difference':
+      return {
+        documents: buildFigureDocuments('repeated_purchases', moments, today),
+        accumulatedLabel: accumulatedFxImpact(moments).label || undefined,
+      };
+
+    /*
+     * Un escenario hipotético entre dos niveles, y SIN FECHAS.
+     *
+     * La fecha es lo que convierte una hipótesis en un pronóstico. "Si el tipo de cambio
+     * pasara de A a B" es la única forma en que una rama puede explicar su mecanismo con
+     * un nivel que todavía no existe; poner "27 OCT 2026" junto a ese nivel lo afirma, y
+     * afirmar hacia dónde va el tipo de cambio está prohibido en las tres ramas.
+     *
+     * Por eso el sello dice ESCENARIO y no PAGO, y el `kind` no es una cotización: una
+     * cotización con fecha es un documento, y un documento se lee como un hecho.
+     */
+    case 'rate_range': {
+      const shape = (m: CarouselFxMoment, label: string, hypothetical: boolean) => ({
+        label,
+        kind: 'ESCENARIO ILUSTRATIVO',
+        fields: [
+          { label: 'TOTAL USD', value: bare(m.labels.usd) },
+          {
+            label: 'TIPO DE CAMBIO',
+            value: m.labels.rate,
+            colorRole: (hypothetical ? 'risk' : 'control') as CarouselColorRole,
+          },
+          ...(hypothetical && m.labels.pct
+            ? [{ label: 'VARIACIÓN', value: m.labels.pct, colorRole: 'risk' as CarouselColorRole }]
+            : []),
+        ],
+        total: {
+          label: 'COSTO MXN',
+          value: bare(m.labels.mxn),
+          colorRole: (hypothetical ? 'risk' : 'control') as CarouselColorRole,
+        },
+      });
+
+      return {
+        documents: [shape(first, 'ACTUAL', false), shape(last, 'SI PASARA A', true)],
+      };
+    }
+
+    /*
+     * Precio de venta fijo contra costo importado variable. La historia del margen.
+     *
+     * Es la que no existía, y la que faltaba tenía una razón concreta: el margen necesita
+     * un PRECIO DE VENTA, y `CarouselFxAssumptions` no lo tenía. Ahora sale del margen
+     * objetivo sobre el costo del momento base.
+     *
+     * El precio se calcula UNA vez y es idéntico en los dos documentos. Eso no es una
+     * simplificación del modelo: es el argumento entero. La historia existe porque el
+     * precio ya se publicó y lo único que se mueve después es el costo, así que lo que
+     * cede es la distancia entre los dos. Un precio que también se moviera contaría que
+     * el importador puede repreciar, que es la historia contraria.
+     *
+     * El MARGEN va en el total y no entre los campos: en una hoja de margen el renglón de
+     * abajo es el margen, igual que en una cotización es el costo.
+     */
+    case 'margin_sensitivity': {
+      const salePrice = committedSalePrice(assumptions, first.amountMxn);
+
+      const shape = (m: CarouselFxMoment, label: string, dayOffset: number, moved: boolean) => {
+        const margin = Math.round((salePrice - m.amountMxn) * 100) / 100;
+        return {
+          label,
+          kind: 'HOJA DE MARGEN',
+          date: formatFigureDate(shiftDays(today, dayOffset)),
+          fields: [
+            // Navy: el precio comprometido no es el beneficio ni el riesgo, y es el valor
+            // que tiene que leerse IDÉNTICO en los dos documentos.
+            { label: 'PRECIO DE VENTA', value: formatAmount(salePrice) },
+            {
+              label: 'COSTO IMPORTADO',
+              value: formatAmount(m.amountMxn),
+              colorRole: (moved ? 'risk' : 'control') as CarouselColorRole,
+            },
+            ...(moved && m.labels.pct
+              ? [
+                  {
+                    label: 'VARIACIÓN DEL COSTO',
+                    value: m.labels.pct,
+                    colorRole: 'risk' as CarouselColorRole,
+                  },
+                ]
+              : []),
+          ],
+          total: {
+            label: 'MARGEN',
+            value: formatAmount(margin),
+            colorRole: (moved ? 'risk' : 'control') as CarouselColorRole,
+          },
+        };
+      };
+
+      return {
+        documents: [shape(first, 'HOY', 0, false), shape(last, 'PAGO', 60, true)],
+      };
+    }
+
+    /*
+     * Un solo valor ya definido, sin contraparte.
+     *
+     * Un documento y nada más, y ahí está su significado: el resto de los escenarios
+     * enfrentan dos estados porque su historia es el movimiento. Esta historia es que no
+     * hay movimiento, así que una segunda tarjeta la contradiría — habría dos valores que
+     * comparar donde el argumento es que solo hay uno.
+     *
+     * Todo en turquesa o navy, ningún coral: no hay exposición que señalar.
+     */
+    case 'cashflow_certainty':
+      return {
+        documents: [
+          {
+            label: 'COSTO DEFINIDO',
+            kind: 'COTIZACIÓN',
+            date: formatFigureDate(today),
+            fields: [
+              { label: 'TOTAL USD', value: bare(first.labels.usd) },
+              { label: 'TIPO DE CAMBIO', value: first.labels.rate, colorRole: 'control' },
+            ],
+            total: {
+              label: 'COSTO MXN',
+              value: bare(first.labels.mxn),
+              colorRole: 'control',
+            },
+          },
+        ],
+      };
+
+    /*
+     * Un escenario que el plan puede declarar y este motor no sabe construir.
+     *
+     * Sin documentos, a propósito. Inventarle una forma parecida es cómo se llegó al
+     * fallo que este archivo viene a arreglar: un slide con los documentos de otra
+     * historia se ve perfectamente bien y cuenta algo que nadie decidió. Un slide sin
+     * cifras se nota y se puede corregir.
+     */
+    default:
+      return { documents: [] };
+  }
 }
 
 /**

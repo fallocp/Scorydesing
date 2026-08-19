@@ -35,6 +35,13 @@ import {
   getSceneKit,
   type SceneKit,
 } from '../../supabase/functions/_shared/sceneKitRegistry';
+/**
+ * La misma regla de "el plan cubre este set" que usa la edge function.
+ *
+ * Compartida y no reimplementada: si el frontend y el guion discrepan sobre cuándo el
+ * plan aplica, el set se escribe con una de las dos respuestas y la UI reporta la otra.
+ */
+import { planCoversRoles } from '../../supabase/functions/_shared/buildCarouselScriptBeats';
 import { useActiveBusiness } from './useActiveBusiness';
 import { useSaveMockup } from './useDesignMockups';
 import { useUpdateBankMeta, type CopyBankItem } from './useDesignCopyBank';
@@ -44,6 +51,7 @@ import {
   DEFAULT_CAROUSEL_OBJECTIVE,
   type CarouselObjective,
   buildFigureDocuments,
+  buildPlanFigureDocuments,
   computeCarouselFx,
   DEFAULT_CAROUSEL_FX,
   CAROUSEL_ASPECT_RATIO,
@@ -51,6 +59,8 @@ import {
   CAROUSEL_ROLE_BRIEFS,
   CAROUSEL_ROLE_LAYOUT_HINT,
   getCarouselPreset,
+  type CarouselCreativePlan,
+  type CarouselPlanDigest,
   type CarouselFigureScenario,
   type CarouselFxAssumptions,
   type CarouselMeta,
@@ -189,6 +199,15 @@ export function useCarouselQueue({
   const [presetSlug, setPresetSlug] = useState<string | null>(null);
   /** What the set is for. Decides the closing and the brand budget. */
   const [objective, setObjective] = useState<CarouselObjective>(DEFAULT_CAROUSEL_OBJECTIVE);
+  /**
+   * La historia con la que se escribió este set, cuando el usuario eligió una.
+   *
+   * Vive en el hook y no solo en el panel porque `persist` reconstruye el meta completo
+   * en cada escritura —después de editar copy, después de cada render—, y un campo que
+   * solo existe en el panel se perdería en la primera de esas escrituras.
+   */
+  const [plan, setPlan] = useState<CarouselCreativePlan | null>(null);
+  const [planDigest, setPlanDigest] = useState<CarouselPlanDigest | null>(null);
   const [isScripting, setIsScripting] = useState(false);
   const [isBuildingPrompts, setIsBuildingPrompts] = useState(false);
   /** Fetching the visual spec from the single-image path. */
@@ -233,6 +252,8 @@ export function useCarouselQueue({
       setGroupId(null);
       setPresetSlug(null);
       setObjective(DEFAULT_CAROUSEL_OBJECTIVE);
+      setPlan(null);
+      setPlanDigest(null);
       setError(null);
       return;
     }
@@ -251,6 +272,8 @@ export function useCarouselQueue({
     // Older carousels have no objective. They were written under the fixed rules,
     // which are what 'vender' now reproduces, so that is the honest label for them.
     setObjective(carousel.objective ?? 'vender');
+    setPlan(carousel.plan ?? null);
+    setPlanDigest(carousel.planDigest ?? null);
     setError(null);
   }, [bankItem?.row.id, bankItem?.meta.carousel, applySlots]);
 
@@ -264,8 +287,20 @@ export function useCarouselQueue({
       presetSlug?: string;
       objective?: CarouselObjective;
       imageType?: DesignImageType;
+      /**
+       * `null` borra el plan; `undefined` conserva el que ya está en el estado.
+       *
+       * La distinción existe porque `persist` corre después de cada render y de cada
+       * edición de copy, y esas llamadas no saben nada del plan: si no pasar nada
+       * significara "sin plan", la primera de ellas lo borraría.
+       */
+      plan?: CarouselCreativePlan | null;
+      planDigest?: CarouselPlanDigest | null;
     }) => {
       if (!bankItem) return;
+
+      const nextPlan = next.plan === undefined ? plan : next.plan;
+      const nextDigest = next.planDigest === undefined ? planDigest : next.planDigest;
 
       const meta: CarouselMeta = {
         presetSlug: next.presetSlug ?? presetSlug ?? '',
@@ -276,6 +311,8 @@ export function useCarouselQueue({
         groupId: next.groupId ?? groupId ?? crypto.randomUUID(),
         imageType: next.imageType ?? imageType,
         slots: toPersisted(next.slots),
+        plan: nextPlan ?? undefined,
+        planDigest: nextDigest ?? undefined,
         createdAt: bankItem.meta.carousel?.createdAt ?? new Date().toISOString(),
       };
 
@@ -290,7 +327,10 @@ export function useCarouselQueue({
         meta: { imageMode: 'carousel', carousel: meta },
       });
     },
-    [bankItem, presetSlug, objective, visualAnchor, visualMotif, groupId, imageType, updateBankMeta, persistMeta],
+    [
+      bankItem, presetSlug, objective, visualAnchor, visualMotif, groupId, imageType,
+      plan, planDigest, updateBankMeta, persistMeta,
+    ],
   );
 
   // -------------------------------------------------------------------------
@@ -303,10 +343,39 @@ export function useCarouselQueue({
       objective?: CarouselObjective;
       guidance?: string;
       fx?: CarouselFxAssumptions;
+      /**
+       * La historia elegida por el usuario, si eligió una.
+       *
+       * Cuando llega, el guion deja de decidir estructura y solo redacta. Sin ella el
+       * camino es el de siempre: briefs y layouts por rol.
+       */
+      plan?: CarouselCreativePlan | null;
+      planDigest?: CarouselPlanDigest | null;
     }) => {
       if (!bankItem || !activeBusinessId) return false;
 
       const preset = getCarouselPreset(params.presetSlug);
+      /**
+       * El plan solo aplica si es del mismo preset y cubre los mismos roles.
+       *
+       * El usuario puede generar un plan con un preset y luego cambiar el selector antes
+       * de picar "Generar guion". La función de guion también lo verifica —tiene que
+       * hacerlo, es su contrato— pero descartarlo aquí es lo que permite decirlo en la
+       * UI en vez de que el set salga sin plan sin explicación.
+       */
+      const selectedPlan =
+        params.plan &&
+        params.plan.presetSlug === params.presetSlug &&
+        planCoversRoles(params.plan, preset.roles)
+          ? params.plan
+          : null;
+
+      if (params.plan && !selectedPlan) {
+        setError(
+          'La historia elegida es de otra estructura. Cambia el preset al que usaste para el plan, o genera un plan nuevo.',
+        );
+        return false;
+      }
       /**
        * Read from the params, not from state.
        *
@@ -326,9 +395,16 @@ export function useCarouselQueue({
        * siempre llegaba lleno.
        */
       const usesFigures = branchUsesFigures(sceneKit);
-      const fxMoments = usesFigures
-        ? computeCarouselFx(params.fx ?? DEFAULT_CAROUSEL_FX)
-        : [];
+      /**
+       * Las asunciones completas, no solo los momentos ya calculados.
+       *
+       * El motor del plan las necesita enteras: una historia de margen deriva el precio de
+       * venta del margen objetivo, y eso no está en la lista de momentos del tipo de
+       * cambio. Los momentos se siguen calculando porque el prompt del guion los lleva
+       * como tabla de contexto y porque el camino sin plan los consume.
+       */
+      const fxAssumptions = params.fx ?? DEFAULT_CAROUSEL_FX;
+      const fxMoments = usesFigures ? computeCarouselFx(fxAssumptions) : [];
       setIsScripting(true);
       setError(null);
 
@@ -345,14 +421,36 @@ export function useCarouselQueue({
                 body: bankItem.row.subcopy ?? '',
                 cta: bankItem.row.cta ?? '',
               },
+              /**
+               * Con plan van solo los roles; sin plan, los briefs de siempre.
+               *
+               * No se manda ninguno de los dos "por si acaso": el brief describe
+               * contenido —"la escena repite: varias compras, varios documentos"— y el
+               * layoutHint es una tabla de composición por rol. Mandarlos junto al plan
+               * le daría al guionista dos fuentes que se contradicen, y la que gana es
+               * la más concreta, que es la equivocada.
+               */
               slides: preset.roles.map((role, i) => ({
                 role,
-                brief: CAROUSEL_ROLE_BRIEFS[role],
                 brandElements: brandElementsForSlide(preset, i),
-                // Composition that suits this beat. The agent may override it; what
-                // it may not do is use the same one twice in the set.
-                layoutHint: CAROUSEL_ROLE_LAYOUT_HINT[role],
+                ...(selectedPlan
+                  ? {}
+                  : {
+                      brief: CAROUSEL_ROLE_BRIEFS[role],
+                      // Composition that suits this beat. The agent may override it;
+                      // what it may not do is use the same one twice in the set.
+                      layoutHint: CAROUSEL_ROLE_LAYOUT_HINT[role],
+                    }),
               })),
+              /**
+               * La historia ya decidida. Con esto el guion solo elige las palabras.
+               *
+               * Va el plan completo y no un extracto: `normalizeBrief` del otro lado usa
+               * `compositionFamily` y `primaryObjects` de cada beat como autoridad, no
+               * como sugerencia, y un extracto obligaría a mantener dos formas del mismo
+               * contrato.
+               */
+              plan: selectedPlan ?? undefined,
               // Text density belongs to the preset, not to the agent.
               visualMode: preset.visualMode,
               // Y cómo se lee la estructura: sin esto, un checklist sale escrito con
@@ -422,16 +520,60 @@ export function useCarouselQueue({
         const scriptedMotif = typeof data.visualMotif === 'string' ? data.visualMotif : '';
 
         /**
-         * Attach the figure documents in code, by role.
+         * Los documentos con cifras se arman en código. Nunca los escribe un modelo.
          *
-         * The agent decides the narrative and the composition; it never decides a
-         * number or which document a number belongs to. That is what produced three
-         * cards showing the same 18.93 and a stray +4.0%: a flat list of labels has
-         * no way to say which value goes where.
+         * Eso no cambió: el agente decide la narrativa y la composición, jamás un número
+         * ni a qué documento pertenece. Es lo que produjo tres tarjetas con el mismo 18.93
+         * y un "+4.0%" suelto — una lista plana de etiquetas no puede decir qué valor va
+         * dónde.
+         *
+         * Lo que sí cambió es QUIÉN elige el escenario.
+         *
+         * Antes lo elegía el ROL, contra una tabla de la rama, y por eso el render
+         * contradecía la historia: en una ruta de margen —que prohíbe explícitamente
+         * apilar documentos— el rol `risk` recibía tres compras sucesivas, que son la
+         * evidencia de la ruta de acumulación. El slide salía impecable contando otra
+         * historia. Y los dos vocabularios ni se cruzaban: el plan pedía
+         * `margin_sensitivity` y el scene kit solo sabía de `two_moment` y
+         * `repeated_purchases`.
+         *
+         * Ahora, con plan, lo elige el beat. Sin plan, la tabla por rol queda intacta
+         * porque es el camino que hoy produce carruseles.
          */
-        const withFigures = nextSlots.map((slot) => {
+        const withFigures = nextSlots.map((slot, i) => {
+          if (!slot.brief || !usesFigures) return slot;
+
+          const beat = selectedPlan?.storyboard[i];
+
+          if (beat) {
+            /*
+             * El plan manda, incluido cuando dice que no.
+             *
+             * `mode: 'none'` es una decisión, no la ausencia de una: la mayoría de las
+             * historias se cuentan mejor con objetos, fechas y estados. Caer a la tabla
+             * por rol aquí devolvería el problema completo, porque esa tabla le pone
+             * documentos a `shift` y a `risk` pase lo que pase.
+             */
+            if (beat.figureRequirement.mode !== 'illustrative') return slot;
+
+            const { documents, accumulatedLabel } = buildPlanFigureDocuments(
+              beat.figureRequirement.scenarioId,
+              fxAssumptions,
+            );
+
+            /*
+             * Sin constructor, sin documentos. No se adivina uno parecido.
+             *
+             * Un slide con los documentos de otra historia se ve perfectamente bien y
+             * cuenta algo que nadie decidió; uno sin cifras se nota y se corrige.
+             */
+            if (documents.length === 0) return slot;
+
+            return { ...slot, brief: { ...slot.brief, documents, accumulatedLabel } };
+          }
+
           const scenario = figureScenarioFor(sceneKit, slot.role);
-          if (!scenario || !slot.brief) return slot;
+          if (!scenario) return slot;
 
           const documents = buildFigureDocuments(scenario, fxMoments);
           return {
@@ -452,6 +594,8 @@ export function useCarouselQueue({
         setGroupId(newGroupId);
         setPresetSlug(params.presetSlug);
         setObjective(nextObjective);
+        setPlan(selectedPlan);
+        setPlanDigest(selectedPlan ? params.planDigest ?? null : null);
         setVisualAnchor('');
 
         await persist({
@@ -463,6 +607,15 @@ export function useCarouselQueue({
           groupId: newGroupId,
           presetSlug: params.presetSlug,
           objective: nextObjective,
+          /**
+           * Explícito, y `null` cuando no hubo plan.
+           *
+           * Rescribir el guion sin elegir historia tiene que borrar el plan anterior: el
+           * set nuevo no se escribió con él, y dejarlo guardado haría que el storyboard
+           * del panel describiera unos slides que ya no existen.
+           */
+          plan: selectedPlan,
+          planDigest: selectedPlan ? params.planDigest ?? null : null,
         });
 
         return true;
@@ -942,6 +1095,8 @@ export function useCarouselQueue({
     setVisualMotif('');
     setGroupId(null);
     setPresetSlug(null);
+    setPlan(null);
+    setPlanDigest(null);
     setError(null);
     hydratedFor.current = null;
   }, [applySlots]);
@@ -956,6 +1111,13 @@ export function useCarouselQueue({
     groupId,
     presetSlug,
     objective,
+    /**
+     * La historia con la que se escribió el set, o `null`.
+     *
+     * El panel la lee para mostrar el storyboard del set ya generado, que es otra cosa
+     * que las historias candidatas del planificador: estas se comparan, esta ya se usó.
+     */
+    plan,
     // Flags
     isScripting,
     isBuildingPrompts,

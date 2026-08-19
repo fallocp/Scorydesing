@@ -11,8 +11,29 @@
  * content/image agents: this one decides what each slide SAYS and what its image
  * must COMMUNICATE; the image agent decides how it LOOKS.
  *
- * The roles and their briefs come from the caller (the preset lives in the
- * frontend types), so adding a new narrative shape needs no change here.
+ * The roles come from the caller (the preset lives in the frontend types), so
+ * adding a new narrative shape needs no change here.
+ *
+ * ## Con Creative Plan, esta función NO decide la estructura
+ *
+ * Cuando el llamador manda un `plan` de `generate-carousel-plan`, la historia ya
+ * está decidida: qué aporta cada slide, con qué evidencia, en qué composición. Aquí
+ * solo se eligen LAS PALABRAS EXACTAS.
+ *
+ *   Preset    → cómo se lee el set y cuántos slides tiene
+ *   Ruta      → qué historia se cuenta
+ *   Beat      → qué trabajo narrativo se hace
+ *   Guionista → las palabras exactas          ← esta función
+ *   Director  → cómo se vuelve visible
+ *
+ * Decidir la historia y redactarla en la misma llamada tiene un efecto medible: el
+ * modelo resuelve la redacción, que es lo que se le pide explícitamente, y la
+ * estructura le sale por defecto. Cinco sets seguidos con dos cotizaciones y la
+ * misma secuencia de layouts.
+ *
+ * El camino sin plan sigue existiendo y no cambió: es lo único que hoy produce
+ * carruseles, y quitarlo antes de que el plan esté en producción los dejaría sin
+ * ninguna fuente de contenido.
  *
  * Auth: unlike the older design-studio functions, this one requires a JWT and
  * validates business membership before reading any tenant data.
@@ -29,6 +50,19 @@ import { carouselMechanicsExamples } from '../_shared/carouselExamples.ts';
 import { getCopyKit } from '../_shared/copyKitRegistry.ts';
 import { parseModelJson } from '../_shared/parseModelJson.ts';
 import { BRAND_COLOR_LANGUAGE_ES } from '../_shared/brandColorLanguage.ts';
+import type {
+  CarouselCreativePlan,
+  CarouselStoryBeat,
+} from '../_shared/carousel-plan-types.ts';
+import {
+  beatRuleForRole,
+  describeBeat,
+  planCoversRoles,
+} from '../_shared/buildCarouselScriptBeats.ts';
+import {
+  HIGHLIGHT_LIMITS_ES,
+  normalizeHighlights,
+} from '../_shared/carouselHighlights.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -43,11 +77,23 @@ const corsHeaders = {
 interface CarouselSlideSpec {
   /** Persisted role key, e.g. 'tension' | 'shift' | 'risk' | 'solution' | 'cta'. */
   role: string;
-  /** What this slide has to accomplish, in Spanish. Comes from the preset. */
-  brief: string;
+  /**
+   * Qué tiene que lograr este slide, en prosa. Solo en el camino SIN plan.
+   *
+   * Describe contenido, no trabajo —"la escena repite: varias compras, varios
+   * documentos, impacto agregado"—, y por eso tres rutas distintas devolvían los
+   * mismos beats. Cuando llega un Creative Plan, el brief no se manda ni se lee: el
+   * contenido lo declara el beat y la redacción la gobierna `SCRIPT_BEAT_RULES`.
+   */
+  brief?: string;
   /** Brand elements composited on this slide later ('logo' | 'disclaimer'). */
   brandElements?: string[];
-  /** Composition that suits this beat. A starting point, not a rule. */
+  /**
+   * Composición sugerida por rol. Solo en el camino SIN plan.
+   *
+   * Con plan la composición NO es una sugerencia: la decidió el planificador y viaja
+   * en `beat.compositionFamily`, que este agente no puede cambiar.
+   */
   layoutHint?: string;
 }
 
@@ -132,6 +178,19 @@ interface GenerateCarouselScriptRequest {
   }[];
   /** Sum of the gaps across the moments, for the repetition slide. */
   fxAccumulated?: string;
+  /**
+   * La historia ya decidida, de `generate-carousel-plan`.
+   *
+   * Opcional porque el camino sin plan es el que hoy produce carruseles. Cuando
+   * llega, manda: los beats declaran qué aporta cada slide, con qué evidencia y en
+   * qué composición, y esta función deja de decidir estructura.
+   *
+   * El orden importa y no se verifica contra los roles por posición nada más: si el
+   * storyboard no tiene un beat por slide, el plan se ignora entero en vez de
+   * mezclarse a medias con los briefs. Un set escrito con tres beats del plan y dos
+   * del brief no es ninguno de los dos.
+   */
+  plan?: CarouselCreativePlan;
   /** Free-text steering from the user. */
   guidance?: string;
 }
@@ -187,6 +246,8 @@ const MAX_CTA_WORDS = 6;
 function headlineBudget(role: string): number {
   return /^cta$/i.test(role) ? MAX_CTA_WORDS : MAX_HEADLINE_WORDS;
 }
+
+
 
 /**
  * Turn the branch copy kit into hard prohibitions for the script.
@@ -269,12 +330,20 @@ function buildSystemPrompt(params: {
     label: string; rate: string; usd: string; mxn: string; delta: string; pct: string;
   }[];
   fxAccumulated?: string;
+  /**
+   * El plan, ya verificado contra los slides por `planCoversSlides`.
+   *
+   * Se valida en el handler y no aquí: un plan que no cubre el set tiene que ignorarse
+   * también en `normalizeBrief`, y dos capas decidiendo por su cuenta si el plan aplica
+   * es exactamente cómo se termina con el prompt en modo plan y el brief en modo rol.
+   */
+  plan?: CarouselCreativePlan;
   guidance?: string;
 }): string {
   const {
     brandName, objective, compliance, branchContext, branchSlug, verticalKeywords,
     industryName, angleName, imageType, slides, editorialBans, fxMoments,
-    fxAccumulated, guidance,
+    fxAccumulated, plan, guidance,
   } = params;
 
   /**
@@ -319,16 +388,197 @@ Cómo usarlas:
 
   const slideCount = slides.length;
 
-  const roleLines = slides
-    .map((s, i) => {
-      const brand = (s.brandElements ?? []).length > 0
-        ? ` [Lleva ${s.brandElements!.join(' y ')} montados encima después: deja aire donde van.]`
-        : '';
-      const budget = ` (headline hasta ${headlineBudget(s.role)} palabras`;
-      const layout = s.layoutHint ? `, layout sugerido ${s.layoutHint})` : ')';
-      return `Slide ${i + 1} — rol "${s.role}"${budget}${layout}: ${s.brief}${brand}`;
-    })
-    .join('\n');
+  const brandNote = (s: CarouselSlideSpec): string =>
+    (s.brandElements ?? []).length > 0
+      ? ` [Lleva ${s.brandElements!.join(' y ')} montados encima después: deja aire donde van.]`
+      : '';
+
+  /**
+   * La estructura pedida, en dos versiones que no se mezclan.
+   *
+   * Con plan: un bloque por beat, con lo que ese slide aporta y la composición ya
+   * resuelta. Sin plan: la línea de siempre, con el brief por rol y el layout sugerido.
+   */
+  const roleLines = plan
+    ? plan.storyboard
+        .map((beat, i) =>
+          describeBeat({
+            beat,
+            slideNumber: i + 1,
+            headlineWords: headlineBudget(beat.role),
+            brandNote: brandNote(slides[i]),
+          }),
+        )
+        .join('\n\n')
+    : slides
+        .map((s, i) => {
+          const budget = ` (headline hasta ${headlineBudget(s.role)} palabras`;
+          const layout = s.layoutHint ? `, layout sugerido ${s.layoutHint})` : ')';
+          return `Slide ${i + 1} — rol "${s.role}"${budget}${layout}: ${s.brief ?? beatRuleForRole(s.role)}${brandNote(s)}`;
+        })
+        .join('\n');
+
+  /**
+   * La historia, antes de la estructura.
+   *
+   * Van los tres ejes que separan dos rutas —la pregunta, cómo profundiza, cómo
+   * resuelve— y no solo el título: con el título nada más, el guionista reinterpreta la
+   * historia y escribe la que él habría elegido. Y la escala de autoridad explícita,
+   * porque el fallo de origen fue que el rol decidiera la evidencia.
+   */
+  const planSection = plan
+    ? `## LA HISTORIA YA ESTÁ DECIDIDA
+
+No eliges la historia ni la estructura: las eligió el Creative Plan. Tú eliges LAS PALABRAS EXACTAS.
+
+- Ruta: ${plan.routeTitle}
+- Premisa: ${plan.premise}
+- Pregunta que el set contesta: ${plan.storyQuestion}
+- Tesis: ${plan.routeThesis}
+- Cómo se resuelve: ${plan.resolutionMechanism}
+- Cómo profundiza: ${plan.deepeningMode}
+- Forma de la historia: ${plan.storyShape}
+- Mecanismo de evidencia: ${plan.evidenceMechanism}
+
+QUIÉN DECIDE QUÉ:
+
+- El preset decidió cuántos slides hay y cómo se lee el set.
+- La ruta decidió qué historia se cuenta.
+- El beat decidió qué trabajo narrativo hace cada slide y con qué evidencia.
+- TÚ decides las palabras exactas: headline, supporting copy y CTA. Nada más.
+- Otro agente decide cómo se ve.
+
+Lo que eso significa en la práctica: no cambies la solución, no cambies la evidencia de un beat por otra que se te ocurra, no reordenes los slides y no "mejores" la historia. Si un beat te parece flojo, escríbelo mejor con sus mismos elementos.
+
+El campo que más se malinterpreta es "QUÉ TIENE QUE DECIR EL TEXTO". Es la IDEA del slide en prosa descriptiva, no un titular: transcribirla produce headlines que explican en vez de golpear. Tu trabajo es convertirla en la frase más corta y precisa que la diga.
+`
+    : '';
+
+  /**
+   * La composición: decidida antes, o elegida aquí.
+   *
+   * Con plan no hay nada que elegir. La variedad ya la resolvieron la política de
+   * composición del preset y un validador que rechaza el set que repite un cuadro sin
+   * motivo, así que pedirle aquí "no repitas layout" solo puede romper la decisión —
+   * y en un checklist o una cronología, donde compartir encuadre es la intención, la
+   * rompería siempre.
+   */
+  const compositionSection = plan
+    ? `## COMPOSICIÓN
+
+Ya está decidida, slide por slide, y viaja arriba como \`brief.layout\`. Cópiala literal.
+
+No la elijas, no la cambies y no intentes variarla: la variedad del set se resolvió antes de esta llamada. Hay estructuras donde dos slides comparten composición a propósito —los ítems de una lista, las fechas de una cronología— y "no repitas layout" las rompería.`
+    : `## VARIEDAD DE COMPOSICIÓN
+
+Los ${slideCount} slides pertenecen a la misma campaña pero NO usan el mismo layout. Junto a cada rol arriba tienes una sugerencia de composición; puedes cambiarla si el mensaje pide otra, con una sola condición: que no se repita el mismo layout en dos slides del set. Cinco veces la misma arquitectura se lee como plantilla rellenada, aunque las escenas cambien.`;
+
+  /**
+   * `imageIntent` con plan: se redacta la evidencia del beat, no se inventa una.
+   *
+   * De la versión sin plan sobreviven las reglas que siguen siendo verdad —tiene que
+   * ser fotografiable, prohibido describir abstracciones, el motivo es paréntesis— y
+   * desaparece todo lo que era un sustituto de la evidencia: la tabla de traducción de
+   * conceptos abstractos, la lista de superficies y el repertorio por tiempo narrativo.
+   * Ese repertorio es literalmente una hoja de respuestas por rol, y es lo que hizo que
+   * los beats 3, 4 y 5 salieran iguales en tres historias distintas.
+   */
+  const imageIntentSection = plan
+    ? `## imageIntent
+
+La evidencia de cada slide ya está elegida: es la línea "imageIntent: escribe ESTA evidencia" de su beat. Tu trabajo aquí es REDACTARLA como una escena concreta, no elegir otra.
+
+Cómo se redacta: nombra los objetos del beat, en el estado que declara, en un solo cuadro. Añade solo lo necesario para que la escena se entienda.
+
+REGLA DURA: tiene que ser FOTOGRAFIABLE. Objetos físicos y su estado. Si para entenderlo hace falta saber algo que no está a la vista, no sirve.
+
+Prohibido describir abstracciones. Estas ya salieron y ninguna se puede fotografiar: "el valor final todavía sin definirse", "la operación aún abierta", "su precio real no está a simple vista", "el costo todavía no está claro". Una cámara no capta "sin definirse", y cuando la intención es abstracta el agente de imagen se defiende con utilería genérica —calculadora, portapapeles, tabla— y los ${slideCount} slides terminan siendo el mismo bodegón.
+
+Si la evidencia del beat te parece abstracta, hazla concreta con los objetos que el beat ya nombra. No la cambies por otra.
+
+REGLA LIGADA AL MOTIVO: el imageIntent del primer y del último slide sí puede nombrar el objeto recurrente, porque ahí es el protagonista. En los de en medio NO lo nombra: nombra los objetos propios de ese beat. Lo que escribas aquí es lo que se renderiza.
+
+${fxBlock}
+
+Prohibido afirmar la pérdida. Una hoja que diga "margen negativo" o "estás perdiendo" no va. El total más alto, resaltado, dice lo mismo sin el veredicto.
+
+Mal: "imagen de negocios profesional".
+Mal: "el mismo motor con la operación aún abierta y el valor final sin definirse" — no hay nada que fotografiar.
+Bien: "un pallet detenido en el andén mientras el reloj avanza — la mercancía existe pero no se mueve".
+Bien: "dos hojas de la misma cotización lado a lado, sellos HOY y PAGO arriba, con los dos totales legibles y distintos".`
+    : `## imageIntent
+
+Por cada slide describe QUÉ DEBE COMUNICAR su imagen, no cómo se ve técnicamente (de eso se encarga otro agente).
+
+PRINCIPIO: la imagen TRADUCE la frase de su slide, no la acompaña. Igual que en las piezas individuales, la historia se cuenta en imágenes y el texto solo la nombra. Pregúntate qué se vería si esa frase pasara en la vida real, y describe eso. Si la imagen funcionaría igual con la frase de otro slide, está mal: significa que ilustra el tema y no dice lo que dice ESA línea.
+
+TEST DE GENERALIDAD, aplícalo a cada slide antes de darlo por bueno: ¿esta misma imagen serviría igual para diez headlines distintos? "Un motor en una tarima" sirve para velocidad, costo, importación, inventario, financiamiento y logística — por sí solo no cuenta ninguna idea. Necesita el elemento que lo ata a ESTE mensaje.
+
+NO ILUSTRES LA INDUSTRIA, DEMUESTRA LA AFIRMACIÓN. Si el headline dice "ese movimiento puede acumularse en cada compra de equipo", un motor bonito no lo demuestra; varios motores, varias compras, documentos repetidos y una sensación de suma sí.
+
+CÓMO TRADUCIR LOS CONCEPTOS ABSTRACTOS. Esto es lo que convierte una frase financiera en algo que se ve:
+- Cambio: dos momentos, dos cotizaciones, dos fechas, dos cifras, un antes y un después.
+- Acumulación: repetición. Varias compras, varias facturas, varios equipos, suma incremental.
+- Certidumbre: un valor ya definido, un documento cerrado, un monto confirmado, un resultado único.
+- Tiempo: calendario, fecha, secuencia, HOY contra 60 DÍAS, desplazamiento temporal.
+- Presupuesto contra obligación: USD y MXN, factura y presupuesto, dos documentos comparados.
+- Margen: costo y precio juntos, la diferencia, una barra, una hoja de cálculo.
+
+REGLA DURA: tiene que ser FOTOGRAFIABLE. Objetos físicos y su estado, en un solo cuadro. Si para entenderlo hace falta saber algo que no está a la vista, no sirve.
+
+Prohibido describir abstracciones. Estas ya salieron y ninguna se puede fotografiar: "el valor final todavía sin definirse", "la operación aún abierta", "su precio real no está a simple vista", "lo oculto queda expuesto", "el costo todavía no está claro". Una cámara no capta "sin definirse". Cuando la intención es abstracta, el agente de imagen se defiende con utilería genérica —calculadora, portapapeles, tabla— y los ${slideCount} slides terminan siendo el mismo bodegón.
+
+Cada slide necesita UN objeto concreto que cargue la idea de SU línea.
+
+REGLA LIGADA AL MOTIVO: el imageIntent del primer y del último slide sí puede nombrar el objeto recurrente, porque ahí es el protagonista. En los slides de en medio, el imageIntent NO lo nombra: nombra el objeto propio de esa línea. Si escribes "el mismo motor junto a…" en un slide de en medio, ese slide va a salir igual que los demás — el agente de imagen construye la escena a partir de este texto, así que lo que nombras aquí es lo que se renderiza.
+
+SUPERFICIES donde puede vivir el dato, porque el dato tiene que estar en un objeto de la escena y no flotando sobre ella: una cotización u orden de compra impresa con su total visible; dos hojas de la misma cotización lado a lado con fechas distintas; una pantalla en la escena —monitor sobre el escritorio, laptop entreabierta— con la curva del tipo de cambio; una hoja con una gráfica impresa; un sello de fecha o una fecha de vencimiento marcada.
+
+${fxBlock}
+
+Prohibido afirmar la pérdida. Una hoja que diga "margen negativo" o "estás perdiendo" no va. El total más alto, resaltado, dice lo mismo sin el veredicto.
+
+Repertorio por tiempo narrativo, como punto de partida:
+
+- Tensión / apertura: el objeto de la compra y el documento donde vive su costo.
+- Qué cambia: DOS ESTADOS DE LO MISMO en el mismo cuadro. Dos hojas de la misma cotización, una con fecha o sello posterior, y los dos totales legibles y distintos. Los valores los pone el sistema; lo tuyo es pedir las dos hojas y que se lean. Dos totales borrosos no comunican nada.
+- Qué riesgo: la consecuencia visible. El total más alto ocupando más espacio que el anterior, el equipo embalado todavía esperando, el margen apretado entre dos documentos.
+- Solución: la operación resuelta. Un solo documento, ordenado, con un solo total definido y legible — un número, no dos.
+- Cierre / CTA: el cuadro más callado del set, con el motivo de vuelta y nada compitiendo.
+
+Mal: "imagen de negocios profesional".
+Mal: "el mismo motor con la operación aún abierta y el valor final sin definirse" — no hay nada que fotografiar.
+Bien: "un pallet detenido en el andén mientras el reloj avanza — la mercancía existe pero no se mueve".
+Bien: "dos hojas de la misma cotización lado a lado, sellos HOY y PAGO arriba, con los dos totales legibles y distintos".`;
+
+  /**
+   * El motivo: dado por el plan, o elegido aquí.
+   *
+   * Con plan se devuelve tal cual. Es la única forma de que el motivo del storyboard
+   * que el usuario aprobó sea el que llega a la imagen: el campo `visualMotif` de la
+   * respuesta alimenta todos los prompts del set, así que si el guionista escribe otro,
+   * el plan quedó decorativo.
+   */
+  const motifSection = plan
+    ? `## visualMotif
+
+El motivo del set ya está elegido: "${plan.visualMotif}"${plan.visualMotifFamily ? ` (familia: ${plan.visualMotifFamily})` : ''}.
+
+Devuélvelo en el campo "visualMotif" TAL CUAL, sin reescribirlo. No es tu decisión.
+
+Cómo se comporta en el set, para que lo respetes al escribir los imageIntent: es un PARÉNTESIS. Protagoniza el slide 1 y el slide ${slideCount}; en los de en medio puede aparecer como detalle secundario o no aparecer, porque cada uno trae su propio sujeto. La unidad del set la da el sistema visual —misma paleta, misma luz, misma cámara—, no repetir el objeto ${slideCount} veces.`
+    : `## visualMotif
+
+Un sujeto u objeto concreto que abre y cierra el set. Descríbelo en una frase.
+
+El motivo funciona como PARÉNTESIS, no como protagonista de los ${slideCount} cuadros:
+
+- Slide 1 y slide ${slideCount}: ahí el motivo es el sujeto principal. Abre y cierra.
+- Slides de en medio: cada uno trae SU PROPIO sujeto, el que le exige su línea. El motivo puede aparecer como detalle secundario, al fondo, desenfocado, o no aparecer.
+
+No necesitas repetirlo en todos para que el set se vea unido: la unidad la da el sistema visual, que ya es idéntico en los ${slideCount} slides — misma paleta, misma luz, misma cámara, mismo fondo, misma zona de texto. Repetir el objeto encima de eso no suma cohesión, produce ${slideCount} veces la misma imagen.
+
+Dos slides seguidos con el mismo encuadre del mismo objeto están mal.${imageType ? `\nEl medio visual del set es ${MEDIUM_LABELS[imageType] ?? imageType}, así que el motivo tiene que ser representable en ese medio.` : ''}`;
 
   const complianceLines: string[] = [];
   if (compliance.forbidden_terms.length > 0) {
@@ -419,6 +669,7 @@ Los tres tienen que estar alineados. Si cualquiera de ellos pudiera cambiarse po
 
 No diseñas una imagen para acompañar un texto: diseñas una pieza que convierte el texto en una escena.
 
+${planSection}
 ## ESTRUCTURA PEDIDA
 
 ${roleLines}
@@ -480,73 +731,19 @@ Normalmente UN bloque. Dos únicamente cuando el headline enfrenta dos conceptos
 
 ${BRAND_COLOR_LANGUAGE_ES}
 
+${HIGHLIGHT_LIMITS_ES}
+
 PROHIBIDO SOBRECOLOREAR. "Cada MOTOR también MUEVE tus COSTOS" con tres colores está mal. Fragmentar todo el headline mata la lectura. Un bloque, o dos si hay oposición conceptual. Nada más.
 
 EL HIGHLIGHT NUNCA ES EL HEADLINE COMPLETO. Si toda la línea va en color no hay contraste y no hay jerarquía: el acento existe porque el resto NO lo lleva. En el slide del CTA colorea únicamente el nombre de la marca — "Cotiza con Xending" lleva "Xending" en turquesa y "Cotiza con" en navy, no la frase entera.
 
 En el campo highlights, cada elemento lleva "text" (el bloque literal del headline) y "colorRole" ("risk" o "control"). No pongas colores: el rol define el color.
 
-## VARIEDAD DE COMPOSICIÓN
+${compositionSection}
 
-Los ${slideCount} slides pertenecen a la misma campaña pero NO usan el mismo layout. Junto a cada rol arriba tienes una sugerencia de composición; puedes cambiarla si el mensaje pide otra, con una sola condición: que no se repita el mismo layout en dos slides del set. Cinco veces la misma arquitectura se lee como plantilla rellenada, aunque las escenas cambien.
+${imageIntentSection}
 
-## imageIntent
-
-Por cada slide describe QUÉ DEBE COMUNICAR su imagen, no cómo se ve técnicamente (de eso se encarga otro agente).
-
-PRINCIPIO: la imagen TRADUCE la frase de su slide, no la acompaña. Igual que en las piezas individuales, la historia se cuenta en imágenes y el texto solo la nombra. Pregúntate qué se vería si esa frase pasara en la vida real, y describe eso. Si la imagen funcionaría igual con la frase de otro slide, está mal: significa que ilustra el tema y no dice lo que dice ESA línea.
-
-TEST DE GENERALIDAD, aplícalo a cada slide antes de darlo por bueno: ¿esta misma imagen serviría igual para diez headlines distintos? "Un motor en una tarima" sirve para velocidad, costo, importación, inventario, financiamiento y logística — por sí solo no cuenta ninguna idea. Necesita el elemento que lo ata a ESTE mensaje.
-
-NO ILUSTRES LA INDUSTRIA, DEMUESTRA LA AFIRMACIÓN. Si el headline dice "ese movimiento puede acumularse en cada compra de equipo", un motor bonito no lo demuestra; varios motores, varias compras, documentos repetidos y una sensación de suma sí.
-
-CÓMO TRADUCIR LOS CONCEPTOS ABSTRACTOS. Esto es lo que convierte una frase financiera en algo que se ve:
-- Cambio: dos momentos, dos cotizaciones, dos fechas, dos cifras, un antes y un después.
-- Acumulación: repetición. Varias compras, varias facturas, varios equipos, suma incremental.
-- Certidumbre: un valor ya definido, un documento cerrado, un monto confirmado, un resultado único.
-- Tiempo: calendario, fecha, secuencia, HOY contra 60 DÍAS, desplazamiento temporal.
-- Presupuesto contra obligación: USD y MXN, factura y presupuesto, dos documentos comparados.
-- Margen: costo y precio juntos, la diferencia, una barra, una hoja de cálculo.
-
-REGLA DURA: tiene que ser FOTOGRAFIABLE. Objetos físicos y su estado, en un solo cuadro. Si para entenderlo hace falta saber algo que no está a la vista, no sirve.
-
-Prohibido describir abstracciones. Estas ya salieron y ninguna se puede fotografiar: "el valor final todavía sin definirse", "la operación aún abierta", "su precio real no está a simple vista", "lo oculto queda expuesto", "el costo todavía no está claro". Una cámara no capta "sin definirse". Cuando la intención es abstracta, el agente de imagen se defiende con utilería genérica —calculadora, portapapeles, tabla— y los ${slideCount} slides terminan siendo el mismo bodegón.
-
-Cada slide necesita UN objeto concreto que cargue la idea de SU línea.
-
-REGLA LIGADA AL MOTIVO: el imageIntent del primer y del último slide sí puede nombrar el objeto recurrente, porque ahí es el protagonista. En los slides de en medio, el imageIntent NO lo nombra: nombra el objeto propio de esa línea. Si escribes "el mismo motor junto a…" en un slide de en medio, ese slide va a salir igual que los demás — el agente de imagen construye la escena a partir de este texto, así que lo que nombras aquí es lo que se renderiza.
-
-SUPERFICIES donde puede vivir el dato, porque el dato tiene que estar en un objeto de la escena y no flotando sobre ella: una cotización u orden de compra impresa con su total visible; dos hojas de la misma cotización lado a lado con fechas distintas; una pantalla en la escena —monitor sobre el escritorio, laptop entreabierta— con la curva del tipo de cambio; una hoja con una gráfica impresa; un sello de fecha o una fecha de vencimiento marcada.
-
-${fxBlock}
-
-Prohibido afirmar la pérdida. Una hoja que diga "margen negativo" o "estás perdiendo" no va. El total más alto, resaltado, dice lo mismo sin el veredicto.
-
-Repertorio por tiempo narrativo, como punto de partida:
-
-- Tensión / apertura: el objeto de la compra y el documento donde vive su costo.
-- Qué cambia: DOS ESTADOS DE LO MISMO en el mismo cuadro. Dos hojas de la misma cotización, una con fecha o sello posterior, y los dos totales legibles y distintos. Los valores los pone el sistema; lo tuyo es pedir las dos hojas y que se lean. Dos totales borrosos no comunican nada.
-- Qué riesgo: la consecuencia visible. El total más alto ocupando más espacio que el anterior, el equipo embalado todavía esperando, el margen apretado entre dos documentos.
-- Solución: la operación resuelta. Un solo documento, ordenado, con un solo total definido y legible — un número, no dos.
-- Cierre / CTA: el cuadro más callado del set, con el motivo de vuelta y nada compitiendo.
-
-Mal: "imagen de negocios profesional".
-Mal: "el mismo motor con la operación aún abierta y el valor final sin definirse" — no hay nada que fotografiar.
-Bien: "un pallet detenido en el andén mientras el reloj avanza — la mercancía existe pero no se mueve".
-Bien: "dos hojas de la misma cotización lado a lado, sellos HOY y PAGO arriba, con los dos totales legibles y distintos".
-
-## visualMotif
-
-Un sujeto u objeto concreto que abre y cierra el set. Descríbelo en una frase.
-
-El motivo funciona como PARÉNTESIS, no como protagonista de los ${slideCount} cuadros:
-
-- Slide 1 y slide ${slideCount}: ahí el motivo es el sujeto principal. Abre y cierra.
-- Slides de en medio: cada uno trae SU PROPIO sujeto, el que le exige su línea. El motivo puede aparecer como detalle secundario, al fondo, desenfocado, o no aparecer.
-
-No necesitas repetirlo en todos para que el set se vea unido: la unidad la da el sistema visual, que ya es idéntico en los ${slideCount} slides — misma paleta, misma luz, misma cámara, mismo fondo, misma zona de texto. Repetir el objeto encima de eso no suma cohesión, produce ${slideCount} veces la misma imagen.
-
-Dos slides seguidos con el mismo encuadre del mismo objeto están mal.${imageType ? `\nEl medio visual del set es ${MEDIUM_LABELS[imageType] ?? imageType}, así que el motivo tiene que ser representable en ese medio.` : ''}
+${motifSection}
 
 ${complianceLines.length > 0 ? `## CUMPLIMIENTO (no negociable)\n\n${complianceLines.join('\n\n')}\n` : ''}
 ${editorialBans ? `${editorialBans}\n` : ''}
@@ -583,8 +780,12 @@ Qué va en cada campo del brief:
 
 - visualIntent: qué tiene que volver evidente la imagen, en una frase. Es la respuesta a "¿qué podría mostrar que hiciera esta afirmación visualmente evidente antes de terminar de leer el supporting copy?".
 - visualMetaphor: el recurso concreto que lo demuestra. "Dos cotizaciones de la misma operación con fechas distintas", "cuatro compras sucesivas con su documento", "un resultado único ya definido".
-- layout: uno de editorial_top, split_photo, editorial_repetition, document_result, hero_clean. Por defecto no repitas el mismo en dos slides. La excepción son los slides EQUIVALENTES entre sí —los ítems de una lista, las fechas de una cronología—: esos comparten layout a propósito, porque la composición repetida es lo que los hace leerse como partes de una misma serie.
-- primaryObjects: los objetos que tienen que estar en cuadro.
+${plan
+  ? `- layout: el valor de \`brief.layout\` que trae su slide arriba, LITERAL. No lo elijas.`
+  : `- layout: uno de editorial_top, split_photo, editorial_repetition, document_result, hero_clean. Por defecto no repitas el mismo en dos slides. La excepción son los slides EQUIVALENTES entre sí —los ítems de una lista, las fechas de una cronología—: esos comparten layout a propósito, porque la composición repetida es lo que los hace leerse como partes de una misma serie.`}
+${plan
+  ? `- primaryObjects: los objetos que su beat ya declara. Cópialos; puedes añadir alguno solo si la escena no se entiende sin él.`
+  : `- primaryObjects: los objetos que tienen que estar en cuadro.`}
 - environmentalText: etiquetas cortas SIN CIFRAS que pueden aparecer DENTRO de los objetos: "USD", "MXN", "HOY", "60 DÍAS", "TOTAL", "TIPO DE CAMBIO", "PAGO". Nombres de campo y sellos, nada más. Prohibido cualquier número aquí —montos, tasas, porcentajes—: esos los inyecta el sistema por documento, y duplicarlos aquí produce valores sueltos que no pertenecen a ninguna hoja. Vacío si el slide no necesita ninguna.
 - highlights: uno o dos bloques del headline con su rol semántico. El texto tiene que aparecer LITERAL dentro del headline, y ser una unidad semántica completa.
 
@@ -705,6 +906,15 @@ function normalizeBrief(
   raw: unknown,
   headline: string,
   layoutHint?: string,
+  /**
+   * El beat de este slide, cuando el set se escribió desde un Creative Plan.
+   *
+   * Lo que aporta es autoridad, no una sugerencia más: la composición y los objetos ya
+   * pasaron el validador de diversidad del plan, así que si el modelo devuelve otros el
+   * set deja de ser el que el usuario aprobó en el storyboard. El prompt ya lo pide;
+   * esto lo garantiza, porque una instrucción de prompt es una probabilidad.
+   */
+  beat?: CarouselStoryBeat,
 ): ScriptBrief | undefined {
   if (!raw || typeof raw !== 'object') return undefined;
   const b = raw as Record<string, unknown>;
@@ -713,45 +923,31 @@ function normalizeBrief(
   const list = (v: unknown): string[] =>
     Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && !!x.trim()).map((x) => x.trim()) : [];
 
-  const normalizedHeadline = headline.toLowerCase();
-  const highlights: ScriptHighlight[] = (Array.isArray(b.highlights) ? b.highlights : [])
-    .map((h) => {
-      const item = (h ?? {}) as Record<string, unknown>;
-      return {
-        text: str(item.text),
-        // Unknown or missing role falls back to risk: it is the accent these pieces
-        // use most, and a wrong-but-branded colour beats no emphasis at all.
-        colorRole: item.colorRole === 'control' ? ('control' as const) : ('risk' as const),
-      };
-    })
-    .filter((h) => h.text.length > 0 && normalizedHeadline.includes(h.text.toLowerCase()))
-    .flatMap((h) => {
-      /**
-       * A highlight that covers the whole headline is not emphasis.
-       *
-       * The accent works because the rest of the line does not carry it, so
-       * colouring everything removes the contrast it was there to create — a CTA
-       * came back with "Cotiza con Xending" entirely in turquoise.
-       *
-       * When that happens and the line names the brand, the brand is the block
-       * worth accenting; otherwise the slide is better off with no accent at all
-       * than with a uniformly coloured headline.
-       */
-      const coversEverything =
-        h.text.trim().toLowerCase() === headline.trim().toLowerCase().replace(/\s+/g, ' ') ||
-        h.text.replace(/\s+/g, '').length >= headline.replace(/\s+/g, '').length;
-
-      if (!coversEverything) return [h];
-
-      const brand = headline.match(/xending/i)?.[0];
-      return brand ? [{ text: brand, colorRole: h.colorRole }] : [];
-    })
-    .slice(0, 2);
+  /**
+   * El acento tipográfico, acotado.
+   *
+   * La lógica vive en `_shared/carouselHighlights.ts` porque el tope tiene que ser el
+   * mismo número que el prompt anuncia y que el prompt de imagen repite, y porque la
+   * versión que vivía aquí medía cada resalte contra sí mismo y nunca la suma: dos
+   * bloques de una oración cada uno pintaron un headline completo en coral sin activar
+   * ni una guarda.
+   */
+  const highlights: ScriptHighlight[] = normalizeHighlights(b.highlights, headline);
 
   const layoutRaw = str(b.layout);
-  const layout = (LAYOUTS as readonly string[]).includes(layoutRaw)
-    ? layoutRaw
-    : (layoutHint && (LAYOUTS as readonly string[]).includes(layoutHint) ? layoutHint : 'editorial_top');
+  /**
+   * Con plan la composición no se negocia; sin plan sigue siendo del modelo.
+   *
+   * `compositionFamily` la deriva el código desde el `CompositionSpec` del beat, y es
+   * el mismo vocabulario de cinco valores que este agente ya devolvía, así que entra
+   * sin traducción.
+   */
+  const plannedLayout = beat?.compositionFamily;
+  const layout = plannedLayout && (LAYOUTS as readonly string[]).includes(plannedLayout)
+    ? plannedLayout
+    : (LAYOUTS as readonly string[]).includes(layoutRaw)
+      ? layoutRaw
+      : (layoutHint && (LAYOUTS as readonly string[]).includes(layoutHint) ? layoutHint : 'editorial_top');
 
   /**
    * Environmental labels are field names and stamps, never values.
@@ -766,11 +962,24 @@ function normalizeBrief(
     (t) => !/[$%]|\d[\d,.]*\.\d|\d{1,3},\d{3}|\b\d+\s*(%|USD|MXN|pesos)\b|\b(USD|MXN)\s*\d/i.test(t),
   );
 
+  /**
+   * Los objetos del beat entran siempre; los del modelo se suman detrás.
+   *
+   * Unión y no sustitución: el plan declara los objetos que cargan la idea del slide y
+   * ya pasaron el filtro de "una cámara puede captarlo", pero el guionista puede
+   * necesitar uno más para que la escena se lea. Lo que no puede es quitar los del plan
+   * — ahí el slide deja de probar lo que su beat dice.
+   */
+  const modelObjects = list(b.primaryObjects);
+  const primaryObjects = beat
+    ? [...new Set([...beat.primaryObjects, ...modelObjects])]
+    : modelObjects;
+
   return {
     visualIntent: str(b.visualIntent),
     visualMetaphor: str(b.visualMetaphor),
     layout,
-    primaryObjects: list(b.primaryObjects),
+    primaryObjects,
     environmentalText,
     highlights,
   };
@@ -924,6 +1133,23 @@ serve(async (req) => {
       verticalKeywords = vertical?.keywords ?? [];
     }
 
+    /**
+     * El plan, si cubre el set. Se resuelve UNA vez y las dos capas leen esto.
+     *
+     * Un plan aceptado a medias sería el peor de los dos mundos: el prompt escribiría
+     * desde los beats y `normalizeBrief` seguiría resolviendo composición por rol, o al
+     * revés. Y el fallo no se vería, porque los slides saldrían escritos.
+     */
+    const plan = planCoversRoles(body.plan, body.slides.map((s) => s.role))
+      ? body.plan
+      : undefined;
+    if (body.plan && !plan) {
+      console.warn(
+        `Creative Plan ignorado: ${body.plan.storyboard?.length ?? 0} beats para ` +
+          `${body.slides.length} slides, o roles en otro orden. El guion decide su estructura.`,
+      );
+    }
+
     // --- 5. Ask the model for the script ---
     const systemPrompt = buildSystemPrompt({
       brandName: businessCtx.brandIdentity.name,
@@ -940,6 +1166,7 @@ serve(async (req) => {
       editorialBans,
       fxMoments: body.fxMoments,
       fxAccumulated: body.fxAccumulated,
+      plan,
       guidance: body.guidance,
     });
 
@@ -1042,7 +1269,7 @@ serve(async (req) => {
         body: isCtaSlide ? '' : clampWords(bodyText, MAX_BODY_WORDS),
         cta: ctaText && mayHoldCta ? clampWords(ctaText, MAX_CTA_WORDS) : undefined,
         imageIntent: typeof raw.imageIntent === 'string' ? raw.imageIntent.trim() : '',
-        brief: normalizeBrief(raw.brief, clampedHeadline, spec.layoutHint),
+        brief: normalizeBrief(raw.brief, clampedHeadline, spec.layoutHint, plan?.storyboard[i]),
       };
     });
 
@@ -1054,12 +1281,24 @@ serve(async (req) => {
       );
     }
 
+    /**
+     * Con plan, el motivo es el del plan y no lo que devolvió el modelo.
+     *
+     * Este campo alimenta todos los prompts de imagen del set. Si el guionista lo
+     * reescribe, el motivo que el usuario leyó y aprobó en el storyboard no llega a
+     * ninguna pieza, y el plan queda decorativo. El prompt ya se lo pide literal; esto
+     * lo asegura.
+     */
+    const scriptedMotif = typeof parsed.visualMotif === 'string' ? parsed.visualMotif.trim() : '';
     const response: GenerateCarouselScriptResponse = {
       slides,
-      visualMotif: typeof parsed.visualMotif === 'string' ? parsed.visualMotif.trim() : '',
+      visualMotif: plan?.visualMotif?.trim() || scriptedMotif,
     };
 
-    console.log(`Carousel script ready: ${slides.length} slides.`);
+    console.log(
+      `Carousel script ready: ${slides.length} slides` +
+        `${plan ? `, desde el plan ${plan.planId} (ruta ${plan.routeId})` : ', sin plan'}.`,
+    );
     return jsonResponse(response);
   } catch (error) {
     console.error('Function error:', error);
