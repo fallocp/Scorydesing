@@ -1,0 +1,123 @@
+{
+  "escenario": {
+    "branch": "costos-ahorro",
+    "industry": "importadores de mobiliario",
+    "headline": "El mobiliario tiene precio. El dólar también",
+    "body": "La venta ya está encaminada, pero el costo asociado todavía puede moverse.",
+    "roles": [
+      "tension",
+      "shift",
+      "risk",
+      "solution",
+      "cta"
+    ]
+  },
+  "generado": "2026-08-19T19:25:03.187Z",
+  "rutasDisponibles": [
+    {
+      "id": "cost_anatomy",
+      "deepeningMode": "anatomy",
+      "figurePolicy": "optional",
+      "figureScenarios": [
+        "rate_comparison"
+      ],
+      "allowedEvidenceDevices": [
+        "capas del costo separadas",
+        "renglones de la cotizacion",
+        "conceptos como objetos distintos",
+        "desglose linea por linea",
+        "sobres etiquetados por concepto"
+      ]
+    },
+    {
+      "id": "second_quote",
+      "deepeningMode": "sensitivity",
+      "figurePolicy": "optional",
+      "figureScenarios": [
+        "rate_comparison"
+      ],
+      "allowedEvidenceDevices": [
+        "dos cotizaciones del mismo pedido",
+        "dos condiciones de pago comparadas",
+        "dos totales de distinta longitud"
+      ]
+    },
+    {
+      "id": "accumulated_difference",
+      "deepeningMode": "accumulation",
+      "figurePolicy": "required",
+      "figureScenarios": [
+        "repeated_operations",
+        "accumulated_difference"
+      ],
+      "allowedEvidenceDevices": [
+        "varias compras sucesivas",
+        "columna de diferencias",
+        "resumen mensual con varias lineas",
+        "documentos repetidos de la misma operacion"
+      ]
+    },
+    {
+      "id": "margin_under_pressure",
+      "deepeningMode": "margin",
+      "figurePolicy": "required",
+      "figureScenarios": [
+        "margin_sensitivity"
+      ],
+      "allowedEvidenceDevices": [
+        "lista de precios publicada",
+        "precio y costo en el mismo cuadro",
+        "la distancia entre dos valores",
+        "hoja de margen por producto"
+      ]
+    },
+    {
+      "id": "factory_price_vs_landed_cost",
+      "deepeningMode": "stage_progression",
+      "figurePolicy": "optional",
+      "figureScenarios": [
+        "rate_comparison"
+      ],
+      "allowedEvidenceDevices": [
+        "cotizacion de fabrica",
+        "documento por etapa del trayecto",
+        "el producto avanzando por etapas",
+        "costo final de la operacion"
+      ]
+    },
+    {
+      "id": "operational_simplification",
+      "deepeningMode": "operational_load",
+      "figurePolicy": "none",
+      "figureScenarios": [],
+      "allowedEvidenceDevices": [
+        "varias carpetas de cuentas distintas",
+        "escritorio con muchos expedientes",
+        "un solo expediente",
+        "conciliacion manual"
+      ]
+    },
+    {
+      "id": "cost_plus_speed",
+      "deepeningMode": "planning_horizon",
+      "figurePolicy": "none",
+      "figureScenarios": [],
+      "allowedEvidenceDevices": [
+        "una decision con dos consecuencias",
+        "el pedido y el estado de la operacion",
+        "dos caminos desde el mismo punto"
+      ]
+    }
+  ],
+  "sceneKit": {
+    "version": "costos-ahorro-scene-v1",
+    "dataSurfaces": 7,
+    "changeMarkers": 5,
+    "bannedPropTokens": 11,
+    "figurePolicy": "fx_documents"
+  },
+  "tamanos": {
+    "plannerSystem": 28382,
+    "plannerUser": 379
+  }
+}
