@@ -55,6 +55,20 @@ export const costosAhorroSceneKit: SceneKit = {
     'iconos de candado, escudo o alcancía',
   ],
 
+  bannedPropTokens: [
+    'forward',
+    'calendario de vencimientos',
+    'fecha de vencimiento',
+    'reloj',
+    'sello de hora',
+    'cronometro',
+    'semaforo',
+    'flecha roja',
+    'candado',
+    'escudo',
+    'alcancia',
+  ],
+
   figurePolicy: {
     mode: 'fx_documents',
     scenariosByRole: {

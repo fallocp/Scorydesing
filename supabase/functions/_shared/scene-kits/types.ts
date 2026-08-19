@@ -72,5 +72,17 @@ export interface SceneKit {
    * global le había enseñado además que una cotización sirve para cualquier pieza.
    */
   bannedProps: string[];
+  /**
+   * Los mismos props prohibidos, en tokens que el código puede buscar.
+   *
+   * `bannedProps` es prosa para el prompt y tiene que serlo: explica POR QUÉ un
+   * prop es de otra rama, y esa explicación es lo que hace que el modelo no lo
+   * sustituya por un sinónimo. Pero una frase como "calendarios de vencimientos
+   * futuros y contratos de forward: eso es de coberturas" no se puede buscar dentro
+   * de un storyboard, así que el validador necesita además la versión corta.
+   *
+   * Minúsculas y sin acentos: la comparación normaliza los dos lados.
+   */
+  bannedPropTokens: string[];
   figurePolicy: SceneFigurePolicy;
 }

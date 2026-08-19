@@ -64,6 +64,27 @@ export const velocidadSceneKit: SceneKit = {
     'cronómetros, relojes de arena, cohetes, rayos y estelas de velocidad',
   ],
 
+  /*
+   * `tipo de cambio` va aquí y no solo en la política de cifras.
+   *
+   * La política dice que la rama no lleva cifras, y aun así una escena puede pedir
+   * "la pantalla con la curva del tipo de cambio" sin escribir un número. Eso
+   * traslada la historia a costos igual: el objeto es el que decide de qué habla la
+   * pieza.
+   */
+  bannedPropTokens: [
+    'tipo de cambio',
+    'dos cotizaciones',
+    'cotizaciones comparadas',
+    'cotizaciones lado a lado',
+    'forward',
+    'calendario de vencimientos',
+    'cronometro',
+    'reloj de arena',
+    'cohete',
+    'estela de velocidad',
+  ],
+
   figurePolicy: {
     mode: 'none',
     scenariosByRole: {},

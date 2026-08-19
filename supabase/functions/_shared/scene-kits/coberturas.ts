@@ -60,6 +60,31 @@ export const coberturasSceneKit: SceneKit = {
     'candados, escudos, paraguas y redes de seguridad',
   ],
 
+  /*
+   * `curva`, `tendencia` y `prediccion` son la prohibición central de esta rama.
+   *
+   * Un guard anterior falló con razón sobre una escena que pedía una pantalla con
+   * la curva del tipo de cambio y una fecha futura marcada. Lo que la rama no puede
+   * hacer es insinuar hacia dónde va el mercado; mostrar dos niveles como escenario
+   * etiquetado sí puede, y por eso lo que se prohíbe es el objeto que proyecta, no
+   * la comparación de dos tasas.
+   */
+  bannedPropTokens: [
+    'reloj',
+    'sello de hora',
+    'pantalla de estado',
+    'dos cotizaciones',
+    'cotizaciones comparadas',
+    'curva',
+    'linea de tendencia',
+    'tendencia proyectada',
+    'flecha de prediccion',
+    'candado',
+    'escudo',
+    'paraguas',
+    'red de seguridad',
+  ],
+
   figurePolicy: {
     mode: 'fx_documents',
     scenariosByRole: {
