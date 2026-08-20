@@ -23,6 +23,7 @@ import {
   type DesignImageType,
 } from '@/types/design-studio';
 import type {
+  CarouselCommercialIntent,
   CarouselCreativePlan,
   CarouselPlanDigest,
   CarouselPlanPreflight,
@@ -79,6 +80,7 @@ export function useCarouselPlan({ bankItem, branchId }: UseCarouselPlanParams) {
       presetSlug: string;
       objective: CarouselObjective;
       imageType: DesignImageType;
+      commercialIntent?: CarouselCommercialIntent;
       guidance?: string;
     }): Promise<boolean> => {
       if (!bankItem || !activeBusinessId) return false;
@@ -123,6 +125,7 @@ export function useCarouselPlan({ bankItem, branchId }: UseCarouselPlanParams) {
               layoutPolicy: preset.layoutPolicy,
               closingPolicy: preset.closingPolicy,
               objective: params.objective,
+              commercialIntent: params.commercialIntent,
               imageType: params.imageType,
               angleName: bankItem.meta.angleName,
               industryName: bankItem.meta.industryName,

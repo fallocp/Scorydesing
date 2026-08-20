@@ -216,6 +216,23 @@ export interface CopyKitFinalTestItem {
   automatable?: boolean;
 }
 
+/**
+ * Política de lenguaje publicable de la rama. (§idiomático)
+ *
+ * Viaja con el kit para que el planificador y el guionista compartan una sola fuente:
+ * qué términos internos/operativos nunca se publican y cómo se reescriben en español
+ * natural. Evita que jerga como "ventana operativa" o calcos como "liberar el pago"
+ * terminen en un headline.
+ */
+export interface CopyKitLanguageStyle {
+  locale?: string;
+  note?: string;
+  /** Términos internos u operativos que jamás deben aparecer en copy publicado. */
+  internal_terms_never_publish?: string[];
+  /** Reescrituras aprobadas: término no publicable → forma natural. */
+  preferred_rewrites?: Record<string, string>;
+}
+
 export interface CopyKit {
   kit_version: string;
   branch_slug: string;
@@ -291,6 +308,8 @@ export interface CopyKit {
   angle_limits?: Record<string, CopyKitAngleLimit>;
   claim_review_trigger?: CopyKitClaimReviewTrigger;
   claim_semantics?: CopyKitClaimSemantics;
+  /** Términos no publicables y reescrituras naturales. Ver CopyKitLanguageStyle. */
+  language_style?: CopyKitLanguageStyle;
   /**
    * CTA prohibidos a nivel RAMA. (§26)
    *

@@ -153,14 +153,14 @@ describe('margin_sensitivity', () => {
   });
 
   it('reproduce el caso estándar', () => {
-    // USD 10,000 · TC 18.20 → costo 182,000 · margen 35% → precio 245,700 · margen 63,700
-    // TC pago 18.56 → costo 185,600 · margen 60,100
+    // USD 10,000 · TC 17.20 → costo 172,000 · markup 35% → precio 232,200
+    // TC expuesto 17.54 → costo 175,400; la utilidad bruta pasa de 60,200 a 56,800
     const [hoy, pago] = documents;
-    expect(fieldValue(hoy, 'PRECIO DE VENTA')).toBe(245_700);
-    expect(fieldValue(hoy, 'COSTO IMPORTADO')).toBe(182_000);
-    expect(num(hoy.total.value)).toBe(63_700);
-    expect(fieldValue(pago, 'COSTO IMPORTADO')).toBe(185_600);
-    expect(num(pago.total.value)).toBe(60_100);
+    expect(fieldValue(hoy, 'PRECIO DE VENTA')).toBe(232_200);
+    expect(fieldValue(hoy, 'COSTO IMPORTADO')).toBe(172_000);
+    expect(num(hoy.total.value)).toBe(60_200);
+    expect(fieldValue(pago, 'COSTO IMPORTADO')).toBe(175_400);
+    expect(num(pago.total.value)).toBe(56_800);
   });
 
   it('el color dice qué está bajo control y qué está expuesto', () => {
@@ -204,6 +204,40 @@ describe('margin_sensitivity', () => {
      */
     expect(DEFAULT_MARGIN_PCT).toBe(35);
     expect(fieldValue(docs[0], 'PRECIO DE VENTA')).toBe(245_700);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Comparación simultánea de cotizaciones
+// ---------------------------------------------------------------------------
+
+describe('quote_comparison', () => {
+  const assumptions = {
+    ...DEFAULT_CAROUSEL_FX,
+    amountUsd: 19_000,
+    baseRate: 17.2,
+    comparisonRate: 17.54,
+  };
+  const { documents } = buildPlanFigureDocuments('quote_comparison', assumptions);
+
+  it('usa dos tasas editadas sobre la misma operación', () => {
+    expect(documents.map((doc) => doc.label)).toEqual(['XENDING', 'OTRA COTIZACIÓN']);
+    expect(fieldValue(documents[0], 'TOTAL USD')).toBe(19_000);
+    expect(fieldValue(documents[1], 'TOTAL USD')).toBe(19_000);
+    expect(fieldValue(documents[0], 'TIPO DE CAMBIO')).toBe(17.2);
+    expect(fieldValue(documents[1], 'TIPO DE CAMBIO')).toBe(17.54);
+    expect(num(documents[0].total.value)).toBe(326_800);
+    expect(num(documents[1].total.value)).toBe(333_260);
+    expect(documents.every((doc) => doc.total.label === 'CONVERSIÓN MXN')).toBe(true);
+    expect(documents[1].fields.find((field) => field.label === 'DIFERENCIA')?.value)
+      .toBe('+MXN 6,460.00');
+  });
+
+  it('no introduce tiempo ni semántica de forward', () => {
+    expect(documents.every((doc) => doc.date === undefined)).toBe(true);
+    expect(documents.map((doc) => doc.label)).not.toContain('HOY');
+    expect(documents.map((doc) => doc.label)).not.toContain('PAGO');
+    expect(documents.every((doc) => doc.kind === 'COTIZACIÓN ILUSTRATIVA')).toBe(true);
   });
 });
 
@@ -304,8 +338,8 @@ describe('los escenarios que reusan la mecánica existente', () => {
       DEFAULT_CAROUSEL_FX,
     );
     expect(documents).toHaveLength(3);
-    // 1,800 + 3,600 de diferencia contra el momento base.
-    expect(accumulatedLabel).toBe('+MXN 5,400.00');
+    // 1,700 + 3,400 de diferencia contra el momento base.
+    expect(accumulatedLabel).toBe('+MXN 5,100.00');
   });
 
   it('el monto en USD es idéntico en todos los documentos de un escenario', () => {
@@ -361,6 +395,7 @@ describe('sin documentos', () => {
 describe('coherencia aritmética', () => {
   it('en todo documento con tasa y total, USD x TC da el total', () => {
     const scenarios = [
+      'quote_comparison',
       'rate_comparison',
       'rate_range',
       'repeated_operations',
@@ -382,7 +417,7 @@ describe('coherencia aritmética', () => {
 
         const cost =
           doc.fields.find((f) => f.label === 'COSTO MXN') ??
-          (doc.total.label === 'COSTO MXN' ? doc.total : null);
+          (['COSTO MXN', 'CONVERSIÓN MXN'].includes(doc.total.label) ? doc.total : null);
         if (!cost) continue;
 
         expect(num(cost.value), `${scenario} / ${doc.label}`).toBeCloseTo(
@@ -395,7 +430,7 @@ describe('coherencia aritmética', () => {
 
   it('el tipo de cambio mostrado nunca tiene más de dos decimales', () => {
     // Con más decimales, la multiplicación a mano no cuadra con el total impreso.
-    for (const scenario of ['rate_comparison', 'rate_range', 'cashflow_certainty'] as const) {
+    for (const scenario of ['quote_comparison', 'rate_comparison', 'rate_range', 'cashflow_certainty'] as const) {
       const { documents } = buildPlanFigureDocuments(scenario, DEFAULT_CAROUSEL_FX);
       for (const doc of documents) {
         const rate = doc.fields.find((f) => f.label === 'TIPO DE CAMBIO');

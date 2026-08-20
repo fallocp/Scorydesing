@@ -25,6 +25,7 @@
 
 import { resolveKitSlug } from './branchSlug.ts';
 import type {
+  CarouselCommercialIntent,
   CarouselCompositionFamily,
   CarouselPlanObjective,
   CompositionSpec,
@@ -34,7 +35,7 @@ import type {
 } from './carousel-plan-types.ts';
 
 /** Sube cuando cambian las rutas. Se persiste en el plan. */
-export const STORY_REGISTRY_VERSION = 'carousel-story-registry-v2';
+export const STORY_REGISTRY_VERSION = 'carousel-story-registry-v4';
 
 /**
  * Utilería documental que casi cualquier ruta puede pedir y por eso las volvía
@@ -69,6 +70,7 @@ const COSTOS_ROUTES: RegisteredStoryRoute[] = [
     origin: 'registry',
     branchSlugs: ['costos-ahorro'],
     compatibleAngles: [],
+    compatibleCommercialIntents: ['cost_component'],
     compatibleObjectives: ['explicar', 'conectar'],
     compatiblePresets: [],
     minSlides: 4,
@@ -79,18 +81,18 @@ const COSTOS_ROUTES: RegisteredStoryRoute[] = [
     routeThesis:
       'El total de una operación es la suma de conceptos separables, y cada uno se puede conocer por adelantado.',
     resolutionMechanism:
-      'los conceptos quedan desglosados y sumados en un solo documento antes de ejecutar',
+      'el total se entiende como componentes verificables y cada componente puede identificarse y cotizarse antes de ejecutar',
     deepeningMode: 'anatomy',
     closingDistillation:
-      'el desglose completo caben en una sola hoja, con cada concepto nombrado',
+      'una lectura completa del costo, donde se entiende qué aporta cada componente al total',
     allowedShapes: ['anatomy', 'progressive_reveal'],
     evidenceMechanisms: [
       'layered_cost_anatomy',
       'component_by_component_reveal',
-      'invoice_line_breakdown',
+      'part_to_total_relationship',
     ],
     figurePolicy: 'optional',
-    figureScenarios: ['rate_comparison'],
+    figureScenarios: ['rate_range'],
     requiredCapabilities: ['pagos internacionales con costo total visible antes de ejecutar'],
     forbiddenClaims: [
       'que alguien esconde el costo',
@@ -98,26 +100,23 @@ const COSTOS_ROUTES: RegisteredStoryRoute[] = [
       'ahorro garantizado en porcentaje',
     ],
     allowedEvidenceDevices: [
-      'capas del costo separadas',
-      'renglones de la cotizacion',
-      'conceptos como objetos distintos',
-      'desglose linea por linea',
-      'sobres etiquetados por concepto',
+      'componentes separables del costo',
+      'capas que forman un total',
+      'relacion entre cada parte y el total',
+      'origen de cada componente',
+      'anatomia del costo de la misma operacion',
     ],
     forbiddenEvidenceDevices: [
       ...STACKED_DOCUMENT_DEVICES,
-      'dos cotizaciones lado a lado',
+      'comparacion entre proveedores',
       'calendario de tesoreria',
       'tabla de sensibilidad',
     ],
-    preferredVisualProxies: [
-      'el desglose de la operación impreso en una hoja',
-      'la pantalla con el costo total de la operación antes de confirmar',
-    ],
+    preferredVisualProxies: [],
     visualDevices: [
-      'el producto y las capas de su costo separadas en cuadro',
-      'una cotización cuyas líneas se leen una por una',
-      'los componentes del costo como objetos distintos sobre la misma mesa',
+      'la misma operación entendida como partes que forman un total',
+      'cada componente vinculado con la porción de costo que aporta',
+      'el total reconstruido desde sus componentes verificables',
     ],
     incompatibleDevices: [
       'dos cotizaciones lado a lado: eso es otra ruta y contarlas juntas confunde las dos',
@@ -129,44 +128,46 @@ const COSTOS_ROUTES: RegisteredStoryRoute[] = [
     origin: 'registry',
     branchSlugs: ['costos-ahorro'],
     compatibleAngles: [],
+    compatibleCommercialIntents: ['quote_comparison'],
     compatibleObjectives: [],
     compatiblePresets: [],
     minSlides: 4,
     title: 'La segunda cotización',
     premise:
-      'El mismo pedido, cotizado por dos proveedores de pago distintos, no cuesta lo mismo.',
-    storyQuestion: '¿El mismo pedido cuesta lo mismo con quien sea?',
+      'El mismo pedido y el mismo momento, comparados con dos tipos de cambio, producen dos equivalentes en MXN.',
+    storyQuestion: '¿Qué cambia al cotizar el mismo pago con dos tipos de cambio?',
     routeThesis:
-      'Quién ejecuta el pago cambia el costo de la misma compra, y eso se puede comparar antes de decidir.',
+      'El tipo de cambio ingresado cambia el equivalente en MXN de la misma compra, y se puede comparar antes de decidir.',
     resolutionMechanism:
-      'las dos condiciones quedan sobre la mesa y la decisión se toma con las dos a la vista',
+      'el mismo monto USD se convierte con dos tasas simultáneas para comparar sus equivalentes en MXN',
     deepeningMode: 'sensitivity',
-    closingDistillation: 'una sola condición elegida, con su total ya definido',
+    closingDistillation: 'una decisión sustentada en dos tipos de cambio explícitos para el mismo pago',
     allowedShapes: ['comparison', 'before_after'],
     evidenceMechanisms: ['two_payment_providers_same_order', 'same_order_two_conditions'],
     figurePolicy: 'optional',
-    figureScenarios: ['rate_comparison'],
-    requiredCapabilities: ['tipo de cambio y comisiones visibles antes de ejecutar el pago'],
+    figureScenarios: ['quote_comparison'],
+    requiredCapabilities: ['tipo de cambio visible antes de ejecutar el pago'],
     forbiddenClaims: [
       'nombrar o descalificar a un competidor',
       'afirmar que el otro proveedor cobra de más a propósito',
+      'inventar una cotización o condición de otro proveedor: requiere fuente o supuesto explícito',
+      'inferir comisiones, fees o costo integral cuando solo se comparan tipos de cambio',
     ],
     allowedEvidenceDevices: [
-      'dos cotizaciones del mismo pedido',
-      'dos condiciones de pago comparadas',
-      'dos totales de distinta longitud',
+      'mismo pedido bajo dos tipos de cambio explicitos',
+      'mismo monto USD convertido sin cambiar la compra ni el momento',
+      'diferencia atribuible al tipo de cambio ingresado',
+      'decision entre condiciones simultaneas',
     ],
     forbiddenEvidenceDevices: [
       ...STACKED_DOCUMENT_DEVICES,
-      'la misma hoja en dos fechas',
+      'la misma operacion en dos fechas',
       'calendario de tesoreria',
     ],
-    preferredVisualProxies: [
-      'la cotización de la operación con sus condiciones a la vista',
-    ],
+    preferredVisualProxies: [],
     visualDevices: [
-      'dos cotizaciones del MISMO pedido, de proveedores de pago distintos, lado a lado',
-      'dos totales de longitud distinta sobre la misma mesa',
+      'el mismo pedido conservado como constante mientras cambian las condiciones de pago',
+      'dos resultados trazables a supuestos o cotizaciones explícitas',
     ],
     incompatibleDevices: [
       'la misma hoja en dos fechas: eso mueve la historia al tiempo, no a la comparación',
@@ -178,6 +179,7 @@ const COSTOS_ROUTES: RegisteredStoryRoute[] = [
     origin: 'registry',
     branchSlugs: ['costos-ahorro'],
     compatibleAngles: [],
+    compatibleCommercialIntents: ['cost_component'],
     compatibleObjectives: [],
     compatiblePresets: [],
     minSlides: 4,
@@ -188,9 +190,9 @@ const COSTOS_ROUTES: RegisteredStoryRoute[] = [
     routeThesis:
       'Lo que es despreciable en una operación se vuelve una línea del presupuesto cuando se repite.',
     resolutionMechanism:
-      'el costo por operación se conoce antes, así que la suma deja de ser una sorpresa',
+      'el impacto se entiende desde una operación hasta su frecuencia real, para incorporarlo a la planeación',
     deepeningMode: 'accumulation',
-    closingDistillation: 'la columna de diferencias cerrada en un solo total conocido',
+    closingDistillation: 'el impacto acumulado de repetir la misma diferencia',
     allowedShapes: ['accumulation', 'cause_effect'],
     evidenceMechanisms: [
       'repeated_operations_sum',
@@ -203,22 +205,23 @@ const COSTOS_ROUTES: RegisteredStoryRoute[] = [
     forbiddenClaims: ['proyectar un ahorro anual como si fuera cierto'],
     /* La única ruta de su rama a la que apilar documentos le pertenece. */
     allowedEvidenceDevices: [
-      'varias compras sucesivas',
-      'columna de diferencias',
-      'resumen mensual con varias lineas',
-      'documentos repetidos de la misma operacion',
+      'misma diferencia repetida',
+      'progresion de unidad a lote o periodo',
+      'frecuencia de una misma operacion',
+      'impacto acumulado',
+      'escala fisica de la repeticion',
     ],
     forbiddenEvidenceDevices: [
       'una sola operacion aislada',
       'calendario de tesoreria',
       'tabla de sensibilidad',
-      'dos cotizaciones lado a lado',
+      'comparacion entre proveedores',
     ],
-    preferredVisualProxies: ['el resumen de operaciones del mes en una hoja'],
+    preferredVisualProxies: [],
     visualDevices: [
-      'varias compras sucesivas, cada una con su documento',
-      'una columna de diferencias que suma hacia abajo',
-      'un resumen mensual con varias líneas de pago',
+      'la misma unidad económica repetida hasta revelar su escala',
+      'el impacto creciendo con la frecuencia sin cambiar el tamaño de la compra',
+      'la acumulación traducida a presupuesto, lote o número de ubicaciones',
     ],
     incompatibleDevices: ['una sola operación aislada: no hay acumulación que mostrar'],
     motifFamilies: ['el equipo comprado', 'el expediente de compras'],
@@ -228,6 +231,7 @@ const COSTOS_ROUTES: RegisteredStoryRoute[] = [
     origin: 'registry',
     branchSlugs: ['costos-ahorro'],
     compatibleAngles: [],
+    compatibleCommercialIntents: ['cost_component'],
     compatibleObjectives: [],
     compatiblePresets: [],
     minSlides: 4,
@@ -238,9 +242,9 @@ const COSTOS_ROUTES: RegisteredStoryRoute[] = [
     routeThesis:
       'Un precio de venta publicado convierte cualquier movimiento del costo en movimiento del margen.',
     resolutionMechanism:
-      'el costo se define antes de comprometer el precio, así que el margen se calcula sobre algo cerrado',
+      'el componente cambiario se cotiza antes de comprometer el precio, para calcular utilidad y margen sobre una referencia explícita',
     deepeningMode: 'margin',
-    closingDistillation: 'precio y costo en la misma hoja, con la distancia entre ellos ya fija',
+    closingDistillation: 'la utilidad y el margen resultantes bajo el mismo precio de venta',
     allowedShapes: ['single_case', 'cause_effect'],
     evidenceMechanisms: ['fixed_revenue_variable_cost', 'price_and_cost_side_by_side'],
     figurePolicy: 'required',
@@ -251,10 +255,11 @@ const COSTOS_ROUTES: RegisteredStoryRoute[] = [
       'garantizar la protección del margen',
     ],
     allowedEvidenceDevices: [
-      'lista de precios publicada',
-      'precio y costo en el mismo cuadro',
-      'la distancia entre dos valores',
-      'hoja de margen por producto',
+      'precio de venta fijo',
+      'costo importado variable',
+      'utilidad bruta entre precio y costo',
+      'banda de margen que cambia de amplitud',
+      'presupuesto ocupado por el sobrecosto',
     ],
     forbiddenEvidenceDevices: [
       ...STACKED_DOCUMENT_DEVICES,
@@ -262,19 +267,75 @@ const COSTOS_ROUTES: RegisteredStoryRoute[] = [
       'semaforo',
       'flecha roja',
     ],
-    preferredVisualProxies: ['la hoja de margen del producto, con su costo ya definido'],
+    preferredVisualProxies: [],
     visualDevices: [
-      'la lista de precios y la cotización de compra en el mismo cuadro',
-      'la distancia entre dos valores hecha visible en la mesa',
+      'el mismo precio de venta como límite fijo y el costo ocupando una parte distinta',
+      'la utilidad y el margen derivados del espacio que queda entre precio y costo',
+      'el sobrecosto invadiendo una parte del presupuesto destinado a otro insumo',
     ],
     incompatibleDevices: ['semáforos, flechas rojas y veredictos impresos'],
     motifFamilies: ['el producto vendido', 'la hoja de precios'],
+  },
+  {
+    id: 'fx_cost_component',
+    origin: 'registry',
+    branchSlugs: ['costos-ahorro'],
+    compatibleAngles: [],
+    compatibleCommercialIntents: ['cost_component'],
+    compatibleObjectives: [],
+    compatiblePresets: [],
+    minSlides: 4,
+    title: 'El tipo de cambio dentro del costo',
+    premise:
+      'Un artículo o insumo cotizado en dólares incorpora un componente cambiario cuando se convierte al costo del producto, lote o proyecto en pesos.',
+    storyQuestion: '¿Cuánto del costo de mi producto o proyecto depende de la conversión cambiaria?',
+    routeThesis:
+      'La conversión cambiaria es un componente identificable del costo y su efecto se propaga desde la unidad hasta el resultado completo.',
+    resolutionMechanism:
+      'el componente cambiario se cotiza y se incorpora antes de fijar el precio o presupuesto, para calcular el costo total sobre una referencia conocida',
+    deepeningMode: 'scale',
+    closingDistillation:
+      'el efecto del mismo componente cambiario entendido desde una unidad hasta el lote o proyecto',
+    allowedShapes: ['anatomy', 'progressive_reveal', 'cause_effect'],
+    evidenceMechanisms: ['fx_component_unit_to_project', 'currency_component_share'],
+    figurePolicy: 'required',
+    figureScenarios: ['rate_range', 'margin_sensitivity'],
+    requiredCapabilities: ['tipo de cambio y costo total visibles antes de ejecutar el pago'],
+    forbiddenClaims: [
+      'presentar una tasa como cotización vigente',
+      'pronosticar el tipo de cambio',
+      'garantizar ahorro o margen',
+    ],
+    allowedEvidenceDevices: [
+      'articulo o insumo denominado en dolares',
+      'componente cambiario dentro del costo',
+      'progresion de unidad a lote y proyecto',
+      'propagacion del mismo componente',
+      'parte del presupuesto ocupada por la conversion',
+    ],
+    forbiddenEvidenceDevices: [
+      ...STACKED_DOCUMENT_DEVICES,
+      'comparacion entre proveedores',
+      'calendario de tesoreria',
+      'pronostico de tipo de cambio',
+    ],
+    preferredVisualProxies: [],
+    visualDevices: [
+      'el mismo componente cambiario integrado en una unidad, después en el lote y finalmente en el proyecto',
+      'la conversión como una parte identificable del costo, no como un documento separado',
+      'el espacio presupuestal que ocupa ese componente bajo el mismo escenario ilustrativo',
+    ],
+    incompatibleDevices: [
+      'dos proveedores comparados: esta historia sigue un componente del costo, no una elección de proveedor',
+    ],
+    motifFamilies: ['el articulo importado', 'el insumo del proyecto'],
   },
   {
     id: 'factory_price_vs_landed_cost',
     origin: 'registry',
     branchSlugs: ['costos-ahorro'],
     compatibleAngles: [],
+    compatibleCommercialIntents: ['cost_component'],
     compatibleObjectives: ['explicar', 'conectar'],
     compatiblePresets: [],
     minSlides: 4,
@@ -283,9 +344,9 @@ const COSTOS_ROUTES: RegisteredStoryRoute[] = [
       'Lo que cotiza la fábrica y lo que termina saliendo la operación son dos números distintos, y la distancia se compone de cosas concretas.',
     storyQuestion: '¿Por qué el precio que me dio la fábrica no es lo que acabo pagando?',
     routeThesis:
-      'Entre el precio de origen y el costo final hay etapas, y cada una deja su documento.',
+      'Entre el precio de origen y el costo final hay etapas, y cada una incorpora un componente trazable.',
     resolutionMechanism:
-      'el costo final se arma antes de salir de origen, con cada etapa ya cotizada',
+      'el costo final se construye antes de ejecutar, entendiendo qué agrega cada etapa desde origen hasta pago',
     /*
      * `stage_progression` y no `anatomy`.
      *
@@ -295,29 +356,30 @@ const COSTOS_ROUTES: RegisteredStoryRoute[] = [
      * cada etapa del trayecto es temporal.
      */
     deepeningMode: 'stage_progression',
-    closingDistillation: 'un solo costo final, con el trayecto que lo formó a la vista',
+    closingDistillation: 'el costo final entendido como resultado del trayecto completo',
     allowedShapes: ['progressive_reveal', 'before_after', 'anatomy'],
     evidenceMechanisms: ['quote_to_landed_cost_progression', 'component_by_component_reveal'],
     figurePolicy: 'optional',
-    figureScenarios: ['rate_comparison'],
+    figureScenarios: ['rate_range'],
     requiredCapabilities: ['costo total de la operación visible antes de ejecutar'],
     forbiddenClaims: ['que el costo estaba oculto o que alguien lo escondía'],
     allowedEvidenceDevices: [
-      'cotizacion de fabrica',
-      'documento por etapa del trayecto',
-      'el producto avanzando por etapas',
-      'costo final de la operacion',
+      'precio de origen como punto de partida',
+      'etapas que agregan componentes al costo',
+      'progresion desde origen hasta pago',
+      'relacion entre trayecto y costo final',
     ],
     forbiddenEvidenceDevices: [
       ...STACKED_DOCUMENT_DEVICES,
-      'dos cotizaciones lado a lado',
+      'comparacion entre proveedores de pago',
       'calendario de tesoreria',
       'tabla de sensibilidad',
     ],
-    preferredVisualProxies: ['el costo final de la operación en una sola hoja'],
+    preferredVisualProxies: [],
     visualDevices: [
-      'la cotización de fábrica y el costo final de la operación como dos documentos distintos',
-      'el trayecto del producto con su documento en cada etapa',
+      'la misma operación avanzando por etapas y ganando componentes trazables',
+      'el precio de origen transformándose en costo final sin cambiar de pedido',
+      'cada etapa vinculada con lo que agrega al resultado',
     ],
     incompatibleDevices: ['dos proveedores de pago comparados: es otra ruta'],
     motifFamilies: ['el equipo comprado', 'la cotización de origen'],
@@ -327,6 +389,7 @@ const COSTOS_ROUTES: RegisteredStoryRoute[] = [
     origin: 'registry',
     branchSlugs: ['costos-ahorro'],
     compatibleAngles: [],
+    compatibleCommercialIntents: ['cost_component'],
     compatibleObjectives: [],
     compatiblePresets: [],
     minSlides: 4,
@@ -336,9 +399,9 @@ const COSTOS_ROUTES: RegisteredStoryRoute[] = [
     storyQuestion: '¿Cuánto trabajo me cuesta operar los pagos como los opero hoy?',
     routeThesis:
       'El costo de una operación también se paga en trabajo, y ese sí se puede reducir a un flujo.',
-    resolutionMechanism: 'todas las cuentas se operan desde un solo flujo y una sola conciliación',
+    resolutionMechanism: 'las tareas dispersas convergen en un solo flujo operativo y una conciliación',
     deepeningMode: 'operational_load',
-    closingDistillation: 'un solo expediente donde antes había varios',
+    closingDistillation: 'menos transferencias de contexto, contactos y conciliaciones para completar el mismo pago',
     allowedShapes: ['before_after', 'decision_path'],
     evidenceMechanisms: ['many_accounts_vs_one_flow', 'reconciliation_workload'],
     figurePolicy: 'none',
@@ -346,21 +409,22 @@ const COSTOS_ROUTES: RegisteredStoryRoute[] = [
     requiredCapabilities: ['operación de pagos centralizada en un solo flujo'],
     forbiddenClaims: ['cuantificar horas ahorradas sin fuente'],
     allowedEvidenceDevices: [
-      'varias carpetas de cuentas distintas',
-      'escritorio con muchos expedientes',
-      'un solo expediente',
-      'conciliacion manual',
+      'tareas dispersas que convergen',
+      'cantidad de transferencias entre personas o sistemas',
+      'puntos de conciliacion',
+      'flujo operativo antes y despues',
     ],
     forbiddenEvidenceDevices: [
       'tipo de cambio',
-      'dos cotizaciones lado a lado',
+      'comparacion entre proveedores',
       'tabla de sensibilidad',
       'calendario de tesoreria',
     ],
-    preferredVisualProxies: ['la interfaz de pagos con todas las cuentas en una sola vista'],
+    preferredVisualProxies: [],
     visualDevices: [
-      'varias carpetas de cuentas distintas de un lado y una sola del otro',
-      'el escritorio con muchos expedientes contra el escritorio con uno',
+      'el mismo pago recorriendo menos transferencias de contexto',
+      'varias tareas operativas convergiendo en un flujo',
+      'la carga de conciliación reducida sin cuantificar horas',
     ],
     incompatibleDevices: [
       'documentos con montos y tipos de cambio: esta ruta no habla de precio',
@@ -372,6 +436,7 @@ const COSTOS_ROUTES: RegisteredStoryRoute[] = [
     origin: 'registry',
     branchSlugs: ['costos-ahorro'],
     compatibleAngles: [],
+    compatibleCommercialIntents: ['cost_plus_speed'],
     compatibleObjectives: ['conectar', 'vender'],
     compatiblePresets: [],
     minSlides: 4,
@@ -382,13 +447,13 @@ const COSTOS_ROUTES: RegisteredStoryRoute[] = [
     routeThesis:
       'La decisión de cómo se paga define costo y tiempo en el mismo momento, no uno a costa del otro.',
     resolutionMechanism:
-      'la decisión se toma una vez, con las dos consecuencias visibles al mismo tiempo',
+      'la alternativa se evalúa como una decisión empresarial única que combina costo conocido y condición operativa confirmada',
     deepeningMode: 'planning_horizon',
-    closingDistillation: 'una sola decisión con sus dos resultados a la vista',
+    closingDistillation: 'una decisión tomada con sus dos criterios explícitos, sin prometer tiempos no confirmados',
     allowedShapes: ['decision_path', 'comparison'],
     evidenceMechanisms: ['two_criteria_decision', 'same_order_two_conditions'],
-    figurePolicy: 'none',
-    figureScenarios: [],
+    figurePolicy: 'optional',
+    figureScenarios: ['quote_comparison'],
     requiredCapabilities: [
       'costo de la operación visible antes de ejecutar',
       'confirmación del pago dentro del mismo día hábil cuando las condiciones lo permiten',
@@ -398,19 +463,21 @@ const COSTOS_ROUTES: RegisteredStoryRoute[] = [
       'afirmar horas de corte sin fuente operativa vigente',
     ],
     allowedEvidenceDevices: [
-      'una decision con dos consecuencias',
-      'el pedido y el estado de la operacion',
-      'dos caminos desde el mismo punto',
+      'misma decision evaluada con dos criterios',
+      'costo conocido y estado operativo confirmado',
+      'consecuencias de cada alternativa sobre el mismo pedido',
+      'decision sin sacrificar un criterio por ocultar el otro',
     ],
     forbiddenEvidenceDevices: [
       ...STACKED_DOCUMENT_DEVICES,
       'reloj con hora legible',
       'tabla de sensibilidad',
     ],
-    preferredVisualProxies: ['la pantalla con el costo y el estado de la operación juntos'],
+    preferredVisualProxies: [],
     visualDevices: [
-      'la decisión con sus dos consecuencias visibles en el mismo cuadro',
-      'el pedido y su documento junto al estado de la operación',
+      'el mismo pedido atravesando una decisión con costo y condición operativa',
+      'dos criterios explícitos que convergen en una sola decisión',
+      'un resultado definido sin convertir la condición temporal en promesa',
     ],
     incompatibleDevices: ['relojes con hora legible: eso afirma un plazo'],
     motifFamilies: ['el pedido', 'el expediente de la operación'],
@@ -948,18 +1015,18 @@ const VELOCIDAD_ROUTES: RegisteredStoryRoute[] = [
     compatiblePresets: [],
     minSlides: 4,
     title: 'La instalación agendada',
-    premise: 'El equipo llegó y la instalación ya tiene fecha; lo que falta es liberar el pago.',
+    premise: 'El equipo llegó y la instalación ya tiene fecha; lo que falta es realizar el pago.',
     storyQuestion: '¿Voy a llegar a la fecha que ya agendé?',
     routeThesis:
       'Una fecha comprometida con terceros convierte cualquier demora del pago en una demora del proyecto.',
-    resolutionMechanism: 'el pago se libera en el momento en que la agenda lo necesita',
+    resolutionMechanism: 'el pago se realiza en el momento en que la agenda lo necesita',
     deepeningMode: 'planning_horizon',
     closingDistillation: 'el equipo instalado y funcionando en la fecha comprometida',
     allowedShapes: ['timeline', 'cause_effect'],
     evidenceMechanisms: ['scheduled_work_pending_payment'],
     figurePolicy: 'none',
     figureScenarios: [],
-    requiredCapabilities: ['liberar el pago en el momento en que la operación lo necesita'],
+    requiredCapabilities: ['realizar el pago en el momento en que la operación lo necesita'],
     forbiddenClaims: ['prometer fechas de instalación'],
     allowedEvidenceDevices: [
       'equipo en sitio sin instalar',
@@ -973,7 +1040,7 @@ const VELOCIDAD_ROUTES: RegisteredStoryRoute[] = [
       'tabla de sensibilidad',
       'calendario de vencimientos',
     ],
-    preferredVisualProxies: ['la orden de trabajo con el pago ya liberado'],
+    preferredVisualProxies: ['la orden de trabajo con el pago ya realizado'],
     visualDevices: [
       'el equipo en sitio, todavía sin instalar',
       'la orden de trabajo con su fecha y el equipo esperando',
@@ -1035,24 +1102,24 @@ const VELOCIDAD_ROUTES: RegisteredStoryRoute[] = [
     compatibleObjectives: ['conectar', 'vender'],
     compatiblePresets: [],
     minSlides: 4,
-    title: 'La oportunidad del mismo día',
-    premise: 'Hay compras que solo existen mientras el proveedor mantenga la condición.',
-    storyQuestion: '¿Esta condición del proveedor va a seguir ahí mañana?',
+    title: 'Pagar hoy para no perder el día',
+    premise: 'Un pago hecho hoy, dentro del horario aplicable, puede avanzar el mismo día; mañana ya es otro día.',
+    storyQuestion: '¿Puede avanzar hoy el pago a este proveedor?',
     routeThesis:
-      'Una condición con vigencia corta convierte la capacidad de pagar hoy en la capacidad de comprar.',
-    resolutionMechanism: 'el pedido se libera mientras la condición sigue vigente',
+      'Realizar el pago dentro del horario aplicable puede hacer que la operación avance el mismo día en lugar de esperar al siguiente.',
+    resolutionMechanism: 'el pago se realiza dentro del horario aplicable y la operación avanza el mismo día',
     /*
      * `expiring_condition` y no `time_pressure`.
      *
      * Compartía modo con `cutoff_hour` y eso hacía que la segunda de las dos se
      * rechazara por parecido estructural, aunque las historias sean distintas: una
-     * profundiza por el reloj operativo del día y esta por una condición del proveedor
-     * que deja de estar disponible.
+     * profundiza por el reloj operativo del día y esta por el horario del mismo día que,
+     * al terminar, empuja la operación al día siguiente.
      */
     deepeningMode: 'expiring_condition',
-    closingDistillation: 'el pedido tomado con la condición que estaba vigente',
+    closingDistillation: 'el pedido avanzando el mismo día porque el pago se hizo a tiempo',
     allowedShapes: ['single_case', 'decision_path'],
-    evidenceMechanisms: ['time_limited_supplier_condition'],
+    evidenceMechanisms: ['same_day_payment_before_cutoff'],
     figurePolicy: 'none',
     figureScenarios: [],
     requiredCapabilities: [
@@ -1063,9 +1130,9 @@ const VELOCIDAD_ROUTES: RegisteredStoryRoute[] = [
       'prometer horarios o corredores no confirmados',
     ],
     allowedEvidenceDevices: [
-      'condicion del proveedor por escrito',
-      'pedido apartado',
-      'pedido listo sin liberar',
+      'pedido listo esperando el pago',
+      'pedido que avanza el mismo día',
+      'confirmacion del pago hecho hoy',
     ],
     forbiddenEvidenceDevices: [
       ...STACKED_DOCUMENT_DEVICES,
@@ -1074,13 +1141,13 @@ const VELOCIDAD_ROUTES: RegisteredStoryRoute[] = [
       'calendario de vencimientos',
       'tabla de sensibilidad',
     ],
-    preferredVisualProxies: ['la confirmación del pedido tomado'],
+    preferredVisualProxies: ['la confirmación del pago hecho el mismo día'],
     visualDevices: [
-      'la condición del proveedor por escrito y el pedido listo',
-      'el pedido apartado, todavía sin liberar',
+      'el pedido listo y la confirmación del pago hecho hoy',
+      'el pedido que avanza porque el pago se hizo a tiempo',
     ],
     incompatibleDevices: ['dos cotizaciones comparadas'],
-    motifFamilies: ['el pedido', 'el documento del proveedor'],
+    motifFamilies: ['el pedido', 'la confirmación del pago'],
   },
 ];
 
@@ -1109,6 +1176,7 @@ export function listRoutesForBranch(branchSlugOrName: string): RegisteredStoryRo
 export interface ResolveRoutesInput {
   branchSlug: string;
   angleTag?: string | null;
+  commercialIntent?: CarouselCommercialIntent | null;
   objective: CarouselPlanObjective;
   presetSlug: string;
   slideCount: number;
@@ -1176,6 +1244,14 @@ function filterRoutes(
     if (route.compatibleAngles.length > 0) {
       if (!angle) return false;
       if (!route.compatibleAngles.some((a) => normalize(a) === angle)) return false;
+    }
+    if (
+      input.commercialIntent &&
+      route.compatibleCommercialIntents &&
+      route.compatibleCommercialIntents.length > 0 &&
+      !route.compatibleCommercialIntents.includes(input.commercialIntent)
+    ) {
+      return false;
     }
     return true;
   });

@@ -15,12 +15,12 @@
  */
 
 import { resolveKitSlug, type BranchKitSlug } from './branchSlug.ts';
-import type { SceneFigureScenario, SceneKit } from './scene-kits/types.ts';
+import type { SceneKit } from './scene-kits/types.ts';
 import { costosAhorroSceneKit } from './scene-kits/costos-ahorro.ts';
 import { velocidadSceneKit } from './scene-kits/velocidad.ts';
 import { coberturasSceneKit } from './scene-kits/coberturas.ts';
 
-export type { SceneFigureScenario, SceneKit } from './scene-kits/types.ts';
+export type { SceneKit } from './scene-kits/types.ts';
 
 const SCENE_KITS: Record<BranchKitSlug, SceneKit> = {
   velocidad: velocidadSceneKit,
@@ -42,20 +42,22 @@ export function getSceneKit(branchSlugOrName: string | null | undefined): SceneK
   return slug ? SCENE_KITS[slug] : null;
 }
 
-/**
- * Qué escenario numérico le toca a un rol en esta rama.
+/*
+ * Aquí vivía `figureScenarioForRole`, que resolvía el escenario numérico de un slide
+ * contra `figurePolicy.scenariosByRole`. Se borró con el camino sin plan, su único
+ * consumidor.
  *
- * Reemplaza a `FIGURE_SCENARIO_BY_ROLE`, que era global: indexaba por rol y no por
- * rama, así que un set de velocidad con rol `shift` recibía los documentos de
- * cotización de una operación en divisa.
+ * Era la última asignación universal por ROL que quedaba en el pipeline, y contradecía la
+ * historia por construcción: le ponía documentos a `shift` y a `risk` pase lo que pase, así
+ * que en una ruta de margen —que prohíbe apilar documentos— el rol `risk` recibía tres
+ * compras sucesivas, la evidencia de la ruta de acumulación.
+ *
+ * Ahora el escenario lo declara el beat en `figureRequirement.scenarioId`, con seis
+ * opciones en vez de dos, y lo traduce a documentos `buildPlanFigureDocuments`.
+ *
+ * De `figurePolicy` sobreviven `mode` y `note`, que son de la RAMA y no del rol: si esta
+ * rama puede llevar cifras, y por qué.
  */
-export function figureScenarioForRole(
-  kit: SceneKit | null,
-  role: string,
-): SceneFigureScenario | null {
-  if (!kit || kit.figurePolicy.mode === 'none') return null;
-  return kit.figurePolicy.scenariosByRole[role] ?? null;
-}
 
 /** ¿La rama lleva documentos con cifras en algún slide? */
 export function branchUsesFigures(kit: SceneKit | null): boolean {
@@ -89,19 +91,29 @@ export function buildSceneRepertoireBlock(kit: SceneKit | null): string {
     '',
     'La escena de cada slide se arma con ESTOS elementos. Son los de la rama activa y son los únicos que cuentan su historia: la utilería de otra rama produce una pieza que se lee como si fuera de otra campaña.',
     '',
-    'El dato vive en un OBJETO de la escena, no flotando sobre ella. Superficies de esta rama:',
+    /*
+     * La operación física primero, igual que en el prompt del planificador y por lo mismo:
+     * la primera lista ancla, y arrancar por "superficies donde vive un dato" hacía que
+     * cada escena se resolviera con una hoja aunque su beat no pidiera ninguna cifra.
+     */
+    'La operación de esta rama, hecha objeto. Ninguno de estos es un documento, y de aquí sale la escena cuando el slide no lleva cifras:',
+    bullets(kit.physicalWorld),
+    '',
+    'El dato vive en un OBJETO de la escena, no flotando sobre ella. Superficies de esta rama, para los slides que SÍ llevan cifra:',
     bullets(kit.dataSurfaces),
     '',
     'Cómo se ve que algo se movió, cuando la línea lo dice:',
     bullets(kit.changeMarkers),
     '',
-    'Recurso por tipo de momento, como punto de partida:',
-    `- apertura: ${kit.moments.apertura}`,
-    `- algo cambia: ${kit.moments.cambio}`,
-    `- riesgo o consecuencia: ${kit.moments.riesgo}`,
-    `- solución: ${kit.moments.solucion}`,
-    `- cierre: ${kit.moments.cierre}`,
-    '',
+    /*
+     * Aquí iba "Recurso por tipo de momento": la misma tabla tiempo narrativo → evidencia
+     * que se quitó del planificador. Salió también de aquí, y por la misma razón.
+     *
+     * A este agente le llega además el `imageIntent` que ya escribió el guionista desde el
+     * beat, así que la tabla no aportaba una opción: competía con la evidencia decidida, y
+     * en la posición donde el rol coincide con el tiempo narrativo —que es siempre— ganaba
+     * por ser más concreta.
+     */
     'PROPS QUE NO VAN EN ESTA RAMA:',
     bullets(kit.bannedProps),
   ];

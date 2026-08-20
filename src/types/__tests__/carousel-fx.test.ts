@@ -10,6 +10,7 @@ import { describe, it, expect } from 'vitest';
 
 import {
   accumulatedFxImpact,
+  buildCarouselEconomicScenario,
   buildFigureDocuments,
   computeCarouselFx,
   DEFAULT_CAROUSEL_FX,
@@ -37,45 +38,43 @@ describe('computeCarouselFx', () => {
   });
 
   it('reproduce el caso estándar del regression test', () => {
-    // USD 10,000 · TC hoy 18.20 · TC pago 18.56 · 182,000 → 185,600 · +3,600
+    // USD 10,000 · TC hoy 17.20 · TC expuesto 17.54 · 172,000 → 175,400 · +3,400
     const moments = computeCarouselFx(DEFAULT_CAROUSEL_FX);
     const hoy = moments[0];
     const pago = moments[moments.length - 1];
 
-    expect(hoy.rate).toBe(18.2);
-    expect(hoy.amountMxn).toBe(182000);
-    expect(pago.rate).toBe(18.56);
-    expect(pago.amountMxn).toBe(185600);
-    expect(pago.deltaMxn).toBe(3600);
+    expect(hoy.rate).toBe(17.2);
+    expect(hoy.amountMxn).toBe(172000);
+    expect(pago.rate).toBe(17.54);
+    expect(pago.amountMxn).toBe(175400);
+    expect(pago.deltaMxn).toBe(3400);
     expect(pago.labels.pct).toBe('+2.0%');
   });
 
   it('la deriva se mide contra la base, no contra el momento anterior', () => {
     const [, segunda, tercera] = computeCarouselFx(DEFAULT_CAROUSEL_FX);
-    // 18.20 +1% = 18.382 → 18.38, no 18.20 → 18.38 → 18.56 compuesto.
-    expect(segunda.rate).toBe(18.38);
-    expect(segunda.amountMxn).toBe(183800);
+    // 17.20 +1% = 17.372 → 17.37; cada momento vuelve a la misma base.
+    expect(segunda.rate).toBe(17.37);
+    expect(segunda.amountMxn).toBe(173700);
     expect(segunda.labels.pct).toBe('+1.0%');
-    // Y el tercero es +2% de la base exacto: 18.564 → 18.56. Con compounding
-    // habría dado 18.93 mientras la etiqueta seguía diciendo +2%.
-    expect(tercera.rate).toBe(18.56);
+    // El tercero es +2% de la base: 17.544 → 17.54.
+    expect(tercera.rate).toBe(17.54);
     expect(tercera.labels.pct).toBe('+2.0%');
   });
 
   it('el delta se mide contra el primer momento', () => {
     const [hoy, segunda, tercera] = computeCarouselFx(DEFAULT_CAROUSEL_FX);
     expect(hoy.deltaMxn).toBe(0);
-    expect(segunda.deltaMxn).toBe(1800);
-    expect(tercera.deltaMxn).toBe(3600);
+    expect(segunda.deltaMxn).toBe(1700);
+    expect(tercera.deltaMxn).toBe(3400);
   });
 
   it('el impacto acumulado suma las diferencias de todos los momentos', () => {
     const moments = computeCarouselFx(DEFAULT_CAROUSEL_FX);
     const acc = accumulatedFxImpact(moments);
-    // 0 + 1,800 + 3,600: lo que costó de más hacer las tres compras a tasas
-    // distintas en lugar de todas a la tasa base.
-    expect(acc.amount).toBe(5400);
-    expect(acc.label).toBe('+MXN 5,400.00');
+    // 0 + 1,700 + 3,400 contra el mismo momento base.
+    expect(acc.amount).toBe(5100);
+    expect(acc.label).toBe('+MXN 5,100.00');
   });
 
   it('el monto en USD es el mismo en todos los momentos', () => {
@@ -88,15 +87,15 @@ describe('computeCarouselFx', () => {
   it('formatea con separador de miles y dos decimales', () => {
     const [hoy] = computeCarouselFx(DEFAULT_CAROUSEL_FX);
     expect(hoy.labels.usd).toBe('USD 10,000.00');
-    expect(hoy.labels.mxn).toBe('MXN 182,000.00');
-    expect(hoy.labels.rate).toBe('18.20');
+    expect(hoy.labels.mxn).toBe('MXN 172,000.00');
+    expect(hoy.labels.rate).toBe('17.20');
     expect(hoy.labels.delta).toBe('');
     expect(hoy.labels.pct).toBe('');
   });
 
   it('el delta formateado lleva signo', () => {
     const [, segunda] = computeCarouselFx(DEFAULT_CAROUSEL_FX);
-    expect(segunda.labels.delta).toBe('+MXN 1,800.00');
+    expect(segunda.labels.delta).toBe('+MXN 1,700.00');
   });
 
   it('sin deriva devuelve un solo momento', () => {
@@ -111,26 +110,48 @@ describe('computeCarouselFx', () => {
   });
 });
 
+describe('buildCarouselEconomicScenario quote_comparison', () => {
+  it('compara dos cotizaciones simultáneas con el mismo monto', () => {
+    const scenario = buildCarouselEconomicScenario('quote_comparison', {
+      ...DEFAULT_CAROUSEL_FX,
+      amountUsd: 19_000,
+      baseRate: 17.2,
+      comparisonRate: 17.54,
+    });
+    const facts = new Map(scenario.facts.map((fact) => [fact.key, fact]));
+
+    expect(facts.get('quote_a_cost_mxn')?.value).toBe(326_800);
+    expect(facts.get('quote_b_cost_mxn')?.value).toBe(333_260);
+    expect(facts.get('quote_difference_mxn')?.value).toBe(6_460);
+    expect(facts.get('quote_difference_pct')?.value).toBe(2);
+    expect(facts.get('quote_a_rate')?.label).toBe('TIPO DE CAMBIO XENDING');
+    expect(facts.get('quote_b_rate')?.label).toBe('TIPO DE CAMBIO OTRA COTIZACIÓN');
+    expect(facts.get('quote_a_cost_mxn')?.label).toBe('CONVERSIÓN CON XENDING');
+    expect(facts.get('quote_b_cost_mxn')?.label).toBe('CONVERSIÓN CON OTRA COTIZACIÓN');
+    expect(facts.get('quote_difference_mxn')?.label).toBe('DIFERENCIA DE CONVERSIÓN');
+    expect(scenario.facts.map((fact) => fact.label).join(' ').toLowerCase()).not.toContain('comisión');
+  });
+});
+
 describe('buildFigureDocuments', () => {
   const moments = computeCarouselFx(DEFAULT_CAROUSEL_FX);
 
   it('la comparación de dos momentos usa el primero y el último', () => {
-    // HOY 18.20 vs PAGO 18.56. Tomar el momento intermedio mostraría +1% en una
-    // pieza que afirma lo que cuesta el movimiento completo al día de pago.
+    // HOY 17.20 vs EXPUESTO 17.54. Tomar el momento intermedio mostraría +1%.
     const [hoy, pago] = buildFigureDocuments('two_moment', moments);
 
     expect(hoy.label).toBe('HOY');
-    expect(hoy.fields.find((f) => f.label === 'TIPO DE CAMBIO')?.value).toBe('18.20');
+    expect(hoy.fields.find((f) => f.label === 'TIPO DE CAMBIO')?.value).toBe('17.20');
     expect(pago.label).toBe('PAGO');
-    expect(pago.fields.find((f) => f.label === 'TIPO DE CAMBIO')?.value).toBe('18.56');
-    expect(pago.total.value).toBe('185,600.00');
+    expect(pago.fields.find((f) => f.label === 'TIPO DE CAMBIO')?.value).toBe('17.54');
+    expect(pago.total.value).toBe('175,400.00');
   });
 
   it('las compras repetidas recorren los tres momentos en orden', () => {
     const docs = buildFigureDocuments('repeated_purchases', moments);
     expect(docs.map((d) => d.label)).toEqual(['COMPRA 1', 'COMPRA 2', 'COMPRA 3']);
     expect(docs.map((d) => d.fields.find((f) => f.label === 'TIPO DE CAMBIO')?.value))
-      .toEqual(['18.20', '18.38', '18.56']);
+      .toEqual(['17.20', '17.37', '17.54']);
   });
 
   it('el monto en USD se repite idéntico en cada documento', () => {

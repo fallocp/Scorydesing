@@ -9,9 +9,22 @@
  * es exactamente lo que pasó entre el copy kit y `prompt_kit`. El módulo no importa nada
  * por URL, así que el bundler lo resuelve igual que Deno.
  */
+import {
+  CAROUSEL_MAX_FX_RATE,
+  CAROUSEL_MAX_OPERATION_USD,
+  CAROUSEL_MIN_FX_RATE,
+  CAROUSEL_MIN_OPERATION_USD,
+  CAROUSEL_SCENARIO_FACT_KEYS,
+} from '../../supabase/functions/_shared/carousel-plan-types';
 import type {
+  CarouselCommercialIntent,
   CarouselCreativePlan,
+  CarouselEconomicFact,
+  CarouselEconomicFactKey,
+  CarouselEconomicScenario,
   CarouselFigureScenarioId,
+  CarouselFigureSurface,
+  CarouselFigureWeight,
   CarouselPlanDigest,
   PresetBeatCoupling,
   PresetClosingPolicy,
@@ -19,9 +32,22 @@ import type {
   PresetSeedUsage,
 } from '../../supabase/functions/_shared/carousel-plan-types';
 
+export {
+  CAROUSEL_MAX_FX_RATE,
+  CAROUSEL_MAX_OPERATION_USD,
+  CAROUSEL_MIN_FX_RATE,
+  CAROUSEL_MIN_OPERATION_USD,
+};
+
 export type {
+  CarouselCommercialIntent,
   CarouselCreativePlan,
+  CarouselEconomicFact,
+  CarouselEconomicFactKey,
+  CarouselEconomicScenario,
   CarouselFigureScenarioId,
+  CarouselFigureSurface,
+  CarouselFigureWeight,
   CarouselPlanDigest,
   PresetBeatCoupling,
   PresetClosingPolicy,
@@ -351,14 +377,24 @@ export interface CarouselSlideBrief {
   /** Typographic emphasis, by semantic unit. One block, or two when opposed. */
   highlights: CarouselHighlight[];
   /**
-   * Documents in the scene with their exact values, when the slide carries figures.
-   *
-   * Built in code from the FX assumptions, never by a model: the numbers have to be
-   * internally consistent and assigned to a specific document. Empty on slides that
-   * communicate without figures.
+   * Hechos calculados que este beat debe volver visibles. No prescriben una tabla:
+   * pueden vivir en una etiqueta sobre producto, una banda de margen o un espacio.
+   */
+  economicFacts?: CarouselEconomicFact[];
+  /** Cómo se integra la cifra al cuadro; separado de los valores para permitir variedad. */
+  figurePresentation?: {
+    scenarioId: Exclude<CarouselFigureScenarioId, 'none'>;
+    qualifier: 'ESCENARIO ILUSTRATIVO';
+    narrativePurpose: string;
+    weight: CarouselFigureWeight;
+    suggestedSurface: CarouselFigureSurface;
+  };
+  /**
+   * Adaptador documental legacy. Se conserva para carruseles persistidos y para beats
+   * cuya superficie elegida sea realmente `document`.
    */
   documents?: CarouselFigureDocument[];
-  /** The sum of the gaps, for a repetition slide. */
+  /** La suma de las diferencias. Legacy para el adaptador documental. */
   accumulatedLabel?: string;
 }
 
@@ -431,6 +467,8 @@ export interface CarouselMeta {
    * read as 'vender' because that is what the old fixed rules produced.
    */
   objective?: CarouselObjective;
+  /** Mecanismo comercial explícito; ausente en carruseles legacy. */
+  commercialIntent?: CarouselCommercialIntent;
   /**
    * The design block shared verbatim by every slide prompt. Persisted so a
    * single slide can be rebuilt from scratch and still match the set.
@@ -466,6 +504,11 @@ export interface CarouselMeta {
    * generan sin elegir historia tampoco.
    */
   plan?: CarouselCreativePlan;
+  /**
+   * Fuente numérica estable del carrusel. Los beats proyectan subconjuntos de sus hechos;
+   * los carruseles antiguos no la tienen y siguen leyendo `brief.documents`.
+   */
+  economicScenario?: CarouselEconomicScenario;
   /**
    * El resumen semántico del plan.
    *
@@ -553,82 +596,19 @@ export const CAROUSEL_ROLE_LABELS: Record<CarouselSlideRole, string> = {
   close: 'Cierre',
 };
 
-/**
- * Short brief given to the script agent for each role.
+/*
+ * Aquí vivían `CAROUSEL_ROLE_BRIEFS` y `CAROUSEL_ROLE_LAYOUT_HINT`, las dos tablas del
+ * camino sin Creative Plan. Se borraron cuando elegir historia pasó a ser obligatorio.
  *
- * These are transcribed from what the 10 approved carousels actually do, not from
- * a generic content-marketing arc. Two of them used to fight the copy bank and
- * are worded defensively now: the opening slide kept getting split in half, and
- * the third slide kept inventing a bare figure because its brief asked for
- * "numbers".
+ * Las dos eran hojas de respuestas indexadas por ROL: el brief dictaba el contenido de
+ * la escena ("la escena repite: varias compras, varios documentos") y el layout dictaba
+ * la composición. Con el contenido dictado por rol, tres rutas narrativas distintas
+ * devolvían los mismos beats 3, 4 y 5 — el fallo que motivó toda esta fase.
  *
- * SOLO PARA EL CAMINO SIN CREATIVE PLAN.
- *
- * Describen CONTENIDO, no trabajo: `risk` dice "la escena repite: varias compras,
- * varios documentos", `cta` pide "producto premium y máximo aire". Con el contenido
- * dictado por rol, tres rutas narrativas distintas devolvían los mismos beats 3, 4 y 5,
- * y por eso el planificador dejó de recibirlos. Cuando el usuario elige una historia,
- * el guion tampoco los recibe: el contenido lo declara el beat y la redacción la
- * gobierna `SCRIPT_BEAT_RULES` en la edge function.
- *
- * Siguen aquí porque sin plan seleccionado son la única fuente de contenido que tiene
- * el guion, y ese es el camino que hoy produce carruseles.
+ * De dónde sale ahora cada cosa: el contenido lo declara el beat del plan, la redacción
+ * la gobierna `SCRIPT_BEAT_RULES` en la edge function, y la composición viaja en
+ * `beat.compositionFamily`, derivada de los cinco atributos del `CompositionSpec`.
  */
-export const CAROUSEL_ROLE_BRIEFS: Record<CarouselSlideRole, string> = {
-  tension:
-    'Detiene el scroll y planta el problema. Headline grande desde el copy semilla, escena simple con el producto protagonista y un elemento que introduce la tensión. Poco supporting copy. No resuelvas nada todavía.',
-  shift:
-    'Muestra el MECANISMO: qué puede cambiar entre hoy y el pago. La escena necesita dos momentos en el cuadro — mismo producto, misma factura, dos fechas, dos resultados. Frase en condicional.',
-  risk:
-    'Muestra la CONSECUENCIA. Si la línea habla de acumulación, la escena repite: varias compras, varios documentos, impacto agregado. Que el concepto se vea, no que se enuncie.',
-  solution:
-    'Pasa visualmente de la incertidumbre al control: la escena se siente más ordenada, más estable, con un resultado definido. El sujeto de la frase es el producto, no el cliente.',
-  cta: 'Cierre. El CTA aprobado, composición limpia, producto premium y máximo aire. No es otro capítulo educativo.',
-  hook: 'Detiene el scroll. Es el headline del copy semilla completo, casi tal cual.',
-  problem: 'El costo concreto de no resolverlo. Nada abstracto.',
-  example:
-    'El riesgo concreto que eso genera. Un monto suelto no es un ejemplo: si usas una cifra, va la operación completa y etiquetada como ilustrativa.',
-  promise:
-    'Anuncia QUÉ va a encontrar el lector y CUÁNTAS cosas son: "3 señales de que tu operación tiene exposición abierta". El número tiene que coincidir con los slides que siguen. No es la tensión del copy semilla: es la portada de una lista.',
-  signal:
-    'UN ítem de la lista, autónomo. Se entiende solo, sin haber leído los otros, y no continúa la frase del anterior. Es una situación reconocible que el lector puede verificar en su propia operación hoy — "tu proveedor te factura en dólares y tú presupuestas en pesos" — no un argumento sobre ella. La escena es la evidencia de esa señal.',
-  moment:
-    'UNA fecha de la operación, con lo que se sabe y lo que todavía no en ese momento. El headline nombra el momento ("El día que cotizas"), el body dice qué queda abierto. La escena es el mismo expediente en esa fecha: el sello, el calendario, el documento de ese día. No argumentes: reporta el momento.',
-  outcome:
-    'El resultado de la cronología, visto de lejos: qué quedó definido y qué se movió entre la primera fecha y la última. Cierra la línea de tiempo, no abre un tema nuevo.',
-  close:
-    'Cierre del set. Remata sin abrir nada: composición limpia, máximo aire, una sola línea. Qué dice exactamente lo decide el objetivo del set.',
-};
-
-/**
- * Layout that suits each beat, as a starting point for the script agent.
- *
- * A suggestion rather than a rule: the agent picks what the message needs, and the
- * only hard constraint is that the set does not repeat one. Without a starting
- * point, though, every slide converges on the same composition.
- *
- * SOLO PARA EL CAMINO SIN CREATIVE PLAN, y por la razón más literal de las dos: esta
- * tabla es una hoja de respuestas. Cuando se le mandaba al planificador, dos de tres
- * historias devolvieron su secuencia exacta. Con plan, la composición la decide el beat
- * y viaja en `compositionFamily`, derivada de los cinco atributos del `CompositionSpec`.
- */
-export const CAROUSEL_ROLE_LAYOUT_HINT: Record<CarouselSlideRole, CarouselLayout> = {
-  tension: 'editorial_top',
-  shift: 'split_photo',
-  risk: 'editorial_repetition',
-  solution: 'document_result',
-  cta: 'hero_clean',
-  hook: 'editorial_top',
-  problem: 'split_photo',
-  example: 'editorial_repetition',
-  promise: 'editorial_top',
-  // Las señales comparten composición a propósito: es lo que hace que se lean como
-  // fichas de una misma lista en vez de cinco piezas distintas.
-  signal: 'split_photo',
-  moment: 'document_result',
-  outcome: 'editorial_repetition',
-  close: 'hero_clean',
-};
 
 /** Cómo se lee un arco encadenado: el que usa el banco aprobado. */
 const CHAINED_ARC_RULES = `1. El slide 1 lleva el headline semilla COMPLETO, casi tal cual. Ese texto ya lo aprobó el usuario: respétalo, no lo "mejores". Si son dos oraciones en contraste, van las dos en la misma línea — partir la antítesis entre dos niveles de texto mata el gancho.
@@ -742,6 +722,8 @@ export function getCarouselPreset(slug: string): CarouselPreset {
 export interface CarouselFxAssumptions {
   /** Illustrative rate, set by the user. Never presented as a market quote. */
   baseRate: number;
+  /** Segunda tasa editable para comparar cotizaciones simultáneas. */
+  comparisonRate?: number;
   /** USD amount of the illustrative operation. */
   amountUsd: number;
   /**
@@ -750,24 +732,11 @@ export interface CarouselFxAssumptions {
    * repeated adds up, not that the purchases got bigger.
    */
   driftPct: number[];
+  /** Markup objetivo sobre costo importado. Es la semántica real del cálculo. */
+  markupPct?: number;
   /**
-   * Margen objetivo sobre el costo importado, en porcentaje.
-   *
-   * De aquí sale el precio de venta, y el precio de venta es lo que le faltaba al motor
-   * para poder contar una historia de margen: margen = precio − costo, y el precio no
-   * existía en ninguna parte.
-   *
-   * Se declara como porcentaje y no como un monto porque es como se piensa el negocio
-   * —"vendo con 35% sobre costo"— y porque un monto fijo dejaría de tener sentido en
-   * cuanto cambiara el tamaño de la operación.
-   *
-   * El precio se calcula UNA vez, sobre el costo del momento base, y no se mueve entre
-   * documentos. Eso no es una simplificación: es el argumento. La historia de margen
-   * existe porque el precio ya se publicó y lo único que se mueve después es el costo.
-   *
-   * Opcional porque solo un escenario de seis lo usa. `computeCarouselFx` no lo toca, y
-   * obligar a declararlo haría que cada llamador que solo quiere los momentos del tipo de
-   * cambio tuviera que inventar un margen que su historia no menciona.
+   * @deprecated Alias persistido anterior. También representaba markup sobre costo,
+   * no margen bruto; se lee solo para compatibilidad.
    */
   marginPct?: number;
 }
@@ -781,7 +750,9 @@ export interface CarouselFxAssumptions {
  * uno muy bajo el margen queda casi en cero y se lee como una afirmación de pérdida, que
  * el kit editorial prohíbe.
  */
-export const DEFAULT_MARGIN_PCT = 35;
+export const DEFAULT_MARKUP_PCT = 35;
+/** @deprecated Nombre anterior; se conserva para callers persistidos. */
+export const DEFAULT_MARGIN_PCT = DEFAULT_MARKUP_PCT;
 
 // ---------------------------------------------------------------------------
 // El monto de la operación ilustrativa
@@ -920,7 +891,7 @@ export function illustrativeAmountUsd(params: {
 }
 
 /**
- * Standard illustrative case: USD 10,000 at 18.20, drifting +1% and +2%.
+ * Standard illustrative case: USD 10,000 at 17.20, drifting +1% and +2%.
  *
  * One ceiling for the whole carousel (+2%) rather than a different percentage per
  * slide — the reader is following one mechanism, and unrelated percentages make it
@@ -929,7 +900,9 @@ export function illustrativeAmountUsd(params: {
  * the three-purchase comparison has a middle step.
  */
 export const DEFAULT_CAROUSEL_FX: CarouselFxAssumptions = {
-  baseRate: 18.2,
+  baseRate: 17.2,
+  /** Segunda cotización simultánea; nunca se interpreta como una tasa futura. */
+  comparisonRate: 17.54,
   /**
    * Solo el respaldo. El monto real lo deduce `illustrativeAmountUsd` de la industria y
    * del copy: este valor es lo que se usa cuando el llamador no pasa nada, y quedarse en
@@ -938,7 +911,7 @@ export const DEFAULT_CAROUSEL_FX: CarouselFxAssumptions = {
   amountUsd: 10000,
   /** Against the base: +1% and +2%. Not compounded — see `computeCarouselFx`. */
   driftPct: [1, 2],
-  marginPct: DEFAULT_MARGIN_PCT,
+  markupPct: DEFAULT_MARKUP_PCT,
 };
 
 /** One moment of the illustrative operation, with its text ready to render. */
@@ -1079,7 +1052,7 @@ function shiftDays(base: Date, days: number): Date {
  *
  * The two-moment case takes the first and LAST moment, skipping the middle steps.
  * Its claim is what the movement costs by payment day, so it needs the full gap
- * (18.20 → 18.56); the intermediate +1% exists only for the three-purchase
+ * (17.20 → 17.54); the intermediate +1% exists only for the three-purchase
  * comparison, and using it here would show a smaller number than the story states.
  */
 export function buildFigureDocuments(
@@ -1149,6 +1122,103 @@ export function accumulatedFxImpact(moments: CarouselFxMoment[]): {
   };
 }
 
+const toCents = (value: number): number => Math.round(value * 100) / 100;
+const toTenth = (value: number): number => Math.round(value * 10) / 10;
+
+/** Construye una sola columna vertebral financiera para todo el carrusel. */
+export function buildCarouselEconomicScenario(
+  scenarioId: Exclude<CarouselFigureScenarioId, 'none'>,
+  assumptions: CarouselFxAssumptions,
+  now: Date = new Date(),
+): CarouselEconomicScenario {
+  const moments = computeCarouselFx(assumptions);
+  const base = moments[0];
+  const exposed = moments[moments.length - 1] ?? base;
+  const quoteARate = toCents(base.rate);
+  const quoteBRate = toCents(assumptions.comparisonRate ?? exposed.rate);
+  const quoteACostMxn = toCents(quoteARate * assumptions.amountUsd);
+  const quoteBCostMxn = toCents(quoteBRate * assumptions.amountUsd);
+  const quoteDifferenceMxn = toCents(quoteBCostMxn - quoteACostMxn);
+  const quoteDifferencePct = quoteACostMxn === 0
+    ? 0
+    : toTenth((quoteDifferenceMxn / quoteACostMxn) * 100);
+  const markupPct = Math.min(
+    Math.max(assumptions.markupPct ?? assumptions.marginPct ?? DEFAULT_MARKUP_PCT, MIN_MARGIN_PCT),
+    MAX_MARGIN_PCT,
+  );
+  const salePriceMxn = toCents(base.amountMxn * (1 + markupPct / 100));
+  const baseGrossProfitMxn = toCents(salePriceMxn - base.amountMxn);
+  const exposedGrossProfitMxn = toCents(salePriceMxn - exposed.amountMxn);
+  const grossMargin = (profit: number): number =>
+    salePriceMxn === 0 ? 0 : toTenth((profit / salePriceMxn) * 100);
+  const accumulatedImpactMxn = accumulatedFxImpact(moments).amount;
+
+  const allFacts: CarouselEconomicFact[] = [
+    { key: 'operation_usd', label: 'OPERACIÓN', value: base.amountUsd, formattedValue: `USD ${formatAmount(base.amountUsd)}`, unit: 'USD', state: 'base' },
+    { key: 'base_rate', label: 'TIPO DE CAMBIO BASE', value: base.rate, formattedValue: formatAmount(base.rate).replace(/,/g, ''), unit: 'rate', state: 'base', colorRole: 'control' },
+    { key: 'exposed_rate', label: 'TIPO DE CAMBIO EXPUESTO', value: exposed.rate, formattedValue: formatAmount(exposed.rate).replace(/,/g, ''), unit: 'rate', state: 'exposed', colorRole: 'risk' },
+    { key: 'base_cost_mxn', label: 'COSTO BASE', value: base.amountMxn, formattedValue: `MXN ${formatAmount(base.amountMxn)}`, unit: 'MXN', state: 'base', colorRole: 'control' },
+    { key: 'exposed_cost_mxn', label: 'COSTO EXPUESTO', value: exposed.amountMxn, formattedValue: `MXN ${formatAmount(exposed.amountMxn)}`, unit: 'MXN', state: 'exposed', colorRole: 'risk' },
+    { key: 'cost_delta_mxn', label: 'DIFERENCIA DE COSTO', value: exposed.deltaMxn, formattedValue: `${exposed.deltaMxn >= 0 ? '+' : ''}MXN ${formatAmount(exposed.deltaMxn)}`, unit: 'MXN', state: 'delta', colorRole: 'risk' },
+    { key: 'cost_delta_pct', label: 'VARIACIÓN DEL COSTO', value: exposed.deltaPct, formattedValue: `${exposed.deltaPct >= 0 ? '+' : ''}${exposed.deltaPct.toFixed(1)}%`, unit: 'percent', state: 'delta', colorRole: 'risk' },
+    { key: 'quote_a_rate', label: 'TIPO DE CAMBIO XENDING', value: quoteARate, formattedValue: formatAmount(quoteARate).replace(/,/g, ''), unit: 'rate', state: 'base', colorRole: 'control' },
+    { key: 'quote_b_rate', label: 'TIPO DE CAMBIO OTRA COTIZACIÓN', value: quoteBRate, formattedValue: formatAmount(quoteBRate).replace(/,/g, ''), unit: 'rate', state: 'derived' },
+    { key: 'quote_a_cost_mxn', label: 'CONVERSIÓN CON XENDING', value: quoteACostMxn, formattedValue: `MXN ${formatAmount(quoteACostMxn)}`, unit: 'MXN', state: 'base', colorRole: 'control' },
+    { key: 'quote_b_cost_mxn', label: 'CONVERSIÓN CON OTRA COTIZACIÓN', value: quoteBCostMxn, formattedValue: `MXN ${formatAmount(quoteBCostMxn)}`, unit: 'MXN', state: 'derived' },
+    { key: 'quote_difference_mxn', label: 'DIFERENCIA DE CONVERSIÓN', value: quoteDifferenceMxn, formattedValue: `${quoteDifferenceMxn >= 0 ? '+' : ''}MXN ${formatAmount(quoteDifferenceMxn)}`, unit: 'MXN', state: 'delta' },
+    { key: 'quote_difference_pct', label: 'DIFERENCIA PORCENTUAL', value: quoteDifferencePct, formattedValue: `${quoteDifferencePct >= 0 ? '+' : ''}${quoteDifferencePct.toFixed(1)}%`, unit: 'percent', state: 'delta' },
+    { key: 'sale_price_mxn', label: 'PRECIO DE VENTA FIJO', value: salePriceMxn, formattedValue: `MXN ${formatAmount(salePriceMxn)}`, unit: 'MXN', state: 'defined' },
+    { key: 'base_gross_profit_mxn', label: 'UTILIDAD BRUTA BASE', value: baseGrossProfitMxn, formattedValue: `MXN ${formatAmount(baseGrossProfitMxn)}`, unit: 'MXN', state: 'base', colorRole: 'control' },
+    { key: 'exposed_gross_profit_mxn', label: 'UTILIDAD BRUTA EXPUESTA', value: exposedGrossProfitMxn, formattedValue: `MXN ${formatAmount(exposedGrossProfitMxn)}`, unit: 'MXN', state: 'exposed', colorRole: 'risk' },
+    { key: 'base_gross_margin_pct', label: 'MARGEN BRUTO BASE', value: grossMargin(baseGrossProfitMxn), formattedValue: `${grossMargin(baseGrossProfitMxn).toFixed(1)}%`, unit: 'percent', state: 'base', colorRole: 'control' },
+    { key: 'exposed_gross_margin_pct', label: 'MARGEN BRUTO EXPUESTO', value: grossMargin(exposedGrossProfitMxn), formattedValue: `${grossMargin(exposedGrossProfitMxn).toFixed(1)}%`, unit: 'percent', state: 'exposed', colorRole: 'risk' },
+    { key: 'accumulated_impact_mxn', label: 'IMPACTO ACUMULADO', value: accumulatedImpactMxn, formattedValue: `${accumulatedImpactMxn >= 0 ? '+' : ''}MXN ${formatAmount(accumulatedImpactMxn)}`, unit: 'MXN', state: 'delta', colorRole: 'risk' },
+    { key: 'defined_cost_mxn', label: 'COSTO DEFINIDO', value: base.amountMxn, formattedValue: `MXN ${formatAmount(base.amountMxn)}`, unit: 'MXN', state: 'defined', colorRole: 'control' },
+  ];
+  const allowed = new Set(CAROUSEL_SCENARIO_FACT_KEYS[scenarioId]);
+
+  return {
+    version: 1,
+    scenarioId,
+    qualifier: 'ESCENARIO ILUSTRATIVO',
+    assumptions: {
+      baseRate: assumptions.baseRate,
+      comparisonRate: assumptions.comparisonRate,
+      amountUsd: assumptions.amountUsd,
+      driftPct: [...assumptions.driftPct],
+      markupPct,
+    },
+    derived: {
+      baseCostMxn: base.amountMxn,
+      exposedRate: exposed.rate,
+      exposedCostMxn: exposed.amountMxn,
+      costDeltaMxn: exposed.deltaMxn,
+      costDeltaPct: exposed.deltaPct,
+      comparisonRate: quoteBRate,
+      comparisonCostMxn: quoteBCostMxn,
+      quoteDifferenceMxn,
+      quoteDifferencePct,
+      salePriceMxn,
+      baseGrossProfitMxn,
+      exposedGrossProfitMxn,
+      baseGrossMarginPct: grossMargin(baseGrossProfitMxn),
+      exposedGrossMarginPct: grossMargin(exposedGrossProfitMxn),
+      accumulatedImpactMxn,
+    },
+    facts: allFacts.filter((fact) => allowed.has(fact.key)),
+    createdAt: now.toISOString(),
+  };
+}
+
+/** Selecciona hechos para un beat sin decidir su composición. */
+export function projectCarouselEconomicFacts(
+  scenario: CarouselEconomicScenario,
+  factKeys: readonly CarouselEconomicFactKey[],
+): CarouselEconomicFact[] {
+  const requested = new Set(factKeys);
+  return scenario.facts.filter((fact) => requested.has(fact.key));
+}
+
 // ---------------------------------------------------------------------------
 // El motor que consume el Creative Plan
 // ---------------------------------------------------------------------------
@@ -1180,7 +1250,7 @@ export const MAX_MARGIN_PCT = 200;
 
 /** El precio de venta que la historia de margen da por comprometido. */
 function committedSalePrice(a: CarouselFxAssumptions, baseCostMxn: number): number {
-  const declared = a.marginPct ?? DEFAULT_MARGIN_PCT;
+  const declared = a.markupPct ?? a.marginPct ?? DEFAULT_MARKUP_PCT;
   const pct = Math.min(Math.max(declared, MIN_MARGIN_PCT), MAX_MARGIN_PCT);
   return Math.round(baseCostMxn * (1 + pct / 100) * 100) / 100;
 }
@@ -1218,6 +1288,55 @@ export function buildPlanFigureDocuments(
   const bare = (label: string) => label.replace(/^(USD|MXN)\s+/, '');
 
   switch (scenarioId) {
+    /*
+     * Dos cotizaciones simultáneas de la misma obligación.
+     *
+     * No lleva fechas: comparar proveedores no es comparar el spot de hoy contra una
+     * tasa futura. Ambas tasas son inputs editables y el monto USD permanece idéntico.
+     */
+    case 'quote_comparison': {
+      const quoteARate = toCents(assumptions.baseRate);
+      const quoteBRate = toCents(assumptions.comparisonRate ?? last.rate);
+      const quoteACost = toCents(quoteARate * assumptions.amountUsd);
+      const quoteBCost = toCents(quoteBRate * assumptions.amountUsd);
+      const difference = toCents(quoteBCost - quoteACost);
+      const document = (
+        label: string,
+        rate: number,
+        cost: number,
+        isXending: boolean,
+      ): CarouselFigureDocument => ({
+        label,
+        kind: 'COTIZACIÓN ILUSTRATIVA',
+        fields: [
+          { label: 'TOTAL USD', value: formatAmount(assumptions.amountUsd) },
+          {
+            label: 'TIPO DE CAMBIO',
+            value: formatAmount(rate).replace(/,/g, ''),
+            colorRole: isXending ? 'control' : undefined,
+          },
+          ...(!isXending
+            ? [{
+                label: 'DIFERENCIA',
+                value: `${difference >= 0 ? '+' : ''}MXN ${formatAmount(difference)}`,
+              }]
+            : []),
+        ],
+        total: {
+          label: 'CONVERSIÓN MXN',
+          value: formatAmount(cost),
+          colorRole: isXending ? 'control' : undefined,
+        },
+      });
+
+      return {
+        documents: [
+          document('XENDING', quoteARate, quoteACost, true),
+          document('OTRA COTIZACIÓN', quoteBRate, quoteBCost, false),
+        ],
+      };
+    }
+
     /*
      * La misma obligación con dos tipos de cambio. HOY contra el día del pago.
      *

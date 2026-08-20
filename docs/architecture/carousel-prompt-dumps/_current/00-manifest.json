@@ -12,21 +12,21 @@
       "cta"
     ]
   },
-  "generado": "2026-08-19T19:25:03.187Z",
+  "generado": "2026-08-20T04:05:17.647Z",
   "rutasDisponibles": [
     {
       "id": "cost_anatomy",
       "deepeningMode": "anatomy",
       "figurePolicy": "optional",
       "figureScenarios": [
-        "rate_comparison"
+        "rate_range"
       ],
       "allowedEvidenceDevices": [
-        "capas del costo separadas",
-        "renglones de la cotizacion",
-        "conceptos como objetos distintos",
-        "desglose linea por linea",
-        "sobres etiquetados por concepto"
+        "componentes separables del costo",
+        "capas que forman un total",
+        "relacion entre cada parte y el total",
+        "origen de cada componente",
+        "anatomia del costo de la misma operacion"
       ]
     },
     {
@@ -34,12 +34,13 @@
       "deepeningMode": "sensitivity",
       "figurePolicy": "optional",
       "figureScenarios": [
-        "rate_comparison"
+        "quote_comparison"
       ],
       "allowedEvidenceDevices": [
-        "dos cotizaciones del mismo pedido",
-        "dos condiciones de pago comparadas",
-        "dos totales de distinta longitud"
+        "mismo pedido bajo dos condiciones explicitas",
+        "variables comparables sin cambiar la compra",
+        "diferencia atribuible al proveedor de pago",
+        "decision entre condiciones simultaneas"
       ]
     },
     {
@@ -51,10 +52,11 @@
         "accumulated_difference"
       ],
       "allowedEvidenceDevices": [
-        "varias compras sucesivas",
-        "columna de diferencias",
-        "resumen mensual con varias lineas",
-        "documentos repetidos de la misma operacion"
+        "misma diferencia repetida",
+        "progresion de unidad a lote o periodo",
+        "frecuencia de una misma operacion",
+        "impacto acumulado",
+        "escala fisica de la repeticion"
       ]
     },
     {
@@ -65,10 +67,27 @@
         "margin_sensitivity"
       ],
       "allowedEvidenceDevices": [
-        "lista de precios publicada",
-        "precio y costo en el mismo cuadro",
-        "la distancia entre dos valores",
-        "hoja de margen por producto"
+        "precio de venta fijo",
+        "costo importado variable",
+        "utilidad bruta entre precio y costo",
+        "banda de margen que cambia de amplitud",
+        "presupuesto ocupado por el sobrecosto"
+      ]
+    },
+    {
+      "id": "fx_cost_component",
+      "deepeningMode": "scale",
+      "figurePolicy": "required",
+      "figureScenarios": [
+        "rate_range",
+        "margin_sensitivity"
+      ],
+      "allowedEvidenceDevices": [
+        "articulo o insumo denominado en dolares",
+        "componente cambiario dentro del costo",
+        "progresion de unidad a lote y proyecto",
+        "propagacion del mismo componente",
+        "parte del presupuesto ocupada por la conversion"
       ]
     },
     {
@@ -76,13 +95,13 @@
       "deepeningMode": "stage_progression",
       "figurePolicy": "optional",
       "figureScenarios": [
-        "rate_comparison"
+        "rate_range"
       ],
       "allowedEvidenceDevices": [
-        "cotizacion de fabrica",
-        "documento por etapa del trayecto",
-        "el producto avanzando por etapas",
-        "costo final de la operacion"
+        "precio de origen como punto de partida",
+        "etapas que agregan componentes al costo",
+        "progresion desde origen hasta pago",
+        "relacion entre trayecto y costo final"
       ]
     },
     {
@@ -91,33 +110,37 @@
       "figurePolicy": "none",
       "figureScenarios": [],
       "allowedEvidenceDevices": [
-        "varias carpetas de cuentas distintas",
-        "escritorio con muchos expedientes",
-        "un solo expediente",
-        "conciliacion manual"
+        "tareas dispersas que convergen",
+        "cantidad de transferencias entre personas o sistemas",
+        "puntos de conciliacion",
+        "flujo operativo antes y despues"
       ]
     },
     {
       "id": "cost_plus_speed",
       "deepeningMode": "planning_horizon",
-      "figurePolicy": "none",
-      "figureScenarios": [],
+      "figurePolicy": "optional",
+      "figureScenarios": [
+        "quote_comparison"
+      ],
       "allowedEvidenceDevices": [
-        "una decision con dos consecuencias",
-        "el pedido y el estado de la operacion",
-        "dos caminos desde el mismo punto"
+        "misma decision evaluada con dos criterios",
+        "costo conocido y estado operativo confirmado",
+        "consecuencias de cada alternativa sobre el mismo pedido",
+        "decision sin sacrificar un criterio por ocultar el otro"
       ]
     }
   ],
   "sceneKit": {
-    "version": "costos-ahorro-scene-v1",
+    "version": "costos-ahorro-scene-v3",
+    "physicalWorld": 10,
     "dataSurfaces": 7,
-    "changeMarkers": 5,
+    "changeMarkers": 8,
     "bannedPropTokens": 11,
     "figurePolicy": "fx_documents"
   },
   "tamanos": {
-    "plannerSystem": 28382,
+    "plannerSystem": 32341,
     "plannerUser": 379
   }
 }

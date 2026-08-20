@@ -173,6 +173,35 @@ describe('resolución de rutas compatibles', () => {
     expect(ids).toContain('second_quote');
   });
 
+  it('filtra costos por mecanismo comercial antes de llamar al modelo', () => {
+    const quoteIds = resolveCompatibleRoutes({
+      ...base,
+      commercialIntent: 'quote_comparison',
+    }).map((route) => route.id);
+    expect(quoteIds).toEqual(['second_quote']);
+
+    const speedIds = resolveCompatibleRoutes({
+      ...base,
+      commercialIntent: 'cost_plus_speed',
+    }).map((route) => route.id);
+    expect(speedIds).toEqual(['cost_plus_speed']);
+
+    const componentIds = resolveCompatibleRoutes({
+      ...base,
+      commercialIntent: 'cost_component',
+    }).map((route) => route.id);
+    expect(componentIds).not.toContain('second_quote');
+    expect(componentIds).not.toContain('cost_plus_speed');
+  });
+
+  it('la segunda cotización usa comparación simultánea, no HOY contra PAGO', () => {
+    const route = getStoryRoute('second_quote');
+    expect(route?.figureScenarios).toEqual(['quote_comparison']);
+    expect(route?.requiredCapabilities.join(' ').toLowerCase()).not.toContain('comision');
+    expect(route?.routeThesis.toLowerCase()).toContain('equivalente en mxn');
+    expect(route?.forbiddenClaims.join(' ').toLowerCase()).toContain('costo integral');
+  });
+
   it('excluye lo que el llamador pide fuera', () => {
     const ids = resolveCompatibleRoutes({
       ...base,

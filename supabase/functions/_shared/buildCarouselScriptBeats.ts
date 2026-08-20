@@ -142,6 +142,17 @@ export function describeBeat(params: {
     lines.push(`  · Intención de composición: ${beat.compositionNotes}`);
   }
 
+  if (beat.figureRequirement.mode === 'illustrative') {
+    const requirement = beat.figureRequirement;
+    lines.push(`  · Cifras: hechos [${(requirement.factKeys ?? []).join(', ') || 'legacy'}] del escenario ${requirement.scenarioId}. No escribas sus valores.`);
+    if (requirement.narrativePurpose?.trim()) {
+      lines.push(`  · Qué demuestran esas cifras: ${requirement.narrativePurpose}`);
+    }
+    lines.push(`  · Superficie sugerida: ${requirement.suggestedSurface ?? 'freeform'}; peso ${requirement.weight ?? 'inline'}. Cifra no significa documento.`);
+  } else {
+    lines.push('  · Cifras: ninguna en este beat.');
+  }
+
   lines.push(`  · brief.layout: ${beat.compositionFamily} — YA ESTÁ DECIDIDO, cópialo tal cual.`);
 
   return lines.join('\n');

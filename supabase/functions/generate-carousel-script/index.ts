@@ -14,11 +14,10 @@
  * The roles come from the caller (the preset lives in the frontend types), so
  * adding a new narrative shape needs no change here.
  *
- * ## Con Creative Plan, esta función NO decide la estructura
+ * ## Esta función NO decide la estructura. El `plan` es OBLIGATORIO.
  *
- * Cuando el llamador manda un `plan` de `generate-carousel-plan`, la historia ya
- * está decidida: qué aporta cada slide, con qué evidencia, en qué composición. Aquí
- * solo se eligen LAS PALABRAS EXACTAS.
+ * La historia llega decidida de `generate-carousel-plan`: qué aporta cada slide, con
+ * qué evidencia, en qué composición. Aquí solo se eligen LAS PALABRAS EXACTAS.
  *
  *   Preset    → cómo se lee el set y cuántos slides tiene
  *   Ruta      → qué historia se cuenta
@@ -31,9 +30,10 @@
  * estructura le sale por defecto. Cinco sets seguidos con dos cotizaciones y la
  * misma secuencia de layouts.
  *
- * El camino sin plan sigue existiendo y no cambió: es lo único que hoy produce
- * carruseles, y quitarlo antes de que el plan esté en producción los dejaría sin
- * ninguna fuente de contenido.
+ * Hubo un camino sin plan, con briefs y layouts por rol, y se eliminó. Mientras los dos
+ * conviviesen el viejo ganaba —un brief que nombra un objeto le gana a una ruta que
+ * describe una idea— y cada arreglo había que hacerlo dos veces. Un plan que no cubre el
+ * set es ahora un 400: sin él esta función no tiene nada que escribir.
  *
  * Auth: unlike the older design-studio functions, this one requires a JWT and
  * validates business membership before reading any tenant data.
@@ -48,21 +48,30 @@ import { buildBranchContextBlock } from '../_shared/buildBranchContextBlock.ts';
 import { buildBranchContextFromKit } from '../_shared/buildBranchContextFromKit.ts';
 import { carouselMechanicsExamples } from '../_shared/carouselExamples.ts';
 import { getCopyKit } from '../_shared/copyKitRegistry.ts';
+import { resolveKitSlug } from '../_shared/branchSlug.ts';
 import { parseModelJson } from '../_shared/parseModelJson.ts';
 import { BRAND_COLOR_LANGUAGE_ES } from '../_shared/brandColorLanguage.ts';
+import { CAROUSEL_ECONOMIC_FACT_SHAPES } from '../_shared/carousel-plan-types.ts';
 import type {
   CarouselCreativePlan,
+  CarouselEconomicFact,
+  CarouselEconomicScenario,
   CarouselStoryBeat,
 } from '../_shared/carousel-plan-types.ts';
 import {
-  beatRuleForRole,
   describeBeat,
   planCoversRoles,
 } from '../_shared/buildCarouselScriptBeats.ts';
 import {
+  buildLanguageStyleBlock,
+  DEEPENING_LABELS,
+  toCarouselLanguageStyle,
+} from '../_shared/buildCarouselCreativePlan.ts';
+import {
   HIGHLIGHT_LIMITS_ES,
   normalizeHighlights,
 } from '../_shared/carouselHighlights.ts';
+import { validateCarouselEconomicScenario } from '../_shared/validateCarouselEconomicScenario.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -73,28 +82,19 @@ const corsHeaders = {
 // Types
 // ---------------------------------------------------------------------------
 
-/** One slide the caller wants, described by its narrative job. */
+/**
+ * One slide the caller wants: su rol y qué se le monta encima. Nada más.
+ *
+ * Tenía dos campos más, `brief` y `layoutHint`, y los dos eran hojas de respuestas por
+ * ROL: el brief dictaba el contenido de la escena, el layoutHint la composición. Salieron
+ * del contrato con el camino sin plan. El contenido lo declara el beat del `plan` y la
+ * composición viaja en `beat.compositionFamily`.
+ */
 interface CarouselSlideSpec {
   /** Persisted role key, e.g. 'tension' | 'shift' | 'risk' | 'solution' | 'cta'. */
   role: string;
-  /**
-   * Qué tiene que lograr este slide, en prosa. Solo en el camino SIN plan.
-   *
-   * Describe contenido, no trabajo —"la escena repite: varias compras, varios
-   * documentos, impacto agregado"—, y por eso tres rutas distintas devolvían los
-   * mismos beats. Cuando llega un Creative Plan, el brief no se manda ni se lee: el
-   * contenido lo declara el beat y la redacción la gobierna `SCRIPT_BEAT_RULES`.
-   */
-  brief?: string;
   /** Brand elements composited on this slide later ('logo' | 'disclaimer'). */
   brandElements?: string[];
-  /**
-   * Composición sugerida por rol. Solo en el camino SIN plan.
-   *
-   * Con plan la composición NO es una sugerencia: la decidió el planificador y viaja
-   * en `beat.compositionFamily`, que este agente no puede cambiar.
-   */
-  layoutHint?: string;
 }
 
 /**
@@ -149,48 +149,39 @@ interface GenerateCarouselScriptRequest {
    * Sent by the client because it belongs to the preset, and the preset catalogue
    * lives there: a checklist and a timeline are read in opposite ways, and the rules
    * that describe an argument chained across five slides turn both of them back into
-   * that argument. Optional so an older client keeps working — see the fallback.
+   * that argument.
+   *
+   * Obligatorias. Había un fallback al arco encadenado "para un cliente viejo", y ese
+   * cliente ya no existe: el único que llama aquí manda `preset.narrativeRules` siempre.
+   * Un fallback que nunca se activa es una segunda definición de cómo se lee un set.
    */
-  narrativeRules?: string;
+  narrativeRules: string;
   angleName?: string | null;
   industryName?: string | null;
-  /** Medium chosen for the WHOLE set — mixing mediums breaks the set. */
+  /**
+   * Medium chosen for the WHOLE set — mixing mediums breaks the set.
+   *
+   * El cliente lo manda y esta función lo acepta, pero hoy no lo usa: la única mención al
+   * medio en el prompt del guion vivía en la rama sin plan del motivo. Quien decide con el
+   * medio es `generate-carousel-plan`. Pendiente de E5.
+   */
   imageType?: 'foto' | 'infografia' | 'financiero';
   /**
-   * Illustrative figures, already computed and formatted by the caller.
-   *
-   * Context for the agent, not content for it to place: the values reach the image
-   * as documents assigned per slide in code. The reason is arithmetic — a piece that
-   * shows a rate and a total has to satisfy USD x TC = MXN when a reader multiplies
-   * them, and letting a language model produce those numbers fails. Real output
-   * showed USD 8,750 next to MXN 157,980, quoting a rate of 18.06 nobody chose.
-   *
-   * What the agent owes this table is agreement: copy that describes the same
-   * movement the documents show.
+   * Escenario económico calculado por el caller. Es contexto para redactar una sola
+   * historia coherente; el modelo nunca copia ni recalcula sus valores.
    */
-  fxMoments?: {
-    label: string;
-    rate: string;
-    usd: string;
-    mxn: string;
-    delta: string;
-    pct: string;
-  }[];
-  /** Sum of the gaps across the moments, for the repetition slide. */
-  fxAccumulated?: string;
+  economicScenario?: CarouselEconomicScenario;
   /**
-   * La historia ya decidida, de `generate-carousel-plan`.
+   * La historia ya decidida, de `generate-carousel-plan`. OBLIGATORIA.
    *
-   * Opcional porque el camino sin plan es el que hoy produce carruseles. Cuando
-   * llega, manda: los beats declaran qué aporta cada slide, con qué evidencia y en
-   * qué composición, y esta función deja de decidir estructura.
+   * Los beats declaran qué aporta cada slide, con qué evidencia y en qué composición.
+   * Esta función no decide estructura.
    *
-   * El orden importa y no se verifica contra los roles por posición nada más: si el
-   * storyboard no tiene un beat por slide, el plan se ignora entero en vez de
-   * mezclarse a medias con los briefs. Un set escrito con tres beats del plan y dos
-   * del brief no es ninguno de los dos.
+   * El orden importa: un beat por slide, en el mismo orden de roles. Si no cuadra, la
+   * respuesta es 400 y no un set escrito a medias — un guion con tres beats del plan y
+   * dos inventados no es ninguno de los dos, y desde fuera se ve igual de bien.
    */
-  plan?: CarouselCreativePlan;
+  plan: CarouselCreativePlan;
   /** Free-text steering from the user. */
   guidance?: string;
 }
@@ -299,18 +290,47 @@ function buildEditorialBansBlock(kit: Record<string, unknown>): string {
   return parts.join('\n\n');
 }
 
+/**
+ * Etiquetas del medio. Hoy no las lee el prompt del guion, y es deliberado.
+ *
+ * La única mención al medio vivía en la rama SIN plan de `motifSection` ("el motivo tiene
+ * que ser representable en ese medio"), y con plan el motivo ya está elegido: decírselo al
+ * guionista no cambia nada porque no puede cambiarlo. Donde el medio sí manda es en el
+ * planificador, que ya lo recibe en su bloque `## MEDIO VISUAL`.
+ *
+ * Se conservan porque E5 —"representable en el medio" en vez de "fotografiable"— tiene que
+ * decidir si la regla del `imageIntent` se condiciona aquí también.
+ */
 const MEDIUM_LABELS: Record<string, string> = {
   foto: 'fotografía editorial real',
   infografia: 'infografía con iconografía 3D',
   financiero: 'visualización financiera (dashboard/gráficas)',
 };
 
+/** Formatea desde el valor validado; nunca confía en formattedValue del request. */
+function formatEconomicFactValue(fact: CarouselEconomicFact): string {
+  const shape = CAROUSEL_ECONOMIC_FACT_SHAPES[fact.key];
+  const deltaSign = shape.state === 'delta' && fact.value > 0 ? '+' : '';
+  switch (shape.unit) {
+    case 'USD':
+      return `${deltaSign}USD ${fact.value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    case 'MXN':
+      return `${deltaSign}MXN ${fact.value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    case 'percent':
+      return `${deltaSign}${fact.value.toFixed(1)}%`;
+    case 'rate':
+      return fact.value.toFixed(2);
+    default:
+      return String(fact.value);
+  }
+}
+
 function buildSystemPrompt(params: {
   brandName: string;
   /** What the set is for. Governs the closing and the brand budget. */
   objective?: string;
   /** How this structure reads. Comes from the preset. */
-  narrativeRules?: string;
+  narrativeRules: string;
   compliance: { forbidden_terms: string[]; required_qualifiers: string[]; max_values: Record<string, string> };
   branchContext: string;
   /**
@@ -323,39 +343,27 @@ function buildSystemPrompt(params: {
   verticalKeywords: string[];
   industryName?: string | null;
   angleName?: string | null;
-  imageType?: string;
   slides: CarouselSlideSpec[];
   editorialBans: string;
-  fxMoments?: {
-    label: string; rate: string; usd: string; mxn: string; delta: string; pct: string;
-  }[];
-  fxAccumulated?: string;
+  economicScenario?: CarouselEconomicScenario;
   /**
-   * El plan, ya verificado contra los slides por `planCoversSlides`.
+   * El plan, ya verificado contra los slides por `planCoversRoles` en el handler.
    *
-   * Se valida en el handler y no aquí: un plan que no cubre el set tiene que ignorarse
-   * también en `normalizeBrief`, y dos capas decidiendo por su cuenta si el plan aplica
-   * es exactamente cómo se termina con el prompt en modo plan y el brief en modo rol.
+   * Se valida allá y no aquí porque `normalizeBrief` también lo lee como autoridad: dos
+   * capas decidiendo por su cuenta si el plan aplica es exactamente cómo se termina con
+   * el prompt en modo plan y el brief en modo rol. Un plan que no cubre el set nunca
+   * llega hasta aquí — el handler responde 400.
    */
-  plan?: CarouselCreativePlan;
+  plan: CarouselCreativePlan;
+  /** Política de lenguaje publicable de la rama, ya renderizada. Puede ir vacía. */
+  languageStyleBlock?: string;
   guidance?: string;
 }): string {
   const {
-    brandName, objective, compliance, branchContext, branchSlug, verticalKeywords,
-    industryName, angleName, imageType, slides, editorialBans, fxMoments,
-    fxAccumulated, plan, guidance,
+    brandName, objective, narrativeRules, compliance, branchContext, branchSlug,
+    verticalKeywords, industryName, angleName, slides, editorialBans,
+    economicScenario, plan, languageStyleBlock, guidance,
   } = params;
-
-  /**
-   * Fallback for carousels whose caller predates per-preset rules.
-   *
-   * The chained arc, because that is what the fixed block described and what every
-   * existing preset was written against — a set generated by an older client has to
-   * keep coming out the way it used to.
-   */
-  const narrativeRules = params.narrativeRules?.trim() ||
-    `1. El slide 1 lleva el headline semilla COMPLETO, casi tal cual. Ese texto ya lo aprobó el usuario: respétalo, no lo "mejores". Si son dos oraciones en contraste, van las dos en la misma línea — partir la antítesis entre dos niveles de texto mata el gancho.
-2. Los slides se leen como UNA sola oración cortada en varias. Cada slide continúa el anterior y lo retoma ("Eso puede…", "Ese movimiento…", "Y con él…").`;
 
   /**
    * The mechanism the copy has to agree with, pre-computed.
@@ -367,24 +375,22 @@ function buildSystemPrompt(params: {
    * this table is agreement, not transcription — a headline claiming a 5% jump next
    * to documents showing 2% breaks the piece just as badly.
    */
-  const fxBlock = (fxMoments ?? []).length > 0
-    ? `CIFRAS DE LA OPERACIÓN ILUSTRATIVA: ya están calculadas y el sistema las coloca. Esto es la mecánica que tu texto tiene que respetar:
+  const fxBlock = economicScenario
+    ? `ESCENARIO ECONÓMICO ÚNICO DEL CARRUSEL — ${economicScenario.qualifier}
 
-${fxMoments!
-  .map(
-    (m) =>
-      `${m.label}\n   TOTAL USD ${m.usd.replace('USD ', '')}\n   TIPO DE CAMBIO ${m.rate}\n   COSTO MXN ${m.mxn.replace('MXN ', '')}${m.pct ? `\n   VARIACIÓN ${m.pct}\n   IMPACTO ${m.delta}` : ''}`,
-  )
-  .join('\n\n')}${fxAccumulated ? `\n\nIMPACTO ACUMULADO de los momentos: ${fxAccumulated}` : ''}
+Todos los beats con cifras son proyecciones de ESTA MISMA operación (${economicScenario.scenarioId}). No inventes otro ejemplo, otro monto, otro porcentaje ni otra tasa.
 
-Cómo usarlas:
-- SON CONTEXTO PARA ESCRIBIR, NO TEXTO PARA COLOCAR. El sistema ya sabe en qué slides van y las inyecta él mismo, documento por documento, en el momento de generar la imagen. Tú no las escribes en ningún campo: no van en environmentalText, ni en el headline, ni en el body, ni en el imageIntent.
-- Lo que sí tienes que hacer con ellas: escribir un headline y un supporting copy COMPATIBLES con esta mecánica. Si el texto dice "sube 5%" y la cifra dice +2%, la pieza se contradice consigo misma.
-- El monto en USD es EL MISMO en todos los momentos. Lo que se mueve es el tipo de cambio, no el tamaño de la compra. Un copy que hable de compras más grandes cuenta otra historia que la que muestran los documentos.
-- Los slides que llevan cifras son los de la mecánica y la repetición. Para ellos, el imageIntent tiene que pedir la SUPERFICIE donde van a caber —dos hojas de la misma cotización lado a lado, tres documentos sucesivos— sin escribir los valores.
-- Los demás slides comunican sin números, con objetos, fechas y estados.
-- Son props ilustrativos de una mecánica. Nunca los presentes como tipo de cambio vigente, cotización oficial ni rendimiento garantizado.`
-    : `CIFRAS: no uses ninguna. No hay cifras autorizadas para este set, así que ningún slide lleva montos ni tipos de cambio — la mecánica se comunica con objetos, fechas y estados.`;
+Hechos calculados por código:
+${economicScenario.facts.map((fact) => `- ${fact.key}: ${formatEconomicFactValue(fact)}`).join('\n')}
+
+Cómo usarlos:
+- SON CONTEXTO PARA ESCRIBIR, NO COPY. No copies ningún valor al headline, body, CTA, imageIntent, environmentalText ni brief.
+- Cada beat ya declara qué factKeys le corresponden. Tu texto explica qué significan; el código coloca los valores después.
+- La misma obligación USD permanece fija. Cambian únicamente las variables derivadas que el escenario declara.
+- No pidas una hoja, cotización o dashboard salvo que el beat haya elegido esa superficie. Una cifra puede integrarse en un producto, caja, lote, banda, anatomía, proceso, espacio o decisión.
+- ${economicScenario.qualifier} tiene que quedar visible junto a los hechos en la imagen, pero tú no lo escribes: lo monta el sistema.
+- Nunca presentes el escenario como tipo de cambio vigente, cotización oficial, pronóstico, ahorro garantizado o rendimiento.`
+    : `CIFRAS: no uses ninguna. No hay un escenario económico autorizado para este set, así que ningún slide lleva montos ni tipos de cambio.`;
 
   const slideCount = slides.length;
 
@@ -394,29 +400,22 @@ Cómo usarlas:
       : '';
 
   /**
-   * La estructura pedida, en dos versiones que no se mezclan.
+   * La estructura pedida: un bloque por beat, con lo que aporta y su composición.
    *
-   * Con plan: un bloque por beat, con lo que ese slide aporta y la composición ya
-   * resuelta. Sin plan: la línea de siempre, con el brief por rol y el layout sugerido.
+   * Había una segunda versión —`Slide N — rol "x" (headline hasta K palabras, layout
+   * sugerido Y): <brief>`— y era el camino sin plan. Se fue con él: la línea nombraba
+   * objetos y una composición, o sea contenido, y eso le gana a cualquier ruta.
    */
-  const roleLines = plan
-    ? plan.storyboard
-        .map((beat, i) =>
-          describeBeat({
-            beat,
-            slideNumber: i + 1,
-            headlineWords: headlineBudget(beat.role),
-            brandNote: brandNote(slides[i]),
-          }),
-        )
-        .join('\n\n')
-    : slides
-        .map((s, i) => {
-          const budget = ` (headline hasta ${headlineBudget(s.role)} palabras`;
-          const layout = s.layoutHint ? `, layout sugerido ${s.layoutHint})` : ')';
-          return `Slide ${i + 1} — rol "${s.role}"${budget}${layout}: ${s.brief ?? beatRuleForRole(s.role)}${brandNote(s)}`;
-        })
-        .join('\n');
+  const roleLines = plan.storyboard
+    .map((beat, i) =>
+      describeBeat({
+        beat,
+        slideNumber: i + 1,
+        headlineWords: headlineBudget(beat.role),
+        brandNote: brandNote(slides[i]),
+      }),
+    )
+    .join('\n\n');
 
   /**
    * La historia, antes de la estructura.
@@ -426,8 +425,7 @@ Cómo usarlas:
    * historia y escribe la que él habría elegido. Y la escala de autoridad explícita,
    * porque el fallo de origen fue que el rol decidiera la evidencia.
    */
-  const planSection = plan
-    ? `## LA HISTORIA YA ESTÁ DECIDIDA
+  const planSection = `## LA HISTORIA YA ESTÁ DECIDIDA
 
 No eliges la historia ni la estructura: las eligió el Creative Plan. Tú eliges LAS PALABRAS EXACTAS.
 
@@ -436,7 +434,7 @@ No eliges la historia ni la estructura: las eligió el Creative Plan. Tú eliges
 - Pregunta que el set contesta: ${plan.storyQuestion}
 - Tesis: ${plan.routeThesis}
 - Cómo se resuelve: ${plan.resolutionMechanism}
-- Cómo profundiza: ${plan.deepeningMode}
+- Cómo profundiza: ${DEEPENING_LABELS[plan.deepeningMode] ?? plan.deepeningMode}
 - Forma de la historia: ${plan.storyShape}
 - Mecanismo de evidencia: ${plan.evidenceMechanism}
 
@@ -451,40 +449,34 @@ QUIÉN DECIDE QUÉ:
 Lo que eso significa en la práctica: no cambies la solución, no cambies la evidencia de un beat por otra que se te ocurra, no reordenes los slides y no "mejores" la historia. Si un beat te parece flojo, escríbelo mejor con sus mismos elementos.
 
 El campo que más se malinterpreta es "QUÉ TIENE QUE DECIR EL TEXTO". Es la IDEA del slide en prosa descriptiva, no un titular: transcribirla produce headlines que explican en vez de golpear. Tu trabajo es convertirla en la frase más corta y precisa que la diga.
-`
-    : '';
+`;
 
   /**
-   * La composición: decidida antes, o elegida aquí.
+   * La composición: decidida antes de esta llamada. Aquí no hay nada que elegir.
    *
-   * Con plan no hay nada que elegir. La variedad ya la resolvieron la política de
-   * composición del preset y un validador que rechaza el set que repite un cuadro sin
-   * motivo, así que pedirle aquí "no repitas layout" solo puede romper la decisión —
-   * y en un checklist o una cronología, donde compartir encuadre es la intención, la
-   * rompería siempre.
+   * La variedad ya la resolvieron la política de composición del preset y un validador
+   * que rechaza el set que repite un cuadro sin motivo, así que pedirle aquí "no repitas
+   * layout" solo puede romper la decisión — y en un checklist o una cronología, donde
+   * compartir encuadre es la intención, la rompería siempre. Esa era la versión sin plan
+   * y por eso se fue con él.
    */
-  const compositionSection = plan
-    ? `## COMPOSICIÓN
+  const compositionSection = `## COMPOSICIÓN
 
 Ya está decidida, slide por slide, y viaja arriba como \`brief.layout\`. Cópiala literal.
 
-No la elijas, no la cambies y no intentes variarla: la variedad del set se resolvió antes de esta llamada. Hay estructuras donde dos slides comparten composición a propósito —los ítems de una lista, las fechas de una cronología— y "no repitas layout" las rompería.`
-    : `## VARIEDAD DE COMPOSICIÓN
-
-Los ${slideCount} slides pertenecen a la misma campaña pero NO usan el mismo layout. Junto a cada rol arriba tienes una sugerencia de composición; puedes cambiarla si el mensaje pide otra, con una sola condición: que no se repita el mismo layout en dos slides del set. Cinco veces la misma arquitectura se lee como plantilla rellenada, aunque las escenas cambien.`;
+No la elijas, no la cambies y no intentes variarla: la variedad del set se resolvió antes de esta llamada. Hay estructuras donde dos slides comparten composición a propósito —los ítems de una lista, las fechas de una cronología— y "no repitas layout" las rompería.`;
 
   /**
-   * `imageIntent` con plan: se redacta la evidencia del beat, no se inventa una.
+   * `imageIntent`: se REDACTA la evidencia del beat, no se inventa una.
    *
-   * De la versión sin plan sobreviven las reglas que siguen siendo verdad —tiene que
+   * De la versión sin plan sobrevivieron las reglas que siguen siendo verdad —tiene que
    * ser fotografiable, prohibido describir abstracciones, el motivo es paréntesis— y
-   * desaparece todo lo que era un sustituto de la evidencia: la tabla de traducción de
+   * desapareció todo lo que era un sustituto de la evidencia: la tabla de traducción de
    * conceptos abstractos, la lista de superficies y el repertorio por tiempo narrativo.
-   * Ese repertorio es literalmente una hoja de respuestas por rol, y es lo que hizo que
+   * Ese repertorio era literalmente una hoja de respuestas por rol, y es lo que hizo que
    * los beats 3, 4 y 5 salieran iguales en tres historias distintas.
    */
-  const imageIntentSection = plan
-    ? `## imageIntent
+  const imageIntentSection = `## imageIntent
 
 La evidencia de cada slide ya está elegida: es la línea "imageIntent: escribe ESTA evidencia" de su beat. Tu trabajo aquí es REDACTARLA como una escena concreta, no elegir otra.
 
@@ -505,80 +497,22 @@ Prohibido afirmar la pérdida. Una hoja que diga "margen negativo" o "estás per
 Mal: "imagen de negocios profesional".
 Mal: "el mismo motor con la operación aún abierta y el valor final sin definirse" — no hay nada que fotografiar.
 Bien: "un pallet detenido en el andén mientras el reloj avanza — la mercancía existe pero no se mueve".
-Bien: "dos hojas de la misma cotización lado a lado, sellos HOY y PAGO arriba, con los dos totales legibles y distintos".`
-    : `## imageIntent
-
-Por cada slide describe QUÉ DEBE COMUNICAR su imagen, no cómo se ve técnicamente (de eso se encarga otro agente).
-
-PRINCIPIO: la imagen TRADUCE la frase de su slide, no la acompaña. Igual que en las piezas individuales, la historia se cuenta en imágenes y el texto solo la nombra. Pregúntate qué se vería si esa frase pasara en la vida real, y describe eso. Si la imagen funcionaría igual con la frase de otro slide, está mal: significa que ilustra el tema y no dice lo que dice ESA línea.
-
-TEST DE GENERALIDAD, aplícalo a cada slide antes de darlo por bueno: ¿esta misma imagen serviría igual para diez headlines distintos? "Un motor en una tarima" sirve para velocidad, costo, importación, inventario, financiamiento y logística — por sí solo no cuenta ninguna idea. Necesita el elemento que lo ata a ESTE mensaje.
-
-NO ILUSTRES LA INDUSTRIA, DEMUESTRA LA AFIRMACIÓN. Si el headline dice "ese movimiento puede acumularse en cada compra de equipo", un motor bonito no lo demuestra; varios motores, varias compras, documentos repetidos y una sensación de suma sí.
-
-CÓMO TRADUCIR LOS CONCEPTOS ABSTRACTOS. Esto es lo que convierte una frase financiera en algo que se ve:
-- Cambio: dos momentos, dos cotizaciones, dos fechas, dos cifras, un antes y un después.
-- Acumulación: repetición. Varias compras, varias facturas, varios equipos, suma incremental.
-- Certidumbre: un valor ya definido, un documento cerrado, un monto confirmado, un resultado único.
-- Tiempo: calendario, fecha, secuencia, HOY contra 60 DÍAS, desplazamiento temporal.
-- Presupuesto contra obligación: USD y MXN, factura y presupuesto, dos documentos comparados.
-- Margen: costo y precio juntos, la diferencia, una barra, una hoja de cálculo.
-
-REGLA DURA: tiene que ser FOTOGRAFIABLE. Objetos físicos y su estado, en un solo cuadro. Si para entenderlo hace falta saber algo que no está a la vista, no sirve.
-
-Prohibido describir abstracciones. Estas ya salieron y ninguna se puede fotografiar: "el valor final todavía sin definirse", "la operación aún abierta", "su precio real no está a simple vista", "lo oculto queda expuesto", "el costo todavía no está claro". Una cámara no capta "sin definirse". Cuando la intención es abstracta, el agente de imagen se defiende con utilería genérica —calculadora, portapapeles, tabla— y los ${slideCount} slides terminan siendo el mismo bodegón.
-
-Cada slide necesita UN objeto concreto que cargue la idea de SU línea.
-
-REGLA LIGADA AL MOTIVO: el imageIntent del primer y del último slide sí puede nombrar el objeto recurrente, porque ahí es el protagonista. En los slides de en medio, el imageIntent NO lo nombra: nombra el objeto propio de esa línea. Si escribes "el mismo motor junto a…" en un slide de en medio, ese slide va a salir igual que los demás — el agente de imagen construye la escena a partir de este texto, así que lo que nombras aquí es lo que se renderiza.
-
-SUPERFICIES donde puede vivir el dato, porque el dato tiene que estar en un objeto de la escena y no flotando sobre ella: una cotización u orden de compra impresa con su total visible; dos hojas de la misma cotización lado a lado con fechas distintas; una pantalla en la escena —monitor sobre el escritorio, laptop entreabierta— con la curva del tipo de cambio; una hoja con una gráfica impresa; un sello de fecha o una fecha de vencimiento marcada.
-
-${fxBlock}
-
-Prohibido afirmar la pérdida. Una hoja que diga "margen negativo" o "estás perdiendo" no va. El total más alto, resaltado, dice lo mismo sin el veredicto.
-
-Repertorio por tiempo narrativo, como punto de partida:
-
-- Tensión / apertura: el objeto de la compra y el documento donde vive su costo.
-- Qué cambia: DOS ESTADOS DE LO MISMO en el mismo cuadro. Dos hojas de la misma cotización, una con fecha o sello posterior, y los dos totales legibles y distintos. Los valores los pone el sistema; lo tuyo es pedir las dos hojas y que se lean. Dos totales borrosos no comunican nada.
-- Qué riesgo: la consecuencia visible. El total más alto ocupando más espacio que el anterior, el equipo embalado todavía esperando, el margen apretado entre dos documentos.
-- Solución: la operación resuelta. Un solo documento, ordenado, con un solo total definido y legible — un número, no dos.
-- Cierre / CTA: el cuadro más callado del set, con el motivo de vuelta y nada compitiendo.
-
-Mal: "imagen de negocios profesional".
-Mal: "el mismo motor con la operación aún abierta y el valor final sin definirse" — no hay nada que fotografiar.
-Bien: "un pallet detenido en el andén mientras el reloj avanza — la mercancía existe pero no se mueve".
-Bien: "dos hojas de la misma cotización lado a lado, sellos HOY y PAGO arriba, con los dos totales legibles y distintos".`;
+Bien: "una caja del mismo lote con el costo base integrado en su etiqueta, y detrás el lote completo ocupando el presupuesto disponible".`;
 
   /**
-   * El motivo: dado por el plan, o elegido aquí.
+   * El motivo lo da el plan y se devuelve tal cual.
    *
-   * Con plan se devuelve tal cual. Es la única forma de que el motivo del storyboard
-   * que el usuario aprobó sea el que llega a la imagen: el campo `visualMotif` de la
-   * respuesta alimenta todos los prompts del set, así que si el guionista escribe otro,
-   * el plan quedó decorativo.
+   * Es la única forma de que el motivo del storyboard que el usuario aprobó sea el que
+   * llega a la imagen: el campo `visualMotif` de la respuesta alimenta todos los prompts
+   * del set, así que si el guionista escribe otro, el plan quedó decorativo.
    */
-  const motifSection = plan
-    ? `## visualMotif
+  const motifSection = `## visualMotif
 
 El motivo del set ya está elegido: "${plan.visualMotif}"${plan.visualMotifFamily ? ` (familia: ${plan.visualMotifFamily})` : ''}.
 
 Devuélvelo en el campo "visualMotif" TAL CUAL, sin reescribirlo. No es tu decisión.
 
-Cómo se comporta en el set, para que lo respetes al escribir los imageIntent: es un PARÉNTESIS. Protagoniza el slide 1 y el slide ${slideCount}; en los de en medio puede aparecer como detalle secundario o no aparecer, porque cada uno trae su propio sujeto. La unidad del set la da el sistema visual —misma paleta, misma luz, misma cámara—, no repetir el objeto ${slideCount} veces.`
-    : `## visualMotif
-
-Un sujeto u objeto concreto que abre y cierra el set. Descríbelo en una frase.
-
-El motivo funciona como PARÉNTESIS, no como protagonista de los ${slideCount} cuadros:
-
-- Slide 1 y slide ${slideCount}: ahí el motivo es el sujeto principal. Abre y cierra.
-- Slides de en medio: cada uno trae SU PROPIO sujeto, el que le exige su línea. El motivo puede aparecer como detalle secundario, al fondo, desenfocado, o no aparecer.
-
-No necesitas repetirlo en todos para que el set se vea unido: la unidad la da el sistema visual, que ya es idéntico en los ${slideCount} slides — misma paleta, misma luz, misma cámara, mismo fondo, misma zona de texto. Repetir el objeto encima de eso no suma cohesión, produce ${slideCount} veces la misma imagen.
-
-Dos slides seguidos con el mismo encuadre del mismo objeto están mal.${imageType ? `\nEl medio visual del set es ${MEDIUM_LABELS[imageType] ?? imageType}, así que el motivo tiene que ser representable en ese medio.` : ''}`;
+Cómo se comporta en el set, para que lo respetes al escribir los imageIntent: es un PARÉNTESIS. Protagoniza el slide 1 y el slide ${slideCount}; en los de en medio puede aparecer como detalle secundario o no aparecer, porque cada uno trae su propio sujeto. La unidad del set la da el sistema visual —misma paleta, misma luz, misma cámara—, no repetir el objeto ${slideCount} veces.`;
 
   const complianceLines: string[] = [];
   if (compliance.forbidden_terms.length > 0) {
@@ -747,6 +681,7 @@ ${motifSection}
 
 ${complianceLines.length > 0 ? `## CUMPLIMIENTO (no negociable)\n\n${complianceLines.join('\n\n')}\n` : ''}
 ${editorialBans ? `${editorialBans}\n` : ''}
+${languageStyleBlock ? `${languageStyleBlock}\n` : ''}
 ${branchContext}
 ${industryName ? `\n## INDUSTRIA\n\nEl carrusel habla a: ${industryName}.${verticalKeywords.length > 0 ? ` Vocabulario del sector: ${verticalKeywords.join(', ')}.` : ''}\n` : ''}
 ${angleName ? `\n## ÁNGULO NARRATIVO\n\n${angleName}\n` : ''}
@@ -779,14 +714,10 @@ Responde SOLO JSON válido, sin fences ni texto alrededor:
 Qué va en cada campo del brief:
 
 - visualIntent: qué tiene que volver evidente la imagen, en una frase. Es la respuesta a "¿qué podría mostrar que hiciera esta afirmación visualmente evidente antes de terminar de leer el supporting copy?".
-- visualMetaphor: el recurso concreto que lo demuestra. "Dos cotizaciones de la misma operación con fechas distintas", "cuatro compras sucesivas con su documento", "un resultado único ya definido".
-${plan
-  ? `- layout: el valor de \`brief.layout\` que trae su slide arriba, LITERAL. No lo elijas.`
-  : `- layout: uno de editorial_top, split_photo, editorial_repetition, document_result, hero_clean. Por defecto no repitas el mismo en dos slides. La excepción son los slides EQUIVALENTES entre sí —los ítems de una lista, las fechas de una cronología—: esos comparten layout a propósito, porque la composición repetida es lo que los hace leerse como partes de una misma serie.`}
-${plan
-  ? `- primaryObjects: los objetos que su beat ya declara. Cópialos; puedes añadir alguno solo si la escena no se entiende sin él.`
-  : `- primaryObjects: los objetos que tienen que estar en cuadro.`}
-- environmentalText: etiquetas cortas SIN CIFRAS que pueden aparecer DENTRO de los objetos: "USD", "MXN", "HOY", "60 DÍAS", "TOTAL", "TIPO DE CAMBIO", "PAGO". Nombres de campo y sellos, nada más. Prohibido cualquier número aquí —montos, tasas, porcentajes—: esos los inyecta el sistema por documento, y duplicarlos aquí produce valores sueltos que no pertenecen a ninguna hoja. Vacío si el slide no necesita ninguna.
+- visualMetaphor: el recurso concreto que demuestra la evidencia YA elegida por el beat. Puede ser una etiqueta sobre un artículo, unidad→lote→proyecto, una banda de margen, anatomía de costo, proceso, presupuesto espacial, decisión o acumulación física. No la conviertas en documento por llevar cifras.
+- layout: el valor de \`brief.layout\` que trae su slide arriba, LITERAL. No lo elijas.
+- primaryObjects: los objetos que su beat ya declara. Cópialos; puedes añadir alguno solo si la escena no se entiende sin él.
+- environmentalText: etiquetas cortas SIN CIFRAS que pueden aparecer DENTRO de los objetos. Nombres de campo y sellos, nada más. Prohibido cualquier número aquí —montos, tasas, porcentajes—: los hechos exactos los inyecta el sistema en la superficie elegida por el beat. Vacío si el slide no necesita ninguna.
 - highlights: uno o dos bloques del headline con su rol semántico. El texto tiene que aparecer LITERAL dentro del headline, y ser una unidad semántica completa.
 
 El arreglo "slides" tiene exactamente ${slideCount} elementos, en el orden pedido, con los roles tal como se te dieron.`;
@@ -905,16 +836,15 @@ const LAYOUTS = [
 function normalizeBrief(
   raw: unknown,
   headline: string,
-  layoutHint?: string,
   /**
-   * El beat de este slide, cuando el set se escribió desde un Creative Plan.
+   * El beat de este slide. Obligatorio: el set siempre se escribe desde un plan.
    *
    * Lo que aporta es autoridad, no una sugerencia más: la composición y los objetos ya
    * pasaron el validador de diversidad del plan, así que si el modelo devuelve otros el
    * set deja de ser el que el usuario aprobó en el storyboard. El prompt ya lo pide;
    * esto lo garantiza, porque una instrucción de prompt es una probabilidad.
    */
-  beat?: CarouselStoryBeat,
+  beat: CarouselStoryBeat,
 ): ScriptBrief | undefined {
   if (!raw || typeof raw !== 'object') return undefined;
   const b = raw as Record<string, unknown>;
@@ -934,20 +864,24 @@ function normalizeBrief(
    */
   const highlights: ScriptHighlight[] = normalizeHighlights(b.highlights, headline);
 
-  const layoutRaw = str(b.layout);
   /**
-   * Con plan la composición no se negocia; sin plan sigue siendo del modelo.
+   * La composición no se negocia: la decidió el beat.
    *
    * `compositionFamily` la deriva el código desde el `CompositionSpec` del beat, y es
    * el mismo vocabulario de cinco valores que este agente ya devolvía, así que entra
-   * sin traducción.
+   * sin traducción. Lo que devuelva el modelo en `brief.layout` solo se mira si el beat
+   * trajera un valor fuera del vocabulario, que es un caso que no debería existir.
+   *
+   * Aquí había un tercer nivel de fallback, `layoutHint`, que era la tabla de
+   * composición por rol del camino sin plan. Se fue con él.
    */
-  const plannedLayout = beat?.compositionFamily;
-  const layout = plannedLayout && (LAYOUTS as readonly string[]).includes(plannedLayout)
+  const layoutRaw = str(b.layout);
+  const plannedLayout = beat.compositionFamily;
+  const layout = (LAYOUTS as readonly string[]).includes(plannedLayout)
     ? plannedLayout
     : (LAYOUTS as readonly string[]).includes(layoutRaw)
       ? layoutRaw
-      : (layoutHint && (LAYOUTS as readonly string[]).includes(layoutHint) ? layoutHint : 'editorial_top');
+      : 'editorial_top';
 
   /**
    * Environmental labels are field names and stamps, never values.
@@ -971,9 +905,7 @@ function normalizeBrief(
    * — ahí el slide deja de probar lo que su beat dice.
    */
   const modelObjects = list(b.primaryObjects);
-  const primaryObjects = beat
-    ? [...new Set([...beat.primaryObjects, ...modelObjects])]
-    : modelObjects;
+  const primaryObjects = [...new Set([...beat.primaryObjects, ...modelObjects])];
 
   return {
     visualIntent: str(b.visualIntent),
@@ -1025,11 +957,66 @@ serve(async (req) => {
     if (!body.business_id) {
       return jsonResponse({ error: 'parse_error', message: 'Missing business_id' }, 400);
     }
+    if (!body.branch_id) {
+      return jsonResponse({ error: 'parse_error', message: 'Missing branch_id' }, 400);
+    }
     if (!body.seedCopy?.headline?.trim()) {
       return jsonResponse({ error: 'parse_error', message: 'Missing seedCopy.headline' }, 400);
     }
     if (!Array.isArray(body.slides) || body.slides.length === 0) {
       return jsonResponse({ error: 'parse_error', message: 'Missing slides spec' }, 400);
+    }
+    if (!body.narrativeRules?.trim()) {
+      return jsonResponse(
+        { error: 'parse_error', message: 'Missing narrativeRules: vienen del preset.' },
+        400,
+      );
+    }
+    /**
+     * Sin plan no hay guion. Y sin un plan que cubra el set, tampoco.
+     *
+     * Era una advertencia en consola y el guion seguía adelante decidiendo su propia
+     * estructura. El fallo no se veía: los slides salían escritos y bien escritos, solo
+     * que contando una historia que nadie aprobó, y en el panel el storyboard describía
+     * unos slides que no eran esos.
+     *
+     * `planCoversRoles` exige un beat por slide, mismos roles y en el mismo orden. Un
+     * set escrito con tres beats del plan y dos inventados no es ninguno de los dos.
+     */
+    if (!planCoversRoles(body.plan, body.slides.map((s) => s.role))) {
+      return jsonResponse(
+        {
+          error: 'parse_error',
+          message:
+            `El plan narrativo no cubre este set: ${body.plan?.storyboard?.length ?? 0} beats ` +
+            `para ${body.slides.length} slides, o roles en otro orden. ` +
+            'Genera un plan con el mismo preset y elige una historia.',
+        },
+        400,
+      );
+    }
+    const plan = body.plan;
+    if (plan.figureScenarioId === 'none') {
+      if (body.economicScenario) {
+        return jsonResponse(
+          {
+            error: 'parse_error',
+            message: 'El plan no autoriza un escenario económico para este carrusel.',
+          },
+          400,
+        );
+      }
+    } else {
+      const scenarioError = validateCarouselEconomicScenario(
+        body.economicScenario,
+        plan.figureScenarioId,
+      );
+      if (scenarioError) {
+        return jsonResponse(
+          { error: 'parse_error', message: scenarioError },
+          400,
+        );
+      }
     }
 
     // --- 3. Membership check before touching any tenant data ---
@@ -1061,6 +1048,9 @@ serve(async (req) => {
 
     let branchContext = '';
     let editorialBans = '';
+    let languageStyleBlock = '';
+    /** Rama resuelta desde la fila solicitada, incluso si su copy kit falla. */
+    let loadedBranchSlug: string | null = null;
     /** Kit slug of the branch, or null when it has none. Decides the few-shot. */
     let branchSlug: string | null = null;
     if (body.branch_id) {
@@ -1072,6 +1062,7 @@ serve(async (req) => {
         .single();
 
       if (branch) {
+        loadedBranchSlug = resolveKitSlug(branch.slug ?? branch.name) ?? branch.slug ?? null;
         /**
          * The kit is resolved FIRST because it decides where the context comes from.
          *
@@ -1101,6 +1092,9 @@ serve(async (req) => {
           );
           branchSlug = slug;
           editorialBans = buildEditorialBansBlock(kit as unknown as Record<string, unknown>);
+          languageStyleBlock = buildLanguageStyleBlock(
+            toCarouselLanguageStyle((kit as unknown as Record<string, unknown>).language_style),
+          );
           branchContext = buildBranchContextFromKit({
             kit,
             angleName: body.angleName,
@@ -1121,6 +1115,23 @@ serve(async (req) => {
       }
     }
 
+    const effectiveBranchSlug = branchSlug ?? loadedBranchSlug;
+    if (!effectiveBranchSlug) {
+      return jsonResponse(
+        { error: 'parse_error', message: 'No se pudo resolver la rama comercial del plan.' },
+        400,
+      );
+    }
+    if (plan.branchSlug !== effectiveBranchSlug) {
+      return jsonResponse(
+        {
+          error: 'parse_error',
+          message: 'El plan narrativo pertenece a otra rama comercial.',
+        },
+        400,
+      );
+    }
+
     let verticalKeywords: string[] = [];
     if (body.vertical_id) {
       const { data: vertical } = await serviceClient
@@ -1131,23 +1142,6 @@ serve(async (req) => {
         .single();
 
       verticalKeywords = vertical?.keywords ?? [];
-    }
-
-    /**
-     * El plan, si cubre el set. Se resuelve UNA vez y las dos capas leen esto.
-     *
-     * Un plan aceptado a medias sería el peor de los dos mundos: el prompt escribiría
-     * desde los beats y `normalizeBrief` seguiría resolviendo composición por rol, o al
-     * revés. Y el fallo no se vería, porque los slides saldrían escritos.
-     */
-    const plan = planCoversRoles(body.plan, body.slides.map((s) => s.role))
-      ? body.plan
-      : undefined;
-    if (body.plan && !plan) {
-      console.warn(
-        `Creative Plan ignorado: ${body.plan.storyboard?.length ?? 0} beats para ` +
-          `${body.slides.length} slides, o roles en otro orden. El guion decide su estructura.`,
-      );
     }
 
     // --- 5. Ask the model for the script ---
@@ -1161,11 +1155,10 @@ serve(async (req) => {
       objective: body.objective,
       narrativeRules: body.narrativeRules,
       angleName: body.angleName,
-      imageType: body.imageType,
       slides: body.slides,
       editorialBans,
-      fxMoments: body.fxMoments,
-      fxAccumulated: body.fxAccumulated,
+      languageStyleBlock,
+      economicScenario: body.economicScenario,
       plan,
       guidance: body.guidance,
     });
@@ -1269,7 +1262,7 @@ serve(async (req) => {
         body: isCtaSlide ? '' : clampWords(bodyText, MAX_BODY_WORDS),
         cta: ctaText && mayHoldCta ? clampWords(ctaText, MAX_CTA_WORDS) : undefined,
         imageIntent: typeof raw.imageIntent === 'string' ? raw.imageIntent.trim() : '',
-        brief: normalizeBrief(raw.brief, clampedHeadline, spec.layoutHint, plan?.storyboard[i]),
+        brief: normalizeBrief(raw.brief, clampedHeadline, plan.storyboard[i]),
       };
     });
 
@@ -1282,22 +1275,22 @@ serve(async (req) => {
     }
 
     /**
-     * Con plan, el motivo es el del plan y no lo que devolvió el modelo.
+     * El motivo es el del plan, no lo que devolvió el modelo.
      *
      * Este campo alimenta todos los prompts de imagen del set. Si el guionista lo
      * reescribe, el motivo que el usuario leyó y aprobó en el storyboard no llega a
      * ninguna pieza, y el plan queda decorativo. El prompt ya se lo pide literal; esto
-     * lo asegura.
+     * lo asegura. El del modelo solo entra si el plan viene con el campo vacío.
      */
     const scriptedMotif = typeof parsed.visualMotif === 'string' ? parsed.visualMotif.trim() : '';
     const response: GenerateCarouselScriptResponse = {
       slides,
-      visualMotif: plan?.visualMotif?.trim() || scriptedMotif,
+      visualMotif: plan.visualMotif?.trim() || scriptedMotif,
     };
 
     console.log(
-      `Carousel script ready: ${slides.length} slides` +
-        `${plan ? `, desde el plan ${plan.planId} (ruta ${plan.routeId})` : ', sin plan'}.`,
+      `Carousel script ready: ${slides.length} slides, ` +
+        `desde el plan ${plan.planId} (ruta ${plan.routeId}).`,
     );
     return jsonResponse(response);
   } catch (error) {

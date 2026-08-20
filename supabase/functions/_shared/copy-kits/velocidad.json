@@ -82,9 +82,9 @@
       "note": "Nunca amenazar con que el proveedor le dará la orden a otro."
     },
     "oportunidad_mismo_dia": {
-      "label": "Oportunidad de mismo día",
-      "premise": "Hoy todavía cuenta: si el pago entra dentro de la ventana operativa, el proveedor puede recibir el mismo día.",
-      "note": "Aplica en corredores, monedas y horarios confirmados. Mantener la formulación condicional: \"puede recibir\", nunca \"recibe garantizado\" ni \"siempre llega hoy\"."
+      "label": "Pago el mismo día",
+      "premise": "Un pago hecho hoy, dentro del horario aplicable, puede avanzar el mismo día en lugar de esperar al siguiente.",
+      "note": "Aplica en corredores, monedas y horarios confirmados. Mantener la formulación condicional: \"puede recibir\", nunca \"recibe garantizado\" ni \"siempre llega hoy\". Hablar del pedido y del pago, no de una \"condición\" ni de una \"ventana\"."
     },
     "reposicion": {
       "label": "Reposición",
@@ -130,7 +130,7 @@
     },
     "horarios_y_corte": {
       "label": "Horarios y hora de corte",
-      "premise": "La ventana operativa del día influye en si un pago alcanza a procesarse hoy. Se comunica como condición de la operación, no como instrucción al cliente.",
+      "premise": "El horario límite del día influye en si un pago alcanza a procesarse hoy. Se comunica como condición de la operación, no como instrucción al cliente.",
       "note": "Debe aparecer poco: es el ángulo que con más facilidad convierte el copy en un tutorial. Nunca publicar una hora exacta que no venga de la matriz operativa vigente."
     }
   },
@@ -391,9 +391,40 @@
     "actúa ahora",
     "aprovecha antes de que sea tarde",
     "conoce Xending Asia",
-    "en tiempo real"
+    "en tiempo real",
+    "condición vigente",
+    "fuera de ventana",
+    "misma oportunidad",
+    "bajo la misma oportunidad",
+    "liberar el pago",
+    "liberar tu pago",
+    "si el pago entra"
   ],
-  "banned_phrases_note": "'pagos elegibles' se evita porque suena técnico y no se entiende con naturalidad en México. Evitar además titulares abstractos que no expliquen qué producto, mercado o situación está involucrada.",
+  "banned_phrases_note": "'pagos elegibles' se evita porque suena técnico y no se entiende con naturalidad en México. Evitar además titulares abstractos que no expliquen qué producto, mercado o situación está involucrada. Las últimas entradas son jerga de operaciones o calcos del inglés: usar el objeto concreto (pedido, proveedor, pago, horario), no una abstracción como 'condición', 'ventana' u 'oportunidad'.",
+  "language_style": {
+    "locale": "es-MX",
+    "note": "Escribe como le hablarías a un importador mexicano. Nombra el objeto concreto —pedido, proveedor, pago, horario— en vez de una abstracción. Nada de jerga de operaciones ni calcos del inglés.",
+    "internal_terms_never_publish": [
+      "condición vigente",
+      "condición del proveedor",
+      "fuera de ventana",
+      "ventana operativa",
+      "misma oportunidad",
+      "bajo la misma oportunidad",
+      "liberar el pago",
+      "liberar tu pago",
+      "si el pago entra"
+    ],
+    "preferred_rewrites": {
+      "liberar el pago": "realizar el pago",
+      "liberar tu pago": "realizar tu pago",
+      "ventana operativa": "horario aplicable",
+      "fuera de ventana": "después del horario",
+      "si el pago entra": "si el pago se realiza a tiempo",
+      "condición vigente": "el pedido sigue en pie",
+      "misma oportunidad": "el mismo pedido"
+    }
+  },
   "numbers_policy": {
     "allowed": [
       "horarios límite confirmados",
@@ -829,7 +860,7 @@
       "contenedor",
       "aduana",
       "horario",
-      "ventana operativa",
+      "horario aplicable",
       "confirmación",
       "inventario",
       "refacción",
@@ -874,7 +905,7 @@
     "level": "moderada",
     "may_signal": [
       "una espera real",
-      "una ventana operativa que se cierra",
+      "un horario del día que se cierra",
       "una dependencia de tiempos ajenos",
       "una confirmación pendiente",
       "una operación que avanza más despacio que la compra",
@@ -946,7 +977,7 @@
     },
     "example": {
       "headline": "La refacción llega antes que el pago",
-      "subline": "Xending procesa tu pago a proveedores en Asia el mismo día, dentro de la ventana operativa.",
+      "subline": "Xending procesa tu pago a proveedores en Asia el mismo día, dentro del horario aplicable.",
       "cta": "Cotiza tu pago a China"
     },
     "guard": "El producto es el vehículo narrativo, no el beneficio principal. La pieza sigue siendo sobre tiempo, continuidad y capacidad de pago. No convertirla en publicidad del producto ni en publicidad de logística.",

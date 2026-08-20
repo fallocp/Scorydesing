@@ -21,9 +21,40 @@ import type { SceneKit } from './types.ts';
  * es un claim publicado.
  */
 export const velocidadSceneKit: SceneKit = {
-  version: 'velocidad-scene-v1',
+  // v2: entra `physicalWorld`. v3: sus pares se separan en objetos sueltos.
+  version: 'velocidad-scene-v3',
   branchSlug: 'velocidad',
   branchName: 'Velocidad de pagos internacionales',
+
+  /*
+   * Esta rama era la que menos lo necesitaba y aun así lo necesitaba.
+   *
+   * Sus `dataSurfaces` ya traían dos objetos físicos —la etiqueta pegada al bulto, el
+   * tablero de producción— pero el resto son relojes, pantallas y calendarios, o sea el
+   * mismo problema de costos con otra utilería: cinco formas de mirar la hora.
+   *
+   * Lo que va aquí es la ESPERA hecha objeto, sin reloj: algo listo que no se mueve, un
+   * hueco donde debería haber una pieza, un puesto vacío en la línea. El tiempo se ve mejor
+   * en lo que está detenido que en una carátula.
+   *
+   * UN objeto por entrada. La primera versión traía cinco pares de siete, y dos de ellos
+   * —"la mercancía detenida frente a la cargada", "la línea parada frente a la línea
+   * corriendo"— estaban duplicados palabra por palabra de los `changeMarkers` de abajo. Ahí
+   * se ve el error de diseño: `changeMarkers` ES el campo de los pares, y meterlos también
+   * aquí le entregó al planificador la comparación como si fuera utilería. Resultado: las
+   * historias abrieron todas en `partido · comparativo`.
+   */
+  physicalWorld: [
+    'el bulto embalado y etiquetado, quieto en el piso del andén',
+    'el espacio vacío en la caja del camión, donde el pedido todavía no está',
+    'la máquina detenida, con el hueco de la refacción que falta',
+    'la máquina completa y corriendo',
+    'la línea de producción con un puesto vacío',
+    'el equipo recién llegado, todavía en su embalaje, en el sitio exacto donde va a instalarse',
+    'la refacción ya en la mano del técnico, en el punto de la máquina donde hace falta',
+    'el estante de refacciones vacío',
+    'el camión cerrado y listo para salir',
+  ],
 
   dataSurfaces: [
     'un reloj de pared o de escritorio dentro de la escena, con la hora legible',
@@ -43,19 +74,6 @@ export const velocidadSceneKit: SceneKit = {
     'el sello de HOY sobre el documento que ayer estaba en blanco',
     'una sola casilla del calendario marcada, en lugar de una semana entera tachada',
   ],
-
-  moments: {
-    apertura:
-      'el producto ya listo y esperando: embalado, etiquetado, en la tarima, con el andén al fondo. O la fábrica que ya confirmó y todavía no cobra',
-    cambio:
-      'EL MOMENTO, hecho objeto — el reloj con su hora en cuadro junto al documento de la operación, o la pantalla del estado del pago. Lo que se mueve es la hora y el estado, no un total',
-    riesgo:
-      'la espera hecha visible: el pallet quieto en el andén mientras el reloj avanza, la línea de producción detenida esperando la refacción, el equipo embalado sin mover',
-    solucion:
-      'la operación avanzando: el bulto cargándose, la pantalla en confirmado, el turno arrancando, el equipo por fin instalado',
-    cierre:
-      'el cuadro más callado del set, con el sujeto recurrente ya en su lugar y funcionando',
-  },
 
   bannedProps: [
     'cotizaciones comparadas lado a lado, curvas de tipo de cambio y dos totales distintos: eso es de costos, y aquí cuenta otra historia',
@@ -87,7 +105,6 @@ export const velocidadSceneKit: SceneKit = {
 
   figurePolicy: {
     mode: 'none',
-    scenariosByRole: {},
     note:
       'Esta rama no lleva documentos con cifras. Sus números serían horas de corte, días de procesamiento o plazos de acreditación, y esos dependen de una matriz operativa con dueño y fecha de verificación que no vive aquí. La mecánica se comunica con el estado de la operación, la hora en el reloj y la fecha en el calendario: objetos, no valores.',
   },

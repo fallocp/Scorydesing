@@ -45,7 +45,13 @@ import {
   buildPlanFigureDocuments,
   computeCarouselFx,
   DEFAULT_CAROUSEL_FX,
-  DEFAULT_MARGIN_PCT,
+  DEFAULT_MARKUP_PCT,
+  CAROUSEL_MIN_FX_RATE,
+  CAROUSEL_MAX_FX_RATE,
+  CAROUSEL_MIN_OPERATION_USD,
+  CAROUSEL_MAX_OPERATION_USD,
+  MIN_MARGIN_PCT,
+  MAX_MARGIN_PCT,
   illustrativeAmountUsd,
   CAROUSEL_DIMENSIONS,
   CAROUSEL_LAYOUT_LABELS,
@@ -56,6 +62,7 @@ import {
   DEFAULT_CAROUSEL_PRESET_SLUG,
   getCarouselPreset,
   type CarouselBrandElement,
+  type CarouselCommercialIntent,
   type CarouselObjective,
   type DesignImageType,
 } from '@/types/design-studio';
@@ -114,6 +121,12 @@ const BRAND_ELEMENT_LABELS: Record<CarouselBrandElement, string> = {
 const CAROUSEL_IMAGE_TYPES = DESIGN_IMAGE_TYPE_OPTIONS;
 const CAROUSEL_BACKGROUNDS = DESIGN_BACKGROUND_OPTIONS;
 
+function parseBoundedNumber(value: string, min: number, max: number): number | null {
+  if (!value.trim()) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= min && parsed <= max ? parsed : null;
+}
+
 export function CarouselPanel({
   bankItem,
   branchId,
@@ -136,6 +149,22 @@ export function CarouselPanel({
   const [objective, setObjective] = useState<CarouselObjective>(
     DEFAULT_CAROUSEL_OBJECTIVE,
   );
+  const [commercialIntent, setCommercialIntent] = useState<CarouselCommercialIntent>(() => {
+    const branch = (branchSlug ?? '').toLowerCase();
+    if (branch.includes('cobertura')) return 'forward';
+    if (branch.includes('costo')) return 'quote_comparison';
+    return 'cost_component';
+  });
+  const commercialIntentOptions: ReadonlyArray<readonly [CarouselCommercialIntent, string]> =
+    (branchSlug ?? '').toLowerCase().includes('cobertura')
+      ? [['forward', 'Forward']]
+      : (branchSlug ?? '').toLowerCase().includes('costo')
+        ? [
+            ['quote_comparison', 'Comparar cotizaciones'],
+            ['cost_plus_speed', 'Costo + velocidad'],
+            ['cost_component', 'Componente de costo'],
+          ]
+        : [['cost_component', 'Componente de costo']];
   const [guidance, setGuidance] = useState('');
   const [isExporting, setIsExporting] = useState<'png' | 'pdf' | null>(null);
 
@@ -162,6 +191,9 @@ export function CarouselPanel({
    * these two so the arithmetic on the image holds up.
    */
   const [fxRate, setFxRate] = useState(String(DEFAULT_CAROUSEL_FX.baseRate));
+  const [comparisonRate, setComparisonRate] = useState(
+    String(DEFAULT_CAROUSEL_FX.comparisonRate ?? 17.54),
+  );
   /**
    * El monto de la operación, deducido de la historia.
    *
@@ -187,20 +219,60 @@ export function CarouselPanel({
    * al cambiar de copy en el banco, que es el mismo fallo con otro número.
    */
   const [fxAmountOverride, setFxAmountOverride] = useState('');
-  /** Margen objetivo sobre costo. De aquí sale el precio de venta de la hoja de margen. */
-  const [fxMargin, setFxMargin] = useState(String(DEFAULT_MARGIN_PCT));
+  /** Markup sobre costo. El escenario deriva de aquí utilidad y margen bruto reales. */
+  const [fxMarkup, setFxMarkup] = useState(String(DEFAULT_MARKUP_PCT));
+
+  const parsedFxRate = parseBoundedNumber(fxRate, CAROUSEL_MIN_FX_RATE, CAROUSEL_MAX_FX_RATE);
+  const parsedComparisonRate = parseBoundedNumber(
+    comparisonRate,
+    CAROUSEL_MIN_FX_RATE,
+    CAROUSEL_MAX_FX_RATE,
+  );
+  const parsedAmountUsd = fxAmountOverride.trim()
+    ? parseBoundedNumber(fxAmountOverride, CAROUSEL_MIN_OPERATION_USD, CAROUSEL_MAX_OPERATION_USD)
+    : derivedAmountUsd;
+  const parsedMarkupPct = parseBoundedNumber(fxMarkup, MIN_MARGIN_PCT, MAX_MARGIN_PCT);
+
+  const fxValidationError = useMemo(() => {
+    if (parsedFxRate === null) {
+      return `El tipo de cambio debe estar entre ${CAROUSEL_MIN_FX_RATE} y ${CAROUSEL_MAX_FX_RATE}.`;
+    }
+    if (commercialIntent === 'quote_comparison' && parsedComparisonRate === null) {
+      return `La tasa de la otra cotización debe estar entre ${CAROUSEL_MIN_FX_RATE} y ${CAROUSEL_MAX_FX_RATE}.`;
+    }
+    if (parsedAmountUsd === null) {
+      return `El monto debe estar entre USD ${CAROUSEL_MIN_OPERATION_USD} y USD ${CAROUSEL_MAX_OPERATION_USD.toLocaleString('en-US')}.`;
+    }
+    if (commercialIntent !== 'quote_comparison' && parsedMarkupPct === null) {
+      return `El markup debe estar entre ${MIN_MARGIN_PCT}% y ${MAX_MARGIN_PCT}%.`;
+    }
+    return null;
+  }, [
+    commercialIntent,
+    parsedAmountUsd,
+    parsedComparisonRate,
+    parsedFxRate,
+    parsedMarkupPct,
+  ]);
 
   const fxAssumptions = useMemo(
     () => ({
       ...DEFAULT_CAROUSEL_FX,
-      baseRate: Number(fxRate) || DEFAULT_CAROUSEL_FX.baseRate,
-      amountUsd: Number(fxAmountOverride) || derivedAmountUsd,
-      marginPct: Number(fxMargin) || DEFAULT_MARGIN_PCT,
+      baseRate: parsedFxRate ?? DEFAULT_CAROUSEL_FX.baseRate,
+      comparisonRate: parsedComparisonRate ?? DEFAULT_CAROUSEL_FX.comparisonRate,
+      amountUsd: parsedAmountUsd ?? derivedAmountUsd,
+      markupPct: parsedMarkupPct ?? DEFAULT_MARKUP_PCT,
+      // Alias legacy para adaptadores documentales persistidos.
+      marginPct: parsedMarkupPct ?? DEFAULT_MARKUP_PCT,
     }),
-    [fxRate, fxAmountOverride, derivedAmountUsd, fxMargin],
+    [parsedFxRate, parsedComparisonRate, parsedAmountUsd, derivedAmountUsd, parsedMarkupPct],
   );
 
   const fxPreview = useMemo(() => computeCarouselFx(fxAssumptions), [fxAssumptions]);
+  const quotePreview = useMemo(
+    () => buildPlanFigureDocuments('quote_comparison', fxAssumptions).documents,
+    [fxAssumptions],
+  );
 
   /**
    * La hoja de margen, para poder revisar la aritmética antes de renderizarla.
@@ -227,10 +299,10 @@ export function CarouselPanel({
   /**
    * El planificador: decide la historia antes de que exista una línea de copy.
    *
-   * Genera varias y el usuario elige. La elegida viaja a `createScript`, que deja de
-   * inventar estructura y solo redacta; sin elegir ninguna, el guion sigue funcionando
-   * como siempre. Las dos cosas conviven porque el camino sin plan es el que hoy produce
-   * carruseles y quitarlo de golpe los dejaría sin fuente de contenido.
+   * Genera varias y el usuario elige. Elegir una es OBLIGATORIO: `createScript` ya no
+   * tiene un camino alterno donde el guionista decide la estructura por su cuenta. Ese
+   * camino existía y ganaba, porque un brief que nombra un objeto le gana a una ruta que
+   * describe una idea, y tres historias distintas devolvían los mismos beats 3, 4 y 5.
    */
   const planner = useCarouselPlan({ bankItem, branchId });
 
@@ -265,21 +337,46 @@ export function CarouselPanel({
 
   const handleCreateScript = async () => {
     const chosen = planner.selectedAttempt;
+    /*
+     * Sin historia no hay guion. El botón está deshabilitado, así que esto es la red.
+     *
+     * Un `return` silencioso sería peor que el estado deshabilitado: el usuario picaría y
+     * no pasaría nada. El toast dice qué falta.
+     */
+    if (!chosen) {
+      toast({
+        title: 'Falta elegir una historia',
+        description:
+          'Genera un plan narrativo y selecciona una de las historias. El guion redacta la que elijas, no inventa la suya.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (fxValidationError) {
+      toast({
+        title: 'Revisa las cifras ilustrativas',
+        description: fxValidationError,
+        variant: 'destructive',
+      });
+      return;
+    }
 
     const ok = await queue.createScript({
       presetSlug,
       objective,
+      commercialIntent,
       guidance,
       fx: fxAssumptions,
       /**
-       * La historia elegida, si hay una.
+       * La historia elegida.
        *
        * El digest va con ella y no se deriva después: es lo que permite pedir "otra
        * historia" más adelante sin volver a generar las anteriores, y recalcularlo
        * requeriría duplicar `digestPlan` en el frontend.
        */
-      plan: chosen?.plan ?? null,
-      planDigest: chosen?.digest ?? null,
+      plan: chosen.plan,
+      planDigest: chosen.digest,
     });
     if (!ok) return;
 
@@ -296,9 +393,7 @@ export function CarouselPanel({
 
     toast({
       title: 'Guion listo',
-      description: chosen
-        ? `Escrito desde "${chosen.plan.routeTitle}". Revisa el copy antes de generar los prompts.`
-        : 'Revisa y ajusta el copy de cada slide antes de generar los prompts.',
+      description: `Escrito desde "${chosen.plan.routeTitle}". Revisa el copy antes de generar los prompts.`,
     });
   };
 
@@ -497,6 +592,30 @@ export function CarouselPanel({
             </div>
           </div>
 
+          <div className="space-y-2 rounded-md border border-border/70 bg-background p-3">
+            <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Mecanismo comercial
+            </Label>
+            <div className="flex flex-wrap gap-2">
+              {commercialIntentOptions.map(([value, label]) => (
+                <OptionChip
+                  key={value}
+                  label={label}
+                  active={commercialIntent === value}
+                  disabled={busy}
+                  onClick={() => {
+                    setCommercialIntent(value);
+                    planner.clearPlans();
+                  }}
+                />
+              ))}
+            </div>
+            <p className="text-[10px] text-muted-foreground">
+              Esta decisión filtra las rutas antes del plan. Comparar cotizaciones nunca se
+              interpreta como fijar una tasa futura.
+            </p>
+          </div>
+
           {/* Las cifras se calculan aquí, no las inventa el modelo: la pieza muestra
               el TC y el total juntos, así que tienen que cuadrar al multiplicarlos. */}
           <div className="space-y-2 rounded-md border border-border/70 bg-background p-3">
@@ -505,8 +624,14 @@ export function CarouselPanel({
             </Label>
             <div className="flex flex-wrap items-end gap-3">
               <div className="space-y-1">
-                <Label className="text-[10px] text-muted-foreground">Tipo de cambio</Label>
+                <Label className="text-[10px] text-muted-foreground">
+                  {commercialIntent === 'quote_comparison' ? 'Tasa Xending' : 'Tipo de cambio'}
+                </Label>
                 <Input
+                  type="number"
+                  min={CAROUSEL_MIN_FX_RATE}
+                  max={CAROUSEL_MAX_FX_RATE}
+                  step="0.01"
                   value={fxRate}
                   onChange={(e) => setFxRate(e.target.value)}
                   disabled={busy}
@@ -514,11 +639,33 @@ export function CarouselPanel({
                   className="h-8 w-24 text-sm"
                 />
               </div>
+              {commercialIntent === 'quote_comparison' && (
+                <div className="space-y-1">
+                  <Label className="text-[10px] text-muted-foreground">
+                    Tasa de otra cotización
+                  </Label>
+                  <Input
+                    type="number"
+                    min={CAROUSEL_MIN_FX_RATE}
+                    max={CAROUSEL_MAX_FX_RATE}
+                    step="0.01"
+                    value={comparisonRate}
+                    onChange={(e) => setComparisonRate(e.target.value)}
+                    disabled={busy}
+                    inputMode="decimal"
+                    className="h-8 w-24 text-sm"
+                  />
+                </div>
+              )}
               <div className="space-y-1">
                 <Label className="text-[10px] text-muted-foreground">Monto USD</Label>
                 {/* El placeholder es el monto que la historia sugiere; escribir aquí lo
                     sustituye. Vacío no es "sin monto": es "usa el de la historia". */}
                 <Input
+                  type="number"
+                  min={CAROUSEL_MIN_OPERATION_USD}
+                  max={CAROUSEL_MAX_OPERATION_USD}
+                  step="1"
                   value={fxAmountOverride}
                   onChange={(e) => setFxAmountOverride(e.target.value)}
                   disabled={busy}
@@ -527,37 +674,56 @@ export function CarouselPanel({
                   className="h-8 w-28 text-sm"
                 />
               </div>
-              <div className="space-y-1">
-                <Label className="text-[10px] text-muted-foreground">Margen %</Label>
-                <Input
-                  value={fxMargin}
-                  onChange={(e) => setFxMargin(e.target.value)}
-                  disabled={busy}
-                  inputMode="numeric"
-                  className="h-8 w-20 text-sm"
-                />
-              </div>
+              {commercialIntent !== 'quote_comparison' && (
+                <div className="space-y-1">
+                  <Label className="text-[10px] text-muted-foreground">
+                    Markup sobre costo %
+                  </Label>
+                  <Input
+                    type="number"
+                    min={MIN_MARGIN_PCT}
+                    max={MAX_MARGIN_PCT}
+                    step="1"
+                    value={fxMarkup}
+                    onChange={(e) => setFxMarkup(e.target.value)}
+                    disabled={busy}
+                    inputMode="numeric"
+                    className="h-8 w-20 text-sm"
+                  />
+                </div>
+              )}
             </div>
+            {fxValidationError && (
+              <p className="text-[10px] text-destructive">{fxValidationError}</p>
+            )}
             <div className="space-y-0.5 font-mono text-[11px] text-muted-foreground">
-              {fxPreview.map((m, i) => (
-                <div key={i}>
-                  {['HOY', 'PAGO', 'COMPRA 3'][i] ?? `MOMENTO ${i + 1}`} — {m.labels.rate} ·{' '}
-                  {m.labels.usd} · {m.labels.mxn}
-                  {m.labels.delta ? ` · ${m.labels.delta}` : ''}
-                </div>
-              ))}
-              {/* La hoja de margen, que es la única cuenta que no es una multiplicación. */}
-              {marginPreview.map((doc) => (
-                <div key={doc.label}>
-                  {doc.label} — precio {doc.fields[0]?.value} · costo {doc.fields[1]?.value} ·{' '}
-                  margen {doc.total.value}
-                </div>
-              ))}
+              {commercialIntent === 'quote_comparison'
+                ? quotePreview.map((doc) => (
+                    <div key={doc.label}>
+                      {doc.label} — {doc.fields.find((field) => field.label === 'TIPO DE CAMBIO')?.value}
+                      {' · '}USD {doc.fields.find((field) => field.label === 'TOTAL USD')?.value}
+                      {' · '}MXN {doc.total.value}
+                    </div>
+                  ))
+                : fxPreview.map((m, i) => (
+                    <div key={i}>
+                      {['HOY', 'PAGO', 'COMPRA 3'][i] ?? `MOMENTO ${i + 1}`} — {m.labels.rate} ·{' '}
+                      {m.labels.usd} · {m.labels.mxn}
+                      {m.labels.delta ? ` · ${m.labels.delta}` : ''}
+                    </div>
+                  ))}
+              {commercialIntent !== 'quote_comparison' &&
+                marginPreview.map((doc) => (
+                  <div key={doc.label}>
+                    {doc.label} — precio {doc.fields[0]?.value} · costo {doc.fields[1]?.value} ·{' '}
+                    margen {doc.total.value}
+                  </div>
+                ))}
             </div>
             <p className="text-[10px] text-muted-foreground">
-              El monto en USD es el mismo en los tres momentos: lo que se mueve es el tipo de
-              cambio, no el tamaño de la compra. El precio de venta se fija sobre el costo de
-              hoy y tampoco se mueve — lo que cede es el margen.
+              {commercialIntent === 'quote_comparison'
+                ? 'Misma operación, mismo momento, dos tasas editables. No representa una tasa futura. Los equivalentes MXN no incluyen comisiones ni otros costos.'
+                : 'El monto en USD es el mismo en los tres momentos: lo que se mueve es el tipo de cambio, no el tamaño de la compra. El precio de venta se fija sobre el costo de hoy y tampoco se mueve — lo que cede es el margen.'}
             </p>
             {!fxAmountOverride && (
               <p className="text-[10px] text-muted-foreground">
@@ -589,8 +755,8 @@ export function CarouselPanel({
               mientras el plan no se consumía; dejarlo ahí ahora sugeriría que el guion
               se escribe primero y el plan lo comenta, que es al revés.
 
-              Elegir una historia es opcional: sin elegir ninguna, el guion decide su
-              propia estructura como siempre. */}
+              La historia es obligatoria: el guion solo redacta el plan seleccionado y no
+              decide otra estructura por su cuenta. */}
           <div className="space-y-2 rounded-md border border-dashed border-border p-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="space-y-0.5">
@@ -633,6 +799,7 @@ export function CarouselPanel({
                 planner.createPlan({
                   presetSlug,
                   objective,
+                  commercialIntent,
                   imageType: setImageType,
                   guidance,
                 })
@@ -674,7 +841,16 @@ export function CarouselPanel({
             ))}
           </div>
 
-          <Button type="button" onClick={handleCreateScript} disabled={busy} className="w-full">
+          {/* Deshabilitado sin historia elegida, y no con otra etiqueta.
+              Cambiar el texto del botón no comunicaba que el resultado iba a ser otro
+              sistema: los dos caminos se veían igual desde fuera y el viejo era el que
+              producía cinco veces el mismo cuadro. */}
+          <Button
+            type="button"
+            onClick={handleCreateScript}
+            disabled={busy || !planner.selectedAttempt || Boolean(fxValidationError)}
+            className="w-full"
+          >
             {isScripting ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -683,20 +859,18 @@ export function CarouselPanel({
             ) : (
               <>
                 <Sparkles className="mr-2 h-4 w-4" />
-                {planner.selectedAttempt
-                  ? 'Escribir el guion de esta historia'
-                  : 'Generar guion del carrusel'}
+                Escribir el guion de esta historia
               </>
             )}
           </Button>
 
-          {/* Dicho aquí y no solo en el botón: es la diferencia entre un set que sigue
-              el storyboard que el usuario acaba de leer y uno donde el guionista vuelve
-              a decidir la estructura, y desde fuera los dos se ven igual. */}
+          {/* El motivo a la vista: un botón deshabilitado sin explicación se lee como un
+              bug. Y con historia elegida, decir cuál es lo que permite notar que el set
+              salió contra otra. */}
           <p className="text-[10px] text-muted-foreground">
             {planner.selectedAttempt
               ? `El guion va a redactar "${planner.selectedAttempt.plan.routeTitle}": los beats, la evidencia y la composición ya están decididos.`
-              : 'Sin historia elegida, el guion decide su propia estructura.'}
+              : 'Primero genera un plan narrativo y elige una historia. El guion redacta la que elijas: no decide la estructura por su cuenta.'}
           </p>
         </div>
       )}

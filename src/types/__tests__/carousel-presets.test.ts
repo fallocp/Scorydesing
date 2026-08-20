@@ -11,26 +11,27 @@ import { describe, expect, it } from 'vitest';
 import {
   brandElementsForSlide,
   CAROUSEL_PRESETS,
-  CAROUSEL_ROLE_BRIEFS,
   CAROUSEL_ROLE_LABELS,
-  CAROUSEL_ROLE_LAYOUT_HINT,
   getCarouselPreset,
 } from '../design-studio';
 
 describe('catálogo de presets', () => {
-  it('cada rol usado tiene etiqueta, brief y layout sugerido', () => {
+  /*
+   * Antes esto verificaba además brief y layout por rol. Las dos tablas se borraron:
+   * el contenido lo declara el beat del plan y la composición viaja en
+   * `beat.compositionFamily`. La etiqueta se queda porque es de la UI.
+   */
+  it('cada rol usado tiene etiqueta', () => {
     for (const preset of CAROUSEL_PRESETS) {
       for (const role of preset.roles) {
         expect(CAROUSEL_ROLE_LABELS[role], `label de ${role}`).toBeTruthy();
-        expect(CAROUSEL_ROLE_BRIEFS[role], `brief de ${role}`).toBeTruthy();
-        expect(CAROUSEL_ROLE_LAYOUT_HINT[role], `layout de ${role}`).toBeTruthy();
       }
     }
   });
 
   it('cada preset trae sus propias reglas de lectura', () => {
-    // Sin esto el agente cae al fallback del arco encadenado y la estructura nueva
-    // sale escrita como el arco viejo, que es el problema que vinieron a resolver.
+    // La edge function ya no tiene fallback al arco encadenado: responde 400. Un preset
+    // sin reglas deja de poder generar guion, y eso se descubre en producción.
     for (const preset of CAROUSEL_PRESETS) {
       expect(preset.narrativeRules.trim().length, preset.slug).toBeGreaterThan(0);
     }

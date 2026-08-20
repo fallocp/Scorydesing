@@ -36,7 +36,6 @@ import { carouselMechanicsExamples } from "../supabase/functions/_shared/carouse
 import {
   branchUsesFigures,
   buildSceneRepertoireBlock,
-  figureScenarioForRole,
   getSceneKit,
 } from "../supabase/functions/_shared/sceneKitRegistry.ts";
 
@@ -358,24 +357,19 @@ describe("scene kits por rama", () => {
 });
 
 describe("mecánica de cifras por rama", () => {
-  it("velocidad no lleva documentos con cifras en ningún rol", () => {
-    const kit = getSceneKit("velocidad")!;
-    expect(branchUsesFigures(kit)).toBe(false);
-    for (const role of ["tension", "shift", "risk", "problem", "example", "solution", "cta"]) {
-      expect(figureScenarioForRole(kit, role), `rol ${role}`).toBeNull();
-    }
+  /*
+   * Aquí había dos tests sobre `figureScenarioForRole`, que asignaba el escenario
+   * numérico por ROL. La función se borró: el escenario lo declara el beat del plan en
+   * `figureRequirement.scenarioId`, y sus tests viven en `carousel-plan-figures.test.ts`.
+   *
+   * Lo que sigue siendo de la RAMA, y por eso se queda, es si puede llevar cifras.
+   */
+  it("velocidad no lleva documentos con cifras", () => {
+    expect(branchUsesFigures(getSceneKit("velocidad"))).toBe(false);
   });
 
-  it.each(["costos-ahorro", "coberturas"])("%s lleva la mecánica de dos momentos", (slug) => {
-    const kit = getSceneKit(slug)!;
-    expect(branchUsesFigures(kit)).toBe(true);
-    expect(figureScenarioForRole(kit, "shift")).toBe("two_moment");
-    expect(figureScenarioForRole(kit, "risk")).toBe("repeated_purchases");
-    // Los tiempos sin cifras siguen sin cifras: la guía es un slide numérico por
-    // set, dos como máximo.
-    expect(figureScenarioForRole(kit, "tension")).toBeNull();
-    expect(figureScenarioForRole(kit, "solution")).toBeNull();
-    expect(figureScenarioForRole(kit, "cta")).toBeNull();
+  it.each(["costos-ahorro", "coberturas"])("%s sí lleva cifras", (slug) => {
+    expect(branchUsesFigures(getSceneKit(slug))).toBe(true);
   });
 
   it("el bloque dice explícitamente que no hay cifras cuando no hay", () => {
@@ -407,11 +401,16 @@ describe("el vocabulario de una rama no se filtra a otra", () => {
   it.each(SCENARIOS)("$slug: solo usa vocabulario propio", (scenario) => {
     const kit = getSceneKit(scenario.slug)!;
     // Todo menos los props prohibidos, que nombran a las otras ramas por diseño.
+    /*
+     * `kit.moments` salió del set: era la tabla tiempo narrativo → evidencia y se borró.
+     * `kit.physicalWorld` entró, y es el que más vigilancia necesita: es prosa nueva sobre
+     * mercancía y espacios, donde es fácil escribir "andén" en costos sin pensarlo.
+     */
     const own = norm(
       [
+        ...kit.physicalWorld,
         ...kit.dataSurfaces,
         ...kit.changeMarkers,
-        ...Object.values(kit.moments),
         kit.figurePolicy.note,
       ].join(" | "),
     );
@@ -441,5 +440,80 @@ describe("el vocabulario de una rama no se filtra a otra", () => {
       });
       expect(named.length, `${scenario.slug} no nombra ninguna otra rama`).toBeGreaterThan(0);
     }
+  });
+});
+
+/**
+ * La frontera entre `physicalWorld` y `changeMarkers`.
+ *
+ * Esta guarda existe porque el fallo se pagó completo una vez. La primera versión de
+ * `physicalWorld` traía entradas como "una unidad junto al lote completo" o "el estante
+ * lleno de un lado y con el hueco del otro": comparaciones metidas en una sola línea, y en
+ * velocidad dos de ellas copiadas palabra por palabra de sus propios `changeMarkers`.
+ *
+ * El efecto fue inmediato y medible. Una entrada que ya trae su comparación no le da al
+ * planificador un objeto, le da el ENCUADRE: las tres historias abrieron en
+ * `partido · comparativo` y dos quedaron bloqueadas por `identical_composition_sequence`,
+ * que exige coincidir en menos de 4 de 5 posiciones.
+ *
+ * Es una prueba sobre datos que se editan a mano sin correr la app, que es exactamente
+ * donde una invariante se rompe en silencio.
+ */
+describe("physicalWorld trae objetos, no comparaciones", () => {
+  /*
+   * Conectores que delatan un par dentro de una sola entrada. `\bdos\b` con frontera de
+   * palabra a propósito: sin ella, "todos" y "dos" son la misma cadena.
+   */
+  /*
+   * Sin `\b` de cierre después de "a" y de "contra": la primera versión de esta lista usaba
+   * `/\bfrente a\b/` y dejó pasar "frente AL mismo producto todavía embalado", que es
+   * literalmente una de las entradas que causaron el fallo. En "frente al" la "a" va seguida
+   * de "l", las dos son letras, y la frontera de palabra no existe ahí.
+   */
+  const PAIR_MARKERS = [
+    /\bfrente a/,
+    /\bde un lado/,
+    /\by (el|la) otr[oa]/,
+    /\bdel otro\b/,
+    /\bantes y despu[eé]s/,
+    /\bdos\b/,
+    /\bjunto al\b/,
+    /\bcontra (el|la|los|las)/,
+    /\ben lugar de\b/,
+    /\bmientras\b/,
+  ];
+
+  it.each(SCENARIOS)("$slug: ninguna entrada es un par", (scenario) => {
+    const kit = getSceneKit(scenario.slug)!;
+    const pairs = kit.physicalWorld.filter((entry) =>
+      PAIR_MARKERS.some((re) => re.test(entry.toLowerCase())),
+    );
+    expect(
+      pairs,
+      `estas entradas son comparaciones y van en changeMarkers:\n${pairs.join("\n")}`,
+    ).toEqual([]);
+  });
+
+  it.each(SCENARIOS)("$slug: no duplica un changeMarker", (scenario) => {
+    const kit = getSceneKit(scenario.slug)!;
+    const markers = new Set(kit.changeMarkers.map((m) => m.trim().toLowerCase()));
+    const dupes = kit.physicalWorld.filter((e) => markers.has(e.trim().toLowerCase()));
+    expect(dupes, `duplicado entre los dos campos:\n${dupes.join("\n")}`).toEqual([]);
+  });
+
+  /*
+   * Al menos un objeto ya resuelto. Sin ninguno el beat de solución no tiene material
+   * físico que se lea como "esto ya quedó definido", y se resolvió en una pantalla en las
+   * tres historias de la corrida que motivó este arreglo.
+   *
+   * Se busca por palabra y no por semántica, así que es un piso, no una garantía: lo que
+   * detecta es el caso en que alguien vacía la lista de estados cerrados.
+   */
+  const RESOLVED_WORDS = /\b(completo|completa|instalado|funcionando|corriendo|definitiva|cerrado|cerrada|listo|ocupadas)\b/;
+
+  it.each(SCENARIOS)("$slug: incluye algún objeto ya resuelto", (scenario) => {
+    const kit = getSceneKit(scenario.slug)!;
+    const resolved = kit.physicalWorld.filter((e) => RESOLVED_WORDS.test(e.toLowerCase()));
+    expect(resolved.length, `${scenario.slug} solo tiene estados abiertos`).toBeGreaterThan(0);
   });
 });

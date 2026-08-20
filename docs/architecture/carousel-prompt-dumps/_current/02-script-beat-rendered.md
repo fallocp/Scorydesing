@@ -16,4 +16,6 @@ Slide 2 — rol "shift" (headline hasta 15 palabras)
   · Estado de la escena: mismo pedido comparado bajo condiciones distintas
   · Tiene que estar en cuadro: los dos totales legibles
   · Intención de composición: simetría entre las dos hojas, aire al centro
+  · Cifras: hechos [legacy] del escenario rate_comparison. No escribas sus valores.
+  · Superficie sugerida: freeform; peso inline. Cifra no significa documento.
   · brief.layout: split_photo — YA ESTÁ DECIDIDO, cópialo tal cual.

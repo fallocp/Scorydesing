@@ -158,7 +158,7 @@ export function MockupGallery({
               className="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-muted-foreground/30 hover:border-primary/50 hover:bg-muted/30 transition-all aspect-[3/4] text-muted-foreground hover:text-primary"
             >
               <Plus className="h-8 w-8" />
-              <span className="text-xs font-medium">Generar otra</span>
+              <span className="text-xs font-medium">Generar otra imagen</span>
             </button>
           )}
 
@@ -168,9 +168,11 @@ export function MockupGallery({
           )}
         </div>
 
-        {/* Info text */}
+        {/* Info text. Dice "imagen individual" porque esta galería está al final de
+            la página, debajo de la sección del carrusel, y "mockups" se leía como
+            el resultado de cualquiera de los dos flujos. */}
         <p className="text-xs text-muted-foreground text-center">
-          {mockups.length} mockup{mockups.length > 1 ? 's' : ''} generado{mockups.length > 1 ? 's' : ''} · Las imágenes se guardan en memoria hasta que cierres la página
+          {mockups.length} imagen{mockups.length > 1 ? 'es' : ''} individual{mockups.length > 1 ? 'es' : ''} generada{mockups.length > 1 ? 's' : ''} · Las imágenes se guardan en memoria hasta que cierres la página
         </p>
 
         {/* Action buttons */}

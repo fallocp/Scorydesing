@@ -263,12 +263,25 @@ interface CarouselPromptSlideInput {
     environmentalText?: string[];
     /** Semantic role, not a colour: the brand mapping resolves it. */
     highlights?: { text: string; colorRole: string }[];
+    /** Neutral facts projected onto this beat; values are computed upstream. */
+    economicFacts?: {
+      key: string;
+      label: string;
+      value: number;
+      formattedValue: string;
+      unit: 'USD' | 'MXN' | 'rate' | 'percent';
+      state: 'base' | 'exposed' | 'delta' | 'derived' | 'defined';
+      colorRole?: 'control' | 'risk';
+    }[];
+    figurePresentation?: {
+      scenarioId: string;
+      qualifier: 'ESCENARIO ILUSTRATIVO';
+      narrativePurpose: string;
+      weight: 'inline' | 'featured' | 'heavy';
+      suggestedSurface: string;
+    };
     /**
-     * Documents in the scene with their exact values, computed upstream.
-     *
-     * Shaped per document rather than as a flat list because that is the whole
-     * problem: given a pile of labels the model cannot tell which value belongs to
-     * which card, and it repeated the same figures on all three.
+     * Legacy/document adapter. Present only when the chosen surface is document.
      */
     documents?: {
       label: string;
@@ -1024,6 +1037,46 @@ function briefBlock(slide: CarouselPromptSlideInput): string {
   return `ART DIRECTION FOR THIS SLIDE:\n${parts.join('\n')}\n\nDo not merely depict the industry the copy mentions. The scene has to demonstrate this specific claim: an image that would work just as well under a different headline is the wrong image.`;
 }
 
+function economicDataBlock(slide: CarouselPromptSlideInput): string {
+  const facts = slide.brief?.economicFacts ?? [];
+  const presentation = slide.brief?.figurePresentation;
+  if (facts.length === 0 || !presentation) return '';
+
+  const surfaceRules: Record<string, string> = {
+    object_label: 'Integrate the figures into labels physically attached to the article, box or batch already in the scene. No card, paper sheet or dashboard.',
+    scale_progression: 'Use the same economic quantity across a visible progression from unit to batch to project. The progression is the composition; do not turn it into a table.',
+    margin_band: 'Render the figures on a single margin band whose remaining width visibly contracts. No spreadsheet, document or dashboard frame.',
+    cost_anatomy: 'Attach each figure to the relevant layer or component of the object anatomy. The object remains the subject; no detached legend table.',
+    process_flow: 'Place the figures at the relevant stages of the physical origin-to-conversion-to-payment path. No dashboard shell.',
+    spatial_budget: 'Make the budget and its delta occupy measurable physical space, with the overrun invading the reserved area. Labels stay integrated into that space.',
+    decision_paths: 'Place the authorized figures on two consequences branching from the same purchase. Do not invent a second operation or competitor quote.',
+    physical_accumulation: 'Repeat the physical unit, batch or location and integrate the cumulative figure into the accumulation. No stack of invoices unless explicitly requested.',
+    document: 'Use the DOCUMENT DATA block below as the chosen heavy surface.',
+    dashboard: 'Use one coherent dashboard surface with only the authorized facts below. No additional metrics, widgets or invented values.',
+    freeform: 'Choose a physical or spatial integration that serves the declared narrative purpose. Do not default to a paper sheet, quote, spreadsheet or dashboard.',
+  };
+
+  const weightRule = presentation.weight === 'inline'
+    ? 'The figures are secondary evidence integrated into the scene; they do not dominate the frame.'
+    : presentation.weight === 'featured'
+      ? 'The figures are primary evidence, but the scene remains a visual composition rather than a data table.'
+      : 'This is one of at most two dense numeric surfaces in the set. Keep it singular and coherent.';
+
+  return `ECONOMIC FACTS — EXACT AND NON-NEGOTIABLE
+Scenario: ${presentation.scenarioId}
+Required visible qualifier: ${presentation.qualifier}
+Narrative purpose: ${presentation.narrativePurpose}
+Surface: ${presentation.suggestedSurface}
+Weight: ${presentation.weight}
+
+${facts.map((fact) => `  ${fact.label}: ${fact.formattedValue}`).join('\n')}
+
+Render every value exactly as written. Do not invent, replace, average, re-round or supplement any number.
+${surfaceRules[presentation.suggestedSurface] ?? surfaceRules.freeform}
+${weightRule}
+The FACTS do not prescribe a document. The declared surface governs their physical representation.`;
+}
+
 /**
  * The numeric specification, kept apart from the art direction.
  *
@@ -1110,25 +1163,22 @@ function environmentalTextBlock(slide: CarouselPromptSlideInput): string {
    * would be giving opposite orders about the same surfaces.
    */
   const hasDocuments = (slide.brief?.documents ?? []).length > 0;
-  const exclusivity = hasDocuments
-    ? 'Beyond the DOCUMENT DATA above and these labels, nothing else renders legibly: every other surface stays abstract — out of focus, cropped or turned away.'
+  const hasEconomicFacts = (slide.brief?.economicFacts ?? []).length > 0;
+  const hasAuthorizedData = hasDocuments || hasEconomicFacts;
+  const dataBlockName = hasDocuments ? 'DOCUMENT DATA' : 'ECONOMIC FACTS';
+  const exclusivity = hasAuthorizedData
+    ? `Beyond the ${dataBlockName} above and these labels, nothing else renders legibly: every other surface stays abstract — out of focus, cropped or turned away.`
     : 'Only these, spelled exactly. Everything else on those surfaces stays abstract: out of focus, cropped or turned away.';
 
   if (labels.length === 0) {
-    return hasDocuments
-      ? 'TEXT INSIDE OBJECTS: nothing beyond the DOCUMENT DATA above. Any other document, screen or label in frame stays abstract — out of focus, cropped or turned away. No invented words, no filler paragraphs, no pseudo-text.'
+    return hasAuthorizedData
+      ? `TEXT INSIDE OBJECTS: nothing beyond the ${dataBlockName} above. Any other document, screen or label in frame stays abstract — out of focus, cropped or turned away. No invented words, no filler paragraphs, no pseudo-text.`
       : 'TEXT INSIDE OBJECTS: none on this slide. Documents, screens and labels stay abstract — out of focus, cropped or turned away. No invented words, no filler paragraphs, no pseudo-text.';
   }
 
-  const structure = hasDocuments
-    ? ''
-    : `\n\nDOCUMENT STRUCTURE — a quote or invoice that is explaining a cost must look complete. Minimum: the word COTIZACIÓN or FACTURA, a description line, and a clearly visible TOTAL with its figure. A document whose TOTAL is missing or empty reads as an unfinished mockup.
-
-WHEN TWO DOCUMENTS ARE COMPARED, they are the SAME document at two moments, so they must be identical in everything except what changed: same structure, same fields in the same positions, same scale, same perspective, same currency labels. Only the values and the stamp differ. The comparison works because the eye finds the one difference instantly — change the layout too and the reader has to hunt for it.`;
-
   return `TEXT INSIDE OBJECTS — these exact labels render legibly, because they are what makes the scene explain the concept:\n${labels
     .map((t) => `  - ${t}`)
-    .join('\n')}\n${exclusivity} No filler paragraphs, no gibberish, no pseudo-text, and no figure of your own — any number in frame is an illustrative prop, never a quoted market rate.${structure}`;
+    .join('\n')}\n${exclusivity} No filler paragraphs, no gibberish, no pseudo-text, and no figure of your own.`;
 }
 
 /**
@@ -1139,14 +1189,16 @@ WHEN TWO DOCUMENTS ARE COMPARED, they are the SAME document at two moments, so t
  * template filled in five times. The architecture is now chosen per slide by what
  * the message needs, and cohesion is carried by the shared design spec instead.
  */
-function layoutRule(layout?: string): string {
+function layoutRule(layout?: string, figureSurface?: string): string {
   switch (layout) {
     case 'split_photo':
       return 'LAYOUT split_photo: headline and supporting copy in the LEFT column, photography holding the right side and the lower right. The two do not overlap — the composition is divided, not layered.';
     case 'editorial_repetition':
       return 'LAYOUT editorial_repetition: headline at the top, and below it the same object and its document REPEATED into depth — three or four instances receding, so the accumulation is the composition itself and not a caption about it.';
     case 'document_result':
-      return 'LAYOUT document_result: headline at the top, and a document or a resolved result as the subject in the lower two thirds, shot straighter and more symmetrical than the other slides. The scene should read as settled: orderly desk, aligned geometry, one clear outcome.';
+      return figureSurface === 'document'
+        ? 'LAYOUT document_result: headline at the top and the authorized document as the subject in the lower two thirds, shot straight and clearly.'
+        : 'LAYOUT document_result: headline at the top and one resolved outcome as the subject in the lower two thirds, shot straighter and more symmetrically than the other slides. Do NOT introduce a paper sheet, quote or dashboard unless the declared figure surface explicitly asks for one.';
     case 'hero_clean':
       return 'LAYOUT hero_clean: closing frame. One hero subject, generous negative space, minimum conceptual complexity. The text is short and the composition is calm — this is the end of the set, not another lesson.';
     case 'editorial_top':
@@ -1222,7 +1274,7 @@ function carouselTextRules(slide: CarouselPromptSlideInput): string {
     'The subject must never run underneath the letters. Whatever area the headline occupies stays clean, with enough contrast that every word is readable at thumbnail size.',
   ];
 
-  rules.push(layoutRule(slide.brief?.layout));
+  rules.push(layoutRule(slide.brief?.layout, slide.brief?.figurePresentation?.suggestedSurface));
 
   if (carriesLogo) {
     rules.push(
@@ -1371,12 +1423,15 @@ function assembleCarouselSlidePrompt(params: {
      * runs with text enabled. Saying so once, decisively, costs one line and removes
      * a contradiction the model would otherwise have to arbitrate.
      */
-    'TEXT IS ENABLED for this piece: it renders its own headline, supporting copy and document labels. Ignore any instruction in the system prompt that applies when text in image is disabled.',
+    'TEXT IS ENABLED for this piece: it renders its own headline, supporting copy and authorized economic labels. Ignore any instruction in the system prompt that applies when text in image is disabled.',
     BRAND_COLOR_LANGUAGE_EN,
     // La gramática de cifras solo donde hay cifras, y lo decide el mismo dato que
     // produce el bloque de documentos: si el slide no lleva ninguno, no hay nada
     // que colorear y nombrarlo solo le sugiere al modelo una cotización de más.
-    (slide.brief?.documents ?? []).length > 0 ? FIGURE_COLOR_GRAMMAR_EN : '',
+    ((slide.brief?.economicFacts ?? []).length > 0 || (slide.brief?.documents ?? []).length > 0)
+      ? FIGURE_COLOR_GRAMMAR_EN
+      : '',
+    economicDataBlock(slide),
     documentDataBlock(slide),
     `TEXT TO RENDER IN THE IMAGE (exact and authoritative). The quotation marks are NOT part of the copy and must not appear in the image:\n\n${textLines.join('\n\n')}\n\nSpell it exactly as written, in Spanish, without translating it, without rewording it and without adding sentences of your own. Do not render quotation marks around any of it.\n${BRAND_TYPOGRAPHY}\nNo paragraph blocks, no bullet lists.`,
     environmentalTextBlock(slide),
@@ -1442,7 +1497,13 @@ function buildCarouselUserMessage(params: {
         // La regla completa, no el slug: es la misma cadena que va al prompt final,
         // así que el escritor de escena y el modelo de imagen leen exactamente la
         // misma composición. Con el slug suelto la escena tenía que adivinarla.
-        brief?.layout ? `  composición: ${layoutRule(brief.layout)}` : '',
+        brief?.layout ? `  composición: ${layoutRule(brief.layout, brief.figurePresentation?.suggestedSurface)}` : '',
+        brief?.figurePresentation
+          ? `  cifras: superficie ${brief.figurePresentation.suggestedSurface}, peso ${brief.figurePresentation.weight}; propósito ${brief.figurePresentation.narrativePurpose}. No convertir en documento salvo surface=document.`
+          : '',
+        (brief?.economicFacts ?? []).length > 0
+          ? `  hechos exactos autorizados: ${brief!.economicFacts!.map((fact) => `${fact.label} ${fact.formattedValue}`).join(' | ')}`
+          : '',
         (brief?.primaryObjects ?? []).length > 0
           ? `  objetos en cuadro: ${brief!.primaryObjects!.join(', ')}`
           : '',

@@ -2,7 +2,19 @@
 
 La escena de cada slide se arma con ESTOS elementos. Son los de la rama activa y son los únicos que cuentan su historia: la utilería de otra rama produce una pieza que se lee como si fuera de otra campaña.
 
-El dato vive en un OBJETO de la escena, no flotando sobre ella. Superficies de esta rama:
+La operación de esta rama, hecha objeto. Ninguno de estos es un documento, y de aquí sale la escena cuando el slide no lleva cifras:
+- la mercancía de la compra en su empaque original, con la etiqueta de origen a la vista
+- la tarima cargada con el pedido completo, envuelta y precintada, en el piso del almacén
+- una unidad suelta de la pieza, sola en cuadro, cuando la línea habla de precio unitario
+- el lote completo de la misma pieza, apilado, cuando la línea habla de volumen
+- el estante del almacén con el hueco de lo que falta reponer
+- el estante completo, con todas sus posiciones ocupadas
+- el producto todavía embalado, en el sitio donde va a quedar
+- el producto ya instalado y en uso en el espacio del negocio
+- las partes del producto separadas en vista despiezada, cada una un componente distinto de lo que se paga
+- la mesa de trabajo con la pieza y las muestras de material: el acabado, la textura, lo que se está comprando
+
+El dato vive en un OBJETO de la escena, no flotando sobre ella. Superficies de esta rama, para los slides que SÍ llevan cifra:
 - cotización u orden de compra impresa, con su total visible
 - dos cotizaciones de PROVEEDORES DE PAGO DISTINTOS lado a lado, mismo pedido, condiciones distintas
 - dos hojas de la misma cotización con fechas distintas
@@ -17,13 +29,9 @@ Cómo se ve que algo se movió, cuando la línea lo dice:
 - la curva de la pantalla subiendo de izquierda a derecha
 - una columna de diferencias que se acumula hacia abajo
 - muchas carpetas de un lado y una sola del otro
-
-Recurso por tipo de momento, como punto de partida:
-- apertura: el objeto de la compra y el documento donde vive su costo, juntos en cuadro
-- algo cambia: DOS ESTADOS DE LO MISMO en el cuadro — dos cotizaciones del mismo pedido, o dos hojas de la misma cotización con fecha o sello posterior, y los totales visiblemente distintos en longitud y posición
-- riesgo o consecuencia: el efecto hecho visible — el total más largo, la columna de diferencias sumando, varias compras con su documento repetido
-- solución: la operación resuelta: un solo documento ordenado, un solo total definido y legible
-- cierre: el cuadro más callado del set, con el sujeto recurrente de vuelta y nada compitiendo
+- una unidad suelta en un cuadro y el lote completo en el otro: la misma compra a dos escalas
+- el estante con el hueco y el mismo estante completo
+- el producto embalado y el mismo producto ya instalado
 
 PROPS QUE NO VAN EN ESTA RAMA:
 - calendarios de vencimientos futuros y contratos de forward: eso es de coberturas

@@ -19,6 +19,9 @@
  */
 
 import {
+  CAROUSEL_FIGURE_SURFACES,
+  CAROUSEL_FIGURE_WEIGHTS,
+  CAROUSEL_SCENARIO_FACT_KEYS,
   COMPOSITION_ALIGNMENTS,
   COMPOSITION_CAMERA_SCALES,
   COMPOSITION_COPY_ZONES,
@@ -29,7 +32,10 @@ import {
 import type {
   AppliedRepair,
   CarouselCreativePlan,
+  CarouselEconomicFactKey,
   CarouselFigureScenarioId,
+  CarouselFigureSurface,
+  CarouselFigureWeight,
   CarouselPlanContext,
   CarouselStoryBeat,
   CompositionAlignment,
@@ -118,6 +124,10 @@ export type CarouselPlanRepair =
       /** 'none' apaga las cifras del beat. */
       scenarioId: CarouselFigureScenarioId;
       requiredFields: string[];
+      factKeys: CarouselEconomicFactKey[];
+      narrativePurpose: string;
+      weight: CarouselFigureWeight;
+      suggestedSurface: CarouselFigureSurface;
       reason: string;
       addressedCodes: string[];
     };
@@ -129,7 +139,7 @@ export type CarouselPlanRepair =
 function compactBeat(beat: CarouselStoryBeat): string {
   const figures =
     beat.figureRequirement.mode === 'illustrative'
-      ? `${beat.figureRequirement.scenarioId} (${beat.figureRequirement.requiredFields.join(', ')})`
+      ? `${beat.figureRequirement.scenarioId}; hechos: ${(beat.figureRequirement.factKeys ?? []).join(', ') || 'legacy'}; propósito: ${beat.figureRequirement.narrativePurpose || '—'}; peso: ${beat.figureRequirement.weight || 'legacy'}; superficie: ${beat.figureRequirement.suggestedSurface || 'legacy'}`
       : 'ninguna';
 
   return [
@@ -198,7 +208,7 @@ Solo con estas operaciones:
     alignment: ${COMPOSITION_ALIGNMENTS.join(', ')}
 - replace_primary_objects: objetos FÍSICOS que una cámara capta. Nunca "el producto", ni aire, ni estados, ni notas de composición.
 - replace_supporting_objects.
-- set_figure_requirement: enciende o apaga las cifras de un beat.${
+- set_figure_requirement: enciende, apaga o repara la proyección económica de un beat. Al encender incluye factKeys, narrativePurpose, weight (inline|featured|heavy) y suggestedSurface. Máximo dos beats heavy y todos usan el mismo scenarioId.${
     branchAllowsFigures && scenarioOptions.length > 0
       ? ` Escenarios admitidos por esta ruta: ${scenarioOptions.join(', ')}. Usa "none" para apagarlas.`
       : ' En este set solo puedes usar "none": la rama o la ruta no llevan cifras.'
@@ -429,11 +439,34 @@ export function parseCriticRepairs(
           rejected.push({ type, reason: `escenario "${scenarioId}" no admitido en este set` });
           break;
         }
+        const scenarioFacts = scenarioId === 'none'
+          ? []
+          : CAROUSEL_SCENARIO_FACT_KEYS[scenarioId as Exclude<CarouselFigureScenarioId, 'none'>];
+        const factKeys = list(r.factKeys).filter((key): key is CarouselEconomicFactKey =>
+          (scenarioFacts as readonly string[]).includes(key)
+        );
+        const surfaceRaw = str(r.suggestedSurface);
+        const suggestedSurface: CarouselFigureSurface =
+          (CAROUSEL_FIGURE_SURFACES as readonly string[]).includes(surfaceRaw)
+            ? surfaceRaw as CarouselFigureSurface
+            : 'freeform';
+        const weightRaw = str(r.weight);
+        const declaredWeight: CarouselFigureWeight =
+          (CAROUSEL_FIGURE_WEIGHTS as readonly string[]).includes(weightRaw)
+            ? weightRaw as CarouselFigureWeight
+            : 'inline';
         repairs.push({
           type: 'set_figure_requirement',
           slideIndex,
           scenarioId,
           requiredFields: list(r.requiredFields),
+          factKeys,
+          narrativePurpose: str(r.narrativePurpose),
+          weight:
+            suggestedSurface === 'document' || suggestedSurface === 'dashboard'
+              ? 'heavy'
+              : declaredWeight,
+          suggestedSurface,
           reason,
           addressedCodes,
         });
@@ -491,7 +524,11 @@ export function applyPlanRepairs(
     composition: { ...b.composition },
     figureRequirement:
       b.figureRequirement.mode === 'illustrative'
-        ? { ...b.figureRequirement, requiredFields: [...b.figureRequirement.requiredFields] }
+        ? {
+            ...b.figureRequirement,
+            requiredFields: [...(b.figureRequirement.requiredFields ?? [])],
+            factKeys: [...(b.figureRequirement.factKeys ?? [])],
+          }
         : { mode: 'none' },
   }));
 
@@ -590,7 +627,15 @@ export function applyPlanRepairs(
         });
         break;
 
-      case 'set_figure_requirement':
+      case 'set_figure_requirement': {
+        if (
+          repair.scenarioId !== 'none' &&
+          plan.figureScenarioId !== 'none' &&
+          repair.scenarioId !== plan.figureScenarioId
+        ) {
+          skipped.push({ repair, reason: `el set ya usa el escenario ${plan.figureScenarioId}` });
+          break;
+        }
         beat.figureRequirement =
           repair.scenarioId === 'none'
             ? { mode: 'none' }
@@ -598,6 +643,13 @@ export function applyPlanRepairs(
                 mode: 'illustrative',
                 scenarioId: repair.scenarioId,
                 requiredFields: [...repair.requiredFields],
+                factKeys:
+                  repair.factKeys.length > 0
+                    ? [...repair.factKeys]
+                    : [CAROUSEL_SCENARIO_FACT_KEYS[repair.scenarioId][(beat.index - 1) % CAROUSEL_SCENARIO_FACT_KEYS[repair.scenarioId].length]],
+                narrativePurpose: repair.narrativePurpose,
+                weight: repair.weight,
+                suggestedSurface: repair.suggestedSurface,
               };
         applied.push({
           type: repair.type,
@@ -606,6 +658,7 @@ export function applyPlanRepairs(
           addressedCodes: repair.addressedCodes,
         });
         break;
+      }
     }
   }
 

@@ -173,10 +173,12 @@ function BeatCard({ beat, total }: { beat: CarouselStoryBeat; total: number }) {
         <Field
           label="Cifras"
           value={`${beat.figureRequirement.scenarioId}${
-            beat.figureRequirement.requiredFields.length > 0
-              ? ` — ${beat.figureRequirement.requiredFields.join(', ')}`
-              : ''
-          }`}
+            (beat.figureRequirement.factKeys ?? []).length > 0
+              ? ` — ${(beat.figureRequirement.factKeys ?? []).join(', ')}`
+              : (beat.figureRequirement.requiredFields ?? []).length > 0
+                ? ` — ${(beat.figureRequirement.requiredFields ?? []).join(', ')}`
+                : ''
+          }${beat.figureRequirement.weight ? ` · ${beat.figureRequirement.weight}` : ''}`}
         />
       )}
     </div>

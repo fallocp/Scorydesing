@@ -28,6 +28,9 @@
  */
 
 import {
+  CAROUSEL_FIGURE_SURFACES,
+  CAROUSEL_FIGURE_WEIGHTS,
+  CAROUSEL_SCENARIO_FACT_KEYS,
   COMPOSITION_ALIGNMENTS,
   COMPOSITION_CAMERA_SCALES,
   COMPOSITION_COPY_ZONES,
@@ -40,7 +43,11 @@ import {
 import type {
   CarouselBeatFigureRequirement,
   CarouselCreativePlan,
+  CarouselEconomicFactKey,
+  CarouselLanguageStyle,
   CarouselFigureScenarioId,
+  CarouselFigureSurface,
+  CarouselFigureWeight,
   CarouselPlanContext,
   CarouselPlanDigest,
   CarouselStoryBeat,
@@ -127,7 +134,7 @@ const MEDIUM_LABELS: Record<string, string> = {
   financiero: 'visualización financiera (dashboard/gráficas)',
 };
 
-const DEEPENING_LABELS: Record<RouteDeepeningMode, string> = {
+export const DEEPENING_LABELS: Record<RouteDeepeningMode, string> = {
   accumulation: 'se repite y suma: varias operaciones, varios documentos',
   sensitivity: 'el mismo caso bajo otro supuesto: dos escenarios etiquetados',
   planning_horizon: 'qué deja de poder planearse: calendario, reserva, horizonte',
@@ -138,12 +145,78 @@ const DEEPENING_LABELS: Record<RouteDeepeningMode, string> = {
   blocked_dependency: 'algo detenido esperando otra cosa',
   scale: 'el mismo efecto en más frentes a la vez',
   visibility: 'la diferencia entre saber y no saber en qué va',
-  expiring_condition: 'una condición externa que deja de estar disponible',
+  expiring_condition: 'una posibilidad del mismo día que se cierra al terminar el horario aplicable',
   stage_progression: 'la misma operación ganando costo al avanzar por etapas',
 };
 
 function bullets(items: string[]): string {
   return items.map((i) => `- ${i}`).join('\n');
+}
+
+/**
+ * La política de lenguaje publicable de la rama, como bloque de prompt.
+ *
+ * Se comparte entre el planificador y el guionista: los dos escriben texto que puede
+ * terminar en un headline, así que los dos tienen que conocer los términos internos que
+ * nunca se publican y sus reescrituras. Devuelve cadena vacía cuando el kit no trae
+ * política, para no imprimir una sección vacía.
+ */
+/**
+ * Convierte el `language_style` del copy kit (snake_case) a la forma estructural.
+ *
+ * Acepta `unknown` para no acoplar este archivo al tipo `CopyKit`, que vive en un módulo
+ * que sí importa por URL. Devuelve `null` cuando el kit no trae política.
+ */
+export function toCarouselLanguageStyle(raw: unknown): CarouselLanguageStyle | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Record<string, unknown>;
+  const terms = Array.isArray(r.internal_terms_never_publish)
+    ? r.internal_terms_never_publish.filter((t): t is string => typeof t === 'string' && !!t.trim())
+    : [];
+  const rewritesRaw = (r.preferred_rewrites ?? {}) as Record<string, unknown>;
+  const preferredRewrites: Record<string, string> = {};
+  for (const [from, to] of Object.entries(rewritesRaw)) {
+    if (typeof to === 'string' && to.trim()) preferredRewrites[from] = to;
+  }
+  const style: CarouselLanguageStyle = {
+    locale: typeof r.locale === 'string' ? r.locale : undefined,
+    note: typeof r.note === 'string' ? r.note : undefined,
+    internalTermsNeverPublish: terms,
+    preferredRewrites,
+  };
+  if (
+    !style.note &&
+    terms.length === 0 &&
+    Object.keys(preferredRewrites).length === 0
+  ) {
+    return null;
+  }
+  return style;
+}
+
+export function buildLanguageStyleBlock(style: CarouselLanguageStyle | null | undefined): string {
+  if (!style) return '';
+  const terms = style.internalTermsNeverPublish ?? [];
+  const rewrites = Object.entries(style.preferredRewrites ?? {});
+  if (terms.length === 0 && rewrites.length === 0 && !style.note) return '';
+
+  const parts: string[] = ['## LENGUAJE PUBLICABLE'];
+  if (style.note) parts.push(style.note);
+  if (terms.length > 0) {
+    parts.push(
+      `TÉRMINOS QUE NUNCA SE PUBLICAN — son jerga interna de operaciones o calcos del inglés. No los escribas ni los parafrasees en ningún campo de texto:\n${bullets(
+        terms.map((t) => `"${t}"`),
+      )}`,
+    );
+  }
+  if (rewrites.length > 0) {
+    parts.push(
+      `CÓMO DECIRLO EN NATURAL — usa la forma de la derecha:\n${bullets(
+        rewrites.map(([from, to]) => `"${from}" → "${to}"`),
+      )}`,
+    );
+  }
+  return parts.join('\n\n');
 }
 
 /**
@@ -190,9 +263,6 @@ function buildRouteCatalogBlock(ctx: CarouselPlanContext): string {
       `EJEMPLOS de evidencia que le queda a esta ruta. NO es una lista cerrada ni un menú: son referencias del tipo de cosa que sirve. Puedes usar otra evidencia del repertorio de la rama si cuenta mejor el copy:\n${bullets(route.allowedEvidenceDevices)}`,
       `EVIDENCIA PROHIBIDA EN ESTA RUTA — esto sí es cerrado. Es de otra historia y usarla la convierte en esa otra:\n${bullets(route.forbiddenEvidenceDevices)}`,
     ];
-    if (route.preferredVisualProxies.length > 0) {
-      lines.push(`Cómo se ve el producto aquí:\n${bullets(route.preferredVisualProxies)}`);
-    }
     if (route.forbiddenClaims.length > 0) {
       lines.push(`No puede afirmar:\n${bullets(route.forbiddenClaims)}`);
     }
@@ -292,6 +362,7 @@ Ninguna de las rutas disponibles lleva cifras. "figureScenarioId" va en "none" y
   }
 
   const descriptions: Record<string, string> = {
+    quote_comparison: 'dos cotizaciones simultáneas de la misma obligación, sin fechas futuras',
     rate_comparison: 'la misma obligación con dos tipos de cambio distintos',
     rate_range:
       'un escenario hipotético entre dos niveles. La forma correcta es "si el tipo de cambio pasara de A a B"; la incorrecta es afirmar que llegará a B',
@@ -303,26 +374,46 @@ Ninguna de las rutas disponibles lleva cifras. "figureScenarioId" va en "none" y
 
   return `## CIFRAS
 
-Las cifras son de la HISTORIA, no de la rama. Que la rama pueda llevarlas no significa que este set las necesite. La ruta te dice si son obligatorias, opcionales o ninguna.
+${ctx.commercialIntent === 'quote_comparison'
+  ? 'MECANISMO COMERCIAL: compara dos cotizaciones SIMULTÁNEAS de la misma operación. Prohibido convertirlas en HOY/PAGO, usar fechas futuras o hablar de fijar, cerrar o definir una tasa. No es un forward.'
+  : ctx.commercialIntent === 'cost_plus_speed'
+    ? 'MECANISMO COMERCIAL: costo y condición operativa confirmada son dos criterios de una misma decisión. No inventes horas ni plazos.'
+    : ctx.commercialIntent === 'forward'
+      ? 'MECANISMO COMERCIAL: cobertura de una obligación futura. No la presentes como comparación entre proveedores.'
+      : 'MECANISMO COMERCIAL: explica el componente del costo sin atribuirlo a una comparación entre proveedores.'}
 
-Tú NO escribes valores. Ni montos, ni tasas, ni porcentajes, ni totales. Los calcula el código y los inyecta como documentos al construir la imagen, porque la aritmética ES el mensaje y un modelo de lenguaje no la sostiene: una corrida real puso USD 8,750 junto a MXN 157,980, cotizando un tipo de cambio de 18.06 que nadie eligió.
+Las cifras forman UNA SOLA HISTORIA ECONÓMICA a lo largo del carrusel. Si eliges un escenario, todos los beats con cifras usan el MISMO \`scenarioId\`; no son ejemplos independientes.
 
-CUÁNTOS SLIDES LLEVAN CIFRAS: como máximo DOS de los ${ctx.slides.length}, y el sistema recorta los demás.
+Tú NO escribes valores. Ni montos, tasas, porcentajes ni totales. El código calcula una vez los supuestos, derivados y hechos; después cada beat selecciona hechos mediante \`factKeys\`.
 
-No es prudencia: un slide con cifras es un DOCUMENTO en cuadro, y cinco documentos son el mismo cuadro cinco veces aunque los valores cambien. Una corrida real puso cifras en los cinco beats y el set entero salió como hojas de papel sobre un escritorio, con la mercancía de la industria fuera de cuadro.
+CANTIDAD: cuando la ruta usa cifras, distribuye hechos coherentes en CUATRO o CINCO de los ${ctx.slides.length} beats. La cifra puede aparecer integrada en un artículo, una caja, un lote, una banda de margen, una anatomía, un proceso, un espacio o una decisión. Cifra NO significa documento.
 
-Las cifras van en los beats que explican el MECANISMO. La apertura no las lleva —ahí la tensión la planta el objeto de la compra— y el cierre tampoco, porque es el cuadro más callado del set. Los demás beats comunican con objetos, estados y espacios, que es donde está la variedad del set.
+PESO VISUAL:
+- \`inline\`: una o dos cifras integradas al objeto o al espacio; no dominan el cuadro.
+- \`featured\`: la cifra es evidencia principal, sin convertir el slide en tabla.
+- \`heavy\`: documento, tabla, dashboard o superficie densa. MÁXIMO DOS beats por set.
 
-Lo que declaras es la NECESIDAD, slide por slide:
+SUPERFICIES disponibles: ${CAROUSEL_FIGURE_SURFACES.join(', ')}. Varíalas; no repitas la misma en todos los beats. \`document\` y \`dashboard\` siempre cuentan como \`heavy\`.
 
-- "figureRequirement": { "mode": "none" } cuando el slide no lleva números. Es lo normal: en un set de ${ctx.slides.length} beats, al menos tres van así.
-- "figureRequirement": { "mode": "illustrative", "scenarioId": "...", "requiredFields": [...] } cuando sí. En "requiredFields" van los campos que ESE escenario necesita: una hoja de margen pide PRECIO DE VENTA, COSTO IMPORTADO y MARGEN, no el tipo de cambio.
+Cada beat declara:
 
-Escenarios que las rutas de este set admiten, y nada más:
+- \`{ "mode": "none" }\` si no necesita una cifra.
+- \`{ "mode": "illustrative", "scenarioId": "...", "factKeys": ["..."], "narrativePurpose": "...", "weight": "inline|featured|heavy", "suggestedSurface": "..." }\` cuando proyecta parte del escenario.
 
-${bullets([...scenarios].map((s) => `${s}: ${descriptions[s] ?? s}`))}
+\`narrativePurpose\` explica qué demuestra ese subconjunto, no cómo se maqueta. \`factKeys\` solo puede usar hechos admitidos por el escenario. No uses \`requiredFields\`: pertenece al adaptador documental anterior.
 
-Y en "figureScenarioId", a nivel plan, el escenario que gobierna el set — o "none".`;
+Escenarios y hechos disponibles:
+
+${bullets(
+  [...scenarios].map((s) => {
+    const scenario = s as Exclude<CarouselFigureScenarioId, 'none'>;
+    return `${s}: ${descriptions[s] ?? s}. Hechos: ${CAROUSEL_SCENARIO_FACT_KEYS[scenario].join(', ')}`;
+  }),
+)}
+
+Todo escenario hipotético se presenta como ESCENARIO ILUSTRATIVO. No pronostiques. En coberturas, la conclusión es certidumbre del costo, nunca ahorro garantizado.
+
+En \`figureScenarioId\`, a nivel plan, devuelve el único escenario que gobierna el set — o \`none\`.`;
 }
 
 function buildCompositionBlock(ctx: CarouselPlanContext): string {
@@ -397,22 +488,54 @@ function buildSceneRepertoireBlock(ctx: CarouselPlanContext): string {
     'Este es el repertorio de la rama, y es de dónde sales a componer. No es una lista para recorrer en orden ni para agotar: es el material disponible. Un beat puede combinar dos entradas, usar una parte de una, o traer un objeto que no está aquí si la historia lo pide y pertenece a esta rama.',
   );
 
+  /*
+   * El mundo físico va PRIMERO, y el orden es el cambio.
+   *
+   * Antes la primera lista era "Superficies donde puede vivir un dato", que es papel por
+   * definición del campo, y con `moments` fuera era además la única lista positiva del
+   * bloque. La primera lista ancla: la corrida que se midió devolvió `document` en los
+   * cinco beats de las tres historias, y la única entrada no-papel de `dataSurfaces` —la
+   * pantalla con la curva— fue justo la que apareció. El modelo usó todo lo que le dimos.
+   *
+   * Poner la operación física arriba invierte el ancla sin prohibir nada: el documento
+   * sigue disponible y sigue siendo el objeto correcto cuando el copy habla de una
+   * cotización.
+   */
+  if (kit.physicalWorld.length > 0) {
+    parts.push(
+      'La operación de esta rama, hecha objeto. Esto es lo que se compra, se mueve, se instala y se acaba, y NINGUNO es un documento:\n' +
+        bullets(kit.physicalWorld),
+    );
+  }
   if (kit.dataSurfaces.length > 0) {
-    parts.push(`Superficies donde puede vivir un dato:\n${bullets(kit.dataSurfaces)}`);
+    parts.push(
+      'Superficies donde puede vivir un dato. Solo cuando el beat necesita una CIFRA en cuadro — un beat sin cifra no necesita ninguna de estas:\n' +
+        bullets(kit.dataSurfaces),
+    );
   }
   if (kit.changeMarkers.length > 0) {
     parts.push(`Cómo se ve en cuadro que algo se movió:\n${bullets(kit.changeMarkers)}`);
   }
 
-  parts.push(
-    `Punto de partida por tiempo narrativo, y solo eso — un punto de partida:\n${bullets([
-      `apertura: ${kit.moments.apertura}`,
-      `cambio: ${kit.moments.cambio}`,
-      `riesgo: ${kit.moments.riesgo}`,
-      `solución: ${kit.moments.solucion}`,
-      `cierre: ${kit.moments.cierre}`,
-    ])}`,
-  );
+  /*
+   * Aquí iba "Punto de partida por tiempo narrativo": una tabla apertura → cambio →
+   * riesgo → solución → cierre con una evidencia concreta para cada uno. Se quitó.
+   *
+   * Era la hoja de respuestas que la Fase 2 había retirado al borrar
+   * `CAROUSEL_ROLE_LAYOUT_HINT` y `CAROUSEL_ROLE_BRIEFS`, reintroducida sin querer al
+   * pasarle el repertorio de la rama al planificador: el `SceneKit` tenía un campo
+   * `moments` indexado por tiempo narrativo y se volcó tal cual.
+   *
+   * El efecto fue exacto. La tabla decía "cambio: DOS ESTADOS DE LO MISMO en el cuadro —
+   * dos cotizaciones" y el agente devolvía dos cotizaciones; decía "solución: un solo
+   * documento ordenado" y devolvía una cotización final. Cinco beats, cinco aciertos, en
+   * tres rutas distintas. El "y solo eso — un punto de partida" no cambiaba nada: una
+   * solución concreta para los cinco beats le quita cualquier razón para inventar otra.
+   *
+   * Qué queda en su lugar: el ROL dice el trabajo narrativo (`PLANNER_BEAT_JOBS`) y la
+   * RUTA aporta la evidencia. El repertorio de la rama —superficies y marcadores de
+   * cambio— sigue arriba, sin asignar a ningún tiempo.
+   */
 
   /*
    * La regla que el usuario pidió, en sus términos: libertad, pero que cuadre.
@@ -425,7 +548,14 @@ function buildSceneRepertoireBlock(ctx: CarouselPlanContext): string {
   parts.push(
     'DOS REGLAS SOBRE ESTE MATERIAL, y se cumplen las dos:\n' +
       bullets([
-        'VARÍA el material entre beats. Si tres de los cinco beats resuelven su evidencia con el mismo tipo de objeto —tres documentos, tres pantallas, tres veces el producto— el set se lee como el mismo cuadro repetido aunque las cifras cambien. Los objetos de la rama no son solo documentos: hay mercancía, equipo, espacios, superficies y estados.',
+        /*
+         * La segunda mitad de esta regla decía "los objetos de la rama no son solo
+         * documentos: hay mercancía, equipo, espacios, superficies y estados", y era falsa
+         * respecto de la lista que venía justo debajo: el repertorio era papel y pantallas.
+         * Le pedíamos variar hacia un material que nunca le enumeramos. Ahora la lista
+         * existe, así que la regla la señala en vez de prometerla.
+         */
+        'VARÍA el material entre beats. Si tres de los cinco beats resuelven su evidencia con el mismo tipo de objeto —tres documentos, tres pantallas, tres veces el producto— el set se lee como el mismo cuadro repetido aunque las cifras cambien. El documento NO es el material por defecto: es una de las dos listas de arriba, y la otra es la operación física. Un set donde los cinco beats se resuelven en papel está mal aunque cada hoja sea la correcta.',
         'Pero que CUADRE con el copy. La variedad no es decoración: cada objeto tiene que ser el que esa línea exige. Un beat con un objeto llamativo que no dice lo que dice su texto está peor que uno con el objeto obvio. Si el copy habla de una cotización, el documento va: lo que no va es que los cinco beats sean documentos.',
       ]),
   );
@@ -544,6 +674,21 @@ export function buildCarouselPlanPrompt(
         ? `3. LOS BEATS AVANZAN EN EL TIEMPO. Cada uno es un momento posterior al anterior y la distancia entre ellos se nombra. "carryFromPrevious" dice qué se sabía ya en el momento previo; "setupForNext" dice qué queda abierto para el siguiente.`
         : `3. CADA BEAT CONOCE A SUS VECINOS. Sabe qué retoma del anterior, qué deja preparado para el siguiente, y qué todavía NO puede revelar porque es del siguiente. Un set de beats independientes que hablan del mismo tema se lee como plantilla rellenada.`;
 
+  const exampleScenario = ctx.candidateRoutes
+    .flatMap((route) => route.figureScenarios)[0] ?? 'rate_comparison';
+  const exampleFacts = CAROUSEL_SCENARIO_FACT_KEYS[exampleScenario].slice(0, 2);
+  const figureRequirementExample =
+    ctx.sceneKit?.figurePolicy.mode === 'fx_documents'
+      ? `{
+        "mode": "illustrative",
+        "scenarioId": "${exampleScenario}",
+        "factKeys": ${JSON.stringify(exampleFacts)},
+        "narrativePurpose": "establecer el costo de partida de la misma operación",
+        "weight": "inline",
+        "suggestedSurface": "object_label"
+      }`
+      : '{ "mode": "none" }';
+
   const systemMessage = `Eres director narrativo de carruseles para una fintech B2B. Tu trabajo en este paso NO es escribir: es DECIDIR QUÉ HISTORIA SE CUENTA.
 
 No vas a producir un solo headline. No hay campo para ponerlo. Si escribes copy publicable en cualquier campo, el plan se rechaza.
@@ -603,6 +748,8 @@ ${buildSceneRepertoireBlock(ctx)}
 
 ${buildBansBlock(ctx)}
 
+${buildLanguageStyleBlock(ctx.languageStyle)}
+
 ${buildPriorStoriesBlock(ctx)}
 
 ## LO QUE NO PUEDES HACER
@@ -661,7 +808,7 @@ Responde SOLO JSON válido, sin fences ni texto alrededor:
         "density": "balanced",
         "alignment": "asymmetric"
       },
-      "figureRequirement": { "mode": "none" }
+      "figureRequirement": ${figureRequirementExample}
     }
   ]
 }
@@ -734,6 +881,7 @@ function oneOf<T extends string>(v: unknown, allowed: readonly T[], fallback: T)
 function normalizeFigureRequirement(
   raw: unknown,
   allowed: readonly CarouselFigureScenarioId[],
+  beatIndex: number,
 ): CarouselBeatFigureRequirement {
   if (!raw || typeof raw !== 'object') return { mode: 'none' };
   const r = raw as Record<string, unknown>;
@@ -742,10 +890,35 @@ function normalizeFigureRequirement(
   const scenario = str(r.scenarioId) as CarouselFigureScenarioId;
   if (scenario === 'none' || !allowed.includes(scenario)) return { mode: 'none' };
 
+  const scenarioId = scenario as Exclude<CarouselFigureScenarioId, 'none'>;
+  const allowedFacts = CAROUSEL_SCENARIO_FACT_KEYS[scenarioId];
+  const requestedFacts = list(r.factKeys).filter((key): key is CarouselEconomicFactKey =>
+    (allowedFacts as readonly string[]).includes(key)
+  );
+  const fallbackFact = allowedFacts[beatIndex % allowedFacts.length];
+  const suggestedSurface = oneOf<CarouselFigureSurface>(
+    r.suggestedSurface,
+    CAROUSEL_FIGURE_SURFACES,
+    'freeform',
+  );
+  const declaredWeight = oneOf<CarouselFigureWeight>(
+    r.weight,
+    CAROUSEL_FIGURE_WEIGHTS,
+    'inline',
+  );
+  const weight: CarouselFigureWeight =
+    suggestedSurface === 'document' || suggestedSurface === 'dashboard'
+      ? 'heavy'
+      : declaredWeight;
+
   return {
     mode: 'illustrative',
-    scenarioId: scenario as Exclude<CarouselFigureScenarioId, 'none'>,
+    scenarioId,
     requiredFields: list(r.requiredFields),
+    factKeys: requestedFacts.length > 0 ? requestedFacts : [fallbackFact],
+    narrativePurpose: str(r.narrativePurpose),
+    weight,
+    suggestedSurface,
   };
 }
 
@@ -792,69 +965,43 @@ function normalizeComposition(raw: unknown, index: number): CompositionSpec {
 }
 
 // ---------------------------------------------------------------------------
-// Cuántos slides llevan una tabla de datos
+// Cuántas superficies pesadas usa el set
 // ---------------------------------------------------------------------------
 
-/**
- * Máximo de beats con cifras en un set.
- *
- * Dos. Un slide con cifras es un documento en cuadro, y cinco documentos son el mismo
- * cuadro cinco veces aunque los valores cambien. Con dos, los otros tres quedan libres
- * para mercancía, equipo, espacios y estados, que es lo que hace que un set se lea como
- * cinco piezas y no como una repetida.
- *
- * Y dos, no uno: las historias de esta rama comparan. Un solo documento no puede mostrar
- * un antes y un después.
- */
-const MAX_FIGURE_BEATS = 2;
+const MAX_HEAVY_FIGURE_SURFACES = 2;
 
 /**
- * Roles que NUNCA llevan cifras, pase lo que pase.
- *
- * No es el rol decidiendo el contenido —ese fue el bug de origen y sigue prohibido—: es el
- * rol decidiendo el RITMO. La apertura tiene que plantar la tensión con el objeto de la
- * compra, y el cierre es el cuadro más callado del set. Una tabla de datos en cualquiera
- * de los dos rompe el arco antes de que empiece o después de que termine.
- *
- * Es la misma decisión que ya vivía en `scenariosByRole` de los scene kits, que jamás
- * asignó cifras a `tension`, `solution` ni `cta`.
+ * Conserva todos los hechos y aligera únicamente las superficies pesadas sobrantes.
+ * Cifra y documento son dimensiones distintas: quitar el dato para obtener variedad
+ * rompería la historia económica; cambiar su peso preserva el dato y libera el cuadro.
  */
-const ROLES_WITHOUT_FIGURES = new Set([
-  'tension',
-  'hook',
-  'promise',
-  'solution',
-  'close',
-  'cta',
-]);
-
-/**
- * Deja las cifras solo donde sostienen el argumento, y quita el resto.
- *
- * Se conservan los beats elegibles en orden de lectura, porque el mecanismo se explica
- * antes de que el set lo aproveche: si hay que descartar, el que sobra es el de más
- * adelante.
- */
-function capFigureBeats(beats: CarouselStoryBeat[]): {
+function capHeavyFigureSurfaces(beats: CarouselStoryBeat[]): {
   storyboard: CarouselStoryBeat[];
   dropped: string[];
 } {
   const dropped: string[] = [];
-  let kept = 0;
+  let heavy = 0;
 
   const storyboard = beats.map((beat) => {
-    if (beat.figureRequirement.mode !== 'illustrative') return beat;
-
-    const roleAllows = !ROLES_WITHOUT_FIGURES.has(beat.role.toLowerCase());
-    if (roleAllows && kept < MAX_FIGURE_BEATS) {
-      kept++;
+    const req = beat.figureRequirement;
+    if (req.mode !== 'illustrative' || req.weight !== 'heavy') return beat;
+    if (heavy < MAX_HEAVY_FIGURE_SURFACES) {
+      heavy++;
       return beat;
     }
 
-    dropped.push(
-      `${beat.figureRequirement.scenarioId} en el beat ${beat.index} (${beat.role})`,
-    );
-    return { ...beat, figureRequirement: { mode: 'none' as const } };
+    dropped.push(`superficie heavy en el beat ${beat.index} (${beat.role}); se conservan sus hechos`);
+    return {
+      ...beat,
+      figureRequirement: {
+        ...req,
+        weight: 'featured' as const,
+        suggestedSurface:
+          req.suggestedSurface === 'document' || req.suggestedSurface === 'dashboard'
+            ? ('freeform' as const)
+            : req.suggestedSurface,
+      },
+    };
   });
 
   return { storyboard, dropped };
@@ -948,6 +1095,7 @@ export function normalizeCreativePlan(
     : routeOrigin === 'registry' && route
       ? route.figureScenarios
       : ([
+          'quote_comparison',
           'rate_comparison',
           'rate_range',
           'repeated_operations',
@@ -963,7 +1111,7 @@ export function normalizeCreativePlan(
     const b = (rawStoryboard[i] ?? {}) as Record<string, unknown>;
 
     const rawFigure = b.figureRequirement;
-    const figureRequirement = normalizeFigureRequirement(rawFigure, allowedScenarios);
+    const figureRequirement = normalizeFigureRequirement(rawFigure, allowedScenarios, i);
     if (
       rawFigure &&
       typeof rawFigure === 'object' &&
@@ -1019,29 +1167,44 @@ export function normalizeCreativePlan(
   });
 
   /**
-   * El escenario del plan sale del primer beat que pide cifras, no del campo suelto.
+   * Una sola columna vertebral financiera.
    *
-   * Declararlo dos veces —una a nivel plan y otra por beat— invita a que discrepen, y
-   * el que manda es el del beat porque es el que el motor numérico va a leer.
+   * Si el modelo mezcló escenarios, el primero gobierna y los demás se armonizan en
+   * código. Sus hechos se filtran al vocabulario del escenario dominante; así ningún
+   * beat termina narrando otro ejemplo económico dentro del mismo carrusel.
    */
-  /*
-   * Las cifras se limitan aquí, en código, y no se le piden al prompt.
-   *
-   * Corrida real: los cinco beats devolvieron `margin_sensitivity`. Y un beat que declara
-   * que lleva una tabla de datos no puede ser nada más que un documento, así que el set
-   * salió con cinco hojas de papel por más que el repertorio de la rama ofrezca mercancía,
-   * equipo y espacios. Las cifras eran la jaula, no el vocabulario de evidencia.
-   *
-   * Por qué pasa: la ruta declara `figurePolicy: 'required'` con UN solo escenario
-   * disponible, el prompt pide declarar la necesidad slide por slide sin decir cuántos, y
-   * el validador solo exige que haya al menos uno. Cinco es tan válido como uno según el
-   * contrato, así que el modelo lo pone en todos.
-   *
-   * Y por qué en código: el prompt ya falló dos veces en este punto exacto. Cuántos slides
-   * llevan una tabla no es criterio creativo, es el ritmo del set — y el ritmo lo decide
-   * el preset, no el agente.
-   */
-  const figureCapped = capFigureBeats(storyboard);
+  const firstDeclared = storyboard.find((b) => b.figureRequirement.mode === 'illustrative');
+  const dominantScenario =
+    firstDeclared?.figureRequirement.mode === 'illustrative'
+      ? firstDeclared.figureRequirement.scenarioId
+      : null;
+
+  if (dominantScenario) {
+    const allowedFacts = CAROUSEL_SCENARIO_FACT_KEYS[dominantScenario];
+    for (let i = 0; i < storyboard.length; i++) {
+      const beat = storyboard[i];
+      const req = beat.figureRequirement;
+      if (req.mode !== 'illustrative') continue;
+      if (req.scenarioId !== dominantScenario) {
+        droppedFigureScenarios.push(
+          `${req.scenarioId} en beat ${beat.index}; armonizado a ${dominantScenario}`,
+        );
+      }
+      const factKeys = (req.factKeys ?? []).filter((key) => allowedFacts.includes(key));
+      storyboard[i] = {
+        ...beat,
+        figureRequirement: {
+          ...req,
+          scenarioId: dominantScenario,
+          factKeys: factKeys.length > 0
+            ? factKeys
+            : [allowedFacts[i % allowedFacts.length]],
+        },
+      };
+    }
+  }
+
+  const figureCapped = capHeavyFigureSurfaces(storyboard);
   droppedFigureScenarios.push(...figureCapped.dropped);
   storyboard.splice(0, storyboard.length, ...figureCapped.storyboard);
 
@@ -1060,6 +1223,7 @@ export function normalizeCreativePlan(
     angleTag: ctx.angleTag,
     industrySlug: ctx.industrySlug,
     objective: ctx.objective,
+    commercialIntent: ctx.commercialIntent ?? undefined,
     presetSlug: ctx.presetSlug,
     routeId,
     routeOrigin,

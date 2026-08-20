@@ -31,9 +31,7 @@ import { supabase } from '@/integrations/supabase/client';
  */
 import {
   branchUsesFigures,
-  figureScenarioForRole,
   getSceneKit,
-  type SceneKit,
 } from '../../supabase/functions/_shared/sceneKitRegistry';
 /**
  * La misma regla de "el plan cubre este set" que usa la edge function.
@@ -46,25 +44,22 @@ import { useActiveBusiness } from './useActiveBusiness';
 import { useSaveMockup } from './useDesignMockups';
 import { useUpdateBankMeta, type CopyBankItem } from './useDesignCopyBank';
 import {
-  accumulatedFxImpact,
   brandElementsForSlide,
-  DEFAULT_CAROUSEL_OBJECTIVE,
-  type CarouselObjective,
-  buildFigureDocuments,
+  buildCarouselEconomicScenario,
   buildPlanFigureDocuments,
-  computeCarouselFx,
+  projectCarouselEconomicFacts,
   DEFAULT_CAROUSEL_FX,
+  DEFAULT_CAROUSEL_OBJECTIVE,
   CAROUSEL_ASPECT_RATIO,
   CAROUSEL_DIMENSIONS,
-  CAROUSEL_ROLE_BRIEFS,
-  CAROUSEL_ROLE_LAYOUT_HINT,
   getCarouselPreset,
   type CarouselCreativePlan,
+  type CarouselCommercialIntent,
+  type CarouselEconomicScenario,
+  type CarouselObjective,
   type CarouselPlanDigest,
-  type CarouselFigureScenario,
   type CarouselFxAssumptions,
   type CarouselMeta,
-  type CarouselSlideRole,
   type CarouselSlideCopy,
   type CarouselSlot,
   type CarouselSlotStatus,
@@ -114,36 +109,18 @@ export interface UseCarouselQueueParams {
 
 const IMAGE_SIZE = `${CAROUSEL_DIMENSIONS.width}x${CAROUSEL_DIMENSIONS.height}`;
 
-/**
- * What each moment is called in the table the script agent reads.
+/*
+ * Aquí vivía `figureScenarioFor`, que resolvía el escenario numérico de un slide contra
+ * una tabla del scene kit indexada por ROL. Murió con el camino sin plan.
  *
- * Named by position in the mechanism, not by the stamp a slide prints. The stamps
- * differ per slide — the two-state comparison stamps HOY and PAGO on the base and
- * the final moment, while the accumulation slide stamps three successive purchases
- * across all three — so a single set of stamps here would describe one slide and
- * misdescribe the other. `buildFigureDocuments` owns the stamps.
+ * La razón por la que tenía que morir: la tabla le ponía documentos a `shift` y a `risk`
+ * pase lo que pase, así que en una ruta de margen —que prohíbe apilar documentos— el
+ * rol `risk` recibía tres compras sucesivas, la evidencia de otra ruta. El slide salía
+ * impecable contando una historia que nadie decidió.
+ *
+ * Ahora el escenario lo declara el beat en `figureRequirement.scenarioId`, y lo traduce
+ * a documentos `buildPlanFigureDocuments`.
  */
-const FX_MOMENT_LABELS = ['MOMENTO BASE', 'MOMENTO INTERMEDIO', 'MOMENTO FINAL'];
-
-/**
- * Qué slides llevan documentos con cifras: lo decide la RAMA, no solo el rol.
- *
- * Esto era `FIGURE_SCENARIO_BY_ROLE`, una tabla global indexada solo por rol, así
- * que un set de velocidad con rol `shift` recibía los documentos de una operación en
- * divisa —COTIZACIÓN, TOTAL USD, TIPO DE CAMBIO, HOY y PAGO— en una pieza cuya
- * historia es una hora de corte. Y como los montos salían de `DEFAULT_CAROUSEL_FX`,
- * todo set renderizaba los mismos USD 10,000 a 18.20.
- *
- * Ahora la mecánica sale del scene kit de la rama: costos y coberturas comparten la
- * de dos momentos, velocidad no lleva cifras porque las suyas serían afirmaciones
- * operativas que su kit editorial manda no inventar.
- */
-function figureScenarioFor(
-  sceneKit: SceneKit | null,
-  role: CarouselSlideRole,
-): CarouselFigureScenario | null {
-  return figureScenarioForRole(sceneKit, role) as CarouselFigureScenario | null;
-}
 
 /**
  * Platform recorded on the saved mockups. Carousel slides use the same square
@@ -208,6 +185,7 @@ export function useCarouselQueue({
    */
   const [plan, setPlan] = useState<CarouselCreativePlan | null>(null);
   const [planDigest, setPlanDigest] = useState<CarouselPlanDigest | null>(null);
+  const [economicScenario, setEconomicScenario] = useState<CarouselEconomicScenario | null>(null);
   const [isScripting, setIsScripting] = useState(false);
   const [isBuildingPrompts, setIsBuildingPrompts] = useState(false);
   /** Fetching the visual spec from the single-image path. */
@@ -254,6 +232,7 @@ export function useCarouselQueue({
       setObjective(DEFAULT_CAROUSEL_OBJECTIVE);
       setPlan(null);
       setPlanDigest(null);
+      setEconomicScenario(null);
       setError(null);
       return;
     }
@@ -274,6 +253,7 @@ export function useCarouselQueue({
     setObjective(carousel.objective ?? 'vender');
     setPlan(carousel.plan ?? null);
     setPlanDigest(carousel.planDigest ?? null);
+    setEconomicScenario(carousel.economicScenario ?? null);
     setError(null);
   }, [bankItem?.row.id, bankItem?.meta.carousel, applySlots]);
 
@@ -296,15 +276,20 @@ export function useCarouselQueue({
        */
       plan?: CarouselCreativePlan | null;
       planDigest?: CarouselPlanDigest | null;
+      economicScenario?: CarouselEconomicScenario | null;
     }) => {
       if (!bankItem) return;
 
       const nextPlan = next.plan === undefined ? plan : next.plan;
       const nextDigest = next.planDigest === undefined ? planDigest : next.planDigest;
+      const nextEconomicScenario =
+        next.economicScenario === undefined ? economicScenario : next.economicScenario;
 
       const meta: CarouselMeta = {
         presetSlug: next.presetSlug ?? presetSlug ?? '',
         objective: next.objective ?? objective,
+        commercialIntent:
+          nextPlan?.commercialIntent ?? bankItem.meta.carousel?.commercialIntent,
         visualAnchor: next.visualAnchor ?? visualAnchor,
         visualMotif: next.visualMotif ?? visualMotif,
         visualMode: getCarouselPreset(next.presetSlug ?? presetSlug ?? '').visualMode,
@@ -312,6 +297,7 @@ export function useCarouselQueue({
         imageType: next.imageType ?? imageType,
         slots: toPersisted(next.slots),
         plan: nextPlan ?? undefined,
+        economicScenario: nextEconomicScenario ?? undefined,
         planDigest: nextDigest ?? undefined,
         createdAt: bankItem.meta.carousel?.createdAt ?? new Date().toISOString(),
       };
@@ -329,7 +315,7 @@ export function useCarouselQueue({
     },
     [
       bankItem, presetSlug, objective, visualAnchor, visualMotif, groupId, imageType,
-      plan, planDigest, updateBankMeta, persistMeta,
+      plan, planDigest, economicScenario, updateBankMeta, persistMeta,
     ],
   );
 
@@ -341,38 +327,55 @@ export function useCarouselQueue({
     async (params: {
       presetSlug: string;
       objective?: CarouselObjective;
+      commercialIntent: CarouselCommercialIntent;
       guidance?: string;
       fx?: CarouselFxAssumptions;
       /**
-       * La historia elegida por el usuario, si eligió una.
+       * La historia elegida por el usuario. OBLIGATORIA.
        *
-       * Cuando llega, el guion deja de decidir estructura y solo redacta. Sin ella el
-       * camino es el de siempre: briefs y layouts por rol.
+       * No es opcional desde que se eliminó el camino sin plan. Mientras conviviera con
+       * el sistema por rol, el viejo ganaba por concreción: un brief que nombra un objeto
+       * le gana a una ruta que describe una idea, así que tres historias distintas
+       * devolvían los mismos beats 3, 4 y 5. Y cada arreglo había que hacerlo dos veces.
        */
-      plan?: CarouselCreativePlan | null;
+      plan: CarouselCreativePlan;
       planDigest?: CarouselPlanDigest | null;
     }) => {
       if (!bankItem || !activeBusinessId) return false;
 
       const preset = getCarouselPreset(params.presetSlug);
       /**
-       * El plan solo aplica si es del mismo preset y cubre los mismos roles.
+       * El plan tiene que ser del mismo preset y cubrir los mismos roles.
        *
        * El usuario puede generar un plan con un preset y luego cambiar el selector antes
        * de picar "Generar guion". La función de guion también lo verifica —tiene que
-       * hacerlo, es su contrato— pero descartarlo aquí es lo que permite decirlo en la
-       * UI en vez de que el set salga sin plan sin explicación.
+       * hacerlo, es su contrato, y ahí es un 400— pero rechazarlo aquí es lo que permite
+       * decirlo en la UI con el motivo a la vista.
        */
-      const selectedPlan =
-        params.plan &&
+      const plan =
         params.plan.presetSlug === params.presetSlug &&
         planCoversRoles(params.plan, preset.roles)
           ? params.plan
           : null;
 
-      if (params.plan && !selectedPlan) {
+      if (!plan) {
         setError(
           'La historia elegida es de otra estructura. Cambia el preset al que usaste para el plan, o genera un plan nuevo.',
+        );
+        return false;
+      }
+
+      const resolvedBranchSlug = sceneKit?.branchSlug ?? branchSlug?.trim().toLowerCase();
+      if (!resolvedBranchSlug || plan.branchSlug !== resolvedBranchSlug) {
+        setError(
+          'La historia elegida pertenece a otra rama. Genera y selecciona un plan nuevo para este copy.',
+        );
+        return false;
+      }
+
+      if (plan.commercialIntent !== params.commercialIntent) {
+        setError(
+          'La historia elegida usa otro mecanismo comercial. Genera un plan nuevo con el mecanismo seleccionado.',
         );
         return false;
       }
@@ -401,10 +404,13 @@ export function useCarouselQueue({
        * El motor del plan las necesita enteras: una historia de margen deriva el precio de
        * venta del margen objetivo, y eso no está en la lista de momentos del tipo de
        * cambio. Los momentos se siguen calculando porque el prompt del guion los lleva
-       * como tabla de contexto y porque el camino sin plan los consume.
+       * como tabla de contexto: son la mecánica con la que el texto tiene que cuadrar.
        */
       const fxAssumptions = params.fx ?? DEFAULT_CAROUSEL_FX;
-      const fxMoments = usesFigures ? computeCarouselFx(fxAssumptions) : [];
+      const nextEconomicScenario =
+        usesFigures && plan.figureScenarioId !== 'none'
+          ? buildCarouselEconomicScenario(plan.figureScenarioId, fxAssumptions)
+          : null;
       setIsScripting(true);
       setError(null);
 
@@ -422,25 +428,16 @@ export function useCarouselQueue({
                 cta: bankItem.row.cta ?? '',
               },
               /**
-               * Con plan van solo los roles; sin plan, los briefs de siempre.
+               * Solo el rol y los elementos de marca. Nada de contenido ni de layout.
                *
-               * No se manda ninguno de los dos "por si acaso": el brief describe
-               * contenido —"la escena repite: varias compras, varios documentos"— y el
-               * layoutHint es una tabla de composición por rol. Mandarlos junto al plan
-               * le daría al guionista dos fuentes que se contradicen, y la que gana es
-               * la más concreta, que es la equivocada.
+               * El contenido lo declara el beat y la composición viaja en
+               * `beat.compositionFamily`. Mandar además un brief o un layoutHint le daría
+               * al guionista dos fuentes que se contradicen, y la que gana es la más
+               * concreta, que es la equivocada.
                */
               slides: preset.roles.map((role, i) => ({
                 role,
                 brandElements: brandElementsForSlide(preset, i),
-                ...(selectedPlan
-                  ? {}
-                  : {
-                      brief: CAROUSEL_ROLE_BRIEFS[role],
-                      // Composition that suits this beat. The agent may override it;
-                      // what it may not do is use the same one twice in the set.
-                      layoutHint: CAROUSEL_ROLE_LAYOUT_HINT[role],
-                    }),
               })),
               /**
                * La historia ya decidida. Con esto el guion solo elige las palabras.
@@ -450,7 +447,7 @@ export function useCarouselQueue({
                * como sugerencia, y un extracto obligaría a mantener dos formas del mismo
                * contrato.
                */
-              plan: selectedPlan ?? undefined,
+              plan,
               // Text density belongs to the preset, not to the agent.
               visualMode: preset.visualMode,
               // Y cómo se lee la estructura: sin esto, un checklist sale escrito con
@@ -463,28 +460,10 @@ export function useCarouselQueue({
               industryName: bankItem.meta.industryName,
               imageType,
               /**
-               * Figures computed here, not by the agent.
-               *
-               * The rate and the totals have to satisfy USD x TC = MXN when a reader
-               * multiplies them, and a language model does not produce three
-               * mutually consistent numbers reliably. The agent never places these —
-               * they reach the image as documents — it only writes copy that agrees
-               * with the mechanism they describe.
+               * Una sola fuente financiera para todo el set. El guionista puede leer la
+               * mecánica, pero no copiar valores; cada beat recibe su proyección después.
                */
-              fxMoments: fxMoments.map((m, i) => ({
-                label: FX_MOMENT_LABELS[i] ?? `MOMENTO ${i + 1}`,
-                ...m.labels,
-              })),
-              /**
-               * The number the repetition slide is about: the gaps adding up.
-               *
-               * `undefined` and not the empty string when the branch carries no
-               * figures: the prompt tests for truthiness, and an empty label would
-               * render "IMPACTO ACUMULADO" followed by nothing.
-               */
-              fxAccumulated: usesFigures
-                ? accumulatedFxImpact(fxMoments).label
-                : undefined,
+              economicScenario: nextEconomicScenario ?? undefined,
               guidance: params.guidance?.trim() || undefined,
             },
           },
@@ -527,7 +506,7 @@ export function useCarouselQueue({
          * y un "+4.0%" suelto — una lista plana de etiquetas no puede decir qué valor va
          * dónde.
          *
-         * Lo que sí cambió es QUIÉN elige el escenario.
+         * Lo que sí cambió es QUIÉN elige el escenario: lo elige el BEAT.
          *
          * Antes lo elegía el ROL, contra una tabla de la rama, y por eso el render
          * contradecía la historia: en una ruta de margen —que prohíbe explícitamente
@@ -536,55 +515,71 @@ export function useCarouselQueue({
          * historia. Y los dos vocabularios ni se cruzaban: el plan pedía
          * `margin_sensitivity` y el scene kit solo sabía de `two_moment` y
          * `repeated_purchases`.
-         *
-         * Ahora, con plan, lo elige el beat. Sin plan, la tabla por rol queda intacta
-         * porque es el camino que hoy produce carruseles.
          */
         const withFigures = nextSlots.map((slot, i) => {
-          if (!slot.brief || !usesFigures) return slot;
+          if (!slot.brief || !nextEconomicScenario) return slot;
 
-          const beat = selectedPlan?.storyboard[i];
+          const beat = plan.storyboard[i];
+          if (!beat || beat.figureRequirement.mode !== 'illustrative') return slot;
 
-          if (beat) {
-            /*
-             * El plan manda, incluido cuando dice que no.
-             *
-             * `mode: 'none'` es una decisión, no la ausencia de una: la mayoría de las
-             * historias se cuentan mejor con objetos, fechas y estados. Caer a la tabla
-             * por rol aquí devolvería el problema completo, porque esa tabla le pone
-             * documentos a `shift` y a `risk` pase lo que pase.
-             */
-            if (beat.figureRequirement.mode !== 'illustrative') return slot;
+          const requirement = beat.figureRequirement;
 
+          // Plan anterior al contrato de hechos: conserva exactamente su adaptador
+          // documental en vez de reinterpretarlo con una superficie nueva.
+          if (requirement.factKeys === undefined) {
             const { documents, accumulatedLabel } = buildPlanFigureDocuments(
-              beat.figureRequirement.scenarioId,
+              requirement.scenarioId,
               fxAssumptions,
             );
-
-            /*
-             * Sin constructor, sin documentos. No se adivina uno parecido.
-             *
-             * Un slide con los documentos de otra historia se ve perfectamente bien y
-             * cuenta algo que nadie decidió; uno sin cifras se nota y se corrige.
-             */
-            if (documents.length === 0) return slot;
-
-            return { ...slot, brief: { ...slot.brief, documents, accumulatedLabel } };
+            return documents.length > 0
+              ? { ...slot, brief: { ...slot.brief, documents, accumulatedLabel } }
+              : slot;
           }
 
-          const scenario = figureScenarioFor(sceneKit, slot.role);
-          if (!scenario) return slot;
+          const economicFacts = projectCarouselEconomicFacts(
+            nextEconomicScenario,
+            requirement.factKeys ?? [],
+          );
+          if (economicFacts.length === 0) return slot;
 
-          const documents = buildFigureDocuments(scenario, fxMoments);
+          const figurePresentation = {
+            scenarioId: requirement.scenarioId,
+            qualifier: nextEconomicScenario.qualifier,
+            narrativePurpose: requirement.narrativePurpose ?? beat.visualEvidence,
+            weight: requirement.weight ?? 'inline',
+            suggestedSurface: requirement.suggestedSurface ?? 'freeform',
+          } as const;
+
+          /*
+           * El documento es un adaptador explícito, no el formato universal de una cifra.
+           * Carruseles antiguos conservan sus `brief.documents`; los nuevos solo los
+           * construyen cuando la superficie elegida es realmente document.
+           */
+          if (figurePresentation.suggestedSurface === 'document') {
+            const { documents, accumulatedLabel } = buildPlanFigureDocuments(
+              requirement.scenarioId,
+              fxAssumptions,
+            );
+            return {
+              ...slot,
+              brief: {
+                ...slot.brief,
+                economicFacts,
+                figurePresentation,
+                documents: documents.length > 0 ? documents : undefined,
+                accumulatedLabel,
+              },
+            };
+          }
+
           return {
             ...slot,
             brief: {
               ...slot.brief,
-              documents,
-              accumulatedLabel:
-                scenario === 'repeated_purchases'
-                  ? accumulatedFxImpact(fxMoments).label
-                  : undefined,
+              economicFacts,
+              figurePresentation,
+              documents: undefined,
+              accumulatedLabel: undefined,
             },
           };
         });
@@ -594,8 +589,9 @@ export function useCarouselQueue({
         setGroupId(newGroupId);
         setPresetSlug(params.presetSlug);
         setObjective(nextObjective);
-        setPlan(selectedPlan);
-        setPlanDigest(selectedPlan ? params.planDigest ?? null : null);
+        setPlan(plan);
+        setPlanDigest(params.planDigest ?? null);
+        setEconomicScenario(nextEconomicScenario);
         setVisualAnchor('');
 
         await persist({
@@ -608,14 +604,16 @@ export function useCarouselQueue({
           presetSlug: params.presetSlug,
           objective: nextObjective,
           /**
-           * Explícito, y `null` cuando no hubo plan.
+           * Explícito: el plan con el que se escribió ESTE set.
            *
-           * Rescribir el guion sin elegir historia tiene que borrar el plan anterior: el
-           * set nuevo no se escribió con él, y dejarlo guardado haría que el storyboard
-           * del panel describiera unos slides que ya no existen.
+           * Se pasa aunque ya esté en el state porque el setter de arriba todavía no
+           * aterrizó, así que el valor en el closure de `persist` sigue siendo el
+           * anterior — y el storyboard del panel describiría unos slides que ya no
+           * existen.
            */
-          plan: selectedPlan,
-          planDigest: selectedPlan ? params.planDigest ?? null : null,
+          plan,
+          planDigest: params.planDigest ?? null,
+          economicScenario: nextEconomicScenario,
         });
 
         return true;
@@ -626,7 +624,7 @@ export function useCarouselQueue({
         setIsScripting(false);
       }
     },
-    [bankItem, activeBusinessId, branchId, sceneKit, imageType, objective, persist, applySlots],
+    [bankItem, activeBusinessId, branchId, branchSlug, sceneKit, imageType, objective, persist, applySlots],
   );
 
   // -------------------------------------------------------------------------

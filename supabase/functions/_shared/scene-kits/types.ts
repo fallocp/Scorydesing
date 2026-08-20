@@ -18,17 +18,19 @@
  * la constante compartida.
  */
 
-/** Cómo se ve en cuadro que algo tiene dos estados. */
-export type SceneFigureScenario = 'two_moment' | 'repeated_purchases';
-
-/** Tiempos narrativos de un set, en los términos del repertorio. */
-export interface SceneMomentRepertoire {
-  apertura: string;
-  cambio: string;
-  riesgo: string;
-  solucion: string;
-  cierre: string;
-}
+/*
+ * Aquí vivía `SceneMomentRepertoire`: apertura, cambio, riesgo, solución y cierre, cada
+ * uno con una evidencia visual concreta. Y el campo `SceneKit.moments` que lo llevaba.
+ *
+ * Se borró en la Fase E porque era una tabla `tiempo narrativo → evidencia`, o sea la
+ * misma hoja de respuestas que ya se había quitado de los briefs por rol, entrando otra
+ * vez por la puerta del repertorio de rama. Viajaba a dos prompts —el planificador y el
+ * escritor de escena— y en los dos ganaba: es más concreta que la ruta, y la posición del
+ * beat coincide con el tiempo narrativo siempre.
+ *
+ * El repertorio de la rama que SÍ queda es el que no asigna nada: `dataSurfaces` y
+ * `changeMarkers` son material disponible, no una respuesta por posición.
+ */
 
 /**
  * Si la rama lleva documentos con cifras, y en qué slides.
@@ -40,15 +42,15 @@ export interface SceneMomentRepertoire {
  */
 export interface SceneFigurePolicy {
   mode: 'fx_documents' | 'none';
-  /**
-   * Qué escenario numérico le toca a cada rol narrativo. Vacío cuando el modo es
-   * `none`.
+  /*
+   * Aquí iba `scenariosByRole`, y con él el tipo `SceneFigureScenario`.
    *
-   * Indexado por rol y no global, porque solo dos tiempos del arco necesitan
-   * cifras: el que explica el mecanismo, que necesita la misma operación en dos
-   * momentos, y el de repetición, que la necesita varias veces.
+   * Asignaba el escenario numérico por ROL, así que en cualquier historia el rol `shift`
+   * recibía dos momentos y el rol `risk` tres compras sucesivas, aunque su ruta prohibiera
+   * apilar documentos. Ahora lo declara el beat en `figureRequirement.scenarioId`.
+   *
+   * Lo que queda es lo que sí es de la rama: si puede llevar cifras, y por qué.
    */
-  scenariosByRole: Record<string, SceneFigureScenario>;
   /** Por qué la rama tiene esta política. Va al prompt. */
   note: string;
 }
@@ -57,12 +59,53 @@ export interface SceneKit {
   version: string;
   branchSlug: string;
   branchName: string;
+  /**
+   * El mundo físico de la rama: la operación hecha objeto, sin una hoja en cuadro.
+   *
+   * Se añadió después de medir la primera corrida sin la tabla de tiempo narrativo. Ahí
+   * las tres historias sí divergieron en pregunta y en composición —el fallo declarado se
+   * rompió— pero `document` seguía apareciendo en QUINCE de quince beats.
+   *
+   * La causa no era el prompt, era el inventario. Al quitar `moments`, el único vocabulario
+   * positivo que le quedaba al planificador era `dataSurfaces`, y de sus siete entradas
+   * seis son papel. No es un descuido: el campo pregunta "dónde puede vivir un dato", así
+   * que su respuesta correcta siempre va a ser papel y pantallas. Le pedíamos variar hacia
+   * mercancía, equipo y espacios en un párrafo que prometía un material que la lista de
+   * abajo nunca enumeraba.
+   *
+   * Por eso es un campo nuevo y no entradas más en `dataSurfaces`: una tarima no es una
+   * superficie donde vive un dato, y meterla ahí rompería el otro trabajo de ese campo, que
+   * es decirle al agente de imagen dónde puede renderizar una cifra legible.
+   *
+   * Qué va aquí: la mercancía, el embalaje, la tarima, el estante, la máquina, el espacio.
+   * Objetos y estados. Cero documentos.
+   *
+   * UNA COSA POR ENTRADA, y esta es la regla que ya se rompió una vez. La primera versión
+   * traía entradas como "una unidad junto al lote completo" o "el estante lleno de un lado y
+   * con el hueco del otro": comparaciones metidas en una sola línea. Eso no es un objeto, es
+   * un ENCUADRE disfrazado de objeto, y el planificador lo usó como tal — tres historias
+   * abrieron en `partido · comparativo` y dos quedaron bloqueadas por
+   * `identical_composition_sequence`. Un par no le da material, le da la toma resuelta.
+   *
+   * Los pares van en `changeMarkers`, que existe para eso. La frontera entre los dos campos
+   * es la regla entera: aquí una cosa, allá una cosa contra otra. Hay una guarda en
+   * `carousel-prompt-smoke.test.ts` que rechaza los conectores de par en este campo.
+   *
+   * Y tiene que haber entradas de objeto YA RESUELTO —el estante completo, el equipo
+   * instalado y funcionando—, porque el beat de solución necesita algo físico que se lea
+   * como "esto ya quedó definido". Sin ninguna, se resuelve en una pantalla siempre.
+   */
+  physicalWorld: string[];
   /** Dónde puede vivir un dato dentro de la escena, en objetos de esta rama. */
   dataSurfaces: string[];
-  /** Cómo se ve que algo se movió, en el vocabulario visual de esta rama. */
+  /**
+   * Cómo se ve que algo se movió, en el vocabulario visual de esta rama.
+   *
+   * Este SÍ es el campo de los pares: A contra B, antes contra después. Y no solo en papel
+   * — los tres últimos de costos son físicos, porque hasta v3 la rama no tenía una sola
+   * forma no documental de mostrar un cambio.
+   */
   changeMarkers: string[];
-  /** Recurso de partida por tiempo narrativo. */
-  moments: SceneMomentRepertoire;
   /**
    * Props que pertenecen a otra rama.
    *

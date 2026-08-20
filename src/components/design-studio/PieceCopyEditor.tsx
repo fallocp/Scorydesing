@@ -24,6 +24,7 @@ import type {
   PieceCopy,
   PieceImagePrompt,
 } from '@/types/design-studio';
+import { DESIGN_IMAGE_TYPE_OPTIONS } from '@/utils/design-studio/masterImagePrompt';
 
 interface PieceCopyEditorProps {
   pieceCopy: PieceCopy | null;
@@ -51,11 +52,21 @@ interface PieceCopyEditorProps {
   disabled?: boolean;
 }
 
-const IMAGE_TYPE_OPTIONS: { value: DesignImageType; label: string; icon: typeof Camera }[] = [
-  { value: 'foto', label: 'Foto', icon: Camera },
-  { value: 'infografia', label: 'Infografía', icon: BarChart3 },
-  { value: 'financiero', label: 'Inf Rutas y Mapas', icon: TrendingUp },
-];
+/**
+ * Los tres medios, con las etiquetas compartidas con el carrusel. Aquí solo se les
+ * pega el icono: los nombres y las descripciones viven en un único lugar para que
+ * los dos selectores de la página no puedan llamar distinto al mismo valor.
+ */
+const IMAGE_TYPE_ICONS: Record<DesignImageType, typeof Camera> = {
+  foto: Camera,
+  infografia: BarChart3,
+  financiero: TrendingUp,
+};
+
+const IMAGE_TYPE_OPTIONS = DESIGN_IMAGE_TYPE_OPTIONS.map((option) => ({
+  ...option,
+  icon: IMAGE_TYPE_ICONS[option.value],
+}));
 
 const DEFAULT_CORRIDOR_OVERRIDE: CorridorOverride = {
   mode: 'auto',
@@ -172,10 +183,13 @@ export function PieceCopyEditor({
       </div>
       )}
 
-      {/* Image type selector */}
+      {/* Image type selector.
+          Dice "de la imagen individual" a propósito: el carrusel tiene su propio
+          selector más abajo y son independientes, así que un título genérico como
+          "Tipo de imagen" hacía pensar que este mandaba en todo. */}
       <div className="space-y-3">
         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-          Tipo de imagen
+          Estilo visual de la imagen individual
         </Label>
 
         <div className="flex gap-2">
@@ -204,6 +218,11 @@ export function PieceCopyEditor({
             );
           })}
         </div>
+
+        <p className="text-[11px] text-muted-foreground">
+          {IMAGE_TYPE_OPTIONS.find((o) => o.value === pieceImagePrompt?.type)?.hint
+            ?? 'Elige el medio antes de generar el prompt de imagen.'}
+        </p>
       </div>
 
       {/* Corridor resolver override — only relevant to mapa/rutas. */}

@@ -332,7 +332,7 @@ describe('normalizeCreativePlan', () => {
 
     expect(plan.storyQuestion).toBe('¿De qué está hecho lo que termino pagando?');
     expect(plan.deepeningMode).toBe('anatomy');
-    expect(plan.resolutionMechanism).toContain('desglosados');
+    expect(plan.resolutionMechanism).toContain('componentes verificables');
   });
 
   it('vacía los campos de vecindad en los extremos', () => {
@@ -626,6 +626,16 @@ describe('validateCarouselCreativePlan', () => {
     expect(codesOf(plan, ctx)).toContain('forbidden_evidence_device');
   });
 
+  it('atrapa un claim prohibido en cualquier superficie narrativa', () => {
+    const plan = validCostPlan();
+    plan.storyboard[1].primaryObjects = ['que el banco engaña'];
+
+    const found = validateCarouselCreativePlan(plan, ctx).issues.find(
+      (issue) => issue.code === 'route_forbidden_claim',
+    );
+    expect(found?.message).toContain('primaryObjects');
+  });
+
   it('atrapa utilería de otra rama', () => {
     const plan = validCostPlan();
     plan.storyboard[2].primaryObjects = ['un calendario de vencimientos futuros'];
@@ -638,6 +648,28 @@ describe('validateCarouselCreativePlan', () => {
     plan.storyboard[0].verbalMessage = 'Los costos ocultos que los bancos esconden.';
 
     expect(codesOf(plan, ctx)).toContain('banned_phrase');
+  });
+
+  it('atrapa jerga no publicable y propone la reescritura del kit', () => {
+    /*
+     * La política de lenguaje del kit viaja en el contexto. Un calco como "liberar el
+     * pago" en cualquier superficie de texto se rechaza, y el repairHint trae la forma
+     * natural para que el crítico cierre el fallo en una ronda.
+     */
+    const styledCtx = ctxFor('costos-ahorro', {
+      languageStyle: {
+        internalTermsNeverPublish: ['liberar el pago'],
+        preferredRewrites: { 'liberar el pago': 'realizar el pago' },
+      },
+    });
+    const plan = validCostPlan();
+    plan.storyboard[3].verbalMessage = 'La solución es liberar el pago cuando conviene.';
+
+    const found = validateCarouselCreativePlan(plan, styledCtx).issues.find(
+      (issue) => issue.code === 'non_publishable_language',
+    );
+    expect(found?.message).toContain('verbalMessage');
+    expect(found?.repairHint).toContain('realizar el pago');
   });
 
   it('dice en qué campo está el ángulo prohibido', () => {

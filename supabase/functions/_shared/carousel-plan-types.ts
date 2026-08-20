@@ -174,6 +174,23 @@ export type StoryRouteOrigin = 'registry' | 'agent_proposed';
 /** Para qué es el set. Decide el cierre y el presupuesto de marca. */
 export type CarouselPlanObjective = 'explicar' | 'conectar' | 'vender';
 
+/**
+ * Mecanismo comercial que el copy vende. Es independiente de la metáfora visual y del
+ * escenario aritmético; evita que una comparación spot termine contada como forward.
+ */
+export type CarouselCommercialIntent =
+  | 'quote_comparison'
+  | 'forward'
+  | 'cost_plus_speed'
+  | 'cost_component';
+
+export const CAROUSEL_COMMERCIAL_INTENTS: readonly CarouselCommercialIntent[] = [
+  'quote_comparison',
+  'forward',
+  'cost_plus_speed',
+  'cost_component',
+] as const;
+
 /** Medio visual del set completo. Mezclarlos rompe el set. */
 export type CarouselPlanMedium = 'foto' | 'infografia' | 'financiero';
 
@@ -343,6 +360,7 @@ export const CAROUSEL_COMPOSITION_FAMILIES: readonly CarouselCompositionFamily[]
 export type CarouselFigureScenarioId =
   | 'none'
   | 'rate_comparison'
+  | 'quote_comparison'
   | 'rate_range'
   | 'repeated_operations'
   | 'accumulated_difference'
@@ -352,6 +370,7 @@ export type CarouselFigureScenarioId =
 export const CAROUSEL_FIGURE_SCENARIOS: readonly CarouselFigureScenarioId[] = [
   'none',
   'rate_comparison',
+  'quote_comparison',
   'rate_range',
   'repeated_operations',
   'accumulated_difference',
@@ -359,22 +378,220 @@ export const CAROUSEL_FIGURE_SCENARIOS: readonly CarouselFigureScenarioId[] = [
   'cashflow_certainty',
 ] as const;
 
+/** Límites de inputs financieros compartidos por UI y frontera backend. */
+export const CAROUSEL_MIN_FX_RATE = 0.01;
+export const CAROUSEL_MAX_FX_RATE = 1_000;
+export const CAROUSEL_MIN_OPERATION_USD = 1;
+export const CAROUSEL_MAX_OPERATION_USD = 100_000_000;
+
+/** Hechos que puede derivar el motor financiero. No describen cómo se dibujan. */
+export type CarouselEconomicFactKey =
+  | 'operation_usd'
+  | 'base_rate'
+  | 'exposed_rate'
+  | 'base_cost_mxn'
+  | 'exposed_cost_mxn'
+  | 'cost_delta_mxn'
+  | 'cost_delta_pct'
+  | 'quote_a_rate'
+  | 'quote_b_rate'
+  | 'quote_a_cost_mxn'
+  | 'quote_b_cost_mxn'
+  | 'quote_difference_mxn'
+  | 'quote_difference_pct'
+  | 'sale_price_mxn'
+  | 'base_gross_profit_mxn'
+  | 'exposed_gross_profit_mxn'
+  | 'base_gross_margin_pct'
+  | 'exposed_gross_margin_pct'
+  | 'accumulated_impact_mxn'
+  | 'defined_cost_mxn';
+
+export const CAROUSEL_ECONOMIC_FACT_KEYS: readonly CarouselEconomicFactKey[] = [
+  'operation_usd',
+  'base_rate',
+  'exposed_rate',
+  'base_cost_mxn',
+  'exposed_cost_mxn',
+  'cost_delta_mxn',
+  'cost_delta_pct',
+  'quote_a_rate',
+  'quote_b_rate',
+  'quote_a_cost_mxn',
+  'quote_b_cost_mxn',
+  'quote_difference_mxn',
+  'quote_difference_pct',
+  'sale_price_mxn',
+  'base_gross_profit_mxn',
+  'exposed_gross_profit_mxn',
+  'base_gross_margin_pct',
+  'exposed_gross_margin_pct',
+  'accumulated_impact_mxn',
+  'defined_cost_mxn',
+] as const;
+
+/** Hechos disponibles por escenario; el plan solo puede referenciar este subconjunto. */
+export const CAROUSEL_SCENARIO_FACT_KEYS: Record<
+  Exclude<CarouselFigureScenarioId, 'none'>,
+  readonly CarouselEconomicFactKey[]
+> = {
+  rate_comparison: [
+    'operation_usd', 'base_rate', 'exposed_rate', 'base_cost_mxn',
+    'exposed_cost_mxn', 'cost_delta_mxn', 'cost_delta_pct',
+  ],
+  quote_comparison: [
+    'operation_usd', 'quote_a_rate', 'quote_b_rate', 'quote_a_cost_mxn',
+    'quote_b_cost_mxn', 'quote_difference_mxn', 'quote_difference_pct',
+  ],
+  rate_range: [
+    'operation_usd', 'base_rate', 'exposed_rate', 'base_cost_mxn',
+    'exposed_cost_mxn', 'cost_delta_mxn', 'cost_delta_pct',
+  ],
+  repeated_operations: [
+    'operation_usd', 'base_rate', 'exposed_rate', 'base_cost_mxn',
+    'exposed_cost_mxn', 'cost_delta_mxn', 'cost_delta_pct', 'accumulated_impact_mxn',
+  ],
+  accumulated_difference: [
+    'operation_usd', 'base_rate', 'exposed_rate', 'base_cost_mxn',
+    'exposed_cost_mxn', 'cost_delta_mxn', 'cost_delta_pct', 'accumulated_impact_mxn',
+  ],
+  margin_sensitivity: [
+    'operation_usd', 'base_rate', 'exposed_rate', 'base_cost_mxn',
+    'exposed_cost_mxn', 'sale_price_mxn', 'base_gross_profit_mxn',
+    'exposed_gross_profit_mxn', 'base_gross_margin_pct', 'exposed_gross_margin_pct',
+  ],
+  cashflow_certainty: ['operation_usd', 'base_rate', 'defined_cost_mxn'],
+};
+
+/** Intensidad de la superficie, independiente de cuántas cifras muestra. */
+export type CarouselFigureWeight = 'inline' | 'featured' | 'heavy';
+export const CAROUSEL_FIGURE_WEIGHTS: readonly CarouselFigureWeight[] = [
+  'inline',
+  'featured',
+  'heavy',
+] as const;
+
+/** Familia sugerida; el hecho económico permanece igual aunque cambie la metáfora. */
+export type CarouselFigureSurface =
+  | 'object_label'
+  | 'scale_progression'
+  | 'margin_band'
+  | 'cost_anatomy'
+  | 'process_flow'
+  | 'spatial_budget'
+  | 'decision_paths'
+  | 'physical_accumulation'
+  | 'document'
+  | 'dashboard'
+  | 'freeform';
+
+export const CAROUSEL_FIGURE_SURFACES: readonly CarouselFigureSurface[] = [
+  'object_label',
+  'scale_progression',
+  'margin_band',
+  'cost_anatomy',
+  'process_flow',
+  'spatial_budget',
+  'decision_paths',
+  'physical_accumulation',
+  'document',
+  'dashboard',
+  'freeform',
+] as const;
+
+export type CarouselEconomicUnit = 'USD' | 'MXN' | 'rate' | 'percent';
+export type CarouselEconomicState = 'base' | 'exposed' | 'delta' | 'derived' | 'defined';
+
+/** Unidad y estado autoritativos por key; nunca los decide el payload. */
+export const CAROUSEL_ECONOMIC_FACT_SHAPES: Record<
+  CarouselEconomicFactKey,
+  Readonly<{ unit: CarouselEconomicUnit; state: CarouselEconomicState }>
+> = {
+  operation_usd: { unit: 'USD', state: 'base' },
+  base_rate: { unit: 'rate', state: 'base' },
+  exposed_rate: { unit: 'rate', state: 'exposed' },
+  base_cost_mxn: { unit: 'MXN', state: 'base' },
+  exposed_cost_mxn: { unit: 'MXN', state: 'exposed' },
+  cost_delta_mxn: { unit: 'MXN', state: 'delta' },
+  cost_delta_pct: { unit: 'percent', state: 'delta' },
+  quote_a_rate: { unit: 'rate', state: 'base' },
+  quote_b_rate: { unit: 'rate', state: 'derived' },
+  quote_a_cost_mxn: { unit: 'MXN', state: 'base' },
+  quote_b_cost_mxn: { unit: 'MXN', state: 'derived' },
+  quote_difference_mxn: { unit: 'MXN', state: 'delta' },
+  quote_difference_pct: { unit: 'percent', state: 'delta' },
+  sale_price_mxn: { unit: 'MXN', state: 'defined' },
+  base_gross_profit_mxn: { unit: 'MXN', state: 'base' },
+  exposed_gross_profit_mxn: { unit: 'MXN', state: 'exposed' },
+  base_gross_margin_pct: { unit: 'percent', state: 'base' },
+  exposed_gross_margin_pct: { unit: 'percent', state: 'exposed' },
+  accumulated_impact_mxn: { unit: 'MXN', state: 'delta' },
+  defined_cost_mxn: { unit: 'MXN', state: 'defined' },
+};
+
+/** Un dato calculado y formateado, todavía sin decidir si vive en una caja, banda o tabla. */
+export interface CarouselEconomicFact {
+  key: CarouselEconomicFactKey;
+  label: string;
+  value: number;
+  formattedValue: string;
+  unit: CarouselEconomicUnit;
+  state: CarouselEconomicState;
+  colorRole?: 'control' | 'risk';
+}
+
+/** Fuente persistida y resultado derivado de una sola historia económica. */
+export interface CarouselEconomicScenario {
+  version: 1;
+  scenarioId: Exclude<CarouselFigureScenarioId, 'none'>;
+  qualifier: 'ESCENARIO ILUSTRATIVO';
+  assumptions: {
+    baseRate: number;
+    /** Segunda tasa simultánea para comparar cotizaciones. */
+    comparisonRate?: number;
+    amountUsd: number;
+    driftPct: number[];
+    /** Markup sobre costo. Sustituye al antiguo nombre ambiguo `marginPct`. */
+    markupPct: number;
+  };
+  derived: {
+    baseCostMxn: number;
+    exposedRate: number;
+    exposedCostMxn: number;
+    costDeltaMxn: number;
+    costDeltaPct: number;
+    comparisonRate?: number;
+    comparisonCostMxn?: number;
+    quoteDifferenceMxn?: number;
+    quoteDifferencePct?: number;
+    salePriceMxn: number;
+    baseGrossProfitMxn: number;
+    exposedGrossProfitMxn: number;
+    baseGrossMarginPct: number;
+    exposedGrossMarginPct: number;
+    accumulatedImpactMxn: number;
+  };
+  facts: CarouselEconomicFact[];
+  createdAt: string;
+}
+
 /**
- * Si un slide lleva cifras y cuáles necesita.
+ * Qué parte del escenario usa un beat y con qué peso visual.
  *
- * Los valores NO viven aquí: el motor numérico los calcula en código y los inyecta
- * como documentos al construir la imagen. Lo que el storyboard declara es la
- * NECESIDAD, porque la aritmética es el mensaje y un modelo de lenguaje no la
- * sostiene: una corrida real puso USD 8,750 junto a MXN 157,980, cotizando un tipo
- * de cambio de 18.06 que nadie eligió.
+ * `requiredFields` se conserva para planes persistidos anteriores. Los planes nuevos
+ * usan `factKeys`: el dato no prescribe documento, tabla ni dashboard.
  */
 export type CarouselBeatFigureRequirement =
   | { mode: 'none' }
   | {
       mode: 'illustrative';
       scenarioId: Exclude<CarouselFigureScenarioId, 'none'>;
-      /** Campos que el documento tiene que mostrar. Ej. 'TOTAL USD', 'TIPO DE CAMBIO'. */
-      requiredFields: string[];
+      /** Legacy: nombres de campos que pedía el adaptador documental. */
+      requiredFields?: string[];
+      factKeys?: CarouselEconomicFactKey[];
+      narrativePurpose?: string;
+      weight?: CarouselFigureWeight;
+      suggestedSurface?: CarouselFigureSurface;
     };
 
 /** Política de cifras de una ruta. */
@@ -492,6 +709,8 @@ export interface CarouselCreativePlan {
   angleTag: string | null;
   industrySlug: string | null;
   objective: CarouselPlanObjective;
+  /** Mecanismo comercial explícito. Ausente en planes legacy. */
+  commercialIntent?: CarouselCommercialIntent;
   presetSlug: string;
 
   routeId: string;
@@ -686,6 +905,8 @@ export interface RegisteredStoryRoute {
   branchSlugs: string[];
   /** Ángulos compatibles. Vacío = todos los de la rama. */
   compatibleAngles: string[];
+  /** Mecanismos comerciales compatibles. Ausente o vacío = todos. */
+  compatibleCommercialIntents?: CarouselCommercialIntent[];
   /** Objetivos compatibles. Vacío = todos. */
   compatibleObjectives: CarouselPlanObjective[];
   /** Presets compatibles. Vacío = todos. */
@@ -802,6 +1023,8 @@ export interface CarouselPlanContext {
   industrySlug: string | null;
   industryName: string | null;
   objective: CarouselPlanObjective;
+  /** Mecanismo comercial explícito. Ausente en planes legacy. */
+  commercialIntent?: CarouselCommercialIntent;
   presetSlug: string;
   medium: CarouselPlanMedium;
   slides: CarouselPlanSlideSpec[];
@@ -816,6 +1039,8 @@ export interface CarouselPlanContext {
   copyKitVersion: string;
   /** Frases y ángulos que el kit editorial prohíbe. */
   bannedPhrases: string[];
+  /** Política de lenguaje publicable de la rama, o `null` si el kit no la trae. */
+  languageStyle?: CarouselLanguageStyle | null;
 
   candidateRoutes: RegisteredStoryRoute[];
   recentFingerprints: string[];
@@ -824,6 +1049,23 @@ export interface CarouselPlanContext {
   diversityMode: DiversityMode;
   /** Si el agente puede inventar una ruta que no está en el registro. */
   allowAgentProposedRoute: boolean;
+}
+
+/**
+ * Política de lenguaje publicable, en su forma estructural.
+ *
+ * Es el mismo dato que `CopyKitLanguageStyle` del copy kit, redeclarado sin importar
+ * nada por la misma razón que `SceneKitLike`: este archivo viaja al frontend y no puede
+ * resolver imports por URL. El planificador y el guionista lo usan para no dejar pasar
+ * jerga interna ni calcos del inglés a un headline.
+ */
+export interface CarouselLanguageStyle {
+  locale?: string;
+  note?: string;
+  /** Términos internos u operativos que jamás se publican. */
+  internalTermsNeverPublish?: string[];
+  /** Reescrituras aprobadas: término no publicable → forma natural. */
+  preferredRewrites?: Record<string, string>;
 }
 
 /**
@@ -837,6 +1079,14 @@ export interface SceneKitLike {
   branchSlug: string;
   branchName: string;
   /**
+   * El mundo físico de la rama: la operación hecha objeto, sin papel.
+   *
+   * Es el campo que le da al planificador a dónde variar. Sin él, su único vocabulario
+   * positivo era `dataSurfaces`, que es papel por definición del campo, y `document`
+   * aparecía en los cinco beats de las tres historias. Ver `scene-kits/types.ts`.
+   */
+  physicalWorld: string[];
+  /**
    * Dónde puede vivir un dato dentro de la escena, en objetos de esta rama.
    *
    * Faltaba, y era el hueco que hacía colapsar los storyboards. El planificador recibía
@@ -848,14 +1098,10 @@ export interface SceneKitLike {
   dataSurfaces: string[];
   /** Cómo se ve que algo se movió, en el vocabulario visual de esta rama. */
   changeMarkers: string[];
-  /** Recurso de partida por tiempo narrativo. */
-  moments: {
-    apertura: string;
-    cambio: string;
-    riesgo: string;
-    solucion: string;
-    cierre: string;
-  };
+  /*
+   * Aquí iba `moments`, la tabla tiempo narrativo → evidencia. Ver `scene-kits/types.ts`
+   * para por qué se fue: le entregaba al planificador los cinco beats resueltos.
+   */
   bannedPropTokens: string[];
   figurePolicy: { mode: 'fx_documents' | 'none' };
 }

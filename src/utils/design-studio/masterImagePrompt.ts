@@ -53,3 +53,55 @@ export function imageTypeToPromptVariant(
     case 'financiero': return 'mapa_rutas';
   }
 }
+/**
+ * Nombres visibles de los tres medios, en un solo lugar.
+ *
+ * La imagen individual y el carrusel eligen el MISMO valor, pero cada pantalla lo
+ * llamaba distinto — "Inf Rutas y Mapas" en la etapa de imagen y "Financiero" en
+ * el carrusel — así que era imposible saber si eran el mismo control o dos cosas
+ * diferentes. Con los dos selectores tan separados en la página, eso se convierte
+ * en cambiar el chip equivocado y generar con el medio anterior.
+ */
+export const DESIGN_IMAGE_TYPE_OPTIONS: {
+  value: 'foto' | 'infografia' | 'financiero';
+  label: string;
+  hint: string;
+}[] = [
+  {
+    value: 'infografia',
+    label: 'Infografía 3D',
+    hint: 'Iconografía 3D Xending, acentos turquesa y coral. Es el que trae el sistema visual completo.',
+  },
+  {
+    value: 'foto',
+    label: 'Fotografía',
+    hint: 'Excepción fotográfica natural: foto real, con el sistema visual relajado a propósito.',
+  },
+  {
+    value: 'financiero',
+    label: 'Financiero',
+    hint: 'Visualización financiera: dashboards, gráficas y ruta de la operación.',
+  },
+];
+
+/** Etiqueta corta de un medio, para resúmenes de "esto es lo que se va a generar". */
+export function designImageTypeLabel(imageType: string | null | undefined): string {
+  return DESIGN_IMAGE_TYPE_OPTIONS.find((o) => o.value === imageType)?.label ?? 'sin definir';
+}
+
+/**
+ * Opciones de "Fondo", compartidas por los dos flujos por la misma razón que los
+ * medios: el valor entra a `resolveMasterImagePromptSelection`, así que las dos
+ * pantallas tienen que ofrecer exactamente el mismo conjunto.
+ */
+export const DESIGN_BACKGROUND_OPTIONS: { value: string; label: string }[] = [
+  { value: 'white-xending-v2', label: 'Blanco Xending V2' },
+  { value: 'white-2', label: 'Blanco 2.0' },
+  { value: 'white-classic', label: 'Blanco V1' },
+  { value: 'dark-navy', label: 'Navy' },
+];
+
+/** Etiqueta corta de un fondo, para los mismos resúmenes. */
+export function designBackgroundLabel(background: string | null | undefined): string {
+  return DESIGN_BACKGROUND_OPTIONS.find((o) => o.value === background)?.label ?? 'sin definir';
+}

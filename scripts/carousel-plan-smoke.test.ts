@@ -118,8 +118,8 @@ describe.each(BRANCHES)('prompt del planificador: %s', (branch) => {
     const text = norm(built.systemMessage);
 
     if (sceneKit?.figurePolicy.mode === 'fx_documents') {
-      expect(text).toContain('las cifras son de la historia');
-      expect(text).toContain('rate_comparison');
+      expect(text).toContain('una sola historia economica');
+      expect(text).toMatch(/quote_comparison|rate_comparison/);
     } else {
       /*
        * La fuga que importa en una rama sin cifras.

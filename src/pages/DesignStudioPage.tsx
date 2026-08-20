@@ -67,7 +67,12 @@ import { resolveBranchForKitSlug, type CopyBankRow } from '@/types/copy-bank';
 
 import { validateBrandPalette } from '@/utils/design-studio/brandPaletteValidator';
 import { convertToTemplate } from '@/utils/design-studio/templateConverter';
-import { resolveMasterImagePromptSelection } from '@/utils/design-studio/masterImagePrompt';
+import {
+  DESIGN_IMAGE_TYPE_OPTIONS,
+  designBackgroundLabel,
+  designImageTypeLabel,
+  resolveMasterImagePromptSelection,
+} from '@/utils/design-studio/masterImagePrompt';
 import { supabase } from '@/integrations/supabase/client';
 
 import {
@@ -75,6 +80,7 @@ import {
   DESIGN_STUDIO_SOURCE,
   type BrandPalette,
   type CarouselMeta,
+  type DesignImageType,
   type PlatformFormat,
 } from '@/types/design-studio';
 import type { SavedMockup } from '@/hooks/useDesignMockups';
@@ -741,6 +747,40 @@ export default function DesignStudioPage() {
     }
   }, [activeBusinessId, selectedBranch, copyBank.items, bankV2.rows, activeSource, store, activeBusiness, businessConfig, updateBankMeta, updateBankV2ImageMeta, toast]);
 
+  /**
+   * Cambio de medio de la imagen individual.
+   *
+   * Vive aquí y no dentro del JSX porque lo usan dos controles: el de la Etapa 2 y
+   * el resumen que está junto al botón de generar, al final de la página. El botón
+   * quedó separado de sus controles por la sección del carrusel, así que sin un
+   * selector al lado había que subir a buscarlo — y el chip que quedaba a la vista
+   * era el del carrusel, que no manda en esta imagen.
+   */
+  const handlePieceImageTypeChange = useCallback((type: DesignImageType) => {
+    store.invalidateGeneratedVisuals();
+    store.setPieceImageType(type);
+    const cached = (window as any).__designStudioImagePrompts;
+    if (cached) {
+      const getPromptText = (p: unknown): string => {
+        if (typeof p === 'string') return p;
+        if (p && typeof p === 'object') {
+          const obj = p as any;
+          if (obj.prompt_final) return obj.prompt_final;
+          if (obj.prompt) return obj.prompt;
+        }
+        return '';
+      };
+      const promptMap: Record<string, string> = {
+        'foto': getPromptText(cached.fotografia),
+        'infografia': getPromptText(cached.infografia),
+        'financiero': getPromptText(cached.mapa_rutas),
+      };
+      if (promptMap[type]) {
+        store.setPieceImagePromptText(appendNoLogoDirective(promptMap[type]));
+      }
+    }
+  }, [store]);
+
   const handleGenerateMockups = useCallback(async () => {
     if (!store.brandPalette || !activeBusinessId) return;
 
@@ -824,7 +864,7 @@ export default function DesignStudioPage() {
       }
 
       toast({
-        title: 'Mockup generado',
+        title: 'Imagen individual generada',
         description: `${existingMockups.length + newMockups.length} opción(es). Guardado automáticamente.`,
       });
     } catch (error) {
@@ -1312,30 +1352,7 @@ export default function DesignStudioPage() {
                       pieceImagePrompt={store.selections.pieceImagePrompt}
                       hideCopyFields
                       onCopyFieldChange={(field, value) => store.updatePieceCopyField(field, value)}
-                      onImageTypeChange={(type) => {
-                        store.invalidateGeneratedVisuals();
-                        store.setPieceImageType(type);
-                        const cached = (window as any).__designStudioImagePrompts;
-                        if (cached) {
-                          const getPromptText = (p: unknown): string => {
-                            if (typeof p === 'string') return p;
-                            if (p && typeof p === 'object') {
-                              const obj = p as any;
-                              if (obj.prompt_final) return obj.prompt_final;
-                              if (obj.prompt) return obj.prompt;
-                            }
-                            return '';
-                          };
-                          const promptMap: Record<string, string> = {
-                            'foto': getPromptText(cached.fotografia),
-                            'infografia': getPromptText(cached.infografia),
-                            'financiero': getPromptText(cached.mapa_rutas),
-                          };
-                          if (promptMap[type]) {
-                            store.setPieceImagePromptText(appendNoLogoDirective(promptMap[type]));
-                          }
-                        }
-                      }}
+                      onImageTypeChange={handlePieceImageTypeChange}
                       onImagePromptChange={(text) => {
                         store.invalidateGeneratedVisuals();
                         store.setPieceImagePromptText(text);
@@ -1371,6 +1388,7 @@ export default function DesignStudioPage() {
                       subtitle="Desglosa el copy activo en slides encadenados"
                     />
                     <CarouselPanel
+                      key={`${activeCarouselItem?.row.id ?? 'none'}:${carouselBranchSlug ?? ''}`}
                       bankItem={activeCarouselItem}
                       persistMeta={carouselPersistMeta}
                       branchId={carouselBranchId}
@@ -1439,6 +1457,69 @@ export default function DesignStudioPage() {
           </TabsContent>
         </Tabs>
 
+        {/* ---------- Qué se va a generar ----------
+
+            El botón de abajo pertenece a la imagen individual (Etapa 2), pero la
+            sección del carrusel queda en medio, así que lo último que se ve antes de
+            apretarlo es el selector del carrusel — que no manda aquí. Este resumen
+            repite el medio y el fondo que realmente se van a usar, y deja cambiar el
+            medio sin subir. No se duplica lógica: es el mismo handler que la Etapa 2.
+
+            Solo en modo rama: los otros flujos (libre, referencia) no tienen medio de
+            pieza que resumir. */}
+        {store.inputMode === 'visual'
+          && store.selections.contentMode === 'branch'
+          && store.activeCandidateId
+          && !store.currentHtml && (
+          <div className="space-y-3 rounded-lg border border-primary/30 bg-primary/5 p-4">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <Label className="text-xs font-semibold uppercase tracking-wide text-foreground">
+                Imagen individual — esto es lo que se va a generar
+              </Label>
+              <span className="text-[11px] text-muted-foreground">
+                El carrusel se genera con su propio botón, en la Etapa 3
+              </span>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {DESIGN_IMAGE_TYPE_OPTIONS.map((option) => {
+                const isSelected = store.selections.pieceImagePrompt?.type === option.value;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    disabled={isAnyLoading}
+                    onClick={() => handlePieceImageTypeChange(option.value)}
+                    className={cn(
+                      'rounded-full px-3 py-1.5 text-xs font-medium transition-colors border',
+                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                      'disabled:cursor-not-allowed disabled:opacity-50',
+                      isSelected
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'bg-background text-foreground border-input hover:bg-accent hover:text-accent-foreground',
+                    )}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            <p className="text-[11px] text-muted-foreground">
+              Medio: <span className="font-medium text-foreground">
+                {designImageTypeLabel(store.selections.pieceImagePrompt?.type)}
+              </span>
+              {' · '}
+              Fondo: <span className="font-medium text-foreground">
+                {designBackgroundLabel(store.selections.background)}
+              </span>
+              {store.selections.pieceImagePrompt?.prompt?.trim()
+                ? ''
+                : ' · sin prompt de imagen todavía: se genera con las reglas por defecto'}
+            </p>
+          </div>
+        )}
+
         {/* Generate Mockups Button */}
         {store.mockups.length === 0 && !store.currentHtml && (
           <Button
@@ -1450,12 +1531,12 @@ export default function DesignStudioPage() {
             {store.isGeneratingMockups ? (
               <>
                 <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                Generando mockups...
+                Generando la imagen individual...
               </>
             ) : (
               <>
                 <Sparkles className="h-5 w-5 mr-2" />
-                Generar mockup
+                Generar imagen individual
               </>
             )}
           </Button>

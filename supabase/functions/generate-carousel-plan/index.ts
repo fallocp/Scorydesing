@@ -35,6 +35,7 @@ import {
   buildCarouselPlanPrompt,
   digestPlan,
   normalizeCreativePlan,
+  toCarouselLanguageStyle,
 } from '../_shared/buildCarouselCreativePlan.ts';
 import {
   blockingIssues,
@@ -50,7 +51,9 @@ import {
 } from '../_shared/repairCarouselCreativePlan.ts';
 import type {
   AppliedRepair,
+  CarouselCommercialIntent,
   CarouselCreativePlan,
+  CarouselLanguageStyle,
   CarouselPlanContext,
   CarouselPlanDigest,
   CarouselPlanMedium,
@@ -96,6 +99,7 @@ interface GenerateCarouselPlanRequest {
 
   objective?: CarouselPlanObjective;
   imageType?: CarouselPlanMedium;
+  commercialIntent?: CarouselCommercialIntent;
   angleName?: string | null;
   industryName?: string | null;
   industrySlug?: string | null;
@@ -255,10 +259,12 @@ serve(async (req) => {
 
     let copyKitVersion = 'unknown';
     let bannedPhrases: string[] = [];
+    let languageStyle: CarouselLanguageStyle | null = null;
     try {
       const { kit } = await getCopyKit(branchSlugRaw, serviceClient, body.business_id);
       copyKitVersion = kit.kit_version ?? 'unknown';
       bannedPhrases = [...(kit.banned_phrases ?? [])];
+      languageStyle = toCarouselLanguageStyle(kit.language_style);
     } catch (err) {
       console.warn('No se pudo resolver el copy kit:', err);
     }
@@ -298,6 +304,7 @@ serve(async (req) => {
     const compatible = resolveCompatibleRoutes({
       branchSlug,
       angleTag: body.angleName ?? null,
+      commercialIntent: body.commercialIntent ?? null,
       objective,
       presetSlug: body.presetSlug,
       slideCount: body.roles.length,
@@ -325,6 +332,7 @@ serve(async (req) => {
       industrySlug: body.industrySlug ?? null,
       industryName: body.industryName ?? null,
       objective,
+      commercialIntent: body.commercialIntent,
       presetSlug: body.presetSlug,
       medium,
       // El trabajo del beat lo pone esta función, no el cliente.
@@ -335,6 +343,7 @@ serve(async (req) => {
       sceneKit,
       copyKitVersion,
       bannedPhrases,
+      languageStyle,
       candidateRoutes,
       recentFingerprints: body.recentFingerprints ?? [],
       priorPlanDigests: body.priorPlanDigests ?? [],

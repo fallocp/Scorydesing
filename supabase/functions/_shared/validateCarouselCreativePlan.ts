@@ -19,6 +19,10 @@
  *     unicidad de etiqueta.
  */
 
+import {
+  CAROUSEL_ECONOMIC_FACT_KEYS,
+  CAROUSEL_SCENARIO_FACT_KEYS,
+} from './carousel-plan-types.ts';
 import type {
   CarouselCreativePlan,
   CarouselPlanContext,
@@ -278,9 +282,10 @@ interface Surface {
 /**
  * Texto de un beat que puede contener claims.
  *
- * No incluye los campos de vecindad: `mustNotRevealYet` nombra a propósito lo que NO va
- * a aparecer, y buscar términos prohibidos ahí produce un rechazo por mencionar lo que
- * se está evitando.
+ * Excluye únicamente campos negativos: `mustNotRepeat` y `mustNotRevealYet` nombran a
+ * propósito lo que NO va a aparecer, y buscar términos prohibidos ahí produciría un
+ * rechazo por mencionar lo que se está evitando. `carryFromPrevious` y `setupForNext`
+ * sí entran porque el guionista los recibe como instrucciones afirmativas.
  */
 function claimSurfaces(beat: CarouselStoryBeat): Surface[] {
   return [
@@ -289,8 +294,21 @@ function claimSurfaces(beat: CarouselStoryBeat): Surface[] {
     { field: 'verbalMessage', text: beat.verbalMessage },
     { field: 'visualEvidence', text: beat.visualEvidence },
     { field: 'newInformation', text: beat.newInformation },
+    { field: 'carryFromPrevious', text: beat.carryFromPrevious },
+    { field: 'setupForNext', text: beat.setupForNext },
     { field: 'visualDevice', text: beat.visualDevice },
     { field: 'sceneState', text: beat.sceneState },
+    ...beat.primaryObjects.map((text) => ({ field: 'primaryObjects', text })),
+    ...beat.supportingObjects.map((text) => ({ field: 'supportingObjects', text })),
+    ...beat.mustBeVisible.map((text) => ({ field: 'mustBeVisible', text })),
+    { field: 'productVisualProxy', text: beat.productVisualProxy ?? '' },
+    { field: 'compositionNotes', text: beat.compositionNotes },
+    {
+      field: 'figureRequirement.narrativePurpose',
+      text: beat.figureRequirement.mode === 'illustrative'
+        ? beat.figureRequirement.narrativePurpose ?? ''
+        : '',
+    },
   ];
 }
 
@@ -337,6 +355,17 @@ export function validateCarouselCreativePlan(
   const issues: PreflightIssue[] = [];
   const beats = plan.storyboard;
   const last = beats.length - 1;
+
+  if (ctx.commercialIntent && plan.commercialIntent !== ctx.commercialIntent) {
+    issues.push(
+      issue(
+        'plan_commercial_intent_mismatch',
+        'blocking',
+        null,
+        `El plan declara ${plan.commercialIntent ?? 'ninguna intención'} y el set pide ${ctx.commercialIntent}.`,
+      ),
+    );
+  }
 
   // --- Estructura -----------------------------------------------------------
 
@@ -695,6 +724,22 @@ export function validateCarouselCreativePlan(
           ),
         );
       }
+      if (
+        plan.commercialIntent &&
+        route.compatibleCommercialIntents &&
+        route.compatibleCommercialIntents.length > 0 &&
+        !route.compatibleCommercialIntents.includes(plan.commercialIntent)
+      ) {
+        issues.push(
+          issue(
+            'route_commercial_intent_mismatch',
+            'blocking',
+            null,
+            `La ruta "${route.id}" no representa ${plan.commercialIntent}.`,
+            'Elige una ruta compatible con el mecanismo comercial antes de escribir el guion.',
+          ),
+        );
+      }
       if (!route.allowedShapes.includes(plan.storyShape)) {
         issues.push(
           issue(
@@ -807,6 +852,44 @@ export function validateCarouselCreativePlan(
   const branchAllowsFigures = ctx.sceneKit?.figurePolicy.mode === 'fx_documents';
   const figureBeats = beats.filter((b) => b.figureRequirement.mode === 'illustrative');
 
+  const allowedByIntent: Partial<Record<NonNullable<CarouselCreativePlan['commercialIntent']>, readonly string[]>> = {
+    quote_comparison: ['quote_comparison', 'none'],
+    forward: ['rate_comparison', 'rate_range', 'margin_sensitivity', 'cashflow_certainty', 'none'],
+    cost_plus_speed: ['quote_comparison', 'none'],
+    cost_component: ['rate_range', 'repeated_operations', 'accumulated_difference', 'margin_sensitivity', 'none'],
+  };
+  if (
+    plan.commercialIntent &&
+    !allowedByIntent[plan.commercialIntent]?.includes(plan.figureScenarioId)
+  ) {
+    issues.push(
+      issue(
+        'scenario_commercial_intent_mismatch',
+        'blocking',
+        null,
+        `El escenario ${plan.figureScenarioId} no representa ${plan.commercialIntent}.`,
+      ),
+    );
+  }
+
+  if (plan.commercialIntent === 'quote_comparison') {
+    const forbidden = /\b(hoy|pago futuro|fecha futura|fijar|fijado|fija|costo definido|base cerrada|forward)\b/i;
+    for (const beat of beats) {
+      const fields = claimSurfaces(beat).filter((surface) => forbidden.test(surface.text));
+      if (fields.length > 0) {
+        issues.push(
+          issue(
+            'quote_comparison_uses_forward_semantics',
+            'blocking',
+            beat.index,
+            `El beat ${beat.index} convierte una comparación simultánea en forward.`,
+            'Compara dos cotizaciones de la misma operación y el mismo momento; elimina fechas futuras y lenguaje de fijación.',
+          ),
+        );
+      }
+    }
+  }
+
   if (!branchAllowsFigures && figureBeats.length > 0) {
     for (const beat of figureBeats) {
       issues.push(
@@ -865,6 +948,133 @@ export function validateCarouselCreativePlan(
           ),
         );
       }
+    }
+  }
+
+  const projectionBeats = figureBeats.filter((beat) => {
+    const req = beat.figureRequirement;
+    return req.mode === 'illustrative' && (
+      req.factKeys !== undefined ||
+      req.narrativePurpose !== undefined ||
+      req.weight !== undefined ||
+      req.suggestedSurface !== undefined
+    );
+  });
+
+  if (projectionBeats.length > 0) {
+    const scenarioIds = new Set(
+      figureBeats.map((beat) =>
+        beat.figureRequirement.mode === 'illustrative'
+          ? beat.figureRequirement.scenarioId
+          : 'none'
+      ),
+    );
+    if (scenarioIds.size > 1) {
+      issues.push(
+        issue(
+          'mixed_figure_scenarios',
+          'blocking',
+          null,
+          'El carrusel mezcla escenarios económicos. Los beats dejarían de ser partes de la misma operación.',
+          'Usa el mismo scenarioId en todos los beats con cifras.',
+        ),
+      );
+    }
+
+    const minimumFigureBeats = Math.min(4, beats.length);
+    if (route?.figurePolicy !== 'none' && figureBeats.length < minimumFigureBeats) {
+      issues.push(
+        issue(
+          'economic_story_too_sparse',
+          'blocking',
+          null,
+          `La historia económica aparece en ${figureBeats.length} beats; necesita al menos ${minimumFigureBeats} para sostener un arco coherente.`,
+          'Distribuye hechos del mismo escenario en 4 o 5 beats; usa peso inline o featured para no convertirlos en tablas.',
+        ),
+      );
+    }
+
+    const heavyBeats = figureBeats.filter((beat) =>
+      beat.figureRequirement.mode === 'illustrative' &&
+      beat.figureRequirement.weight === 'heavy'
+    );
+    if (heavyBeats.length > 2) {
+      issues.push(
+        issue(
+          'too_many_heavy_figure_surfaces',
+          'blocking',
+          null,
+          `El set usa ${heavyBeats.length} superficies pesadas; el máximo es 2.`,
+          'Mantén los hechos y cambia las superficies restantes a inline o featured.',
+        ),
+      );
+    }
+
+    for (const beat of projectionBeats) {
+      const req = beat.figureRequirement;
+      if (req.mode !== 'illustrative') continue;
+      const factKeys = req.factKeys ?? [];
+      if (factKeys.length === 0) {
+        issues.push(
+          issue(
+            'missing_beat_fact_keys',
+            'blocking',
+            beat.index,
+            `El beat ${beat.index} pide cifras pero no selecciona hechos del escenario.`,
+            `Añade factKeys válidas para ${req.scenarioId}.`,
+          ),
+        );
+      }
+      const validForScenario = CAROUSEL_SCENARIO_FACT_KEYS[req.scenarioId];
+      const invalid = factKeys.filter((key) =>
+        !CAROUSEL_ECONOMIC_FACT_KEYS.includes(key) || !validForScenario.includes(key)
+      );
+      if (invalid.length > 0) {
+        issues.push(
+          issue(
+            'invalid_beat_fact_keys',
+            'blocking',
+            beat.index,
+            `El beat ${beat.index} usa hechos que no pertenecen a ${req.scenarioId}: ${invalid.join(', ')}.`,
+            `Usa solo: ${validForScenario.join(', ')}.`,
+          ),
+        );
+      }
+      if (!req.narrativePurpose?.trim()) {
+        issues.push(
+          issue(
+            'missing_figure_narrative_purpose',
+            'blocking',
+            beat.index,
+            `El beat ${beat.index} no explica qué demuestran sus cifras dentro de la historia.`,
+          ),
+        );
+      }
+      if (
+        (req.suggestedSurface === 'document' || req.suggestedSurface === 'dashboard') &&
+        req.weight !== 'heavy'
+      ) {
+        issues.push(
+          issue(
+            'heavy_surface_mislabeled',
+            'blocking',
+            beat.index,
+            `El beat ${beat.index} usa ${req.suggestedSurface} pero no lo cuenta como superficie heavy.`,
+            'Marca el peso como heavy o usa otra superficie.',
+          ),
+        );
+      }
+    }
+
+    if (scenarioIds.size === 1 && !scenarioIds.has(plan.figureScenarioId)) {
+      issues.push(
+        issue(
+          'plan_figure_scenario_mismatch',
+          'blocking',
+          null,
+          `figureScenarioId (${plan.figureScenarioId}) no coincide con el escenario único de los beats.`,
+        ),
+      );
     }
   }
 
@@ -936,17 +1146,50 @@ export function validateCarouselCreativePlan(
     }
   }
 
+  /*
+   * Términos no publicables: jerga interna de operaciones y calcos del inglés.
+   *
+   * Es la misma mecánica que `banned_phrase` pero sobre la política de lenguaje del kit,
+   * no sobre los ángulos prohibidos. El repairHint incluye la reescritura aprobada cuando
+   * el kit la trae, para que el crítico cierre el fallo con la forma correcta en una sola
+   * ronda en vez de inventar otra abstracción.
+   */
+  const nonPublishable = ctx.languageStyle?.internalTermsNeverPublish ?? [];
+  const rewrites = ctx.languageStyle?.preferredRewrites ?? {};
+  for (const term of nonPublishable) {
+    for (const beat of beats) {
+      const fields = fieldsMentioning(claimSurfaces(beat), term);
+      if (fields.length > 0) {
+        const rewrite = rewrites[term];
+        issues.push(
+          issue(
+            'non_publishable_language',
+            'blocking',
+            beat.index,
+            `El beat ${beat.index} usa "${term}" en ${joinFields(fields)}: es jerga interna o un calco que no se publica.`,
+            rewrite
+              ? `Reescribe ${joinFields(fields)} del beat ${beat.index} usando "${rewrite}" en vez de "${term}".`
+              : `Reescribe ${joinFields(fields)} del beat ${beat.index} con el objeto concreto (pedido, proveedor, pago, horario), sin "${term}".`,
+          ),
+        );
+      }
+    }
+  }
+
   if (route) {
     for (const claim of route.forbiddenClaims) {
       for (const beat of beats) {
-        if (ideaOverlap(claim, beat.verbalMessage) >= DUPLICATE_THRESHOLD) {
+        const fields = claimSurfaces(beat)
+          .filter((surface) => ideaOverlap(claim, surface.text) >= DUPLICATE_THRESHOLD)
+          .map((surface) => surface.field);
+        if (fields.length > 0) {
           issues.push(
             issue(
               'route_forbidden_claim',
               'blocking',
               beat.index,
-              `El beat ${beat.index} hace algo que la ruta prohíbe: ${claim}`,
-              `Reescribe el mensaje del beat ${beat.index}.`,
+              `El beat ${beat.index} hace algo que la ruta prohíbe en ${joinFields(fields)}: ${claim}`,
+              `Reescribe ${joinFields(fields)} del beat ${beat.index}.`,
             ),
           );
         }

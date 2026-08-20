@@ -1,6 +1,6 @@
 # El stack de prompts del carrusel, completo
 
-Generado el 2026-08-19T19:25:03.190Z · 40,495 caracteres en total.
+Generado el 2026-08-20T04:05:17.651Z · 45,109 caracteres en total.
 
 Esto es lo que **de verdad** reciben los modelos, volcado desde el código. No es un
 resumen escrito a mano: cada bloque sale de la misma función que corre en producción.
@@ -19,12 +19,12 @@ de pedirse al prompt— está en `docs/architecture/CAROUSEL_PROMPT_PIPELINE.md`
 
 ## Índice
 
-1. [PASO 1 · Planificador — system message COMPLETO](#1-paso-1-planificador-system-message-completo) — 28,382 chars
+1. [PASO 1 · Planificador — system message COMPLETO](#1-paso-1-planificador-system-message-completo) — 32,341 chars
 2. [PASO 1 · Planificador — user message](#2-paso-1-planificador-user-message) — 379 chars
 3. [PASO 2 · Guionista — cómo se REDACTA cada rol (SCRIPT_BEAT_RULES)](#3-paso-2-guionista-como-se-redacta-cada-rol-script-beat-rules) — 986 chars
-4. [PASO 2 · Guionista — un beat del plan traducido a instrucciones](#4-paso-2-guionista-un-beat-del-plan-traducido-a-instrucciones) — 1,552 chars
+4. [PASO 2 · Guionista — un beat del plan traducido a instrucciones](#4-paso-2-guionista-un-beat-del-plan-traducido-a-instrucciones) — 1,714 chars
 5. [PASO 2 · Guionista — cuánto del headline se colorea](#5-paso-2-guionista-cuanto-del-headline-se-colorea) — 1,744 chars
-6. [PASO 3 · Imagen — repertorio visual de la rama](#6-paso-3-imagen-repertorio-visual-de-la-rama) — 3,082 chars
+6. [PASO 3 · Imagen — repertorio visual de la rama](#6-paso-3-imagen-repertorio-visual-de-la-rama) — 3,575 chars
 7. [PASO 3 · Imagen — sistema de color de marca](#7-paso-3-imagen-sistema-de-color-de-marca) — 1,408 chars
 8. [PASO 3 · Imagen — cómo se colorean las cifras](#8-paso-3-imagen-como-se-colorean-las-cifras) — 433 chars
 9. [PASO 3 · Imagen — techo del acento tipográfico](#9-paso-3-imagen-techo-del-acento-tipografico) — 471 chars
@@ -97,17 +97,17 @@ Están ordenadas de la menos usada recientemente a la más usada. Si dos sirven 
 PREGUNTA que contesta: ¿De qué está hecho lo que termino pagando?
 TESIS: El total de una operación es la suma de conceptos separables, y cada uno se puede conocer por adelantado.
 CÓMO PROFUNDIZA (anatomy): de qué está hecho: las capas separadas de una sola cosa
-CÓMO RESUELVE: los conceptos quedan desglosados y sumados en un solo documento antes de ejecutar
-EN QUÉ SE DESTILA EL CIERRE: el desglose completo caben en una sola hoja, con cada concepto nombrado
+CÓMO RESUELVE: el total se entiende como componentes verificables y cada componente puede definirse antes de ejecutar
+EN QUÉ SE DESTILA EL CIERRE: una lectura completa del costo, donde se entiende qué aporta cada componente al total
 Formas narrativas admitidas: anatomy, progressive_reveal
-Mecanismos de evidencia: layered_cost_anatomy | component_by_component_reveal | invoice_line_breakdown
-Cifras: opcionales (rate_comparison)
+Mecanismos de evidencia: layered_cost_anatomy | component_by_component_reveal | part_to_total_relationship
+Cifras: opcionales (rate_range)
 EJEMPLOS de evidencia que le queda a esta ruta. NO es una lista cerrada ni un menú: son referencias del tipo de cosa que sirve. Puedes usar otra evidencia del repertorio de la rama si cuenta mejor el copy:
-- capas del costo separadas
-- renglones de la cotizacion
-- conceptos como objetos distintos
-- desglose linea por linea
-- sobres etiquetados por concepto
+- componentes separables del costo
+- capas que forman un total
+- relacion entre cada parte y el total
+- origen de cada componente
+- anatomia del costo de la misma operacion
 EVIDENCIA PROHIBIDA EN ESTA RUTA — esto sí es cerrado. Es de otra historia y usarla la convierte en esa otra:
 - varias facturas
 - multiples facturas
@@ -120,12 +120,9 @@ EVIDENCIA PROHIBIDA EN ESTA RUTA — esto sí es cerrado. Es de otra historia y 
 - documentos alineados
 - tres compras
 - varias compras
-- dos cotizaciones lado a lado
+- comparacion entre proveedores
 - calendario de tesoreria
 - tabla de sensibilidad
-Cómo se ve el producto aquí:
-- el desglose de la operación impreso en una hoja
-- la pantalla con el costo total de la operación antes de confirmar
 No puede afirmar:
 - que alguien esconde el costo
 - que el banco engaña
@@ -135,15 +132,16 @@ No puede afirmar:
 PREGUNTA que contesta: ¿El mismo pedido cuesta lo mismo con quien sea?
 TESIS: Quién ejecuta el pago cambia el costo de la misma compra, y eso se puede comparar antes de decidir.
 CÓMO PROFUNDIZA (sensitivity): el mismo caso bajo otro supuesto: dos escenarios etiquetados
-CÓMO RESUELVE: las dos condiciones quedan sobre la mesa y la decisión se toma con las dos a la vista
-EN QUÉ SE DESTILA EL CIERRE: una sola condición elegida, con su total ya definido
+CÓMO RESUELVE: las condiciones del mismo pedido se vuelven comparables antes de decidir quién ejecuta el pago
+EN QUÉ SE DESTILA EL CIERRE: una decisión sustentada en condiciones explícitas del mismo pedido
 Formas narrativas admitidas: comparison, before_after
 Mecanismos de evidencia: two_payment_providers_same_order | same_order_two_conditions
-Cifras: opcionales (rate_comparison)
+Cifras: opcionales (quote_comparison)
 EJEMPLOS de evidencia que le queda a esta ruta. NO es una lista cerrada ni un menú: son referencias del tipo de cosa que sirve. Puedes usar otra evidencia del repertorio de la rama si cuenta mejor el copy:
-- dos cotizaciones del mismo pedido
-- dos condiciones de pago comparadas
-- dos totales de distinta longitud
+- mismo pedido bajo dos condiciones explicitas
+- variables comparables sin cambiar la compra
+- diferencia atribuible al proveedor de pago
+- decision entre condiciones simultaneas
 EVIDENCIA PROHIBIDA EN ESTA RUTA — esto sí es cerrado. Es de otra historia y usarla la convierte en esa otra:
 - varias facturas
 - multiples facturas
@@ -156,35 +154,33 @@ EVIDENCIA PROHIBIDA EN ESTA RUTA — esto sí es cerrado. Es de otra historia y 
 - documentos alineados
 - tres compras
 - varias compras
-- la misma hoja en dos fechas
+- la misma operacion en dos fechas
 - calendario de tesoreria
-Cómo se ve el producto aquí:
-- la cotización de la operación con sus condiciones a la vista
 No puede afirmar:
 - nombrar o descalificar a un competidor
 - afirmar que el otro proveedor cobra de más a propósito
+- inventar una cotización o condición de otro proveedor: requiere fuente o supuesto explícito
 
 ### accumulated_difference — La diferencia que se acumula
 PREGUNTA que contesta: ¿Importa una diferencia chica si compro seguido?
 TESIS: Lo que es despreciable en una operación se vuelve una línea del presupuesto cuando se repite.
 CÓMO PROFUNDIZA (accumulation): se repite y suma: varias operaciones, varios documentos
-CÓMO RESUELVE: el costo por operación se conoce antes, así que la suma deja de ser una sorpresa
-EN QUÉ SE DESTILA EL CIERRE: la columna de diferencias cerrada en un solo total conocido
+CÓMO RESUELVE: el impacto se entiende desde una operación hasta su frecuencia real, para incorporarlo a la planeación
+EN QUÉ SE DESTILA EL CIERRE: el impacto acumulado de repetir la misma diferencia
 Formas narrativas admitidas: accumulation, cause_effect
 Mecanismos de evidencia: repeated_operations_sum | monthly_statement_lines | growing_difference_column
 Cifras: obligatorias (repeated_operations, accumulated_difference)
 EJEMPLOS de evidencia que le queda a esta ruta. NO es una lista cerrada ni un menú: son referencias del tipo de cosa que sirve. Puedes usar otra evidencia del repertorio de la rama si cuenta mejor el copy:
-- varias compras sucesivas
-- columna de diferencias
-- resumen mensual con varias lineas
-- documentos repetidos de la misma operacion
+- misma diferencia repetida
+- progresion de unidad a lote o periodo
+- frecuencia de una misma operacion
+- impacto acumulado
+- escala fisica de la repeticion
 EVIDENCIA PROHIBIDA EN ESTA RUTA — esto sí es cerrado. Es de otra historia y usarla la convierte en esa otra:
 - una sola operacion aislada
 - calendario de tesoreria
 - tabla de sensibilidad
-- dos cotizaciones lado a lado
-Cómo se ve el producto aquí:
-- el resumen de operaciones del mes en una hoja
+- comparacion entre proveedores
 No puede afirmar:
 - proyectar un ahorro anual como si fuera cierto
 
@@ -192,16 +188,17 @@ No puede afirmar:
 PREGUNTA que contesta: ¿Qué pasa con mi margen si el costo se mueve después de fijar el precio?
 TESIS: Un precio de venta publicado convierte cualquier movimiento del costo en movimiento del margen.
 CÓMO PROFUNDIZA (margin): lo que queda entre ingreso y costo
-CÓMO RESUELVE: el costo se define antes de comprometer el precio, así que el margen se calcula sobre algo cerrado
-EN QUÉ SE DESTILA EL CIERRE: precio y costo en la misma hoja, con la distancia entre ellos ya fija
+CÓMO RESUELVE: el componente cambiario del costo se define antes de comprometer el precio, para calcular utilidad y margen sobre una base cerrada
+EN QUÉ SE DESTILA EL CIERRE: la utilidad y el margen resultantes bajo el mismo precio de venta
 Formas narrativas admitidas: single_case, cause_effect
 Mecanismos de evidencia: fixed_revenue_variable_cost | price_and_cost_side_by_side
 Cifras: obligatorias (margin_sensitivity)
 EJEMPLOS de evidencia que le queda a esta ruta. NO es una lista cerrada ni un menú: son referencias del tipo de cosa que sirve. Puedes usar otra evidencia del repertorio de la rama si cuenta mejor el copy:
-- lista de precios publicada
-- precio y costo en el mismo cuadro
-- la distancia entre dos valores
-- hoja de margen por producto
+- precio de venta fijo
+- costo importado variable
+- utilidad bruta entre precio y costo
+- banda de margen que cambia de amplitud
+- presupuesto ocupado por el sobrecosto
 EVIDENCIA PROHIBIDA EN ESTA RUTA — esto sí es cerrado. Es de otra historia y usarla la convierte en esa otra:
 - varias facturas
 - multiples facturas
@@ -217,26 +214,25 @@ EVIDENCIA PROHIBIDA EN ESTA RUTA — esto sí es cerrado. Es de otra historia y 
 - calendario de tesoreria
 - semaforo
 - flecha roja
-Cómo se ve el producto aquí:
-- la hoja de margen del producto, con su costo ya definido
 No puede afirmar:
 - afirmar que el margen se pierde: va en condicional
 - garantizar la protección del margen
 
-### factory_price_vs_landed_cost — Precio de fábrica contra costo final
-PREGUNTA que contesta: ¿Por qué el precio que me dio la fábrica no es lo que acabo pagando?
-TESIS: Entre el precio de origen y el costo final hay etapas, y cada una deja su documento.
-CÓMO PROFUNDIZA (stage_progression): la misma operación ganando costo al avanzar por etapas
-CÓMO RESUELVE: el costo final se arma antes de salir de origen, con cada etapa ya cotizada
-EN QUÉ SE DESTILA EL CIERRE: un solo costo final, con el trayecto que lo formó a la vista
-Formas narrativas admitidas: progressive_reveal, before_after, anatomy
-Mecanismos de evidencia: quote_to_landed_cost_progression | component_by_component_reveal
-Cifras: opcionales (rate_comparison)
+### fx_cost_component — El tipo de cambio dentro del costo
+PREGUNTA que contesta: ¿Cuánto del costo de mi producto o proyecto depende de la conversión cambiaria?
+TESIS: La conversión cambiaria es un componente identificable del costo y su efecto se propaga desde la unidad hasta el resultado completo.
+CÓMO PROFUNDIZA (scale): el mismo efecto en más frentes a la vez
+CÓMO RESUELVE: el componente cambiario se define antes de fijar el precio o presupuesto, para calcular el costo total sobre una base conocida
+EN QUÉ SE DESTILA EL CIERRE: el efecto del mismo componente cambiario entendido desde una unidad hasta el lote o proyecto
+Formas narrativas admitidas: anatomy, progressive_reveal, cause_effect
+Mecanismos de evidencia: fx_component_unit_to_project | currency_component_share
+Cifras: obligatorias (rate_range, margin_sensitivity)
 EJEMPLOS de evidencia que le queda a esta ruta. NO es una lista cerrada ni un menú: son referencias del tipo de cosa que sirve. Puedes usar otra evidencia del repertorio de la rama si cuenta mejor el copy:
-- cotizacion de fabrica
-- documento por etapa del trayecto
-- el producto avanzando por etapas
-- costo final de la operacion
+- articulo o insumo denominado en dolares
+- componente cambiario dentro del costo
+- progresion de unidad a lote y proyecto
+- propagacion del mismo componente
+- parte del presupuesto ocupada por la conversion
 EVIDENCIA PROHIBIDA EN ESTA RUTA — esto sí es cerrado. Es de otra historia y usarla la convierte en esa otra:
 - varias facturas
 - multiples facturas
@@ -249,11 +245,43 @@ EVIDENCIA PROHIBIDA EN ESTA RUTA — esto sí es cerrado. Es de otra historia y 
 - documentos alineados
 - tres compras
 - varias compras
-- dos cotizaciones lado a lado
+- comparacion entre proveedores
+- calendario de tesoreria
+- pronostico de tipo de cambio
+No puede afirmar:
+- presentar una tasa como cotización vigente
+- pronosticar el tipo de cambio
+- garantizar ahorro o margen
+
+### factory_price_vs_landed_cost — Precio de fábrica contra costo final
+PREGUNTA que contesta: ¿Por qué el precio que me dio la fábrica no es lo que acabo pagando?
+TESIS: Entre el precio de origen y el costo final hay etapas, y cada una incorpora un componente trazable.
+CÓMO PROFUNDIZA (stage_progression): la misma operación ganando costo al avanzar por etapas
+CÓMO RESUELVE: el costo final se construye antes de ejecutar, entendiendo qué agrega cada etapa desde origen hasta pago
+EN QUÉ SE DESTILA EL CIERRE: el costo final entendido como resultado del trayecto completo
+Formas narrativas admitidas: progressive_reveal, before_after, anatomy
+Mecanismos de evidencia: quote_to_landed_cost_progression | component_by_component_reveal
+Cifras: opcionales (rate_range)
+EJEMPLOS de evidencia que le queda a esta ruta. NO es una lista cerrada ni un menú: son referencias del tipo de cosa que sirve. Puedes usar otra evidencia del repertorio de la rama si cuenta mejor el copy:
+- precio de origen como punto de partida
+- etapas que agregan componentes al costo
+- progresion desde origen hasta pago
+- relacion entre trayecto y costo final
+EVIDENCIA PROHIBIDA EN ESTA RUTA — esto sí es cerrado. Es de otra historia y usarla la convierte en esa otra:
+- varias facturas
+- multiples facturas
+- facturas apiladas
+- facturas multiples
+- varios documentos
+- documentos apilados
+- pila de documentos
+- acumulacion documental
+- documentos alineados
+- tres compras
+- varias compras
+- comparacion entre proveedores de pago
 - calendario de tesoreria
 - tabla de sensibilidad
-Cómo se ve el producto aquí:
-- el costo final de la operación en una sola hoja
 No puede afirmar:
 - que el costo estaba oculto o que alguien lo escondía
 
@@ -261,23 +289,21 @@ No puede afirmar:
 PREGUNTA que contesta: ¿Cuánto trabajo me cuesta operar los pagos como los opero hoy?
 TESIS: El costo de una operación también se paga en trabajo, y ese sí se puede reducir a un flujo.
 CÓMO PROFUNDIZA (operational_load): el trabajo que cuesta: cuentas, conciliaciones, expedientes
-CÓMO RESUELVE: todas las cuentas se operan desde un solo flujo y una sola conciliación
-EN QUÉ SE DESTILA EL CIERRE: un solo expediente donde antes había varios
+CÓMO RESUELVE: las tareas dispersas convergen en un solo flujo operativo y una conciliación
+EN QUÉ SE DESTILA EL CIERRE: menos transferencias de contexto, contactos y conciliaciones para completar el mismo pago
 Formas narrativas admitidas: before_after, decision_path
 Mecanismos de evidencia: many_accounts_vs_one_flow | reconciliation_workload
 Cifras: NINGUNA
 EJEMPLOS de evidencia que le queda a esta ruta. NO es una lista cerrada ni un menú: son referencias del tipo de cosa que sirve. Puedes usar otra evidencia del repertorio de la rama si cuenta mejor el copy:
-- varias carpetas de cuentas distintas
-- escritorio con muchos expedientes
-- un solo expediente
-- conciliacion manual
+- tareas dispersas que convergen
+- cantidad de transferencias entre personas o sistemas
+- puntos de conciliacion
+- flujo operativo antes y despues
 EVIDENCIA PROHIBIDA EN ESTA RUTA — esto sí es cerrado. Es de otra historia y usarla la convierte en esa otra:
 - tipo de cambio
-- dos cotizaciones lado a lado
+- comparacion entre proveedores
 - tabla de sensibilidad
 - calendario de tesoreria
-Cómo se ve el producto aquí:
-- la interfaz de pagos con todas las cuentas en una sola vista
 No puede afirmar:
 - cuantificar horas ahorradas sin fuente
 
@@ -285,15 +311,16 @@ No puede afirmar:
 PREGUNTA que contesta: ¿Tengo que elegir entre que salga barato y que salga rápido?
 TESIS: La decisión de cómo se paga define costo y tiempo en el mismo momento, no uno a costa del otro.
 CÓMO PROFUNDIZA (planning_horizon): qué deja de poder planearse: calendario, reserva, horizonte
-CÓMO RESUELVE: la decisión se toma una vez, con las dos consecuencias visibles al mismo tiempo
-EN QUÉ SE DESTILA EL CIERRE: una sola decisión con sus dos resultados a la vista
+CÓMO RESUELVE: la alternativa se evalúa como una decisión empresarial única que combina costo conocido y condición operativa confirmada
+EN QUÉ SE DESTILA EL CIERRE: una decisión tomada con sus dos criterios explícitos, sin prometer tiempos no confirmados
 Formas narrativas admitidas: decision_path, comparison
 Mecanismos de evidencia: two_criteria_decision | same_order_two_conditions
-Cifras: NINGUNA
+Cifras: opcionales (quote_comparison)
 EJEMPLOS de evidencia que le queda a esta ruta. NO es una lista cerrada ni un menú: son referencias del tipo de cosa que sirve. Puedes usar otra evidencia del repertorio de la rama si cuenta mejor el copy:
-- una decision con dos consecuencias
-- el pedido y el estado de la operacion
-- dos caminos desde el mismo punto
+- misma decision evaluada con dos criterios
+- costo conocido y estado operativo confirmado
+- consecuencias de cada alternativa sobre el mismo pedido
+- decision sin sacrificar un criterio por ocultar el otro
 EVIDENCIA PROHIBIDA EN ESTA RUTA — esto sí es cerrado. Es de otra historia y usarla la convierte en esa otra:
 - varias facturas
 - multiples facturas
@@ -308,8 +335,6 @@ EVIDENCIA PROHIBIDA EN ESTA RUTA — esto sí es cerrado. Es de otra historia y 
 - varias compras
 - reloj con hora legible
 - tabla de sensibilidad
-Cómo se ve el producto aquí:
-- la pantalla con el costo y el estado de la operación juntos
 No puede afirmar:
 - prometer un plazo concreto de acreditación sin condiciones confirmadas
 - afirmar horas de corte sin fuente operativa vigente
@@ -333,29 +358,39 @@ No para este set: usa una del catálogo.
 
 ## CIFRAS
 
-Las cifras son de la HISTORIA, no de la rama. Que la rama pueda llevarlas no significa que este set las necesite. La ruta te dice si son obligatorias, opcionales o ninguna.
+MECANISMO COMERCIAL: explica el componente del costo sin atribuirlo a una comparación entre proveedores.
 
-Tú NO escribes valores. Ni montos, ni tasas, ni porcentajes, ni totales. Los calcula el código y los inyecta como documentos al construir la imagen, porque la aritmética ES el mensaje y un modelo de lenguaje no la sostiene: una corrida real puso USD 8,750 junto a MXN 157,980, cotizando un tipo de cambio de 18.06 que nadie eligió.
+Las cifras forman UNA SOLA HISTORIA ECONÓMICA a lo largo del carrusel. Si eliges un escenario, todos los beats con cifras usan el MISMO `scenarioId`; no son ejemplos independientes.
 
-CUÁNTOS SLIDES LLEVAN CIFRAS: como máximo DOS de los 5, y el sistema recorta los demás.
+Tú NO escribes valores. Ni montos, tasas, porcentajes ni totales. El código calcula una vez los supuestos, derivados y hechos; después cada beat selecciona hechos mediante `factKeys`.
 
-No es prudencia: un slide con cifras es un DOCUMENTO en cuadro, y cinco documentos son el mismo cuadro cinco veces aunque los valores cambien. Una corrida real puso cifras en los cinco beats y el set entero salió como hojas de papel sobre un escritorio, con la mercancía de la industria fuera de cuadro.
+CANTIDAD: cuando la ruta usa cifras, distribuye hechos coherentes en CUATRO o CINCO de los 5 beats. La cifra puede aparecer integrada en un artículo, una caja, un lote, una banda de margen, una anatomía, un proceso, un espacio o una decisión. Cifra NO significa documento.
 
-Las cifras van en los beats que explican el MECANISMO. La apertura no las lleva —ahí la tensión la planta el objeto de la compra— y el cierre tampoco, porque es el cuadro más callado del set. Los demás beats comunican con objetos, estados y espacios, que es donde está la variedad del set.
+PESO VISUAL:
+- `inline`: una o dos cifras integradas al objeto o al espacio; no dominan el cuadro.
+- `featured`: la cifra es evidencia principal, sin convertir el slide en tabla.
+- `heavy`: documento, tabla, dashboard o superficie densa. MÁXIMO DOS beats por set.
 
-Lo que declaras es la NECESIDAD, slide por slide:
+SUPERFICIES disponibles: object_label, scale_progression, margin_band, cost_anatomy, process_flow, spatial_budget, decision_paths, physical_accumulation, document, dashboard, freeform. Varíalas; no repitas la misma en todos los beats. `document` y `dashboard` siempre cuentan como `heavy`.
 
-- "figureRequirement": { "mode": "none" } cuando el slide no lleva números. Es lo normal: en un set de 5 beats, al menos tres van así.
-- "figureRequirement": { "mode": "illustrative", "scenarioId": "...", "requiredFields": [...] } cuando sí. En "requiredFields" van los campos que ESE escenario necesita: una hoja de margen pide PRECIO DE VENTA, COSTO IMPORTADO y MARGEN, no el tipo de cambio.
+Cada beat declara:
 
-Escenarios que las rutas de este set admiten, y nada más:
+- `{ "mode": "none" }` si no necesita una cifra.
+- `{ "mode": "illustrative", "scenarioId": "...", "factKeys": ["..."], "narrativePurpose": "...", "weight": "inline|featured|heavy", "suggestedSurface": "..." }` cuando proyecta parte del escenario.
 
-- rate_comparison: la misma obligación con dos tipos de cambio distintos
-- repeated_operations: la misma operación varias veces
-- accumulated_difference: la suma de las diferencias de varias operaciones
-- margin_sensitivity: precio de venta fijo contra costo importado variable
+`narrativePurpose` explica qué demuestra ese subconjunto, no cómo se maqueta. `factKeys` solo puede usar hechos admitidos por el escenario. No uses `requiredFields`: pertenece al adaptador documental anterior.
 
-Y en "figureScenarioId", a nivel plan, el escenario que gobierna el set — o "none".
+Escenarios y hechos disponibles:
+
+- rate_range: un escenario hipotético entre dos niveles. La forma correcta es "si el tipo de cambio pasara de A a B"; la incorrecta es afirmar que llegará a B. Hechos: operation_usd, base_rate, exposed_rate, base_cost_mxn, exposed_cost_mxn, cost_delta_mxn, cost_delta_pct
+- quote_comparison: dos cotizaciones simultáneas de la misma obligación, sin fechas futuras. Hechos: operation_usd, quote_a_rate, quote_b_rate, quote_a_cost_mxn, quote_b_cost_mxn, quote_difference_mxn, quote_difference_pct
+- repeated_operations: la misma operación varias veces. Hechos: operation_usd, base_rate, exposed_rate, base_cost_mxn, exposed_cost_mxn, cost_delta_mxn, cost_delta_pct, accumulated_impact_mxn
+- accumulated_difference: la suma de las diferencias de varias operaciones. Hechos: operation_usd, base_rate, exposed_rate, base_cost_mxn, exposed_cost_mxn, cost_delta_mxn, cost_delta_pct, accumulated_impact_mxn
+- margin_sensitivity: precio de venta fijo contra costo importado variable. Hechos: operation_usd, base_rate, exposed_rate, base_cost_mxn, exposed_cost_mxn, sale_price_mxn, base_gross_profit_mxn, exposed_gross_profit_mxn, base_gross_margin_pct, exposed_gross_margin_pct
+
+Todo escenario hipotético se presenta como ESCENARIO ILUSTRATIVO. No pronostiques. En coberturas, la conclusión es certidumbre del costo, nunca ahorro garantizado.
+
+En `figureScenarioId`, a nivel plan, devuelve el único escenario que gobierna el set — o `none`.
 
 ## COMPOSICIÓN
 
@@ -394,7 +429,19 @@ Dos beats seguidos con el mismo objeto principal están mal. Y tres beats del se
 
 Este es el repertorio de la rama, y es de dónde sales a componer. No es una lista para recorrer en orden ni para agotar: es el material disponible. Un beat puede combinar dos entradas, usar una parte de una, o traer un objeto que no está aquí si la historia lo pide y pertenece a esta rama.
 
-Superficies donde puede vivir un dato:
+La operación de esta rama, hecha objeto. Esto es lo que se compra, se mueve, se instala y se acaba, y NINGUNO es un documento:
+- la mercancía de la compra en su empaque original, con la etiqueta de origen a la vista
+- la tarima cargada con el pedido completo, envuelta y precintada, en el piso del almacén
+- una unidad suelta de la pieza, sola en cuadro, cuando la línea habla de precio unitario
+- el lote completo de la misma pieza, apilado, cuando la línea habla de volumen
+- el estante del almacén con el hueco de lo que falta reponer
+- el estante completo, con todas sus posiciones ocupadas
+- el producto todavía embalado, en el sitio donde va a quedar
+- el producto ya instalado y en uso en el espacio del negocio
+- las partes del producto separadas en vista despiezada, cada una un componente distinto de lo que se paga
+- la mesa de trabajo con la pieza y las muestras de material: el acabado, la textura, lo que se está comprando
+
+Superficies donde puede vivir un dato. Solo cuando el beat necesita una CIFRA en cuadro — un beat sin cifra no necesita ninguna de estas:
 - cotización u orden de compra impresa, con su total visible
 - dos cotizaciones de PROVEEDORES DE PAGO DISTINTOS lado a lado, mismo pedido, condiciones distintas
 - dos hojas de la misma cotización con fechas distintas
@@ -409,16 +456,12 @@ Cómo se ve en cuadro que algo se movió:
 - la curva de la pantalla subiendo de izquierda a derecha
 - una columna de diferencias que se acumula hacia abajo
 - muchas carpetas de un lado y una sola del otro
-
-Punto de partida por tiempo narrativo, y solo eso — un punto de partida:
-- apertura: el objeto de la compra y el documento donde vive su costo, juntos en cuadro
-- cambio: DOS ESTADOS DE LO MISMO en el cuadro — dos cotizaciones del mismo pedido, o dos hojas de la misma cotización con fecha o sello posterior, y los totales visiblemente distintos en longitud y posición
-- riesgo: el efecto hecho visible — el total más largo, la columna de diferencias sumando, varias compras con su documento repetido
-- solución: la operación resuelta: un solo documento ordenado, un solo total definido y legible
-- cierre: el cuadro más callado del set, con el sujeto recurrente de vuelta y nada compitiendo
+- una unidad suelta en un cuadro y el lote completo en el otro: la misma compra a dos escalas
+- el estante con el hueco y el mismo estante completo
+- el producto embalado y el mismo producto ya instalado
 
 DOS REGLAS SOBRE ESTE MATERIAL, y se cumplen las dos:
-- VARÍA el material entre beats. Si tres de los cinco beats resuelven su evidencia con el mismo tipo de objeto —tres documentos, tres pantallas, tres veces el producto— el set se lee como el mismo cuadro repetido aunque las cifras cambien. Los objetos de la rama no son solo documentos: hay mercancía, equipo, espacios, superficies y estados.
+- VARÍA el material entre beats. Si tres de los cinco beats resuelven su evidencia con el mismo tipo de objeto —tres documentos, tres pantallas, tres veces el producto— el set se lee como el mismo cuadro repetido aunque las cifras cambien. El documento NO es el material por defecto: es una de las dos listas de arriba, y la otra es la operación física. Un set donde los cinco beats se resuelven en papel está mal aunque cada hoja sea la correcta.
 - Pero que CUADRE con el copy. La variedad no es decoración: cada objeto tiene que ser el que esa línea exige. Un beat con un objeto llamativo que no dice lo que dice su texto está peor que uno con el objeto obvio. Si el copy habla de una cotización, el documento va: lo que no va es que los cinco beats sean documentos.
 
 UTILERÍA QUE NO ES DE ESTA RAMA. Ninguno aparece en los objetos, en "visualDevice" ni en "visualEvidence". Un objeto de otra rama hace que la pieza se lea como de otra campaña, y es un rechazo automático:
@@ -521,7 +564,14 @@ Responde SOLO JSON válido, sin fences ni texto alrededor:
         "density": "balanced",
         "alignment": "asymmetric"
       },
-      "figureRequirement": { "mode": "none" }
+      "figureRequirement": {
+        "mode": "illustrative",
+        "scenarioId": "rate_range",
+        "factKeys": ["operation_usd","base_rate"],
+        "narrativePurpose": "establecer el costo de partida de la misma operación",
+        "weight": "inline",
+        "suggestedSurface": "object_label"
+      }
     }
   ]
 }
@@ -614,6 +664,8 @@ Slide 2 — rol "shift" (headline hasta 15 palabras)
   · Estado de la escena: mismo pedido comparado bajo condiciones distintas
   · Tiene que estar en cuadro: los dos totales legibles
   · Intención de composición: simetría entre las dos hojas, aire al centro
+  · Cifras: hechos [legacy] del escenario rate_comparison. No escribas sus valores.
+  · Superficie sugerida: freeform; peso inline. Cifra no significa documento.
   · brief.layout: split_photo — YA ESTÁ DECIDIDO, cópialo tal cual.
 ````
 
@@ -656,7 +708,19 @@ Si el bloque que elegiste no cabe en los topes, el sistema lo descarta y el slid
 
 La escena de cada slide se arma con ESTOS elementos. Son los de la rama activa y son los únicos que cuentan su historia: la utilería de otra rama produce una pieza que se lee como si fuera de otra campaña.
 
-El dato vive en un OBJETO de la escena, no flotando sobre ella. Superficies de esta rama:
+La operación de esta rama, hecha objeto. Ninguno de estos es un documento, y de aquí sale la escena cuando el slide no lleva cifras:
+- la mercancía de la compra en su empaque original, con la etiqueta de origen a la vista
+- la tarima cargada con el pedido completo, envuelta y precintada, en el piso del almacén
+- una unidad suelta de la pieza, sola en cuadro, cuando la línea habla de precio unitario
+- el lote completo de la misma pieza, apilado, cuando la línea habla de volumen
+- el estante del almacén con el hueco de lo que falta reponer
+- el estante completo, con todas sus posiciones ocupadas
+- el producto todavía embalado, en el sitio donde va a quedar
+- el producto ya instalado y en uso en el espacio del negocio
+- las partes del producto separadas en vista despiezada, cada una un componente distinto de lo que se paga
+- la mesa de trabajo con la pieza y las muestras de material: el acabado, la textura, lo que se está comprando
+
+El dato vive en un OBJETO de la escena, no flotando sobre ella. Superficies de esta rama, para los slides que SÍ llevan cifra:
 - cotización u orden de compra impresa, con su total visible
 - dos cotizaciones de PROVEEDORES DE PAGO DISTINTOS lado a lado, mismo pedido, condiciones distintas
 - dos hojas de la misma cotización con fechas distintas
@@ -671,13 +735,9 @@ Cómo se ve que algo se movió, cuando la línea lo dice:
 - la curva de la pantalla subiendo de izquierda a derecha
 - una columna de diferencias que se acumula hacia abajo
 - muchas carpetas de un lado y una sola del otro
-
-Recurso por tipo de momento, como punto de partida:
-- apertura: el objeto de la compra y el documento donde vive su costo, juntos en cuadro
-- algo cambia: DOS ESTADOS DE LO MISMO en el cuadro — dos cotizaciones del mismo pedido, o dos hojas de la misma cotización con fecha o sello posterior, y los totales visiblemente distintos en longitud y posición
-- riesgo o consecuencia: el efecto hecho visible — el total más largo, la columna de diferencias sumando, varias compras con su documento repetido
-- solución: la operación resuelta: un solo documento ordenado, un solo total definido y legible
-- cierre: el cuadro más callado del set, con el sujeto recurrente de vuelta y nada compitiendo
+- una unidad suelta en un cuadro y el lote completo en el otro: la misma compra a dos escalas
+- el estante con el hueco y el mismo estante completo
+- el producto embalado y el mismo producto ya instalado
 
 PROPS QUE NO VAN EN ESTA RAMA:
 - calendarios de vencimientos futuros y contratos de forward: eso es de coberturas

@@ -340,6 +340,9 @@ describe.runIf(process.env.CAROUSEL_DUMP === '1')('dump de los prompts del carru
           sceneKit: sceneKit
             ? {
                 version: sceneKit.version,
+                // La proporción entre estos dos es el dato: mientras `dataSurfaces` fue la
+                // única lista positiva, `document` salía en los cinco beats.
+                physicalWorld: sceneKit.physicalWorld.length,
                 dataSurfaces: sceneKit.dataSurfaces.length,
                 changeMarkers: sceneKit.changeMarkers.length,
                 bannedPropTokens: sceneKit.bannedPropTokens.length,
