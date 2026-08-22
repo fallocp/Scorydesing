@@ -69,6 +69,7 @@ import {
   deriveCompositionFamily,
   STORY_REGISTRY_VERSION,
 } from './carouselStoryRegistry.ts';
+import { getLanguageLexicon } from './carouselLanguageLexicon.ts';
 
 // ---------------------------------------------------------------------------
 // El trabajo de cada beat
@@ -131,7 +132,12 @@ export function beatJobForRole(role: string): string {
 const MEDIUM_LABELS: Record<string, string> = {
   foto: 'fotografía editorial real',
   infografia: 'infografía con iconografía 3D',
-  financiero: 'visualización financiera (dashboard/gráficas)',
+  // `financiero` es el valor histórico del enum; el medio que renderiza es mapa y
+  // rutas (globo/mapa con corredor origen→destino), una derivación del lenguaje 3D
+  // de la infografía. La etiqueta lo dice así para que el plan diseñe la historia
+  // sobre ese medio y no sobre dashboards.
+  financiero:
+    'visualización de mapa y rutas: un globo o mapa con el corredor origen→destino, sus nodos y su ruta, en el lenguaje 3D de la marca. Es una derivación de la infografía, no dashboards ni gráficas de barras',
 };
 
 export const DEEPENING_LABELS: Record<RouteDeepeningMode, string> = {
@@ -194,28 +200,70 @@ export function toCarouselLanguageStyle(raw: unknown): CarouselLanguageStyle | n
   return style;
 }
 
-export function buildLanguageStyleBlock(style: CarouselLanguageStyle | null | undefined): string {
-  if (!style) return '';
-  const terms = style.internalTermsNeverPublish ?? [];
-  const rewrites = Object.entries(style.preferredRewrites ?? {});
-  if (terms.length === 0 && rewrites.length === 0 && !style.note) return '';
+/**
+ * El bloque de lenguaje publicable, compartido por el plan y el guion.
+ *
+ * Fuentes que combina, en este orden de prioridad:
+ *  1. El léxico compartido es-MX (`carouselLanguageLexicon`), base + rama. Funciona
+ *     aunque la rama no tenga `language_style` en su copy kit —o no tenga kit, como
+ *     multidivisa—, que es justo el hueco que este bloque vino a cerrar.
+ *  2. Lo que el copy kit declare en `language_style` (nota, términos, reescrituras).
+ *
+ * Cierra con la LECTURA FINAL: la instrucción de releer cada línea como un CFO,
+ * tesorero o importador mexicano. Va aquí y no en cada prompt para que el plan y el
+ * guion la reciban idéntica.
+ */
+export function buildLanguageStyleBlock(
+  style: CarouselLanguageStyle | null | undefined,
+  branchSlug?: string,
+): string {
+  const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+  const seen = new Set<string>();
+  const rewriteLines: string[] = [];
+  const neverPublish: string[] = [];
 
-  const parts: string[] = ['## LENGUAJE PUBLICABLE'];
-  if (style.note) parts.push(style.note);
-  if (terms.length > 0) {
+  for (const entry of getLanguageLexicon(branchSlug)) {
+    for (const term of entry.terms) {
+      const key = norm(term);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      rewriteLines.push(`"${term}" → ${entry.preferred.map((p) => `"${p}"`).join(' / ')}`);
+      neverPublish.push(term);
+    }
+  }
+  for (const [from, to] of Object.entries(style?.preferredRewrites ?? {})) {
+    const key = norm(from);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    rewriteLines.push(`"${from}" → "${to}"`);
+  }
+  for (const term of style?.internalTermsNeverPublish ?? []) {
+    if (!seen.has(norm(term))) {
+      seen.add(norm(term));
+      neverPublish.push(term);
+    }
+  }
+
+  if (rewriteLines.length === 0 && neverPublish.length === 0 && !style?.note) return '';
+
+  const parts: string[] = ['## LENGUAJE PUBLICABLE (español de México)'];
+  parts.push(
+    style?.note ??
+      'Escribe como le hablarías a un importador, tesorero o CFO mexicano. Nombra el objeto o la situación concreta —pago, pedido, proveedor, factura, fecha, pesos, dólares, tipo de cambio, cotización— en vez de una abstracción de software o un calco del inglés. El lenguaje puede ser financiero; lo que no se publica es la jerga interna de operaciones.',
+  );
+  if (neverPublish.length > 0) {
     parts.push(
-      `TÉRMINOS QUE NUNCA SE PUBLICAN — son jerga interna de operaciones o calcos del inglés. No los escribas ni los parafrasees en ningún campo de texto:\n${bullets(
-        terms.map((t) => `"${t}"`),
+      `TÉRMINOS QUE NUNCA SE PUBLICAN — jerga interna de operaciones o calcos del inglés. No los escribas ni los parafrasees en ningún campo de texto:\n${bullets(
+        neverPublish.map((t) => `"${t}"`),
       )}`,
     );
   }
-  if (rewrites.length > 0) {
-    parts.push(
-      `CÓMO DECIRLO EN NATURAL — usa la forma de la derecha:\n${bullets(
-        rewrites.map(([from, to]) => `"${from}" → "${to}"`),
-      )}`,
-    );
+  if (rewriteLines.length > 0) {
+    parts.push(`CÓMO DECIRLO EN NATURAL — usa la forma de la derecha:\n${bullets(rewriteLines)}`);
   }
+  parts.push(
+    'LECTURA FINAL — antes de dar por buena una línea, léela como si fueras un CFO, tesorero o importador mexicano. Si suena a manual de software, a traducción del inglés o a jerga interna de operaciones, reescríbela. Siempre que puedas nombrar el pago, el pedido, el proveedor, la factura, la fecha, el monto, los pesos, los dólares, el tipo de cambio o la cotización, hazlo: lo concreto gana sobre lo abstracto.',
+  );
   return parts.join('\n\n');
 }
 
@@ -748,7 +796,7 @@ ${buildSceneRepertoireBlock(ctx)}
 
 ${buildBansBlock(ctx)}
 
-${buildLanguageStyleBlock(ctx.languageStyle)}
+${buildLanguageStyleBlock(ctx.languageStyle, ctx.branchSlug)}
 
 ${buildPriorStoriesBlock(ctx)}
 
@@ -764,7 +812,7 @@ ${buildPriorStoriesBlock(ctx)}
 
 ## MEDIO VISUAL
 
-El set completo es ${MEDIUM_LABELS[ctx.medium] ?? ctx.medium}. Toda la evidencia visual tiene que ser representable en ese medio, y tiene que ser FOTOGRAFIABLE: objetos físicos y su estado, en un solo cuadro. "El valor final todavía sin definirse" no se puede fotografiar; "el renglón del costo en blanco sobre la hoja del pedido" sí.
+El set completo es ${MEDIUM_LABELS[ctx.medium] ?? ctx.medium}. Toda la evidencia visual tiene que ser representable en ese medio y CONCRETA: algo que se puede dibujar en un solo cuadro —un objeto y su estado, una superficie, un corredor con su ruta y sus nodos—, no una abstracción. "El valor final todavía sin definirse" no se representa; "el renglón del costo en blanco sobre la hoja del pedido", o "el corredor México→China con el nodo destino marcado", sí. En fotografía es un objeto físico fotografiable; en infografía o en mapa y rutas es su equivalente en el lenguaje 3D del medio.
 
 ## SALIDA
 

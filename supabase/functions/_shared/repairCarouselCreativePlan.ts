@@ -218,6 +218,8 @@ Solo con estas operaciones:
 
 Repara ÚNICAMENTE lo que la lista de fallos señala, y lo mínimo para cerrarlo.
 
+Si un fallo es de lenguaje (internal_language_term), SÍ es un fallo, no criterio: reescribe el campo que el mensaje señala en español de México natural, nombrando la situación concreta (pago, pedido, factura, fecha, pesos, dólares, tipo de cambio), no con un reemplazo palabra por palabra.
+
 Lo que NO es un fallo: que otra metáfora te gustaría más, que preferirías otro layout, que la escena podría ser más llamativa. Eso es criterio, y aquí el criterio del set ya está tomado. Si lo cambias, sustituyes la dirección de arte por la tuya y el usuario no pidió eso.
 
 Cuando repares un beat, respeta a sus vecinos: lo que retoma del anterior y lo que prepara para el siguiente tienen que seguir siendo verdad después del cambio. Si tu reparación rompe esa cadena, repara también el campo del vecino.

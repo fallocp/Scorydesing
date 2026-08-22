@@ -34,6 +34,7 @@ import type {
   RegisteredStoryRoute,
 } from './carousel-plan-types.ts';
 import { compositionSignature, getStoryRoute } from './carouselStoryRegistry.ts';
+import { getLanguageLexicon, lintCarouselLanguage } from './carouselLanguageLexicon.ts';
 
 // ---------------------------------------------------------------------------
 // Comparación de texto
@@ -589,11 +590,55 @@ export function validateCarouselCreativePlan(
   }
 
   /*
+   * El mismo objeto en 3+ beats del set, aunque no sean contiguos.
+   *
+   * La regla vivía solo en el prompt del planificador —"si tres de los cinco beats
+   * resuelven su evidencia con el mismo tipo de objeto, el set se lee como el mismo
+   * cuadro repetido"— y como prosa no la hacía cumplir nadie: un plan con la caja en los
+   * beats 1, 3 y 5 pasaba, porque `repeated_primary_objects` solo mira vecinos. Este gate
+   * mira el set entero.
+   *
+   * Agrupa por solapamiento de tokens, no por igualdad exacta, para que "el bulto
+   * embalado" y "el bulto etiquetado en el andén" cuenten como el mismo objeto. No atrapa
+   * sinónimos sin palabras en común —"la caja" contra "el paquete"—: eso necesitaría la
+   * taxonomía de familias de evidencia, que quedó fuera de este cambio.
+   */
+  const OBJECT_REPEAT_LIMIT = 2;
+  if (beats.length >= 4) {
+    const objectText = beats.map((b) => b.primaryObjects.map(normalize).join(' '));
+    const clustered = new Array(beats.length).fill(false);
+    for (let i = 0; i < beats.length; i++) {
+      if (clustered[i] || !objectText[i]) continue;
+      const cluster = [i];
+      for (let j = i + 1; j < beats.length; j++) {
+        if (clustered[j] || !objectText[j]) continue;
+        if (ideaOverlap(objectText[i], objectText[j]) >= DUPLICATE_THRESHOLD) {
+          cluster.push(j);
+        }
+      }
+      if (cluster.length > OBJECT_REPEAT_LIMIT) {
+        for (const k of cluster) clustered[k] = true;
+        const positions = cluster.map((k) => beats[k].index).join(', ');
+        issues.push(
+          issue(
+            'object_family_dominates_set',
+            'blocking',
+            beats[cluster[cluster.length - 1]].index,
+            `El mismo objeto domina ${cluster.length} de ${beats.length} beats (${positions}): el set se lee como el mismo cuadro repetido aunque el copy cambie.`,
+            `Deja el objeto en máximo ${OBJECT_REPEAT_LIMIT} beats y dale a los demás del grupo el objeto que exige SU línea.`,
+          ),
+        );
+      }
+    }
+  }
+
+  /*
    * El motivo recurrente es un paréntesis, no el protagonista.
    *
-   * Advisory y no bloqueante: nombrar el motivo en un beat intermedio puede ser una
-   * decisión legítima si además trae su propio sujeto, y el código no puede juzgar cuál
-   * de los dos domina el cuadro.
+   * Bloqueante: cuando el motivo es el objeto principal en TODOS los beats de en medio,
+   * el set sale como el mismo cuadro repetido. Se repara con `replace_primary_objects`
+   * sobre los beats intermedios —darles su propio sujeto y dejar el motivo como detalle
+   * de fondo—, así que no es de los fallos que fuerzan cambio de ruta.
    */
   if (plan.visualMotif.trim() && beats.length > 2) {
     const middle = beats.slice(1, -1);
@@ -602,9 +647,10 @@ export function validateCarouselCreativePlan(
       issues.push(
         issue(
           'motif_dominates_middle',
-          'advisory',
+          'blocking',
           null,
           'El motivo recurrente es el objeto principal en todos los beats de en medio: el set va a salir como el mismo cuadro repetido.',
+          'Quita el motivo de los "primaryObjects" de los beats de en medio y dale a cada uno el objeto que exige SU línea; el motivo puede quedar como detalle de fondo.',
         ),
       );
     }
@@ -620,6 +666,49 @@ export function validateCarouselCreativePlan(
         `Los ${beats.length} beats usan la misma relación texto–imagen ("${beats[0].textImageRelation}"): la imagen nunca aporta algo que el texto no diga.`,
       ),
     );
+  }
+
+  // --- Lenguaje publicable es-MX --------------------------------------------
+
+  /*
+   * Jerga interna de operaciones y calcos del inglés no se publican. El storyboard
+   * alimenta el copy y la imagen, así que la regla aplica TAMBIÉN aquí, no solo al copy
+   * final. Blocking y reparable: el crítico reescribe el campo señalado con
+   * `replace_beat_field` (o los objetos con `replace_primary_objects`).
+   *
+   * Solo se escanean campos del beat que el crítico puede reescribir. La metadata de la
+   * ruta (premisa, tesis, pregunta) es curada y no se toca: escanearla podría producir
+   * un fallo que ninguna operación cierra.
+   */
+  const languageLexicon = getLanguageLexicon(ctx.branchSlug);
+  if (languageLexicon.length > 0) {
+    for (const beat of beats) {
+      const pushLangIssues = (field: string, text: string) => {
+        for (const hit of lintCarouselLanguage(text, languageLexicon)) {
+          issues.push(
+            issue(
+              'internal_language_term',
+              'blocking',
+              beat.index,
+              `El campo "${field}" del beat ${beat.index} usa lenguaje interno o calco del inglés: "${hit.term}".`,
+              `Reescríbelo en español de México natural, nombrando la situación concreta (pago, pedido, factura, fecha, pesos, dólares, tipo de cambio), no con un reemplazo palabra por palabra. Formas sugeridas: ${hit.preferred
+                .map((p) => `"${p}"`)
+                .join(' o ')}.`,
+            ),
+          );
+        }
+      };
+
+      pushLangIssues('viewerTakeaway', beat.viewerTakeaway);
+      pushLangIssues('verbalMessage', beat.verbalMessage);
+      pushLangIssues('visualEvidence', beat.visualEvidence);
+      pushLangIssues('carryFromPrevious', beat.carryFromPrevious);
+      pushLangIssues('setupForNext', beat.setupForNext);
+      pushLangIssues('visualDevice', beat.visualDevice);
+      pushLangIssues('sceneState', beat.sceneState);
+      pushLangIssues('primaryObjects', beat.primaryObjects.join(' . '));
+      pushLangIssues('supportingObjects', beat.supportingObjects.join(' . '));
+    }
   }
 
   // --- Composición ----------------------------------------------------------

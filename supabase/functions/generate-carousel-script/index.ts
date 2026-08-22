@@ -717,7 +717,7 @@ Qué va en cada campo del brief:
 - visualMetaphor: el recurso concreto que demuestra la evidencia YA elegida por el beat. Puede ser una etiqueta sobre un artículo, unidad→lote→proyecto, una banda de margen, anatomía de costo, proceso, presupuesto espacial, decisión o acumulación física. No la conviertas en documento por llevar cifras.
 - layout: el valor de \`brief.layout\` que trae su slide arriba, LITERAL. No lo elijas.
 - primaryObjects: los objetos que su beat ya declara. Cópialos; puedes añadir alguno solo si la escena no se entiende sin él.
-- environmentalText: etiquetas cortas SIN CIFRAS que pueden aparecer DENTRO de los objetos. Nombres de campo y sellos, nada más. Prohibido cualquier número aquí —montos, tasas, porcentajes—: los hechos exactos los inyecta el sistema en la superficie elegida por el beat. Vacío si el slide no necesita ninguna.
+- environmentalText: etiquetas cortas SIN CIFRAS que pueden aparecer DENTRO de los objetos. Nombres de campo y sellos, nada más. Prohibido cualquier número aquí —montos, tasas, porcentajes—: los hechos exactos los inyecta el sistema en la superficie elegida por el beat. Si el headline o el body nombran un LUGAR o DESTINO concreto (China, México, un país, una ciudad), INCLÚYELO aquí como etiqueta corta —"China", "CN", "destino: China"— para que la escena lo pueda rotular sobre un objeto real (la guía de embarque, la etiqueta del paquete) y no dejar el destino solo en el headline. Esta es la única etiqueta que puede no ser un nombre de campo: es lo que ancla de qué habla la pieza. Vacío si el slide no necesita ninguna.
 - highlights: uno o dos bloques del headline con su rol semántico. El texto tiene que aparecer LITERAL dentro del headline, y ser una unidad semántica completa.
 
 El arreglo "slides" tiene exactamente ${slideCount} elementos, en el orden pedido, con los roles tal como se te dieron.`;
@@ -1094,6 +1094,7 @@ serve(async (req) => {
           editorialBans = buildEditorialBansBlock(kit as unknown as Record<string, unknown>);
           languageStyleBlock = buildLanguageStyleBlock(
             toCarouselLanguageStyle((kit as unknown as Record<string, unknown>).language_style),
+            slug,
           );
           branchContext = buildBranchContextFromKit({
             kit,

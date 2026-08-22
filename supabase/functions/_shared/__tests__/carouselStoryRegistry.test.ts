@@ -30,7 +30,7 @@ import {
   type CompositionSpec,
 } from '../carousel-plan-types';
 
-const BRANCHES = ['velocidad', 'costos-ahorro', 'coberturas'] as const;
+const BRANCHES = ['velocidad', 'costos-ahorro', 'coberturas', 'cuenta-multidivisa'] as const;
 
 const norm = (s: string) =>
   s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
