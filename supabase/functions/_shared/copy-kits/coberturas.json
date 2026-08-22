@@ -1,8 +1,8 @@
 {
-  "kit_version": "coberturas-v1.0",
+  "kit_version": "coberturas-forwards-v3.1",
   "branch_slug": "coberturas",
   "branch_name": "Coberturas cambiarias y forwards",
-  "source": "_contexto-maestro.coberturas.md + 60 copys aprobados (general 30, industria 30)",
+  "source": "docs/prompts/copy-banks/_contexto-editorial.coberturas.v3.1.md (47 secciones, banco maestro de 15 generales + 30 verticalizados) + 60 copys aprobados (general 30, industria 30). Sube del kit v1.0 al esquema rico v3.1.",
 
   "editorial_objective": "Comunicar la administración de riesgo cambiario como planeación financiera, no como especulación. El copy debe mostrar qué puede conocer, proteger, planear o definir la empresa ANTES de la fecha de pago. Nunca decirle hacia dónde irá el dólar, ni pedirle que se organice por su cuenta.",
 
@@ -161,6 +161,7 @@
         "Protege tu próximo pago",
         "Administra tu riesgo cambiario",
         "Revisa tu exposición cambiaria",
+        "Revisa tus próximos pagos en dólares",
         "Planea hoy lo que pagarás después",
         "Da certidumbre a tus costos",
         "Da certidumbre a tu próximo pago"
@@ -311,7 +312,9 @@
   },
 
   "numbers_policy": {
-    "allowed": "Plazos y horizontes de tiempo ('60 días', '90 días', 'tres meses'). Una operación aritmética verificable solo si se presenta como ejemplo ilustrativo con la nota 'Ejemplo ilustrativo. No representa una cotización.'",
+    "allowed": "Plazos y horizontes de tiempo ('60 días', '90 días', 'tres meses'). Una operación aritmética verificable solo si se presenta como ejemplo ilustrativo, nunca como pronóstico.",
+    "quota": "Cuota absoluta de ejemplos numéricos: tandas de 1-20 copys, máximo 1; tandas de 21-40, máximo 2; banco maestro de 45, máximo 2. Es un techo, no un objetivo: puede haber cero.",
+    "requires": "Todo ejemplo numérico publicable debe ser aritméticamente verificable, presentarse como ilustrativo (no pronóstico), llevar nota legal y marcarse REQUIERE_VALIDACION_LEGAL salvo aprobación previa de esa construcción exacta. El texto de la nota lo monta la capa de marca, no el agente.",
     "banned": [
       "niveles o pronósticos de tipo de cambio",
       "cotizaciones, puntos forward o precios inventados",
@@ -367,7 +370,7 @@
       "angleTag": "certidumbre_forward",
       "angleLabel": "Simplicidad y beneficio del forward",
       "corridor": "general",
-      "needsLegalNote": true
+      "needsLegalNote": false
     },
     {
       "headline": "El presupuesto está aprobado. El tipo de cambio sigue abierto",
@@ -385,7 +388,7 @@
       "angleTag": "plazo_exposicion",
       "angleLabel": "Crédito de proveedor vs. mercado",
       "corridor": "general",
-      "needsLegalNote": true
+      "needsLegalNote": false
     },
     {
       "headline": "Varios pagos futuros significan varios momentos de exposición cambiaria",
@@ -403,7 +406,7 @@
       "angleTag": "tesoreria_visibilidad",
       "angleLabel": "Tesorería y flujo de efectivo",
       "corridor": "general",
-      "needsLegalNote": true
+      "needsLegalNote": false
     },
     {
       "headline": "El mercado cambia todos los días. Tu planeación no debería hacerlo",
@@ -452,7 +455,7 @@
       "angleLabel": "Autopartes, precio y forward",
       "corridor": "industria",
       "industry": "autopartes",
-      "needsLegalNote": true
+      "needsLegalNote": false
     }
   ],
 
@@ -467,5 +470,358 @@
     { "text": "¿Sabes qué es un forward? Te lo explicamos", "reason": "convierte la pieza en clase de finanzas en vez de plantear una tensión de negocio" },
     { "text": "Protege tus márgenes con nuestra plataforma líder", "reason": "autoelogio genérico sin situación empresarial reconocible" },
     { "text": "El dólar no perdona", "reason": "alarmista y con dirección implícita del mercado" }
-  ]
+  ],
+
+  "positioning_must_not_be": [
+    "trader",
+    "plataforma de inversión",
+    "broker especulativo",
+    "casa de apuestas sobre el dólar",
+    "banco",
+    "consultoría que únicamente recomienda revisar riesgos",
+    "curso de derivados"
+  ],
+
+  "audience": {
+    "roles": [
+      "CFOs",
+      "tesoreros",
+      "contralores",
+      "directores financieros",
+      "responsables de compras",
+      "responsables de comercio exterior",
+      "dueños y directores de empresas",
+      "importadores"
+    ],
+    "company_profile": [
+      "empresas que compran en dólares u otras monedas y presupuestan en pesos",
+      "empresas con crédito o plazo de proveedor (30, 60, 90 días o más)",
+      "compras de maquinaria con entrega posterior",
+      "operaciones con anticipo y saldo",
+      "inventario para temporadas futuras",
+      "proyectos cotizados en pesos con equipos importados en dólares"
+    ],
+    "seeks": [
+      "previsibilidad",
+      "control",
+      "planeación financiera",
+      "protección de margen",
+      "certidumbre sobre costos futuros",
+      "administrar el riesgo cambiario sin apostar al dólar"
+    ]
+  },
+
+  "tension_policy": {
+    "level": "clara, puede ser fuerte cuando describe una consecuencia real y posible",
+    "may_signal": [
+      "una fecha de pago futura ya definida",
+      "un margen calculado antes de pagar la importación",
+      "un tipo de cambio que todavía puede moverse",
+      "un presupuesto que el costo cambiario puede consumir en parte",
+      "un plazo de proveedor que también es plazo de exposición"
+    ],
+    "must_never": [
+      "predecir la dirección del dólar",
+      "presentar una pérdida futura como inevitable",
+      "usar miedo o dramatización financiera",
+      "hablar como campaña de trading o especulación"
+    ],
+    "note": "La tensión nace de tiempo + moneda + costo o margen, nunca de un pronóstico. 'El tipo de cambio puede comerse parte de tu presupuesto' es válido; 'el dólar va a subir' no."
+  },
+
+  "hedging_policy": {
+    "prefer": [
+      "puede cambiar",
+      "puede modificar",
+      "puede influir",
+      "puede ayudarte a proteger",
+      "puede ayudarte a definir",
+      "puede darte mayor previsibilidad"
+    ],
+    "avoid": [
+      "el dólar subirá",
+      "el pago costará más",
+      "perderás margen",
+      "la cobertura eliminará el riesgo",
+      "el forward te hará ahorrar",
+      "siempre conviene cubrir",
+      "obtendrás un mejor tipo de cambio"
+    ],
+    "note": "Obligatorio cuando el resultado depende del movimiento futuro del mercado o de condiciones del producto. Nunca afirmar una pérdida futura como hecho."
+  },
+
+  "capability_rule": {
+    "required_elements": [
+      "una realidad temporal o financiera",
+      "una consecuencia relevante",
+      "una capacidad o siguiente acción compatible con Xending"
+    ],
+    "valid_capabilities": [
+      "explicar o comunicar el concepto de cobertura cambiaria",
+      "ayudar a evaluar alternativas de cobertura",
+      "cotizar una cobertura, si la capacidad está confirmada",
+      "cotizar un forward, si el producto está confirmado",
+      "definir hoy el tipo de cambio de un pago futuro conforme a los términos del forward contratado",
+      "alinear una cobertura con una fecha de pago",
+      "revisar pagos futuros en moneda extranjera",
+      "acompañar una operación de pagos internacionales"
+    ],
+    "weak_examples": [
+      "El tipo de cambio puede afectar tu margen.",
+      "Planea mejor."
+    ],
+    "correct_examples": [
+      "Tu margen se calcula hoy. El pago puede llegar meses después. Una cobertura puede reducir la incertidumbre cambiaria entre ambas fechas."
+    ],
+    "note": "Un copy NO es suficiente si únicamente identifica el problema. La regla central es REALIDAD TEMPORAL/FINANCIERA → CONSECUENCIA → CAPACIDAD DE XENDING. Nunca convertir la cobertura en predicción ni en promesa de ahorro."
+  },
+
+  "comparative_rule": {
+    "allowed": [
+      "Una cobertura puede darte mayor previsibilidad sobre un pago futuro.",
+      "Un forward puede definir hoy el tipo de cambio de un pago posterior, conforme a sus términos.",
+      "Puedes administrar el riesgo cambiario sin adivinar hacia dónde va el dólar."
+    ],
+    "not_allowed": [
+      "Con un forward ganas si el dólar sube.",
+      "Asegura tu margen.",
+      "Consigue el mejor tipo de cambio futuro.",
+      "La cobertura elimina el riesgo."
+    ],
+    "principle": "'Definir', 'proteger' y 'fijar' se usan como administración de riesgo, nunca como ahorro, ganancia o eliminación del riesgo. 'Fijar hoy tu tipo de cambio' solo cuando el producto efectivamente fija las condiciones y la construcción está aprobada. La rama vende previsibilidad, no superioridad de mercado."
+  },
+
+  "concreteness_rule": {
+    "preferred_nouns": [
+      "factura",
+      "dólares",
+      "pesos",
+      "fecha",
+      "pago",
+      "presupuesto",
+      "margen",
+      "proveedor",
+      "tipo de cambio",
+      "máquina",
+      "pieza",
+      "lote",
+      "panel",
+      "tela",
+      "envase",
+      "equipo",
+      "anticipo",
+      "saldo",
+      "proyecto",
+      "inventario"
+    ],
+    "use_with_care": [
+      "previsibilidad",
+      "certidumbre",
+      "exposición",
+      "estrategia",
+      "protección",
+      "flexibilidad",
+      "condiciones",
+      "riesgo"
+    ],
+    "note": "Locale es-MX: nombra la factura, el pago, la fecha, los dólares y pesos en vez de una abstracción, y evita calcos del inglés (FX exposure, hedge ratio, mark-to-market, lock-in, certainty, cashflow certainty). Excepción controlada (§17): una palabra conceptual se permite solo si (1) la idea sigue siendo comprensible por sí misma, (2) hay una asociación financiera clara y (3) el supporting copy aterriza el objeto concreto. Válido: 'Define hoy. Paga después' (el supporting explica que se habla del tipo de cambio de un pago futuro). No válido: 'Convierte incertidumbre en control' (no queda claro qué pasa en la operación)."
+  },
+
+  "element_roles": {
+    "headline": "Genera atención con una tensión de tiempo y moneda.",
+    "subline": "Explica la lógica financiera y conecta con cobertura o forward.",
+    "cta": "Ofrece la siguiente acción.",
+    "correct_example": {
+      "headline": "El proveedor da plazo. El mercado no.",
+      "subline": "Un forward puede definir hoy el tipo de cambio de un pago posterior.",
+      "cta": "Cotiza un forward"
+    },
+    "incorrect_example": {
+      "headline": "Define tu tipo de cambio.",
+      "subline": "Define hoy el tipo de cambio de tu pago.",
+      "cta": "Define tu tipo de cambio",
+      "why": "los tres repiten la misma idea sin desarrollarla"
+    }
+  },
+
+  "verticalization": {
+    "rule": "PRODUCTO / OPERACIÓN REAL → TIEMPO O CONSECUENCIA CAMBIARIA → CAPACIDAD DE XENDING",
+    "products_by_industry": {
+      "automotriz": ["autopartes", "motores", "sensores", "baterías", "refacciones", "componentes"],
+      "industrial": ["maquinaria", "moldes", "herramientas", "bombas", "válvulas", "rodamientos", "materias primas", "equipos industriales"],
+      "electrico_electronico": ["electrónicos", "componentes", "cableado", "material eléctrico", "iluminación", "baterías", "paneles solares", "inversores"],
+      "consumo_retail": ["textiles", "calzado", "mobiliario", "electrodomésticos", "inventario", "colecciones de temporada"],
+      "empaque_manufactura": ["empaques", "envases", "plásticos", "resinas", "rollos", "cajas", "insumos"],
+      "proyectos_equipamiento": ["solar", "HVAC", "iluminación", "equipo médico", "mobiliario", "equipamiento comercial", "maquinaria agrícola"]
+    },
+    "example": {
+      "headline": "La máquina que compras hoy puede costarte más en tres meses.",
+      "subline": "Una cobertura puede reducir la incertidumbre entre la orden y el pago.",
+      "cta": "Planea hoy tus costos futuros"
+    },
+    "guard": "El producto es el vehículo narrativo; la historia sigue siendo sobre riesgo cambiario, margen, presupuesto o pago futuro. Debe existir una relación real entre el producto y el momento futuro de pago. No convertir la pieza en publicidad del producto.",
+    "default_share_pct": 10,
+    "import_campaign_share_pct": "20-30 cuando la campaña es específicamente de un sector importador"
+  },
+
+  "headline_quality": {
+    "must": [
+      "entenderse rápidamente",
+      "contener una idea",
+      "hacer visible el tiempo entre hoy y el pago cuando aplique",
+      "poder funcionar visualmente dentro de una pieza",
+      "despertar una pregunta o un reconocimiento",
+      "estar relacionado con una situación real"
+    ],
+    "word_range": "6-14 palabras, hasta ~15 si la tensión hoy/después lo necesita",
+    "note": "Preferir situación real + consecuencia financiera. Esta rama admite headlines un poco más largos cuando la tensión requiere mostrar 'hoy vs después'. No buscar juegos de palabras si sacrifican claridad."
+  },
+
+  "subline_quality": {
+    "must": [
+      "explicar o aterrizar el headline",
+      "añadir información nueva",
+      "conectar con cobertura o forward",
+      "llevar naturalmente al CTA",
+      "ser breve",
+      "evitar repetir el headline"
+    ],
+    "word_range": "6-15 palabras, excepcionalmente 18 cuando la precisión del producto lo exija"
+  },
+
+  "branch_core_criterion": {
+    "must_not_feel": "Xending me está diciendo que adivine mejor el dólar.",
+    "must_feel": "Xending entiende que sé cuánto voy a pagar y cuándo, pero el costo en pesos todavía puede cambiar.",
+    "sells_capabilities": [
+      "previsibilidad",
+      "planeación",
+      "protección de margen",
+      "mayor claridad sobre costos futuros",
+      "herramientas para administrar un riesgo real"
+    ],
+    "never": [
+      "vender miedo",
+      "vender predicciones",
+      "prometer ahorro",
+      "convertir el copy en una clase de derivados"
+    ]
+  },
+
+  "claim_review_trigger": {
+    "enabled": true,
+    "operational_triggers": [
+      "forward",
+      "disponibilidad de cobertura",
+      "posibilidad de cotizar una cobertura",
+      "moneda cubierta",
+      "plazo",
+      "monto mínimo o máximo",
+      "mecanismo de liquidación",
+      "contraparte",
+      "proceso de contratación"
+    ],
+    "legal_triggers": [
+      "cifra financiera ilustrativa publicable",
+      "claim sobre fijar o proteger",
+      "comparación que requiera revisión",
+      "descripción de características contractuales del forward"
+    ],
+    "both_triggers": [
+      "toda pieza que nombre explícitamente un forward mientras el producto, contraparte, condiciones y wording legal no estén cerrados"
+    ]
+  },
+
+  "claim_semantics": {
+    "allowed": [
+      "FX_RISK_MANAGEMENT",
+      "COVERAGE_GENERAL",
+      "FORWARD_DEFINED_RATE",
+      "MARGIN_PROTECTION",
+      "CASHFLOW_PLANNING"
+    ],
+    "rule": "El agente no puede convertir 'cobertura' (concepto general de administración de riesgo) en 'forward' (instrumento específico) ni presentar el forward como ahorro o ganancia. Todo forward depende de producto, contraparte, jurisdicción y términos confirmados.",
+    "source_of_truth": "La ficha vigente de producto de Coberturas/Forwards (disponibilidad, contraparte, condiciones, wording legal) vive fuera del kit, con dueño de producto y fecha de verificación."
+  },
+
+  "final_test": [
+    { "question": "¿Suena a español empresarial mexicano?", "on_fail": "reescribir", "automatable": true },
+    { "question": "¿Hay algún calco del inglés?", "on_fail": "reescribir", "automatable": true },
+    { "question": "¿Existe realmente una fecha futura o un momento de pago posterior?", "on_fail": "reescribir" },
+    { "question": "¿Predice el dólar?", "on_fail": "rechazar", "automatable": true },
+    { "question": "¿Promete ahorro, ganancia o mejor tipo de cambio?", "on_fail": "reescribir en administración de riesgo", "automatable": true },
+    { "question": "¿Usa 'forward' sin producto confirmado?", "on_fail": "marcar REQUIERE_VALIDACION_PRODUCTO_Y_LEGAL", "automatable": true },
+    { "question": "¿El headline es abstracto?", "on_fail": "hacerlo más concreto salvo excepción controlada" },
+    { "question": "¿Headline, supporting y CTA repiten lo mismo?", "on_fail": "diferenciar sus funciones", "automatable": true },
+    { "question": "¿Existe una cifra? Verificar aritmética, que sea ilustrativa (no pronóstico), llevar disclaimer y respetar la cuota absoluta.", "on_fail": "corregir o quitar la cifra", "automatable": true },
+    { "question": "¿El producto verticalizado explica por qué existe el pago futuro?", "on_fail": "devolver el foco al riesgo cambiario" },
+    { "question": "¿El CTA corresponde al producto real (cobertura vs forward)?", "on_fail": "cambiar CTA", "automatable": true }
+  ],
+
+  "closing_principle": "El cliente sabe cuánto va a pagar y cuándo, pero el costo en pesos todavía puede cambiar. Coberturas y forwards se comunican como herramientas para administrar esa incertidumbre y dar previsibilidad sobre un pago futuro, nunca como predicción del dólar, ahorro garantizado ni eliminación del riesgo.",
+
+  "batch_policy": {
+    "creative_families": {
+      "financiera_conceptual": {
+        "territory": ["presupuesto", "margen", "pago futuro", "tipo de cambio", "fecha", "flujo de efectivo", "anticipo y saldo", "forward", "cobertura"],
+        "examples": [
+          "El proveedor da plazo. El mercado no",
+          "Hoy calculas el margen. El pago puede llegar meses después"
+        ]
+      },
+      "producto_operacion": {
+        "territory": ["algo que la empresa realmente compra o importa"],
+        "examples": [
+          "Tres meses pueden cambiar el costo de una máquina",
+          "La autoparte tiene precio. El dólar todavía puede moverse"
+        ],
+        "note": "El producto es el vehículo narrativo, no el beneficio principal."
+      },
+      "contraste_hoy_despues": {
+        "territory": ["hoy vs 60 días", "cotización vs pago", "anticipo vs saldo", "proyecto vendido vs compra futura"],
+        "examples": [
+          "Cotizaste hoy. Pagarás dentro de 60 días",
+          "Define hoy. Paga después"
+        ],
+        "note": "El riesgo existe ENTRE dos momentos; esta familia lo hace visible."
+      }
+    },
+    "variety_note": "La diversidad se controla con cobertura mínima y límites máximos (§28), no completando porcentajes que sumen 100. El bloque de 15 generales cubre: 3 factura USD/presupuesto MXN, 3 pago futuro/fecha, 2 margen, 2 calendario/anticipo/saldo, 2 planeación de efectivo, 1 compra de activo, 1 cobertura general, 1 forward (solo con validación). Evitar más de 6 headlines que usen literalmente 'dólares/pesos' como única tensión.",
+    "anti_repetition": [
+      "Ángulo: no más de 2 copys consecutivos con el mismo ángulo principal; ningún ángulo debe superar 6 de cada 30; en un bloque general cubrir varios territorios sin concentrarse en una sola tesis.",
+      "Fórmula: no usar claramente la misma fórmula narrativa más de 4 veces por tanda de 30, ni repetir la misma estructura en bloques consecutivos cuando el objeto también es parecido.",
+      "Apertura: máximo 3 headlines con la misma primera palabra o construcción en un bloque de 15; máximo 6 en uno de 30. Vigilar 'El tipo de cambio...', 'Tu...', 'El...', 'Una...', 'Un...'.",
+      "Léxico: evitar repetir en exceso tipo de cambio, margen, pago, cobertura, forward y costo. La solución no es buscar sinónimos artificiales, sino cambiar la situación, el objeto, el momento o la consecuencia."
+    ]
+  },
+
+  "language_style": {
+    "locale": "es-MX",
+    "note": "Escribe como le hablarías a un importador, tesorero o director financiero mexicano. Nombra la factura, el pago, la fecha, los dólares y pesos en vez de una abstracción. Nada de jerga de derivados ni calcos del inglés.",
+    "internal_terms_never_publish": [
+      "obligación futura",
+      "exposición abierta",
+      "cerrar exposición",
+      "costo abierto",
+      "referencia definida",
+      "sensibilidad cambiaria",
+      "horizonte",
+      "lock-in",
+      "certainty",
+      "FX exposure",
+      "hedge ratio",
+      "mark-to-market",
+      "future obligation",
+      "reserve cash",
+      "cash flow certainty",
+      "hedging mechanism"
+    ],
+    "preferred_rewrites": {
+      "obligación futura": "pago futuro",
+      "exposición abierta": "riesgo cambiario",
+      "cerrar exposición": "definir el tipo de cambio",
+      "horizonte": "plazo",
+      "sensibilidad cambiaria": "cuánto puede cambiar el costo en pesos",
+      "lock-in": "definir hoy el tipo de cambio"
+    }
+  }
 }

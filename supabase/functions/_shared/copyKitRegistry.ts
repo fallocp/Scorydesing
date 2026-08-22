@@ -31,6 +31,7 @@ export type { BranchKitSlug } from "./branchSlug.ts";
 import velocidadKit from "./copy-kits/velocidad.json" with { type: "json" };
 import costosAhorroKit from "./copy-kits/costos-ahorro.json" with { type: "json" };
 import coberturasKit from "./copy-kits/coberturas.json" with { type: "json" };
+import cuentaMultidivisaKit from "./copy-kits/cuenta-multidivisa.json" with { type: "json" };
 
 // ---------------------------------------------------------------------------
 // Registry
@@ -40,6 +41,7 @@ const KITS: Record<string, CopyKit> = {
   velocidad: velocidadKit as unknown as CopyKit,
   "costos-ahorro": costosAhorroKit as unknown as CopyKit,
   coberturas: coberturasKit as unknown as CopyKit,
+  "cuenta-multidivisa": cuentaMultidivisaKit as unknown as CopyKit,
 };
 
 export function listCopyKitSlugs(): string[] {

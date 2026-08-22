@@ -1,0 +1,783 @@
+{
+  "kit_version": "cuenta-multidivisa-v1.0",
+  "branch_slug": "cuenta-multidivisa",
+  "branch_name": "Cuenta Multidivisa",
+  "source": "docs/prompts/copy-banks/_contexto-editorial.cuenta-multidivisa.v1.md (47 secciones, banco maestro de 15 generales + 30 verticalizados). Orientación USA (Xending USA). Sigue la metodología de costos-ahorro v3.1.",
+  "editorial_objective": "Comunicar que la Cuenta Multidivisa de Xending ayuda a empresas con operación internacional a administrar monedas, saldos, pagos y movimientos desde una estructura más simple y con mejor visibilidad. El foco no es 'tenemos muchas monedas', sino qué problema empresarial resuelve manejar varias monedas con menos cuentas, portales y procesos. El copy debe explicar cómo ayuda Xending, no limitarse a decirle al cliente que organice, revise o monitoree sus monedas.",
+  "scope": [
+    "cuentas",
+    "saldos",
+    "monedas y divisas",
+    "pagos y cobros",
+    "proveedores y clientes",
+    "facturas",
+    "portales y procesos",
+    "tesorería internacional",
+    "distintos mercados",
+    "administración de monedas",
+    "operación desde Estados Unidos",
+    "menos cuentas y menos portales",
+    "saldos por moneda, cuando está confirmado",
+    "conversión, cuando está confirmada",
+    "centralización, cuando está confirmada",
+    "pagos internacionales recurrentes"
+  ],
+  "client_should_think": [
+    "Más monedas no deberían obligarme a manejar más cuentas.",
+    "Cada cuenta adicional puede sumar portales, procesos y conciliación.",
+    "Mi empresa opera en varios mercados, pero mi tesorería puede estar dispersa.",
+    "Cobrar en una moneda y pagar en otra crea una necesidad real de administración.",
+    "Xending puede ayudarme a simplificar mi tesorería internacional.",
+    "El problema no es tener varias monedas; es administrarlas sin orden."
+  ],
+  "positioning_must_communicate": [
+    "claridad",
+    "control operativo",
+    "visibilidad",
+    "especialización",
+    "tesorería internacional",
+    "simplificación",
+    "acompañamiento",
+    "menor dispersión",
+    "operación global con estructura"
+  ],
+  "positioning_must_not_be": [
+    "banco",
+    "cuenta bancaria global propia",
+    "wallet cripto",
+    "custodio bancario",
+    "solución de inversión o de rendimientos",
+    "promesa de control absoluto"
+  ],
+  "audience": {
+    "roles": [
+      "CFOs",
+      "tesoreros",
+      "contralores",
+      "directores financieros",
+      "responsables de compras",
+      "responsables de pagos internacionales",
+      "dueños y directores de empresas",
+      "importadores",
+      "exportadores"
+    ],
+    "company_profile": [
+      "empresas con operación internacional desde Estados Unidos",
+      "empresas que cobran en una moneda y pagan en otra",
+      "importadores y exportadores que manejan 3+ monedas",
+      "empresas que compran en varios mercados",
+      "operaciones recurrentes en USD, EUR, GBP, MXN",
+      "empresas de produce, agroindustria, automotriz, manufactura y distribución B2B en Texas y California"
+    ],
+    "seeks": [
+      "claridad por moneda",
+      "control operativo",
+      "menor complejidad",
+      "menos cuentas y portales",
+      "visibilidad de saldos",
+      "simplificación de tesorería internacional"
+    ]
+  },
+  "allowed_situations": [
+    "una empresa cobra en USD y paga proveedores en otra moneda",
+    "un importador compra en varios mercados",
+    "cada proveedor factura en una divisa diferente",
+    "cada moneda obliga a otra cuenta o portal",
+    "tesorería consulta saldos en lugares separados",
+    "un equipo financiero une monedas con hojas de cálculo",
+    "un distribuidor compra inventario en distintos países",
+    "una empresa industrial paga maquinaria, refacciones o insumos en varias monedas",
+    "una operación desde Estados Unidos necesita pagar a México, Europa o Asia",
+    "el CFO quiere entender cuánto tiene disponible en cada moneda",
+    "una nueva moneda suma otra revisión, autorización o conciliación",
+    "la empresa administra pagos internacionales recurrentes"
+  ],
+  "situation_framing_rule": "La tensión es OPERATIVA y moderada: la dispersión de cuentas, portales y procesos, no un escenario catastrófico ni la culpa del lector. Xending no ataca al banco del cliente ni dice que su banco es malo. Reencuadre correcto: 'Más monedas no deberían significar más cuentas' en vez de 'tu banco te complica la vida'. La moneda debe tener una consecuencia operativa concreta, no ser un dato aislado.",
+  "tone": {
+    "yes": [
+      "empresarial",
+      "cercano",
+      "confiable",
+      "moderno",
+      "sobrio",
+      "directo",
+      "casual sin perder profesionalismo",
+      "inteligente",
+      "financiero sin sonar académico",
+      "orientado a operación real",
+      "ejecutivo",
+      "útil para tesorería"
+    ],
+    "no": [
+      "alarmista",
+      "acusatorio",
+      "agresivo",
+      "bancario tradicional",
+      "tutorial administrativo",
+      "clase de tesorería",
+      "excesivamente técnico",
+      "traducido del inglés",
+      "documentación de software",
+      "aspiracional vacío",
+      "genérico",
+      "cripto",
+      "promesa de banco global",
+      "promesa de rendimiento"
+    ],
+    "tension": "moderada y operativa",
+    "hedging": "El condicional es preferido cuando la capacidad depende de producto, país, moneda o implementación: 'puede ayudarte', 'puede simplificar', 'puede reducir fricción', 'puede dar mayor visibilidad'. Nunca afirmación absoluta de control o de reemplazo del banco."
+  },
+  "tension_policy": {
+    "level": "moderada",
+    "may_signal": [
+      "una operación dispersa entre cuentas y portales",
+      "procesos y conciliaciones que se multiplican",
+      "una nueva moneda que suma otra cuenta",
+      "saldos que viven en lugares separados",
+      "una tesorería que trabaja de más"
+    ],
+    "must_never": [
+      "escenarios catastróficos",
+      "acusaciones contra el banco del cliente",
+      "dramatización financiera",
+      "culpar al lector por no organizarse",
+      "promesas de control absoluto o reemplazo del banco"
+    ],
+    "note": "Xending no vende desde el miedo ni ataca al banco actual. La dispersión operativa se puede señalar; el banco del cliente, no."
+  },
+  "hedging_policy": {
+    "prefer": [
+      "puede ayudarte",
+      "puede simplificar",
+      "puede reducir fricción",
+      "puede dar mayor visibilidad",
+      "puede concentrar",
+      "puede ordenar",
+      "puede permitir, si la capacidad está confirmada"
+    ],
+    "avoid": [
+      "elimina todos tus procesos",
+      "controla todas tus monedas",
+      "reemplaza a tu banco",
+      "todas tus monedas en una cuenta",
+      "saldos ilimitados",
+      "sin comisiones",
+      "sin límites"
+    ],
+    "note": "Aplica cuando la capacidad depende de producto, país, moneda o implementación. Nunca convertir un beneficio operativo en una promesa absoluta."
+  },
+  "capability_rule": {
+    "required_elements": [
+      "una realidad operativa o financiera",
+      "una consecuencia relevante",
+      "una capacidad concreta de Xending"
+    ],
+    "valid_capabilities": [
+      "ayudar a administrar monedas",
+      "simplificar la tesorería internacional",
+      "concentrar pagos y monedas, si está confirmado",
+      "dar más claridad sobre operaciones multidivisa",
+      "acompañar pagos internacionales",
+      "operar distintas monedas, si está confirmado",
+      "administrar saldos por moneda, si está confirmado",
+      "reducir portales o procesos dispersos, si está confirmado",
+      "apoyar la operación desde Estados Unidos con Xending USA"
+    ],
+    "weak_examples": [
+      "Tus monedas están dispersas.",
+      "Revisa tus saldos."
+    ],
+    "correct_examples": [
+      "Tus monedas no deberían vivir en tres portales. Xending USA puede ayudarte a simplificar la administración de tu operación internacional."
+    ],
+    "note": "Un copy NO es suficiente si únicamente identifica un problema. Xending debe aparecer como capacidad disponible, no como asesor que le asigna una tarea al cliente (organizar, revisar, analizar, monitorear). La regla central es SITUACIÓN REAL → CONSECUENCIA OPERATIVA → CAPACIDAD DE XENDING."
+  },
+  "angle_quota": {
+    "mas_monedas_no_mas_cuentas": 15,
+    "cada_cuenta_suma_procesos": 15,
+    "proveedores_distintos_mercados": 13,
+    "menos_portales": 12,
+    "cobro_pago_entre_monedas": 10,
+    "escala_internacional": 10,
+    "visibilidad_saldos": 9,
+    "conversion": 6,
+    "tesoreria_usa": 5,
+    "plataforma_acompanamiento": 5
+  },
+  "angle_quota_note": "Distribución objetivo sobre bloques de 30 copys. Suma 100. La verticalización por industria es un tratamiento transversal y NO consume cuota de ángulo. 'cobro_pago_entre_monedas', 'visibilidad_saldos' y 'conversion' dependen de capacidades que exigen confirmación de producto: mantener su peso moderado hasta que la ficha vigente las respalde.",
+  "angles": {
+    "mas_monedas_no_mas_cuentas": {
+      "label": "Más monedas, no más cuentas",
+      "premise": "La empresa puede operar en más de una moneda sin que la complejidad crezca al mismo ritmo."
+    },
+    "cada_cuenta_suma_procesos": {
+      "label": "Cada cuenta suma procesos",
+      "premise": "Cada cuenta o portal adicional puede sumar revisiones, autorizaciones, conciliaciones y seguimiento.",
+      "note": "El dolor no se limita a 'conciliación'. Frasear como 'cada cuenta suma costos y procesos'. No afirmar funcionalidades no confirmadas."
+    },
+    "cobro_pago_entre_monedas": {
+      "label": "Cobras en una moneda, pagas en otra",
+      "premise": "Cuando la operación cruza mercados, administrar monedas deja de ser un detalle operativo.",
+      "note": "Usar solo si la capacidad de cobro/pago está confirmada. Si no, marcar REQUIERE_VALIDACION_PRODUCTO."
+    },
+    "proveedores_distintos_mercados": {
+      "label": "Proveedores en distintos mercados",
+      "premise": "Cada proveedor puede facturar en una moneda distinta, exigir otro proceso o involucrar otra cuenta."
+    },
+    "menos_portales": {
+      "label": "Menos portales",
+      "premise": "Consultar bancos, plataformas, archivos y hojas separadas es fricción operativa.",
+      "note": "No prometer 'eliminamos todos los portales'."
+    },
+    "visibilidad_saldos": {
+      "label": "Visibilidad de saldos",
+      "premise": "Ver cuánto tienes en cada moneda antes de pagar o convertir.",
+      "note": "Solo usar si la capacidad está confirmada. No usar 'balance visibility'. Marcar REQUIERE_VALIDACION_PRODUCTO cuando dependa de la ficha."
+    },
+    "conversion": {
+      "label": "Conversión",
+      "premise": "Convertir entre monedas dentro de la operación.",
+      "note": "Solo si producto y momento de conversión están confirmados. No decir 'al mejor tipo de cambio', 'sin costo', 'siempre que quieras' ni 'elimina riesgo cambiario'."
+    },
+    "escala_internacional": {
+      "label": "Escala internacional",
+      "premise": "Crecer a nuevos mercados no debería multiplicar innecesariamente cuentas, procesos y portales."
+    },
+    "tesoreria_usa": {
+      "label": "Tesorería USA con operación global",
+      "premise": "Empresas basadas en Estados Unidos que compran, venden o pagan en varios mercados.",
+      "note": "Los claims específicos de Xending USA (ACH, domestic wires, pagos masivos, Monex USA) deben provenir de la ficha vigente. No trasladarlos automáticamente a la oferta general."
+    },
+    "plataforma_acompanamiento": {
+      "label": "Plataforma y acompañamiento",
+      "premise": "Xending como solución especializada para operar monedas y pagos internacionales, con acompañamiento.",
+      "note": "No convertirlo en claim bancario."
+    }
+  },
+  "angle_rotation_note": "Rotar entre estos ángulos y agotar los disponibles antes de repetir uno. No generar copies nuevos cambiando solo 'euros' por 'libras' o 'proveedor' por 'cliente': cada pieza debe cambiar la situación, el objeto o la lógica narrativa.",
+  "corridor_quota": {
+    "general": 50,
+    "industria": 50
+  },
+  "corridor_quota_note": "Esta rama no se segmenta por geografía sino por nivel de concreción: 'general' plantea la tensión operativa multidivisa sin producto; 'industria' la aterriza en una compra, proveedor o mercado reconocible. El contexto de mercado es Estados Unidos (Xending USA).",
+  "corridors": {
+    "general": {
+      "label": "Cuenta multidivisa — general",
+      "objective": "Plantear la tensión operativa de manejar varias monedas sin anclarla a una industria: más monedas contra más cuentas, cada cuenta suma procesos, cobrar en una moneda y pagar en otra, menos portales, visibilidad de saldos.",
+      "allowed_claims": [
+        "administrar monedas y simplificar la tesorería internacional",
+        "reducir portales o procesos dispersos, cuando la capacidad esté confirmada",
+        "concentrar pagos y monedas, cuando esté confirmado",
+        "mayor claridad sobre la operación multidivisa",
+        "acompañamiento en pagos internacionales"
+      ],
+      "hard_limit": "NO presentar a Xending como banco ni como cuenta bancaria global propia. NO prometer control absoluto, visibilidad total, cero comisiones, sin límites ni reemplazo del banco. Toda capacidad específica (saldos, conversión, recepción, integraciones) debe estar confirmada por la ficha vigente.",
+      "structure": [
+        "Headline de 4 a 12 palabras que plantee una tensión operativa reconocible.",
+        "Subline de 8 a 20 palabras que diga qué puede simplificar, administrar u ordenar Xending.",
+        "CTA de administración de monedas, simplificación de tesorería o acompañamiento."
+      ],
+      "vocabulary": ["cuenta", "saldo", "moneda", "divisa", "pago", "cobro", "proveedor", "cliente", "factura", "portal", "proceso", "tesorería", "dólares", "euros", "pesos", "mercado", "conciliación"],
+      "cta": [
+        "Administra tus monedas con Xending",
+        "Conoce la cuenta multidivisa",
+        "Simplifica tu tesorería internacional",
+        "Concentra tus saldos",
+        "Centraliza tus monedas con Xending",
+        "Cobra y paga en distintas monedas",
+        "Convierte cuando lo necesites",
+        "Revisa tu operación multidivisa",
+        "Conoce Xending USA",
+        "Agenda una revisión de tu tesorería internacional",
+        "Habla con Xending",
+        "Pregúntale a Xending"
+      ],
+      "cta_banned": [
+        "Abre tu cuenta bancaria global",
+        "Reemplaza a tu banco",
+        "Olvídate de tu banco",
+        "Elimina todos tus costos",
+        "Opera sin límites",
+        "Activa tu cuenta global",
+        "Controla todo",
+        "Domina tus divisas",
+        "Optimiza tu arquitectura financiera",
+        "Centraliza tu treasury hub",
+        "Gestiona tus currency buckets"
+      ]
+    },
+    "industria": {
+      "label": "Cuenta multidivisa por tipo de operación o industria",
+      "objective": "Aterrizar la tensión multidivisa en un proveedor, producto, mercado o inventario reconocible. La industria debe identificarse sin leer la etiqueta, y el problema operativo de monedas sigue siendo el mensaje principal.",
+      "structure": [
+        "Partir de un producto, proveedor, mercado o inventario reconocible.",
+        "Nombrar el problema multidivisa concreto: otra moneda, otra cuenta, otro portal, otro proceso.",
+        "Colocar la administración de monedas como lo que Xending simplifica.",
+        "Subline breve que indique qué ordena o simplifica.",
+        "CTA de administración de monedas o simplificación de tesorería."
+      ],
+      "hard_limit": "El producto es el contexto, no el protagonista. NO convertir la pieza en catálogo. Como en general: nada de banco global, control absoluto ni capacidades no confirmadas.",
+      "focus": [
+        "proveedores en distintos mercados con monedas distintas",
+        "componentes o insumos que llegan de países diferentes",
+        "inventario comprado en varios mercados",
+        "cobro de exportación en una moneda y pago de insumos en otra",
+        "cada nueva moneda que suma una cuenta o un proceso"
+      ],
+      "vocabulary": ["autoparte", "componente", "sensor", "motor", "maquinaria", "bomba", "válvula", "rodamiento", "pantalla", "tarjeta", "rollo de tela", "calzado", "molde", "herramienta", "panel", "inversor", "contenedor", "pallet", "inventario", "cosecha", "insumo"],
+      "cta": [
+        "Administra tus monedas con Xending",
+        "Conoce la cuenta multidivisa",
+        "Simplifica tu tesorería internacional",
+        "Concentra tus saldos",
+        "Centraliza tus monedas con Xending",
+        "Cobra y paga en distintas monedas",
+        "Conoce Xending USA",
+        "Habla con Xending",
+        "Pregúntale a Xending"
+      ],
+      "cta_banned": [
+        "Abre tu cuenta bancaria global",
+        "Reemplaza a tu banco",
+        "Elimina todos tus costos",
+        "Opera sin límites",
+        "Conoce el producto",
+        "Domina tus divisas"
+      ]
+    }
+  },
+  "industries": {
+    "automotriz": { "angles": ["proveedores en distintos mercados", "componentes por moneda", "pagos programados"] },
+    "distribucion_retail": { "angles": ["inventario multiorigen", "reorden por proveedor", "menos portales"] },
+    "exportadores": { "angles": ["cobro y pago entre monedas", "después del cobro"] },
+    "agroexportador": { "angles": ["cobro de exportación e insumos en otra moneda", "conciliación manual"] },
+    "industrial": { "angles": ["proveedores en distintos mercados", "monedas por proveedor", "costo operativo no numérico"] },
+    "electronicos": { "angles": ["proceso detrás del pedido", "proveedores múltiples", "compra por componentes"] },
+    "textil_moda": { "angles": ["proveedores por moneda", "temporada e inventario"] },
+    "calzado": { "angles": ["operación comercial cruzada"] },
+    "moldes_herramientas": { "angles": ["fabricación internacional", "cada cuenta suma procesos"] },
+    "solar_energia": { "angles": ["proyecto con varios proveedores"] },
+    "empaque_envases": { "angles": ["compras recurrentes multiorigen"] },
+    "manufactura": { "angles": ["materias primas de varios países", "operación multi-país"] }
+  },
+  "formulas_allowed": [
+    "Más [A] no deberían significar más [B] — ej: 'Más monedas no deberían significar más cuentas'",
+    "[X] también suma [Y] — ej: 'Cada cuenta nueva también suma procesos'",
+    "[A] en una moneda. [B] en otra — ej: 'Cobras en una moneda. Pagas en otra'",
+    "Menos [A]. Más [B] — ej: 'Menos portales. Más control'",
+    "[Producto] de [mercado]. [Pago/saldo/proveedor] en [moneda]",
+    "Cada [cuenta/portal/moneda] suma [proceso/consecuencia]",
+    "[X] no debería vivir en [Y] — ej: 'Dólares, euros y pesos no deberían vivir en tres procesos'",
+    "Antes de [pagar/convertir], necesitas [ver/saber] [Z]",
+    "[Proveedor/cliente/mercado] cambia. [Tesorería/proceso] también",
+    "[X] no termina en [lo obvio]"
+  ],
+  "banned_openings": [
+    "El",
+    "Tu",
+    "Cada",
+    "Una",
+    "Más monedas",
+    "La cuenta multidivisa"
+  ],
+  "banned_openings_note": "Arranques que saturan fácil en esta rama. Cambiar el arranque, NO la fórmula. Máximo 3 headlines con la misma primera palabra en un bloque de 15; máximo 6 en uno de 30.",
+  "banned_phrases": [
+    "banco global",
+    "cuenta bancaria global",
+    "reemplaza a tu banco",
+    "olvídate de tu banco",
+    "elimina todos tus costos",
+    "ahorro garantizado",
+    "recibe rendimiento por tus saldos",
+    "opera sin límites",
+    "sin comisiones",
+    "sin riesgo cambiario",
+    "todas tus monedas en una cuenta bancaria",
+    "pagos instantáneos",
+    "SWIFT instantáneo",
+    "integración inmediata",
+    "Xending Asia",
+    "wallet cripto",
+    "stablecoins",
+    "custodia cripto",
+    "treasury hub",
+    "liquidity buckets",
+    "currency position",
+    "currency buckets",
+    "orquestación",
+    "control absoluto",
+    "visibilidad total",
+    "control total de tus divisas"
+  ],
+  "banned_phrases_note": "Las primeras son claims de banco, promesas absolutas o capacidades no permitidas. Las últimas son calcos del inglés y jerga de sistema no publicable en México. 'sin comisiones' y 'sin límites' están prohibidos incluso como figura retórica.",
+  "numbers_policy": {
+    "allowed": "Cifras de producto ÚNICAMENTE si provienen de la ficha vigente (número de divisas, países, integraciones, permanencia de saldos). No se usan cifras ilustrativas de desempeño en esta rama.",
+    "requires": "Toda cifra publicable requiere validación de producto; si además puede interpretarse como claim sensible, requiere validación legal. El disclaimer se monta en la capa de marca, no lo redacta el agente.",
+    "quota": "Por defecto CERO cifras en el banco de 45. Si se usan, máximo 2, y siempre desde la ficha vigente. Es un techo, no un objetivo.",
+    "banned": [
+      "inventar número de monedas, países, tiempos, tarifas o comisiones",
+      "'sin costo', 'cero comisiones', 'sin límites'",
+      "'ahorro garantizado', 'siempre más barato'"
+    ],
+    "principle": "En esta rama un número casi siempre es una afirmación de producto. Si no viene de la ficha vigente, no se publica."
+  },
+  "hard_business_rules": [
+    "Xending NO es banco. Es una plataforma de pagos internacionales para empresas, y puede comunicar una solución de tesorería internacional cuando el producto correspondiente esté confirmado.",
+    "No redactar como si Xending ofreciera una cuenta bancaria propia salvo validación expresa. Evitar 'banco global', 'cuenta bancaria global propia', 'custodia bancaria', 'depósito bancario', 'rendimiento sobre saldos', 'reemplazo total del banco'.",
+    "Hablar de saldos por moneda solo si la capacidad está confirmada; si no, REQUIERE_VALIDACION_PRODUCTO.",
+    "No afirmar recepción local, cuentas locales, cuentas virtuales, ACH, domestic wires, SWIFT, IBAN o routing number sin ficha vigente.",
+    "No afirmar conversión inmediata, sin costo, al mejor tipo de cambio o sin riesgo.",
+    "Integraciones (SAP, NetSuite, QuickBooks, API, ERP) son sujetas a implementación. No decir 'integración inmediata', 'conecta en minutos' ni 'compatible con todos los sistemas'.",
+    "'Powered by Monex USA' solo en material de Xending USA aprobado para comunicación comercial; no convertirlo en promesa bancaria.",
+    "No atacar al banco del cliente ni decir que su banco es malo.",
+    "No contaminar con otras ramas: nada de pagos a China mismo día (Velocidad) ni forwards/cobertura (Coberturas).",
+    "No trasladar automáticamente capacidades de Xending USA (ACH, domestic wires, pagos masivos, Monex USA) a la oferta general de cuenta multidivisa.",
+    "El disclaimer se monta en la capa de marca al publicar. El agente creativo no lo redacta ni reserva espacio para él."
+  ],
+  "comparative_rule": {
+    "allowed": [
+      "Más claridad sobre tus saldos.",
+      "Una sola vista para monedas y pagos internacionales.",
+      "Simplifica la administración de monedas."
+    ],
+    "not_allowed": [
+      "Control total de tus divisas.",
+      "Visibilidad absoluta.",
+      "Centralización global garantizada.",
+      "Todo tu dinero internacional en una cuenta."
+    ],
+    "principle": "'Control', 'visibilidad' y 'centralización' son permitidas pero no pueden quedarse solas ni volverse promesas absolutas. Comunican un beneficio operativo, no una garantía."
+  },
+  "cta_selection_rule": [
+    "Si el copy habla de administrar monedas o simplificar la operación: 'Administra tus monedas con Xending' o 'Simplifica tu tesorería internacional'.",
+    "Si presenta el producto o el concepto de cuenta multidivisa: 'Conoce la cuenta multidivisa'.",
+    "Si depende de una capacidad específica (saldos, cobro/pago, conversión): 'Concentra tus saldos', 'Cobra y paga en distintas monedas' o 'Convierte cuando lo necesites', y marcar validación de producto.",
+    "Si es contexto USA: 'Conoce Xending USA' o 'Agenda una revisión de tu tesorería internacional'.",
+    "Si es institucional o de acompañamiento: 'Habla con Xending' o 'Pregúntale a Xending'.",
+    "El CTA puede repetirse entre piezas, pero no mecánicamente en todo el banco."
+  ],
+  "language_style": {
+    "locale": "es-MX",
+    "market_context": "USA",
+    "business_unit": "Xending USA",
+    "note": "Escribe como le hablarías a un CFO, tesorero o importador mexicano/latino operando desde Estados Unidos. Nombra el objeto concreto (saldo, moneda, cuenta, proveedor, cliente, pago, cobro, portal, factura, divisa, mercado) en vez de una abstracción. Nada de jerga de sistema ni calcos del inglés.",
+    "internal_terms_never_publish": [
+      "account sprawl",
+      "multicurrency architecture",
+      "currency position",
+      "currency wallet",
+      "treasury hub",
+      "currency buckets",
+      "unified treasury",
+      "balance visibility",
+      "liquidity buckets",
+      "orchestration",
+      "orquestación",
+      "arquitectura multidivisa",
+      "posición de moneda",
+      "cubetas de liquidez",
+      "control layer",
+      "payment rails",
+      "execution layer"
+    ],
+    "preferred_rewrites": {
+      "balance visibility": "ver cuánto tienes en cada moneda",
+      "currency buckets": "saldos por moneda",
+      "treasury hub": "tesorería internacional",
+      "account sprawl": "cuentas dispersas",
+      "orquestación": "administración de pagos"
+    }
+  },
+  "verticalization": {
+    "rule": "PRODUCTO / OPERACIÓN REAL → PROBLEMA MULTIDIVISA → CAPACIDAD DE XENDING",
+    "products_by_industry": {
+      "automotriz": ["autopartes", "motores", "sensores", "baterías", "refacciones", "componentes"],
+      "industrial": ["maquinaria", "moldes", "herramientas", "bombas", "válvulas", "rodamientos", "materias primas", "insumos"],
+      "electrico_electronico": ["electrónicos", "pantallas", "componentes", "cableado", "material eléctrico", "iluminación", "paneles solares"],
+      "consumo_comercio": ["textiles", "calzado", "mobiliario", "electrodomésticos", "ferretería", "inventario"],
+      "empaque_manufactura": ["empaques", "envases", "plásticos", "resinas", "rollos", "cajas", "pallets", "contenedores"],
+      "produce_agro": ["cajas de fruta", "pallets refrigerados", "cosecha", "insumos agrícolas", "contenedores refrigerados"]
+    },
+    "example": {
+      "headline": "Bombas en euros, válvulas en dólares",
+      "subline": "Cuando cada proveedor factura distinto, Xending puede ayudarte a simplificar la administración de monedas.",
+      "cta": "Administra tus monedas con Xending"
+    },
+    "guard": "El producto es el vehículo narrativo, no el beneficio principal. Vuelve la comunicación más visual y reconocible, pero la pieza sigue siendo sobre administración de monedas, cuentas, portales y tesorería. No convertirla en publicidad del producto.",
+    "default_share_pct": 10,
+    "import_campaign_share_pct": "20-30 cuando la campaña es específicamente de un sector importador"
+  },
+  "concreteness_rule": {
+    "preferred_nouns": [
+      "saldo",
+      "moneda",
+      "cuenta",
+      "pago",
+      "cobro",
+      "proveedor",
+      "cliente",
+      "factura",
+      "dólares",
+      "euros",
+      "libras",
+      "pesos",
+      "portal",
+      "plataforma",
+      "cuenta multidivisa",
+      "autoparte",
+      "contenedor",
+      "pallet",
+      "inventario",
+      "orden de compra",
+      "mercado"
+    ],
+    "use_with_care": [
+      "visibilidad",
+      "control",
+      "eficiencia",
+      "optimización",
+      "arquitectura",
+      "solución",
+      "estructura",
+      "operación",
+      "ecosistema"
+    ],
+    "note": "Locale es-MX (contexto USA): nombra el objeto concreto y evita calcos del inglés (account sprawl, currency buckets, treasury hub, orquestación). El headline debe entenderse en unos dos segundos. Excepción controlada (§17): una palabra conceptual se permite solo si (1) el headline sigue siendo comprensible por sí mismo, (2) hay una asociación empresarial o financiera clara y (3) el subline aterriza el objeto concreto. Válido: 'La tesorería no debería perseguir saldos' (el subline aclara cuentas, portales y monedas). No válido: 'Control global sin fricción' (no queda claro qué se controla ni qué resuelve Xending)."
+  },
+  "element_roles": {
+    "headline": "Genera atención con una tensión operativa reconocible.",
+    "subline": "Explica la lógica operativa y la capacidad de Xending.",
+    "cta": "Ofrece una acción concreta con Xending.",
+    "correct_example": {
+      "headline": "Más monedas no deberían significar más cuentas",
+      "subline": "Xending puede ayudarte a simplificar la administración de una empresa que opera con distintas divisas.",
+      "cta": "Conoce la cuenta multidivisa"
+    },
+    "incorrect_example": {
+      "headline": "Administra tus monedas",
+      "subline": "Administra tus monedas con Xending.",
+      "cta": "Administra tus monedas",
+      "why": "los tres repiten la misma idea sin desarrollarla"
+    }
+  },
+  "headline_quality": {
+    "must": [
+      "entenderse rápidamente",
+      "contener una idea",
+      "evitar explicaciones largas",
+      "poder funcionar visualmente dentro de una pieza",
+      "despertar una pregunta o un reconocimiento",
+      "estar relacionado con una situación operativa real"
+    ],
+    "word_range": "4-12 palabras cuando sea posible",
+    "note": "Preferir concreto + simple + operativo. No buscar juegos de palabras si sacrifican claridad."
+  },
+  "subline_quality": {
+    "must": [
+      "explicar el headline",
+      "añadir información nueva",
+      "conectar el concepto con una realidad operativa",
+      "llevar naturalmente al CTA",
+      "ser breve",
+      "evitar repetir el headline"
+    ],
+    "word_range": "8-20 palabras"
+  },
+  "branch_core_criterion": {
+    "must_not_feel": "Xending me está diciendo que administre mejor mi operación.",
+    "must_feel": "Xending me está ofreciendo una forma más simple de manejar monedas, cuentas y pagos internacionales.",
+    "sells_capabilities": [
+      "administrar monedas",
+      "simplificar tesorería",
+      "reducir dispersión",
+      "ordenar pagos internacionales",
+      "acompañar la operación",
+      "evaluar una alternativa especializada"
+    ],
+    "never": [
+      "vender miedo",
+      "prometer lo que no puede demostrarse",
+      "atacar a bancos",
+      "convertir el copy en una clase de tesorería"
+    ]
+  },
+  "claim_review_trigger": {
+    "enabled": true,
+    "operational_triggers": [
+      "saldos por moneda",
+      "cuentas locales",
+      "cuentas virtuales",
+      "número de monedas o divisas",
+      "recepción de fondos",
+      "conversión",
+      "ACH",
+      "domestic wires",
+      "SWIFT",
+      "IBAN",
+      "routing number",
+      "pagos masivos",
+      "permanencia de saldos",
+      "integraciones (SAP, NetSuite, QuickBooks, API)",
+      "número de países o jurisdicciones",
+      "centralización concreta de cuentas o pagos"
+    ],
+    "legal_triggers": [
+      "cifra financiera publicable",
+      "comparación o claim sensible",
+      "uso de 'Powered by Monex USA' en pieza publicitaria"
+    ],
+    "both_triggers": [
+      "permanencia de saldos usada como claim publicitario",
+      "capacidad de Xending USA (ACH, wires, Monex) trasladada a la oferta general"
+    ]
+  },
+  "claim_semantics": {
+    "allowed": [
+      "MULTICURRENCY_ADMIN",
+      "FEWER_ACCOUNTS_PORTALS",
+      "BALANCE_VISIBILITY",
+      "COLLECT_AND_PAY",
+      "CONVERSION",
+      "TREASURY_SIMPLIFICATION"
+    ],
+    "rule": "El agente no puede afirmar una capacidad específica (saldos, recepción, conversión, integraciones) sin que provenga de la ficha vigente del producto. No completar vacíos por analogía con otra plataforma.",
+    "source_of_truth": "La ficha vigente de producto de Cuenta Multidivisa y de Xending USA (con dueño de producto y fecha de verificación) vive fuera del kit."
+  },
+  "final_test": [
+    { "question": "¿Suena a español empresarial mexicano (contexto USA)?", "on_fail": "reescribir", "automatable": true },
+    { "question": "¿Hay algún calco del inglés?", "on_fail": "reescribir", "automatable": true },
+    { "question": "¿Nombra una situación concreta?", "on_fail": "hacerlo más concreto" },
+    { "question": "¿Xending hace algo o solo le dice al cliente que revise, analice o planee?", "on_fail": "reescribir para que Xending aparezca como capacidad", "automatable": true },
+    { "question": "¿Promete que Xending es banco o reemplaza al banco?", "on_fail": "rechazar", "automatable": true },
+    { "question": "¿Promete saldos, cuentas, recepción, conversión o integración sin confirmación?", "on_fail": "marcar validación de producto o reescribir" },
+    { "question": "¿Ataca al banco actual?", "on_fail": "reescribir", "automatable": true },
+    { "question": "¿El headline es abstracto?", "on_fail": "hacerlo más concreto salvo excepción controlada" },
+    { "question": "¿Headline, subline y CTA repiten lo mismo?", "on_fail": "diferenciar sus funciones", "automatable": true },
+    { "question": "¿El CTA corresponde al mensaje?", "on_fail": "cambiar CTA", "automatable": true },
+    { "question": "¿Contamina con velocidad (mismo día) o coberturas (forwards)?", "on_fail": "reescribir dentro del territorio multidivisa", "automatable": true },
+    { "question": "¿Es verticalizado? El producto debe ser vehículo visual y el argumento seguir siendo multidivisa.", "on_fail": "devolver el foco a la administración de monedas" }
+  ],
+  "closing_principle": "La tesorería internacional no necesita más cuentas: necesita más control. La Cuenta Multidivisa de Xending ordena lo que el crecimiento dispersa —monedas, saldos, pagos y proveedores— desde una estructura más simple, con acompañamiento y sin presentarse como banco.",
+  "batch_policy": {
+    "creative_families": {
+      "tesoreria_control_operativo": {
+        "territory": ["saldos", "cuentas", "portales", "monedas", "visibilidad", "procesos", "conciliación", "operación internacional"],
+        "examples": [
+          "Más monedas no deberían significar más cuentas",
+          "Cada cuenta nueva también suma procesos"
+        ]
+      },
+      "mercado_proveedor": {
+        "territory": ["proveedores, clientes o mercados reales"],
+        "examples": [
+          "Proveedores en México y Europa, pagos desde Texas",
+          "Tus proveedores no siempre cobran igual"
+        ]
+      },
+      "producto_operacion": {
+        "territory": ["algo que la empresa compra, importa, vende o mueve"],
+        "examples": [
+          "Bombas en euros, válvulas en dólares",
+          "El motor llega de un mercado. El sensor, de otro"
+        ],
+        "note": "El producto es el vehículo narrativo, no el beneficio principal."
+      }
+    },
+    "variety_note": "Una tanda no debe sentirse como 30 variaciones de 'más monedas no deberían significar más cuentas'. La diversidad se controla con cobertura mínima y límites máximos (§28), no completando porcentajes que sumen 100. Mínimo 6 piezas donde el problema sea proceso, portal, proveedor o mercado, no solo moneda.",
+    "anti_repetition": [
+      "Ángulo: no más de 2 copys consecutivos con el mismo ángulo principal; ningún ángulo debe superar 6 de cada 30; en un bloque general cubrir varios territorios sin concentrarse en una sola tesis.",
+      "Fórmula: no usar claramente la misma fórmula narrativa más de 4 veces por tanda de 30, ni repetir la misma estructura en bloques consecutivos cuando el objeto también es parecido.",
+      "Apertura: máximo 3 headlines con la misma primera palabra o construcción en un bloque de 15; máximo 6 en uno de 30. Vigilar 'El...', 'Tu...', 'Cada...', 'Una...', 'Más monedas...'.",
+      "Léxico: evitar repetir en exceso moneda, cuenta, saldo, portal, tesorería, control y visibilidad. La solución no es buscar sinónimos artificiales, sino cambiar la situación, el objeto o la lógica narrativa."
+    ]
+  },
+  "gold_examples": [
+    {
+      "headline": "Más monedas no deberían significar más cuentas",
+      "subcopy": "Xending puede ayudarte a simplificar la administración de una empresa que opera con distintas divisas.",
+      "cta": "Conoce la cuenta multidivisa",
+      "angleTag": "mas_monedas_no_mas_cuentas",
+      "angleLabel": "Más monedas, no más cuentas",
+      "corridor": "general",
+      "needsLegalNote": false
+    },
+    {
+      "headline": "Cada cuenta nueva también suma procesos",
+      "subcopy": "Abrir otra cuenta para otra moneda puede dejar a tesorería con más portales y más seguimiento.",
+      "cta": "Simplifica tu tesorería internacional",
+      "angleTag": "cada_cuenta_suma_procesos",
+      "angleLabel": "Cada cuenta suma procesos",
+      "corridor": "general",
+      "needsLegalNote": false
+    },
+    {
+      "headline": "Tus proveedores no siempre cobran igual",
+      "subcopy": "Una operación internacional puede tener facturas, monedas y cuentas distintas para cada mercado.",
+      "cta": "Habla con Xending",
+      "angleTag": "proveedores_distintos_mercados",
+      "angleLabel": "Proveedores en distintos mercados",
+      "corridor": "general",
+      "needsLegalNote": false
+    },
+    {
+      "headline": "Dólares, euros y pesos no deberían vivir en tres procesos distintos",
+      "subcopy": "La cuenta multidivisa puede ayudar a ordenar la operación cuando proveedores, pagos y monedas se multiplican.",
+      "cta": "Administra tus monedas con Xending",
+      "angleTag": "menos_portales",
+      "angleLabel": "Menos portales",
+      "corridor": "general",
+      "needsLegalNote": false
+    },
+    {
+      "headline": "Proveedores en México y Europa, pagos desde Texas",
+      "subcopy": "Una operación internacional necesita una forma clara de administrar monedas, cuentas y pagos.",
+      "cta": "Conoce Xending USA",
+      "angleTag": "tesoreria_usa",
+      "angleLabel": "Tesorería USA con operación global",
+      "corridor": "general",
+      "needsLegalNote": false
+    },
+    {
+      "headline": "Bombas en euros, válvulas en dólares",
+      "subcopy": "Cuando cada proveedor factura distinto, una sola estructura puede simplificar la administración de tesorería.",
+      "cta": "Administra tus monedas con Xending",
+      "angleTag": "proveedores_distintos_mercados",
+      "angleLabel": "Proveedores en distintos mercados",
+      "corridor": "industria",
+      "industry": "industrial",
+      "needsLegalNote": false
+    },
+    {
+      "headline": "Tus proveedores están en tres mercados",
+      "subcopy": "Una empresa automotriz puede terminar administrando monedas, cuentas y pagos distintos para cada proveedor.",
+      "cta": "Administra tus monedas con Xending",
+      "angleTag": "proveedores_distintos_mercados",
+      "angleLabel": "Proveedores en distintos mercados",
+      "corridor": "industria",
+      "industry": "automotriz",
+      "needsLegalNote": false
+    },
+    {
+      "headline": "El distribuidor compra donde hay inventario",
+      "subcopy": "Si cada mercado cobra en una moneda distinta, la administración financiera puede complicarse rápido.",
+      "cta": "Simplifica tu tesorería internacional",
+      "angleTag": "escala_internacional",
+      "angleLabel": "Escala internacional",
+      "corridor": "industria",
+      "industry": "distribucion_retail",
+      "needsLegalNote": false
+    }
+  ],
+  "rejected_examples": [
+    { "text": "Una cuenta para todo", "reason": "genérico, absoluto y suena a promesa bancaria" },
+    { "text": "Tu banco global en Estados Unidos", "reason": "Xending no debe presentarse como banco" },
+    { "text": "Centraliza tu arquitectura multidivisa", "reason": "suena a documentación técnica y traducción del inglés" },
+    { "text": "Controla tus currency buckets", "reason": "calco del inglés y lenguaje no publicable" },
+    { "text": "Olvídate de tu banco", "reason": "ataca o desplaza al banco del cliente" },
+    { "text": "Elimina todos tus costos bancarios", "reason": "claim absoluto no permitido" },
+    { "text": "Paga a China hoy desde tu cuenta multidivisa", "reason": "contamina con Velocidad / Mismo Día" },
+    { "text": "Cotiza un forward desde tu cuenta multidivisa", "reason": "contamina con Coberturas / Forwards" },
+    { "text": "Recibe rendimiento por tus saldos internacionales", "reason": "capacidad no permitida" },
+    { "text": "Integra SAP, NetSuite y QuickBooks en minutos", "reason": "las integraciones son sujetas a implementación y validación" }
+  ]
+}

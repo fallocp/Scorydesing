@@ -1,8 +1,8 @@
 {
-  "kit_version": "velocidad-v3.0",
+  "kit_version": "velocidad-v3.1",
   "branch_slug": "velocidad",
   "branch_name": "Velocidad de pagos internacionales",
-  "source": "docs/prompts/copy-banks/_contexto-editorial.velocidad.v3.md + 90 copys aprobados (china_asia 30, internacional 30, industria 30). Deriva del kit v2.0.",
+  "source": "docs/prompts/copy-banks/_contexto-editorial.velocidad.v3.1.md (47 secciones, banco maestro de 15 generales + 30 verticalizados) + 90 copys aprobados (china_asia 30, internacional 30, industria 30). Deriva del kit v3.0.",
   "editorial_objective": "Comunicar que Xending ayuda a pagar proveedores internacionales con mayor velocidad, seguimiento y acompañamiento. El mensaje debe mostrar cómo ayuda Xending, nunca limitarse a recomendarle al cliente que se organice, prepare su transferencia, revise horarios o planee con anticipación.",
   "client_should_think": [
     "Mi pago internacional no debería tardar varios días.",
@@ -446,6 +446,7 @@
       "afirmaciones de instantaneidad",
       "horarios promocionales no confirmados"
     ],
+    "quota": "Para cifras ILUSTRATIVAS que no sean simplemente una capacidad operativa confirmada: tandas de 1-20 copys, máximo 1; tandas de 21-40, máximo 2; banco maestro de 45, máximo 2. Es un techo, no un objetivo: el banco puede tener cero cifras arbitrarias.",
     "principle": "En velocidad un número no es un recurso creativo: es una afirmación operativa. La pieza que contrasta \"2-5 días\" contra \"mismo día\" es comparativa y requiere evidencia."
   },
   "cta_selection_rule": [
@@ -880,7 +881,7 @@
       "momento",
       "continuidad"
     ],
-    "note": "Los abstractos pueden usarse si el subline explica de inmediato qué significan. El headline debe entenderse en unos dos segundos."
+    "note": "Locale es-MX: escribe como le hablarías a un importador mexicano; nombra el objeto concreto (pedido, proveedor, pago, fecha, mercancía, refacción, máquina, lote) y evita calcos del inglés (payment rails, execution layer, settlement window, orquestación). El headline debe entenderse en unos dos segundos. Excepción controlada (§17): una palabra conceptual se permite solo si (1) el headline sigue siendo comprensible por sí mismo, (2) la asociación con tiempo o pago es clara y (3) el subline aterriza la situación. Válido: 'Un día de diferencia puede cambiar la operación'. No válido: 'La oportunidad sigue abierta' (no queda claro qué está esperando)."
   },
   "hedging_policy": {
     "prefer": [
@@ -1080,9 +1081,10 @@
     },
     "variety_note": "Alterna entre las dos familias dentro de la tanda. Treinta piezas del momento operativo se leen como una sola idea repetida.",
     "anti_repetition": [
-      "Máximo 2 copys de la tanda comparten el mismo arranque de dos palabras, y nunca en posiciones consecutivas. En tandas de menos de 10 el tope baja a 1: el límite real es el menor entre 2 y el 20% de la tanda.",
-      "La misma estructura narrativa no se repite más de 3 veces por tanda. Reusar una fórmula sintáctica es legítimo; repetir la idea no.",
-      "No más de 3 copys consecutivos sobre el mismo concepto."
+      "Ángulo: no más de 2 copys consecutivos con el mismo ángulo principal; ningún ángulo debe superar 6 de cada 30; máximo 6 basados principalmente en 'mismo día' y máximo 6 en 'proveedor esperando'; en un bloque general cubrir varios territorios sin concentrarse en una sola tesis.",
+      "Fórmula: no usar claramente la misma fórmula narrativa más de 4 veces por tanda de 30. 'X está listo. Que el pago también' máximo 2 veces por tanda. No abusar de 'no debería esperar' ni repetir 'mantén tu operación en movimiento' como supporting comodín.",
+      "Apertura: máximo 3 headlines con la misma primera palabra o construcción en un bloque de 15; máximo 6 en uno de 30. Vigilar 'El...', 'La...', 'Tu...', 'Cada...', 'Hoy...'.",
+      "Léxico: evitar repetir en exceso pago, proveedor, rápido, hoy, mismo día, operación y avanzar. La solución no es buscar sinónimos artificiales, sino cambiar la situación, el objeto o el momento."
     ]
   },
   "angle_quota": {

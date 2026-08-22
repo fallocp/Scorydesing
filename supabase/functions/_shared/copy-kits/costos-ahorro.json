@@ -1,8 +1,8 @@
 {
-  "kit_version": "costos-ahorro-v3.0",
+  "kit_version": "costos-ahorro-v3.1",
   "branch_slug": "costos-ahorro",
   "branch_name": "Costos, tipo de cambio y ahorro",
-  "source": "docs/prompts/copy-banks/_contexto-editorial.costos-ahorro.v3.md (34 secciones) + 90 copys aprobados. Deriva del kit v2.0.",
+  "source": "docs/prompts/copy-banks/_contexto-editorial.costos-ahorro.v3.1.md (47 secciones, banco maestro de 15 generales + 30 verticalizados). Deriva del kit v3.0.",
   "editorial_objective": "Comunicar que Xending es una alternativa ágil y especializada para cotizar, comparar y pagar operaciones internacionales, cuidando el costo, el tipo de cambio y el margen. El copy debe explicar cómo ayuda Xending, no limitarse a decirle al cliente que se organice, revise, prepare, planee o analice por su cuenta.",
   "scope": [
     "costos de pagos internacionales",
@@ -104,8 +104,8 @@
     "costumbre_proveedor": 5,
     "ejemplo_numerico": 3
   },
-  "angle_quota_note": "Distribución objetivo sobre bloques de 30 copys. Suma 100. \"ejemplo_numerico\" tiene tope DURO de 5% aunque su cuota sea 3%: es el único ángulo que admite cifras, y una cuota igual al tope convertiría el techo en objetivo.",
-  "angle_quota_rationale": "Mapea las 8 categorías de la §18 del contexto editorial sobre los 12 ángulos de la §12. \"Costo total de importación\" (20) se reparte entre tipo_de_cambio_costo_importacion (13) y comparacion_integral (7); \"Segunda cotización / diversificación\" (15) entre segunda_cotizacion (9) y diversificacion_proveedores (6); \"Margen\" (15) entre margen_importacion (9) y proteccion_margen (6). El 10% de \"producto o industria concreta\" NO consume cuota de ángulo: es un tratamiento que cruza todos los ángulos y vive en verticalization.default_share_pct. Los 10 puntos liberados, más los 2 que deja ejemplo_numerico al quedarse en 3 en vez de su tope de 5, cubren diferencias_mercado (7) y costumbre_proveedor (5), que la §18 no menciona y que el banco tiene subrepresentados (4.4% y 2.2%).",
+  "angle_quota_note": "Distribución objetivo sobre bloques de 30 copys. Suma 100. \"ejemplo_numerico\" es el único ángulo que admite cifras; su cuota de 3% es orientativa y queda por debajo del tope duro ABSOLUTO de la §35 del contexto editorial (máximo 1 numérico por cada 20 copys, máximo 2 en el banco de 45), que manda sobre este porcentaje.",
+  "angle_quota_rationale": "Mapea las 8 categorías de la §18 del contexto editorial sobre los 12 ángulos de la §12. \"Costo total de importación\" (20) se reparte entre tipo_de_cambio_costo_importacion (13) y comparacion_integral (7); \"Segunda cotización / diversificación\" (15) entre segunda_cotizacion (9) y diversificacion_proveedores (6); \"Margen\" (15) entre margen_importacion (9) y proteccion_margen (6). El 10% de \"producto o industria concreta\" NO consume cuota de ángulo: es un tratamiento que cruza todos los ángulos y vive en verticalization.default_share_pct. Los 10 puntos liberados, más los que deja ejemplo_numerico al quedarse en 3% (su cuota orientativa está por debajo del tope absoluto de la §35), cubren diferencias_mercado (7) y costumbre_proveedor (5), que la §18 no menciona y que el banco tiene subrepresentados (4.4% y 2.2%).",
   "angles": {
     "impacto_acumulado": {
       "label": "Diferencias pequeñas que se acumulan",
@@ -145,7 +145,7 @@
     "ejemplo_numerico": {
       "label": "Ejemplo numérico ilustrativo",
       "premise": "Una operación aritmética verificable presentada como ejemplo ilustrativo. La nota legal que la acompaña al publicarse se monta fuera del motor creativo: no la redactes.",
-      "note": "Tope 5% de la tanda."
+      "note": "Cuota absoluta: máximo 1 numérico por cada 20 copys, máximo 2 en el banco de 45. Es un techo, no un objetivo: puede haber cero."
     },
     "diversificacion_proveedores": {
       "label": "Diversificación de proveedores de pago",
@@ -270,7 +270,10 @@
         "Cotiza el costo completo",
         "Cotiza costo y velocidad",
         "Compara tu tipo de cambio",
-        "Compara antes de pagar"
+        "Compara antes de pagar",
+        "Pide una segunda cotización",
+        "Cotiza tu pago internacional",
+        "Habla con Xending"
       ]
     }
   },
@@ -390,7 +393,7 @@
   "numbers_policy": {
     "allowed": "Una operación aritmética verificable presentada como ejemplo ilustrativo. Ej: 'En un pago de USD 100,000, una diferencia de 0.5% representa USD 500.*'",
     "requires": "El ejemplo numérico requiere nota legal al publicarse. El texto lo monta la capa de marca, no el agente creativo.",
-    "quota": "Máximo 5% de la tanda (ángulo 'ejemplo_numerico').",
+    "quota": "Cuota absoluta (ángulo 'ejemplo_numerico'): tandas de 1-20 copys, máximo 1 numérico; tandas de 21-40, máximo 2; banco maestro de 45, máximo 2 en total. Es un techo, no un objetivo: una tanda puede tener cero.",
     "banned": [
       "porcentajes de ahorro presentados como resultado que Xending entrega ('ahorra hasta 50%', 'reduce tus costos 30%')",
       "tarifas, spreads o comisiones inventadas",
@@ -756,7 +759,7 @@
       "condiciones",
       "solución"
     ],
-    "note": "Los abstractos pueden usarse si el subline explica de inmediato qué significan. El headline debe entenderse en unos dos segundos."
+    "note": "Locale es-MX: escribe como le hablarías a un importador mexicano; nombra el pago, pedido, factura, proveedor, tipo de cambio, pesos, dólares, pieza o mercancía en vez de una abstracción, y evita calcos del inglés (certainty, lock-in, liquidity buckets, currency position, orquestación). El headline debe entenderse en unos dos segundos. Excepción controlada (§17): una palabra conceptual se permite solo si (1) el headline sigue siendo comprensible por sí mismo, (2) hay una asociación empresarial o financiera clara y (3) el subline aterriza de inmediato el objeto concreto. Válido: 'Décimas que suman todo el año' (el subline aclara que son pequeñas diferencias cambiarias repetidas). No válido: 'El acumulado importa más' (no queda claro qué se acumula)."
   },
   "element_roles": {
     "headline": "Genera atención.",
@@ -893,7 +896,7 @@
       "automatable": true
     },
     {
-      "question": "¿Existe una cifra? Verificar aritmética, que sea ilustrativa y respetar el tope de 5%.",
+      "question": "¿Existe una cifra? Verificar aritmética, que sea ilustrativa y respetar la cuota absoluta (máximo 1 numérico por cada 20 copys, máximo 2 en 45).",
       "on_fail": "corregir o quitar la cifra",
       "automatable": true
     },
@@ -944,12 +947,12 @@
       "producto_industria_concreta": 10,
       "ejemplo_numerico": 5
     },
-    "variety_note": "Una tanda no debe sentirse como 30 variaciones de \"compara tu tipo de cambio\". En campañas de China o importaciones, producto/industria concreta puede subir a 20-30%.",
+    "variety_note": "Una tanda no debe sentirse como 30 variaciones de \"compara tu tipo de cambio\". Esta distribución es una guía de diversidad, no una fórmula rígida que deba sumar 100: la diversidad se controla con cobertura mínima y límites máximos (§28), no completando porcentajes. En campañas de China o importaciones, producto/industria concreta puede subir a 20-30%; en una tanda explícitamente verticalizada puede llegar al 100%.",
     "anti_repetition": [
-      "No más de 3 headlines consecutivos sobre el mismo concepto.",
-      "No repetir la misma estructura narrativa más de 3 veces por tanda.",
-      "No iniciar más del 20% de los headlines con \"El tipo de cambio\", \"Tu\", \"Cada\" o \"Una\".",
-      "Evitar repetir en exceso comparar, diferencia, cotización, costo y margen cuando exista otra forma concreta de comunicar la idea."
+      "Ángulo: no más de 2 copys consecutivos con el mismo ángulo principal; ningún ángulo debe superar 6 de cada 30 copys; en un bloque general, cubrir varios territorios y no concentrarse en una sola tesis.",
+      "Fórmula: no usar claramente la misma fórmula narrativa más de 4 veces por tanda de 30, ni repetir la misma estructura en bloques consecutivos cuando el objeto también es parecido.",
+      "Apertura: máximo 3 headlines con la misma primera palabra en un bloque de 15; máximo 6 en uno de 30. Vigilar especialmente \"El...\", \"Tu...\", \"Cada...\", \"Una...\" y \"El tipo de cambio...\".",
+      "Léxico: evitar repetir en exceso comparar, diferencia, cotización, costo y margen. La solución no es buscar sinónimos artificiales, sino cambiar la situación, el objeto o la lógica narrativa."
     ]
   }
 }
