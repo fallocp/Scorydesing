@@ -12,7 +12,7 @@
       "cta"
     ]
   },
-  "generado": "2026-08-20T04:05:17.647Z",
+  "generado": "2026-08-21T15:09:44.988Z",
   "rutasDisponibles": [
     {
       "id": "cost_anatomy",
@@ -37,9 +37,9 @@
         "quote_comparison"
       ],
       "allowedEvidenceDevices": [
-        "mismo pedido bajo dos condiciones explicitas",
-        "variables comparables sin cambiar la compra",
-        "diferencia atribuible al proveedor de pago",
+        "mismo pedido bajo dos tipos de cambio explicitos",
+        "mismo monto USD convertido sin cambiar la compra ni el momento",
+        "diferencia atribuible al tipo de cambio ingresado",
         "decision entre condiciones simultaneas"
       ]
     },
@@ -140,7 +140,7 @@
     "figurePolicy": "fx_documents"
   },
   "tamanos": {
-    "plannerSystem": 32341,
+    "plannerSystem": 38216,
     "plannerUser": 379
   }
 }

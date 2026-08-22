@@ -56,7 +56,7 @@ function loadKit(slug: string): CopyKit {
   return JSON.parse(readFileSync(path, "utf8")) as CopyKit;
 }
 
-const KIT_SLUGS = ["velocidad", "costos-ahorro", "coberturas"] as const;
+const KIT_SLUGS = ["velocidad", "costos-ahorro", "coberturas", "cuenta-multidivisa"] as const;
 
 // ---------------------------------------------------------------------------
 // 1. Static checks — always run
@@ -132,7 +132,7 @@ describe("banco aprobado vs copy-kits", () => {
   const approved = loadApproved();
 
   it("el banco está parseado", () => {
-    expect(approved.length).toBe(240);
+    expect(approved.length).toBe(180);
   });
 
   it("todo CTA aprobado existe en el banco de su corredor", () => {
@@ -170,13 +170,10 @@ describe("banco aprobado vs copy-kits", () => {
    * fails the build.
    */
   const CONTRACT_EXCEPTIONS = new Set([
-    // CTA is 9 words. It is in the kit's CTA bank verbatim, straight from the
-    // master context's list of 20.
-    "Tu pago tiene fecha. Tu tipo de cambio puede definirse desde hoy",
-    // Sublines of 4-5 words. Industry pieces put the idea in the headline.
-    "Centavos por empaque se convierten en miles por volumen",
-    "El tipo de cambio también entra en tu costo de producción",
-    "Abrir el hotel toma meses. El equipo importado sigue expuesto al dólar",
+    // Banco maestro v3.1: subline de 21 palabras, una sobre el tope universal de
+    // 20. Es una pieza vertical de textil aprobada a mano; el contrato universal
+    // es simplemente más angosto de lo que esta rama necesita en un caso.
+    "Tela bien negociada. Conversión también bien cotizada",
   ]);
 
   it("todo copy aprobado respeta el contrato de longitudes", () => {

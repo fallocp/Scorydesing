@@ -57,7 +57,7 @@ Están ordenadas de la menos usada recientemente a la más usada. Si dos sirven 
 PREGUNTA que contesta: ¿De qué está hecho lo que termino pagando?
 TESIS: El total de una operación es la suma de conceptos separables, y cada uno se puede conocer por adelantado.
 CÓMO PROFUNDIZA (anatomy): de qué está hecho: las capas separadas de una sola cosa
-CÓMO RESUELVE: el total se entiende como componentes verificables y cada componente puede definirse antes de ejecutar
+CÓMO RESUELVE: el total se entiende como componentes verificables y cada componente puede identificarse y cotizarse antes de ejecutar
 EN QUÉ SE DESTILA EL CIERRE: una lectura completa del costo, donde se entiende qué aporta cada componente al total
 Formas narrativas admitidas: anatomy, progressive_reveal
 Mecanismos de evidencia: layered_cost_anatomy | component_by_component_reveal | part_to_total_relationship
@@ -89,18 +89,18 @@ No puede afirmar:
 - ahorro garantizado en porcentaje
 
 ### second_quote — La segunda cotización
-PREGUNTA que contesta: ¿El mismo pedido cuesta lo mismo con quien sea?
-TESIS: Quién ejecuta el pago cambia el costo de la misma compra, y eso se puede comparar antes de decidir.
+PREGUNTA que contesta: ¿Qué cambia al cotizar el mismo pago con dos tipos de cambio?
+TESIS: El tipo de cambio ingresado cambia el equivalente en MXN de la misma compra, y se puede comparar antes de decidir.
 CÓMO PROFUNDIZA (sensitivity): el mismo caso bajo otro supuesto: dos escenarios etiquetados
-CÓMO RESUELVE: las condiciones del mismo pedido se vuelven comparables antes de decidir quién ejecuta el pago
-EN QUÉ SE DESTILA EL CIERRE: una decisión sustentada en condiciones explícitas del mismo pedido
+CÓMO RESUELVE: el mismo monto USD se convierte con dos tasas simultáneas para comparar sus equivalentes en MXN
+EN QUÉ SE DESTILA EL CIERRE: una decisión sustentada en dos tipos de cambio explícitos para el mismo pago
 Formas narrativas admitidas: comparison, before_after
 Mecanismos de evidencia: two_payment_providers_same_order | same_order_two_conditions
 Cifras: opcionales (quote_comparison)
 EJEMPLOS de evidencia que le queda a esta ruta. NO es una lista cerrada ni un menú: son referencias del tipo de cosa que sirve. Puedes usar otra evidencia del repertorio de la rama si cuenta mejor el copy:
-- mismo pedido bajo dos condiciones explicitas
-- variables comparables sin cambiar la compra
-- diferencia atribuible al proveedor de pago
+- mismo pedido bajo dos tipos de cambio explicitos
+- mismo monto USD convertido sin cambiar la compra ni el momento
+- diferencia atribuible al tipo de cambio ingresado
 - decision entre condiciones simultaneas
 EVIDENCIA PROHIBIDA EN ESTA RUTA — esto sí es cerrado. Es de otra historia y usarla la convierte en esa otra:
 - varias facturas
@@ -120,6 +120,7 @@ No puede afirmar:
 - nombrar o descalificar a un competidor
 - afirmar que el otro proveedor cobra de más a propósito
 - inventar una cotización o condición de otro proveedor: requiere fuente o supuesto explícito
+- inferir comisiones, fees o costo integral cuando solo se comparan tipos de cambio
 
 ### accumulated_difference — La diferencia que se acumula
 PREGUNTA que contesta: ¿Importa una diferencia chica si compro seguido?
@@ -148,7 +149,7 @@ No puede afirmar:
 PREGUNTA que contesta: ¿Qué pasa con mi margen si el costo se mueve después de fijar el precio?
 TESIS: Un precio de venta publicado convierte cualquier movimiento del costo en movimiento del margen.
 CÓMO PROFUNDIZA (margin): lo que queda entre ingreso y costo
-CÓMO RESUELVE: el componente cambiario del costo se define antes de comprometer el precio, para calcular utilidad y margen sobre una base cerrada
+CÓMO RESUELVE: el componente cambiario se cotiza antes de comprometer el precio, para calcular utilidad y margen sobre una referencia explícita
 EN QUÉ SE DESTILA EL CIERRE: la utilidad y el margen resultantes bajo el mismo precio de venta
 Formas narrativas admitidas: single_case, cause_effect
 Mecanismos de evidencia: fixed_revenue_variable_cost | price_and_cost_side_by_side
@@ -182,7 +183,7 @@ No puede afirmar:
 PREGUNTA que contesta: ¿Cuánto del costo de mi producto o proyecto depende de la conversión cambiaria?
 TESIS: La conversión cambiaria es un componente identificable del costo y su efecto se propaga desde la unidad hasta el resultado completo.
 CÓMO PROFUNDIZA (scale): el mismo efecto en más frentes a la vez
-CÓMO RESUELVE: el componente cambiario se define antes de fijar el precio o presupuesto, para calcular el costo total sobre una base conocida
+CÓMO RESUELVE: el componente cambiario se cotiza y se incorpora antes de fijar el precio o presupuesto, para calcular el costo total sobre una referencia conocida
 EN QUÉ SE DESTILA EL CIERRE: el efecto del mismo componente cambiario entendido desde una unidad hasta el lote o proyecto
 Formas narrativas admitidas: anatomy, progressive_reveal, cause_effect
 Mecanismos de evidencia: fx_component_unit_to_project | currency_component_share
@@ -466,6 +467,120 @@ No los uses, no los parafrasees y no construyas la evidencia visual sobre ellos.
 - "sin intermediarios, salvo confirmación factual"
 - "ruta directa, salvo confirmación factual"
 
+## LENGUAJE PUBLICABLE (español de México)
+
+Escribe como le hablarías a un importador, tesorero o CFO mexicano. Nombra el objeto o la situación concreta —pago, pedido, proveedor, factura, fecha, pesos, dólares, tipo de cambio, cotización— en vez de una abstracción de software o un calco del inglés. El lenguaje puede ser financiero; lo que no se publica es la jerga interna de operaciones.
+
+TÉRMINOS QUE NUNCA SE PUBLICAN — jerga interna de operaciones o calcos del inglés. No los escribas ni los parafrasees en ningún campo de texto:
+- "condición elegida"
+- "selected condition"
+- "exposición de costo"
+- "cost exposure"
+- "mecanismo de costo"
+- "cost mechanism"
+- "operaciones recurrentes"
+- "recurring operations"
+- "impacto agregado"
+- "aggregated impact"
+- "estructura de decisión"
+- "liberar el pago"
+- "liberación del pago"
+- "release payment"
+- "liberar tu pago"
+- "release your payment"
+- "ventana operativa"
+- "operational window"
+- "fuera de ventana"
+- "outside the window"
+- "si el pago entra"
+- "payment enters"
+- "condición vigente"
+- "condición del proveedor"
+- "current condition"
+- "misma oportunidad"
+- "same opportunity"
+- "exposición abierta"
+- "open exposure"
+- "costo abierto"
+- "open cost"
+- "referencia definida"
+- "defined reference"
+- "valor definido"
+- "defined value"
+- "reserva de efectivo"
+- "cash reserve"
+- "flujo operativo"
+- "operational flow"
+- "siguiente ciclo"
+- "next cycle"
+- "estado pendiente"
+- "estado resuelto"
+- "pending state"
+- "resolución de la operación"
+- "resolución financiera"
+- "mecanismo operativo"
+- "mecanismo de la operación"
+- "ejecutar la operación"
+- "execute operation"
+- "exposición por vencimiento"
+- "exposure by maturity"
+
+CÓMO DECIRLO EN NATURAL — usa la forma de la derecha:
+- "condición elegida" → "cotización elegida" / "la forma de pagar que elijas"
+- "selected condition" → "cotización elegida" / "la forma de pagar que elijas"
+- "exposición de costo" → "costo que puede cambiar"
+- "cost exposure" → "costo que puede cambiar"
+- "mecanismo de costo" → "qué está moviendo el costo"
+- "cost mechanism" → "qué está moviendo el costo"
+- "operaciones recurrentes" → "pagos frecuentes" / "compras frecuentes"
+- "recurring operations" → "pagos frecuentes" / "compras frecuentes"
+- "impacto agregado" → "diferencia acumulada"
+- "aggregated impact" → "diferencia acumulada"
+- "estructura de decisión" → "cómo decides pagar"
+- "liberar el pago" → "realizar el pago" / "completar el pago"
+- "liberación del pago" → "realizar el pago" / "completar el pago"
+- "release payment" → "realizar el pago" / "completar el pago"
+- "liberar tu pago" → "realizar tu pago"
+- "release your payment" → "realizar tu pago"
+- "ventana operativa" → "horario aplicable" / "horario de corte"
+- "operational window" → "horario aplicable" / "horario de corte"
+- "fuera de ventana" → "después del horario"
+- "outside the window" → "después del horario"
+- "si el pago entra" → "si el pago se realiza a tiempo"
+- "payment enters" → "si el pago se realiza a tiempo"
+- "condición vigente" → "el pedido sigue en pie" / "la cotización sigue disponible"
+- "condición del proveedor" → "el pedido sigue en pie" / "la cotización sigue disponible"
+- "current condition" → "el pedido sigue en pie" / "la cotización sigue disponible"
+- "misma oportunidad" → "el mismo pedido" / "esa operación"
+- "same opportunity" → "el mismo pedido" / "esa operación"
+- "exposición abierta" → "riesgo cambiario" / "tipo de cambio todavía por definir"
+- "open exposure" → "riesgo cambiario" / "tipo de cambio todavía por definir"
+- "costo abierto" → "costo en pesos todavía por definir"
+- "open cost" → "costo en pesos todavía por definir"
+- "referencia definida" → "monto conocido" / "tipo de cambio definido"
+- "defined reference" → "monto conocido" / "tipo de cambio definido"
+- "valor definido" → "monto definido" / "monto conocido"
+- "defined value" → "monto definido" / "monto conocido"
+- "reserva de efectivo" → "cuánto necesitas apartar" / "recursos para el pago"
+- "cash reserve" → "cuánto necesitas apartar" / "recursos para el pago"
+- "flujo operativo" → "proceso de pago" / "la operación"
+- "operational flow" → "proceso de pago" / "la operación"
+- "siguiente ciclo" → "siguiente día" / "siguiente horario disponible"
+- "next cycle" → "siguiente día" / "siguiente horario disponible"
+- "estado pendiente" → "pago pendiente" / "falta realizar el pago"
+- "estado resuelto" → "pago pendiente" / "falta realizar el pago"
+- "pending state" → "pago pendiente" / "falta realizar el pago"
+- "resolución de la operación" → "operación lista" / "monto definido"
+- "resolución financiera" → "operación lista" / "monto definido"
+- "mecanismo operativo" → "qué cambia" / "qué está pasando"
+- "mecanismo de la operación" → "qué cambia" / "qué está pasando"
+- "ejecutar la operación" → "realizar el pago" / "completar la operación"
+- "execute operation" → "realizar el pago" / "completar la operación"
+- "exposición por vencimiento" → "pagos en distintas fechas"
+- "exposure by maturity" → "pagos en distintas fechas"
+
+LECTURA FINAL — antes de dar por buena una línea, léela como si fueras un CFO, tesorero o importador mexicano. Si suena a manual de software, a traducción del inglés o a jerga interna de operaciones, reescríbela. Siempre que puedas nombrar el pago, el pedido, el proveedor, la factura, la fecha, el monto, los pesos, los dólares, el tipo de cambio o la cotización, hazlo: lo concreto gana sobre lo abstracto.
+
 
 
 ## LO QUE NO PUEDES HACER
@@ -480,7 +595,7 @@ No los uses, no los parafrasees y no construyas la evidencia visual sobre ellos.
 
 ## MEDIO VISUAL
 
-El set completo es infografía con iconografía 3D. Toda la evidencia visual tiene que ser representable en ese medio, y tiene que ser FOTOGRAFIABLE: objetos físicos y su estado, en un solo cuadro. "El valor final todavía sin definirse" no se puede fotografiar; "el renglón del costo en blanco sobre la hoja del pedido" sí.
+El set completo es infografía con iconografía 3D. Toda la evidencia visual tiene que ser representable en ese medio y CONCRETA: algo que se puede dibujar en un solo cuadro —un objeto y su estado, una superficie, un corredor con su ruta y sus nodos—, no una abstracción. "El valor final todavía sin definirse" no se representa; "el renglón del costo en blanco sobre la hoja del pedido", o "el corredor México→China con el nodo destino marcado", sí. En fotografía es un objeto físico fotografiable; en infografía o en mapa y rutas es su equivalente en el lenguaje 3D del medio.
 
 ## SALIDA
 

@@ -348,11 +348,19 @@ describe("scene kits por rama", () => {
   });
 
   it("una rama draft no recibe el repertorio de otra", () => {
-    // Es el punto entero del cambio: antes las tres draft recibían el catálogo
-    // global, que era el de costos. Vacío es correcto; prestado no.
-    expect(getSceneKit("cuenta-multidivisa")).toBeNull();
+    // Es el punto entero del cambio: antes las ramas draft recibían el catálogo
+    // global, que era el de costos. Vacío es correcto; prestado no. 'banco-vs-xending'
+    // sigue sin kit; 'cuenta-multidivisa' ya tiene el suyo y se verifica abajo.
+    expect(getSceneKit("banco-vs-xending")).toBeNull();
     expect(getSceneKit(null)).toBeNull();
     expect(buildSceneRepertoireBlock(null)).toBe("");
+  });
+
+  it("cuenta-multidivisa ya resuelve su propio repertorio", () => {
+    // Dejó de ser rama draft: tiene copy kit y scene kit propios.
+    expect(getSceneKit("cuenta-multidivisa")?.branchSlug).toBe("cuenta-multidivisa");
+    expect(getSceneKit("multidivisa")?.branchSlug).toBe("cuenta-multidivisa");
+    expect(branchUsesFigures(getSceneKit("cuenta-multidivisa"))).toBe(false);
   });
 });
 

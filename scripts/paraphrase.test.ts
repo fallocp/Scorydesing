@@ -146,30 +146,14 @@ describe("el banco aprobado contra sí mismo", () => {
    */
   const KNOWN_REDUNDANT_PAIRS = new Set(
     [
-      // velocidad/internacional — same formula, same subject, two sublines apart.
+      // coberturas/verticalizados #10 (maquinaria) vs #24 (agroindustria). Ambos
+      // son copys FORWARD con la misma fórmula "[activo] se entrega después. tipo
+      // de cambio puede definirse hoy", solo cambia el sujeto (máquina/tractor).
+      // El vocabulario coincide casi por completo (0.88). Los dos fueron aprobados
+      // a mano en el banco maestro v3.1; reescribir uno haría caer esta entrada.
       [
-        "Tu proveedor no debería esperar varios días",
-        "Tu proveedor no debería esperar de más",
-      ],
-      // costos-ahorro vs coberturas. Cross-branch and cross-campaign, so they
-      // never appear side by side, but both open with "El tipo de cambio" — an
-      // opening the coberturas kit lists as saturated for exactly this reason.
-      [
-        "El tipo de cambio también es costo",
-        "El tipo de cambio también entra en tu costo de producción",
-      ],
-      [
-        "El tipo de cambio también es costo",
-        "El tipo de cambio también entra en el costo de cada pieza",
-      ],
-      // coberturas/general #3 vs #16. Genuine redundancy inside one corridor:
-      // both are FORWARD copies about defining the rate ahead of a dated
-      // payment, and the master context explicitly warns against writing a new
-      // copy by swapping "60 días" for "90 días". Kept because both were
-      // author-approved; a reword of one of them would let this entry go.
-      [
-        "Tu pago es en 90 días. Tu tipo de cambio puede definirse hoy",
-        "Tu pago tiene fecha. Tu tipo de cambio puede definirse desde hoy",
+        "La máquina se entrega después. El tipo de cambio puede definirse hoy.",
+        "El tractor se entrega después. Tu tipo de cambio puede definirse hoy.",
       ],
     ].map(([a, b]) => [a, b].sort().join(" || ")),
   );
