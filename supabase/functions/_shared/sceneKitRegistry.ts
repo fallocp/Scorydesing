@@ -19,6 +19,7 @@ import type { SceneKit } from './scene-kits/types.ts';
 import { costosAhorroSceneKit } from './scene-kits/costos-ahorro.ts';
 import { velocidadSceneKit } from './scene-kits/velocidad.ts';
 import { coberturasSceneKit } from './scene-kits/coberturas.ts';
+import { cuentaMultidivisaSceneKit } from './scene-kits/cuenta-multidivisa.ts';
 
 export type { SceneKit } from './scene-kits/types.ts';
 
@@ -26,6 +27,7 @@ const SCENE_KITS: Record<BranchKitSlug, SceneKit> = {
   velocidad: velocidadSceneKit,
   'costos-ahorro': costosAhorroSceneKit,
   coberturas: coberturasSceneKit,
+  'cuenta-multidivisa': cuentaMultidivisaSceneKit,
 };
 
 /**

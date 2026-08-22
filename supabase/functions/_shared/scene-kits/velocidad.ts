@@ -22,7 +22,9 @@ import type { SceneKit } from './types.ts';
  */
 export const velocidadSceneKit: SceneKit = {
   // v2: entra `physicalWorld`. v3: sus pares se separan en objetos sueltos.
-  version: 'velocidad-scene-v3',
+  // v4: vuelve el reloj de arena, desbaneado por decisión editorial: es el device
+  // de tiempo más directo de la rama y las piezas individuales lo usan como hero.
+  version: 'velocidad-scene-v4',
   branchSlug: 'velocidad',
   branchName: 'Velocidad de pagos internacionales',
 
@@ -33,9 +35,11 @@ export const velocidadSceneKit: SceneKit = {
    * tablero de producción— pero el resto son relojes, pantallas y calendarios, o sea el
    * mismo problema de costos con otra utilería: cinco formas de mirar la hora.
    *
-   * Lo que va aquí es la ESPERA hecha objeto, sin reloj: algo listo que no se mueve, un
-   * hueco donde debería haber una pieza, un puesto vacío en la línea. El tiempo se ve mejor
-   * en lo que está detenido que en una carátula.
+   * Lo que va aquí es la ESPERA hecha objeto: algo listo que no se mueve, un hueco donde
+   * debería haber una pieza, un puesto vacío en la línea. El tiempo se ve mejor en lo que
+   * está detenido que en una carátula, con una excepción aprobada en v4: el reloj de arena
+   * casi vacío, que es espera hecha objeto —la arena a punto de acabarse— y no una carátula
+   * que solo marca la hora.
    *
    * UN objeto por entrada. La primera versión traía cinco pares de siete, y dos de ellos
    * —"la mercancía detenida frente a la cargada", "la línea parada frente a la línea
@@ -54,6 +58,7 @@ export const velocidadSceneKit: SceneKit = {
     'la refacción ya en la mano del técnico, en el punto de la máquina donde hace falta',
     'el estante de refacciones vacío',
     'el camión cerrado y listo para salir',
+    'el reloj de arena con la arena casi abajo, sobre el escritorio de la operación',
   ],
 
   dataSurfaces: [
@@ -73,13 +78,14 @@ export const velocidadSceneKit: SceneKit = {
     'la línea de producción parada frente a la línea corriendo',
     'el sello de HOY sobre el documento que ayer estaba en blanco',
     'una sola casilla del calendario marcada, en lugar de una semana entera tachada',
+    'el reloj de arena casi lleno frente al reloj de arena casi vacío, mismo encuadre',
   ],
 
   bannedProps: [
     'cotizaciones comparadas lado a lado, curvas de tipo de cambio y dos totales distintos: eso es de costos, y aquí cuenta otra historia',
     'calendarios de vencimientos futuros y contratos de forward: eso es de coberturas',
     'cualquier hora de corte, plazo en días o tiempo de acreditación escrito en un documento: el kit editorial lo prohíbe porque depende de condiciones confirmadas',
-    'cronómetros, relojes de arena, cohetes, rayos y estelas de velocidad',
+    'cronómetros, cohetes, rayos y estelas de velocidad',
   ],
 
   /*
@@ -98,7 +104,6 @@ export const velocidadSceneKit: SceneKit = {
     'forward',
     'calendario de vencimientos',
     'cronometro',
-    'reloj de arena',
     'cohete',
     'estela de velocidad',
   ],

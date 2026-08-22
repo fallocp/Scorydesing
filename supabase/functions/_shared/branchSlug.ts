@@ -12,8 +12,8 @@
  * lectura de base y el fallback siguen siendo de `copyKitRegistry`.
  */
 
-/** Los tres ejes editoriales que tienen kit. */
-export const BRANCH_KIT_SLUGS = ["velocidad", "costos-ahorro", "coberturas"] as const;
+/** Los ejes editoriales que tienen kit. */
+export const BRANCH_KIT_SLUGS = ["velocidad", "costos-ahorro", "coberturas", "cuenta-multidivisa"] as const;
 
 export type BranchKitSlug = (typeof BRANCH_KIT_SLUGS)[number];
 
@@ -40,6 +40,11 @@ const ALIASES: Record<string, BranchKitSlug> = {
   "coberturas-cambiarias": "coberturas",
   forward: "coberturas",
   forwards: "coberturas",
+  "cuenta-multidivisa": "cuenta-multidivisa",
+  multidivisa: "cuenta-multidivisa",
+  "cuenta-multidivisa-usa": "cuenta-multidivisa",
+  "multi-divisa": "cuenta-multidivisa",
+  multicurrency: "cuenta-multidivisa",
 };
 
 /** Minúsculas, sin acentos, espacios y guiones bajos como guiones. */
@@ -60,6 +65,8 @@ export function resolveKitSlug(input: string): BranchKitSlug | null {
   if (ALIASES[key]) return ALIASES[key];
 
   // Coincidencia laxa, para que "Ahorro / Costos Ocultos" resuelva.
+  // Multidivisa va primero: sus términos no chocan con las otras ramas.
+  if (/multi\s*-?\s*divisa|multicurrency|cuenta-multi/.test(key)) return "cuenta-multidivisa";
   if (/velocidad|mismo\s*dia|rapidez|same\s*day/.test(key)) return "velocidad";
   // Antes del test de costos a propósito: una rama llamada "Cobertura de Tipo de
   // Cambio" contiene "tipo-de-cambio" y caería en costos-ahorro.
