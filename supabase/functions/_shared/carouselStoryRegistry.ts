@@ -35,7 +35,7 @@ import type {
 } from './carousel-plan-types.ts';
 
 /** Sube cuando cambian las rutas. Se persiste en el plan. */
-export const STORY_REGISTRY_VERSION = 'carousel-story-registry-v4';
+export const STORY_REGISTRY_VERSION = 'carousel-story-registry-v6';
 
 /**
  * Utilería documental que casi cualquier ruta puede pedir y por eso las volvía
@@ -447,11 +447,31 @@ const COSTOS_ROUTES: RegisteredStoryRoute[] = [
     routeThesis:
       'La decisión de cómo se paga define costo y tiempo en el mismo momento, no uno a costa del otro.',
     resolutionMechanism:
-      'la alternativa se evalúa como una decisión empresarial única que combina costo conocido y condición operativa confirmada',
-    deepeningMode: 'planning_horizon',
-    closingDistillation: 'una decisión tomada con sus dos criterios explícitos, sin prometer tiempos no confirmados',
-    allowedShapes: ['decision_path', 'comparison'],
-    evidenceMechanisms: ['two_criteria_decision', 'same_order_two_conditions'],
+      'el mismo pago se resuelve con buen precio y con agilidad a la vez, de modo que el costo y el avance del pedido no compiten entre sí',
+    /*
+     * `blocked_dependency`, no `planning_horizon`.
+     *
+     * El beat de riesgo muestra el problema que la agilidad resuelve: un pedido urgente
+     * detenido cuando el pago se vuelve el cuello de botella. Con `planning_horizon`
+     * (calendario, reserva) el modelo profundizaba por costo acumulado —el lote creciendo
+     * en volumen— y la velocidad no aparecía. Ninguna otra ruta de costos usa
+     * `blocked_dependency`, así que no colisiona en diversidad.
+     */
+    deepeningMode: 'blocked_dependency',
+    closingDistillation: 'una sola decisión de pago que resuelve precio y avance, sin prometer una fecha de entrega',
+    allowedShapes: ['single_case', 'cause_effect', 'decision_path'],
+    /*
+     * `good_price_and_agile_payment`, NO un tradeoff.
+     *
+     * La versión anterior usaba `same_order_two_conditions` (compartido con `second_quote`)
+     * y colapsaba en comparación de precios. El primer intento de arreglarlo con
+     * `cheaper_slower_vs_pay_to_move` fue peor: inventaba una disyuntiva falsa —la barata
+     * atrasa, la cara mueve— que no es real y además prometía tiempos. La propuesta es la
+     * contraria y es la tesis de la ruta: NO hay que elegir. Xending da buen precio Y el
+     * pago se mueve con agilidad, así que el pago deja de frenar el pedido. Los dos
+     * criterios juegan a favor, no uno contra el otro.
+     */
+    evidenceMechanisms: ['two_criteria_decision', 'good_price_and_agile_payment'],
     figurePolicy: 'optional',
     figureScenarios: ['quote_comparison'],
     requiredCapabilities: [
@@ -459,27 +479,47 @@ const COSTOS_ROUTES: RegisteredStoryRoute[] = [
       'confirmación del pago dentro del mismo día hábil cuando las condiciones lo permiten',
     ],
     forbiddenClaims: [
-      'prometer un plazo concreto de acreditación sin condiciones confirmadas',
+      'prometer un plazo concreto de acreditación o de entrega sin condiciones confirmadas',
       'afirmar horas de corte sin fuente operativa vigente',
+      'plantear precio y velocidad como una disyuntiva o un sacrificio entre sí',
+      'afirmar que una opción más barata necesariamente tarda más',
+      'prometer que el pedido llega en una fecha determinada',
     ],
+    /*
+     * Los devices ponen el precio Y la agilidad DEL MISMO pago, los dos a favor. Sin esto
+     * el modelo escribía solo el costo —tiene cifras fuertes de comparación— y dejaba la
+     * velocidad como adjetivo. El riesgo (pedido detenido por un pago lento) es lo que la
+     * agilidad evita, no una consecuencia de haber elegido barato.
+     */
     allowedEvidenceDevices: [
-      'misma decision evaluada con dos criterios',
-      'costo conocido y estado operativo confirmado',
-      'consecuencias de cada alternativa sobre el mismo pedido',
-      'decision sin sacrificar un criterio por ocultar el otro',
+      'el mismo pago cotizado a buen precio y ejecutado con agilidad',
+      'un pedido urgente que avanza porque el pago no fue el cuello de botella',
+      'costo cerrado y pedido en movimiento leidos en la misma decision',
+      'un pedido detenido cuando el pago se vuelve el cuello de botella',
+      'precio y avance del pedido resueltos por el mismo pago, sin elegir entre uno y otro',
     ],
     forbiddenEvidenceDevices: [
       ...STACKED_DOCUMENT_DEVICES,
       'reloj con hora legible',
       'tabla de sensibilidad',
+      'dos cotizaciones que solo se diferencian en el precio',
+      'la diferencia porcentual entre cotizaciones como tema del set',
+      'una opcion barata mostrada como la que atrasa el pedido',
+      'una disyuntiva entre pagar barato y que el pedido avance',
+      'el lote o el volumen acumulado: esta ruta decide un pedido, no lo acumula',
     ],
     preferredVisualProxies: [],
     visualDevices: [
-      'el mismo pedido atravesando una decisión con costo y condición operativa',
-      'dos criterios explícitos que convergen en una sola decisión',
-      'un resultado definido sin convertir la condición temporal en promesa',
+      'el mismo pedido urgente cuyo pago sale a buen precio y con agilidad, sin frenar la operación',
+      'costo cerrado y pedido en movimiento en la misma escena',
+      'un resultado definido: precio resuelto y pedido avanzando, sin prometer una fecha de entrega',
     ],
-    incompatibleDevices: ['relojes con hora legible: eso afirma un plazo'],
+    incompatibleDevices: [
+      'relojes con hora legible: eso afirma un plazo',
+      'dos cotizaciones comparadas solo por precio: esa es la ruta de comparación',
+      'una disyuntiva barato-o-rápido: la historia es que no hay que elegir',
+      'un lote creciendo en volumen: esa es la ruta de acumulación',
+    ],
     motifFamilies: ['el pedido', 'el expediente de la operación'],
   },
 ];
@@ -1152,6 +1192,317 @@ const VELOCIDAD_ROUTES: RegisteredStoryRoute[] = [
 ];
 
 // ---------------------------------------------------------------------------
+// Cuenta Multidivisa
+// ---------------------------------------------------------------------------
+
+/**
+ * Ninguna ruta de multidivisa admite cifras.
+ *
+ * La tensión de la rama es OPERATIVA —cuentas, portales, monedas y procesos que se
+ * multiplican—, no una cifra que se mueve. Sus números (cantidad de divisas,
+ * permanencia de saldos, integraciones) son afirmaciones de producto sujetas a la
+ * ficha vigente, así que `figurePolicy: 'none'` en las seis y ninguna renderiza montos.
+ *
+ * Los seis modos de profundizar son distintos entre sí a propósito: es la invariante
+ * que impide que dos historias de la misma rama cuenten lo mismo.
+ */
+const MULTIDIVISA_ROUTES: RegisteredStoryRoute[] = [
+  {
+    id: 'more_currencies_not_more_accounts',
+    origin: 'registry',
+    branchSlugs: ['cuenta-multidivisa'],
+    compatibleAngles: [],
+    compatibleObjectives: [],
+    compatiblePresets: [],
+    minSlides: 4,
+    title: 'Más monedas, no más cuentas',
+    premise:
+      'Operar en otra moneda no tendría por qué sumar otra cuenta, otro portal y otro proceso a la operación.',
+    storyQuestion: '¿Por qué cada moneda nueva me cuesta una cuenta nueva?',
+    routeThesis:
+      'La complejidad no viene del número de monedas, sino de que cada una arrastra su propia cuenta y su propio proceso.',
+    resolutionMechanism:
+      'las distintas monedas se administran desde una sola operación, sin abrir una cuenta por cada una',
+    deepeningMode: 'scale',
+    closingDistillation: 'la misma operación manejando varias monedas sin multiplicar cuentas',
+    allowedShapes: ['cause_effect', 'progressive_reveal'],
+    evidenceMechanisms: ['currencies_multiplying_accounts', 'same_burden_across_currencies'],
+    figurePolicy: 'none',
+    figureScenarios: [],
+    requiredCapabilities: ['administrar varias monedas desde una sola operación'],
+    forbiddenClaims: [
+      'presentarse como banco o cuenta bancaria global propia',
+      'prometer reemplazar al banco del cliente',
+      'afirmar número de monedas o países sin ficha vigente',
+    ],
+    allowedEvidenceDevices: [
+      'una moneda nueva que suma una cuenta',
+      'fila de cuentas creciendo',
+      'varias monedas en una sola operacion',
+      'cuentas contenidas mientras crecen las monedas',
+    ],
+    forbiddenEvidenceDevices: [
+      ...STACKED_DOCUMENT_DEVICES,
+      'tipo de cambio',
+      'forward',
+      'calendario de vencimientos',
+      'reloj con hora legible',
+    ],
+    preferredVisualProxies: ['la plataforma que reúne varias monedas en una sola vista'],
+    visualDevices: [
+      'cada moneda nueva sumando una cuenta a una fila que ya era larga',
+      'las mismas monedas administradas desde una sola operación',
+    ],
+    incompatibleDevices: [
+      'documentos con tipo de cambio: esta rama no habla de precio ni de conversión de mercado',
+    ],
+    motifFamilies: ['las cuentas y portales de la operación', 'la mercancía multiorigen'],
+  },
+  {
+    id: 'each_account_adds_process',
+    origin: 'registry',
+    branchSlugs: ['cuenta-multidivisa'],
+    compatibleAngles: [],
+    compatibleObjectives: [],
+    compatiblePresets: [],
+    minSlides: 4,
+    title: 'Cada cuenta suma procesos',
+    premise:
+      'Una cuenta más no es solo una cuenta más: es otro portal, otra autorización y otra conciliación.',
+    storyQuestion: '¿Cuánto trabajo me cuesta operar tantas cuentas y portales?',
+    routeThesis:
+      'El costo de manejar varias monedas también se paga en trabajo: portales, autorizaciones y conciliaciones dispersas.',
+    resolutionMechanism:
+      'las tareas dispersas entre cuentas y portales convergen en una sola operación de tesorería',
+    deepeningMode: 'operational_load',
+    closingDistillation: 'el mismo movimiento hecho con menos portales y una sola conciliación',
+    allowedShapes: ['before_after', 'decision_path'],
+    evidenceMechanisms: ['accounts_and_portals_workload', 'reconciliation_across_accounts'],
+    figurePolicy: 'none',
+    figureScenarios: [],
+    requiredCapabilities: ['concentrar pagos y monedas en una sola operación'],
+    forbiddenClaims: [
+      'cuantificar horas o comisiones ahorradas sin fuente',
+      'prometer eliminar todos los portales o procesos',
+      'presentarse como banco',
+    ],
+    allowedEvidenceDevices: [
+      'varios portales abiertos',
+      'tareas de conciliacion dispersas',
+      'autorizaciones separadas por cuenta',
+      'un solo flujo de tesoreria',
+    ],
+    forbiddenEvidenceDevices: [
+      'tipo de cambio',
+      'forward',
+      'calendario de vencimientos',
+      'reloj con hora legible',
+      'tabla de sensibilidad',
+    ],
+    preferredVisualProxies: ['el tablero de tesorería que reúne lo que estaba disperso'],
+    visualDevices: [
+      'varios portales y conciliaciones separadas convergiendo en una operación',
+      'el mismo pago hecho con menos pasos administrativos',
+    ],
+    incompatibleDevices: ['documentos con montos y tipos de cambio: la ruta no habla de precio'],
+    motifFamilies: ['los portales y cuentas de la operación', 'el escritorio de tesorería'],
+  },
+  {
+    id: 'balances_before_paying',
+    origin: 'registry',
+    branchSlugs: ['cuenta-multidivisa'],
+    compatibleAngles: [],
+    compatibleObjectives: [],
+    compatiblePresets: [],
+    minSlides: 4,
+    title: 'Saber qué hay en cada moneda',
+    premise:
+      'Antes de decidir cómo pagar, tesorería necesita ver qué recursos tiene disponibles y en qué moneda.',
+    storyQuestion: '¿Sé cuánto tengo disponible en cada moneda antes de pagar?',
+    routeThesis:
+      'Decidir un pago sin ver los saldos por moneda es decidir a ciegas; verlos en una sola vista cambia la decisión.',
+    resolutionMechanism:
+      'los saldos por moneda quedan a la vista en un solo lugar antes de decidir el pago',
+    deepeningMode: 'visibility',
+    closingDistillation: 'la decisión de pago tomada con los saldos por moneda a la vista',
+    allowedShapes: ['before_after', 'single_case'],
+    evidenceMechanisms: ['scattered_balances_vs_single_view', 'balance_before_decision'],
+    figurePolicy: 'none',
+    figureScenarios: [],
+    requiredCapabilities: ['ver el saldo disponible por moneda en una sola vista'],
+    forbiddenClaims: [
+      'afirmar visibilidad de saldos si la capacidad no está confirmada por la ficha',
+      'prometer visibilidad total o control absoluto',
+      'mostrar montos como si fueran datos reales de producto',
+    ],
+    allowedEvidenceDevices: [
+      'saldos por moneda dispersos en portales',
+      'saldos por moneda reunidos en una vista',
+      'decision de pago frente a los saldos',
+    ],
+    forbiddenEvidenceDevices: [
+      ...STACKED_DOCUMENT_DEVICES,
+      'tipo de cambio',
+      'forward',
+      'calendario de vencimientos',
+      'tabla de sensibilidad',
+    ],
+    preferredVisualProxies: ['la vista de saldos por moneda de la plataforma, sin montos legibles'],
+    visualDevices: [
+      'los saldos por moneda dispersos en portales separados y luego reunidos',
+      'la decisión de pago tomada frente a los saldos disponibles',
+    ],
+    incompatibleDevices: ['montos legibles presentados como saldos reales'],
+    motifFamilies: ['la vista de saldos por moneda', 'el escritorio de tesorería'],
+  },
+  {
+    id: 'providers_across_markets',
+    origin: 'registry',
+    branchSlugs: ['cuenta-multidivisa'],
+    compatibleAngles: [],
+    compatibleObjectives: ['explicar', 'conectar'],
+    compatiblePresets: [],
+    minSlides: 4,
+    title: 'Proveedores en distintos mercados',
+    premise:
+      'Cada proveedor llega de un mercado distinto y factura en su moneda, y la operación se fragmenta por eso.',
+    storyQuestion: '¿Por qué cada proveedor me abre otro frente de administración?',
+    routeThesis:
+      'Una operación con proveedores en varios mercados es varias operaciones de moneda que se pueden ver como una sola.',
+    resolutionMechanism:
+      'los pagos a proveedores de distintos mercados se administran desde una misma estructura',
+    deepeningMode: 'anatomy',
+    closingDistillation: 'los proveedores de varios mercados vistos como una sola operación de tesorería',
+    allowedShapes: ['anatomy', 'progressive_reveal'],
+    evidenceMechanisms: ['providers_by_currency', 'operation_decomposed_by_market'],
+    figurePolicy: 'none',
+    figureScenarios: [],
+    requiredCapabilities: ['administrar pagos a proveedores en distintas monedas desde una plataforma'],
+    forbiddenClaims: [
+      'presentarse como banco',
+      'afirmar cobertura de mercados o monedas sin ficha vigente',
+      'contaminar con pagos mismo día a China (velocidad)',
+    ],
+    allowedEvidenceDevices: [
+      'proveedores de mercados distintos',
+      'factura por proveedor en su moneda',
+      'operacion separada por mercado',
+      'proveedores reunidos en una estructura',
+    ],
+    forbiddenEvidenceDevices: [
+      ...STACKED_DOCUMENT_DEVICES,
+      'tipo de cambio',
+      'forward',
+      'calendario de vencimientos',
+      'reloj con hora legible',
+    ],
+    preferredVisualProxies: ['el mapa de proveedores de la operación reunido en una plataforma'],
+    visualDevices: [
+      'cada proveedor de un mercado distinto con su moneda',
+      'los proveedores de varios mercados reunidos en una sola operación',
+    ],
+    incompatibleDevices: ['relojes o sellos de mismo día: eso es velocidad'],
+    motifFamilies: ['los proveedores de la operación', 'la mercancía multiorigen'],
+  },
+  {
+    id: 'collect_one_pay_another',
+    origin: 'registry',
+    branchSlugs: ['cuenta-multidivisa'],
+    compatibleAngles: [],
+    compatibleObjectives: [],
+    compatiblePresets: [],
+    minSlides: 4,
+    title: 'Cobras en una moneda, pagas en otra',
+    premise:
+      'El dinero entra en una moneda y sale en otra, y entre las dos hay una operación que administrar.',
+    storyQuestion: '¿Qué pasa entre cobrar en una moneda y pagar en otra?',
+    routeThesis:
+      'Cuando la operación cruza monedas, cobrar y pagar dejan de ser dos hechos aislados y se vuelven un mismo flujo.',
+    resolutionMechanism:
+      'el cobro en una moneda y el pago en otra se administran dentro de la misma operación',
+    deepeningMode: 'stage_progression',
+    closingDistillation: 'el cobro y el pago en monedas distintas vistos como un solo flujo',
+    allowedShapes: ['progressive_reveal', 'cause_effect'],
+    evidenceMechanisms: ['inflow_one_currency_outflow_another', 'cross_currency_flow'],
+    figurePolicy: 'none',
+    figureScenarios: [],
+    requiredCapabilities: ['administrar cobro en una moneda y pago en otra dentro de la operación'],
+    forbiddenClaims: [
+      'afirmar recepción, cobro o conversión si la capacidad no está confirmada por la ficha',
+      'prometer conversión sin costo o al mejor tipo de cambio',
+      'convertir la pieza en campaña de ahorro cambiario (costos) o de cobertura (coberturas)',
+    ],
+    allowedEvidenceDevices: [
+      'cobro de cliente en una moneda',
+      'pago a proveedor en otra moneda',
+      'flujo entre dos monedas de la misma operacion',
+    ],
+    forbiddenEvidenceDevices: [
+      ...STACKED_DOCUMENT_DEVICES,
+      'tipo de cambio como cotizacion de mercado',
+      'forward',
+      'calendario de vencimientos',
+      'tabla de sensibilidad',
+    ],
+    preferredVisualProxies: ['la operación que conecta el cobro y el pago en la plataforma'],
+    visualDevices: [
+      'el cobro entrando en una moneda y el pago saliendo en otra',
+      'las dos puntas de la operación conectadas en un mismo flujo',
+    ],
+    incompatibleDevices: ['escenarios de tipo de cambio comparados: eso es de costos o coberturas'],
+    motifFamilies: ['el flujo de cobro y pago', 'las facturas en distintas monedas'],
+  },
+  {
+    id: 'growth_without_dispersion',
+    origin: 'registry',
+    branchSlugs: ['cuenta-multidivisa'],
+    compatibleAngles: [],
+    compatibleObjectives: [],
+    compatiblePresets: [],
+    minSlides: 4,
+    title: 'Crecer sin dispersar la tesorería',
+    premise:
+      'Entrar a un mercado nuevo no debería significar otra cuenta, otro portal y otro proceso cada vez.',
+    storyQuestion: '¿Mi operación puede crecer sin que la tesorería se disperse igual?',
+    routeThesis:
+      'El crecimiento internacional multiplica cuentas y procesos solo si se deja; con una estructura, la operación crece y la tesorería no.',
+    resolutionMechanism:
+      'los nuevos mercados se suman a la misma estructura de tesorería en lugar de abrir una operación aparte',
+    deepeningMode: 'planning_horizon',
+    closingDistillation: 'la operación creciendo a nuevos mercados desde una misma estructura',
+    allowedShapes: ['progressive_reveal', 'timeline'],
+    evidenceMechanisms: ['growth_contained_structure', 'new_market_same_operation'],
+    figurePolicy: 'none',
+    figureScenarios: [],
+    requiredCapabilities: ['sumar nuevos mercados a la misma operación de tesorería'],
+    forbiddenClaims: [
+      'presentarse como banco global',
+      'prometer disponibilidad en mercados o monedas sin ficha vigente',
+      'prometer operación sin límites',
+    ],
+    allowedEvidenceDevices: [
+      'nuevo mercado que se suma',
+      'operacion que crece sin abrir cuentas nuevas',
+      'estructura de tesoreria contenida',
+    ],
+    forbiddenEvidenceDevices: [
+      ...STACKED_DOCUMENT_DEVICES,
+      'tipo de cambio',
+      'forward',
+      'calendario de vencimientos',
+      'reloj con hora legible',
+    ],
+    preferredVisualProxies: ['la operación que suma mercados desde la misma plataforma'],
+    visualDevices: [
+      'un mercado nuevo sumándose a la misma estructura',
+      'la operación creciendo mientras las cuentas se mantienen contenidas',
+    ],
+    incompatibleDevices: ['documentos con tipo de cambio o montos'],
+    motifFamilies: ['el mapa de mercados de la operación', 'la plataforma de tesorería'],
+  },
+];
+
+// ---------------------------------------------------------------------------
 // API de rutas
 // ---------------------------------------------------------------------------
 
@@ -1159,6 +1510,7 @@ export const STORY_ROUTES: RegisteredStoryRoute[] = [
   ...COSTOS_ROUTES,
   ...COBERTURAS_ROUTES,
   ...VELOCIDAD_ROUTES,
+  ...MULTIDIVISA_ROUTES,
 ];
 
 const ROUTES_BY_ID = new Map(STORY_ROUTES.map((r) => [r.id, r]));

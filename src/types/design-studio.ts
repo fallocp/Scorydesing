@@ -706,6 +706,66 @@ export function getCarouselPreset(slug: string): CarouselPreset {
 }
 
 // ---------------------------------------------------------------------------
+// Mecanismo comercial derivado del copy
+// ---------------------------------------------------------------------------
+
+/**
+ * Ángulo del copy → mecanismo comercial, para la rama costos.
+ *
+ * El mecanismo filtra las rutas narrativas ANTES del plan (ver
+ * `carouselStoryRegistry.resolveCompatibleRoutes`). Cuando el panel lo dejaba fijo en
+ * `quote_comparison`, casi toda la rama se contaba como "comparar cotizaciones" aunque
+ * el copy hablara de otra cosa: un copy de anatomía de costo o de costo+velocidad
+ * terminaba en la ruta de comparación porque su ruta propia nunca entraba al menú.
+ *
+ * La clave es el `angle_tag` del copy (vocabulario controlado del banco), no el label.
+ * Un ángulo no listado cae al fallback de la rama, que conserva el comportamiento
+ * previo. El usuario siempre puede sobreescribir el chip a mano.
+ */
+export const COSTOS_ANGLE_COMMERCIAL_INTENT: Readonly<
+  Record<string, CarouselCommercialIntent>
+> = {
+  // Comparar una segunda cotización del mismo pago.
+  segunda_cotizacion: 'quote_comparison',
+  diversificacion_de_proveedores: 'quote_comparison',
+  proveedor_habitual: 'quote_comparison',
+  // Costo y tiempo se deciden juntos. `comparacion_integral` entra aquí porque nombra
+  // el tiempo como variable de decisión ("tipo de cambio, comisión y tiempo").
+  costo_velocidad: 'cost_plus_speed',
+  comparacion_integral: 'cost_plus_speed',
+  // El costo como componente: anatomía, acumulación, margen, componente cambiario.
+  costo_total_de_importacion: 'cost_component',
+  impacto_acumulado: 'cost_component',
+  impacto_anual: 'cost_component',
+  escala_e_impacto_acumulado: 'cost_component',
+  costo_cambiario: 'cost_component',
+  proteccion_margen: 'cost_component',
+  simplificacion_operativa: 'cost_component',
+  diferencias_por_mercado: 'cost_component',
+  diferencias_por_mercado_y_moneda: 'cost_component',
+};
+
+/**
+ * Mecanismo comercial inicial de un carrusel, derivado de la rama y del ángulo del copy.
+ *
+ * Sustituye al default fijo por rama: coberturas siempre `forward`; costos lee el ángulo
+ * del copy y cae a `quote_comparison` si el ángulo no está mapeado; el resto,
+ * `cost_component`.
+ */
+export function deriveCarouselCommercialIntent(
+  branchSlug: string | null | undefined,
+  angleTag: string | null | undefined,
+): CarouselCommercialIntent {
+  const branch = (branchSlug ?? '').toLowerCase();
+  if (branch.includes('cobertura')) return 'forward';
+  if (branch.includes('costo')) {
+    const key = (angleTag ?? '').trim().toLowerCase();
+    return COSTOS_ANGLE_COMMERCIAL_INTENT[key] ?? 'quote_comparison';
+  }
+  return 'cost_component';
+}
+
+// ---------------------------------------------------------------------------
 // Illustrative FX figures
 // ---------------------------------------------------------------------------
 

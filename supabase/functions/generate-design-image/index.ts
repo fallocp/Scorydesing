@@ -559,7 +559,7 @@ MATERIALIDAD Y ACABADO (white / white_2)
 - Superficie dominante (80–90%): cerámica blanca refinada, acrílico blanco mate/satinado, light gray #F5F5F5 y graphite MUY claro. Bordes redondeados, biseles precisos, reflejos limpios, volumen suave, alta definición.
 - RANGO TONAL OBLIGATORIO dentro del neutro: nunca un blanco plano y parejo. Blanco puro en las caras superiores e iluminadas, light gray #F5F5F5 en los costados, graphite pálido en rebajes, bajo relieve, interiores y caras en sombra. Un objeto resuelto en un único blanco uniforme está MAL: se ve plano y lavado. El volumen se construye con este escalón tonal, no con color de marca.
 - Navy #0F1419 (6–12%): OBLIGATORIO en todo objeto neutro, no es opcional. Cada objeto blanco lleva líneas navy finas de estructura donde su anatomía real las tendría: juntas de panel, aristas, corrugaciones, barandales, celosía, línea de cubierta, puente, herrajes, marcos de puerta y ejes. Ningún objeto queda como volumen blanco liso sin detalle: un barco, una bodega o una grúa sin líneas de estructura está MAL y hay que rehacerla. El navy DEFINE, no rellena: NUNCA teñir grandes superficies ni el fondo.
-- Turquesa #2ED4C7 (2–5%): activación, conexión, ruta, nodo, check o indicador de avance. Color sólido exacto, sin glow barato ni gradiente ruidoso.
+- Turquesa #2ED4C7 (1–3%): activación, conexión, ruta, nodo, check o indicador de avance. Color sólido exacto, sin glow barato ni gradiente ruidoso.
 - Coral #FF7A4A (1–3%): punto focal, pausa, espera, origen o alerta suave. Un acento claro, no múltiples manchas.
 - Iluminación de estudio softbox, fondo blanco/clear indicado por backgroundStyle. Sombra de contacto OBLIGATORIA y visible debajo de cada objeto y cada plataforma: tenue y suave, pero suficiente para que un objeto blanco se separe con claridad de un fondo blanco. Sin sombra de contacto los objetos se ven flotando y lavados. Evitar plástico barato, aspecto inflable, juguete infantil, metal pesado, cristal excesivo, bloom y reflejos quemados.
 
@@ -699,7 +699,7 @@ Evita siempre: startup saturada, Canva genérico, crypto, gamer, cyberpunk, neó
 Para estilos claros, distribución visual objetivo:
 - 80–90% blanco #FFFFFF, light gray #F5F5F5 o cream mínimo.
 - 6–12% navy #0F1419 como estructura, contorno, símbolo o flecha; no como masa dominante.
-- 2–5% teal #2ED4C7 como activación, avance, nodo, check o ruta.
+- 1–3% teal #2ED4C7 como activación, avance, nodo, check o ruta.
 - 1–3% coral #FF7A4A como único foco, espera, bloqueo, origen o alerta suave.
 
 Semántica: navy = estructura/control; teal = flujo/activación/solución; coral = tensión/espera/acción. No intercambiar esta lógica sin una razón del copy.
@@ -970,6 +970,18 @@ PALETA COMPLETA, no solo el acento. El sistema visual pide navy para estructura,
 
 Cada escena es la traducción visual de la línea de SU slide, no un fondo bonito detrás del texto. La historia se cuenta en imágenes; el texto solo la nombra. Prueba para descartar una escena: si funcionaría igual debajo de la frase de otro slide, está mal — significa que ilustra el tema y no lo que dice esa línea en particular.
 
+## ANCLA LO CONCRETO QUE NOMBRA EL TEXTO
+
+Si la línea —o el contexto del set— nombra algo concreto (un destino o lugar como China o México, un objeto, un momento como "hoy" o "el horario"), haz que ESO se vea en el cuadro, integrado en la escena de la operación. La imagen tiene que dejar claro DE QUÉ habla, no solo qué acción ocurre. "Paga a China" pide que el destino exista: la caja rotulada a China, la guía de embarque con el destino, un corredor o mapa al fondo, la pantalla de estado con la ruta. "A tiempo" o "el horario" pide tiempo hecho objeto: un reloj, un reloj de arena, una mano revisando la hora, el calendario, o la persona enviando el pago contra el reloj.
+
+Tienes DOS capas para mostrarlo. Cuando el LUGAR es parte de lo que dice la frase (p. ej. el headline nombra el país o la ciudad), el texto solo NO basta: el rótulo lo identifica, pero la señal VISUAL es la que hace que se SIENTA el lugar — y esto aplica TAMBIÉN en fotografía; una foto que dice "China" y no muestra nada de China más allá de una etiqueta desperdició el cuadro. Suma al menos una señal, y prioriza la visual sobre el rótulo suelto: (a) TEXTO sobre un objeto real —el rótulo del paquete, la etiqueta de la guía, un sello— y (b) CONTEXTO geográfico creíble —el perfil de la ciudad destino suave y desenfocado al fondo, un mapa o una ruta origen→destino trazada en la pantalla de estado, una banderita realista como sello o etiqueta sobre el paquete—. Adáptalo al medio: en fotografía, skyline por una ventana / bandera-etiqueta / ruta en la pantalla; en infografía 3D, mapa, ruta o pin estilizados; en financiero, la ruta sobre el mapa o el dashboard.
+
+El límite es el gusto, no la prohibición del referente: va SECUNDARIO —nunca le gana al hero ni al headline—, creíble dentro del medio, y suave para no pelear con la paleta ni comerse el espacio negativo. Lo que está mal es la versión choteada: una bandera gigante flotando, un clip-art plano, un pin de sticker pegado en el aire, un ícono genérico del país, o apilar bandera + mapa + skyline en el mismo cuadro. UNA señal geográfica, integrada y tranquila, basta — y de paso hace que la escena siga probando la frase de ese slide, no solo decorando el tema.
+
+HAZLO AUNQUE LA LISTA DE OBJETOS DEL BRIEF NO LO MENCIONE. El referente no es un objeto extra: viaja SOBRE un objeto que el brief ya pide. Si el brief trae "el paquete" y la frase dice China, el paquete va rotulado a China; no agregas un cuarto objeto ni rompes el máximo de tres. El brief nombra el sujeto principal de la escena, no te prohíbe rotular ese sujeto con lo que la frase dice literalmente. Un slide cuyo headline nombra un lugar o un momento y cuya escena no lo hace visible por ningún lado está mal, aunque el brief no lo pidiera.
+
+Y no en los cinco slides: un referente repetido en todas las piezas vuelve a ser "el mismo cuadro". Ánclalo donde la línea lo pide, con la forma que encaje con esa línea, y déjalo fuera del cuadro donde no aporta.
+
 ## VARIEDAD ENTRE SLIDES (obligatorio)
 
 El sujeto recurrente del set funciona como PARÉNTESIS: es el protagonista en el primer y en el último slide. En los slides de en medio cada escena trae SU PROPIO sujeto, el que exige su línea, y el recurrente aparece como detalle secundario, al fondo, desenfocado, o no aparece. La unidad del set ya la garantiza el bloque de diseño, que es idéntico en todos; repetir el mismo objeto encima de eso produce la misma imagen N veces.
@@ -1182,6 +1194,55 @@ function environmentalTextBlock(slide: CarouselPromptSlideInput): string {
 }
 
 /**
+ * Nombres propios que el headline del slide ya nombra: lugares, destinos.
+ *
+ * El problema que resuelve: `environmentalTextBlock` arma la lista blanca de texto
+ * legible ("Only these, spelled exactly") desde el brief, y el brief no trae el lugar,
+ * así que la imagen no podía rotular "China" sobre el paquete aunque el headline lo
+ * dijera — quedaba prohibido como "texto inventado". Pero un lugar que ya está en el
+ * headline NO es inventado: viene del copy. Esto lo detecta y lo autoriza.
+ *
+ * La detección no es una lista de países: las headlines de la marca van en minúscula
+ * salvo la primera palabra y los nombres propios, así que una palabra en mayúscula A
+ * MITAD de frase es, casi siempre, un lugar o un nombre propio ("Paga a China hoy").
+ * Se ignora la primera palabra de cada oración (mayúscula por posición), las siglas en
+ * MAYÚSCULAS completas y la marca. Palabras propias consecutivas se unen en una sola
+ * etiqueta ("Estados Unidos").
+ */
+const HEADLINE_PROPER_NOUN_STOP = new Set(['xending']);
+
+function headlineProperNouns(headline: string): string[] {
+  const labels: string[] = [];
+  for (const sentence of headline.split(/[.!?]+/)) {
+    const tokens = sentence.trim().split(/\s+/).filter(Boolean);
+    let current: string[] = [];
+    const flush = () => {
+      if (current.length > 0) labels.push(current.join(' '));
+      current = [];
+    };
+    for (let i = 0; i < tokens.length; i++) {
+      const clean = tokens[i].replace(/^[^\p{L}]+|[^\p{L}]+$/gu, '');
+      const first = clean.charAt(0);
+      const isUpper =
+        first !== '' &&
+        first === first.toLocaleUpperCase('es') &&
+        first !== first.toLocaleLowerCase('es');
+      const isAllCaps = clean.length > 0 && clean === clean.toLocaleUpperCase('es');
+      const isProper =
+        i > 0 &&
+        isUpper &&
+        !isAllCaps &&
+        clean.length >= 3 &&
+        !HEADLINE_PROPER_NOUN_STOP.has(clean.toLowerCase());
+      if (isProper) current.push(clean);
+      else flush();
+    }
+    flush();
+  }
+  return labels;
+}
+
+/**
  * Where the text and the scene sit, by composition.
  *
  * The old rule pinned every slide to the same band — text across the top, subject
@@ -1341,6 +1402,23 @@ function assembleCarouselSlidePrompt(params: {
   } = params;
 
   /**
+   * Señal visual del lugar, obligatoria y determinista.
+   *
+   * Cuando el headline nombra un lugar (China, México…), el escritor de escena tendía
+   * a resolverlo solo con el rótulo de texto, sobre todo en el slide de cierre, donde
+   * sus propias reglas de "escena más callada, mínima complejidad" le ganan a la regla
+   * general. Esto no se lo pide al modelo: lo escribe en el prompt final que lee el
+   * generador de imagen, así que la señal aparece pase lo que pase. El modelo solo
+   * elige la FORMA (ruta, skyline o banderita); que exista, no.
+   */
+  const placeCue = (() => {
+    const places = headlineProperNouns(slide.headline);
+    if (places.length === 0) return '';
+    const place = places[0];
+    return `GEOGRAPHIC CUE — REQUIRED: this slide's headline names ${places.join(', ')}, so the place must be VISIBLE in the scene, not only spelled on a label. Render exactly ONE subtle, credible visual cue of ${place}, integrated and secondary: a fine origin→destination route line drawn on the confirmation/status screen, OR a soft out-of-focus ${place} city skyline in the far background, OR a small realistic ${place} flag as a tag or stamp on the parcel. Keep it calm and clearly secondary — it must not compete with the headline or eat the negative space — but it must be present even on the closing slide. Not a giant floating flag, not flat clip-art, not a sticker in mid-air, and only ONE such cue.`;
+  })();
+
+  /**
    * The exact strings, delimited without quotes.
    *
    * Wrapping copy in quotation marks made the image model render the quotes as part
@@ -1417,6 +1495,7 @@ function assembleCarouselSlidePrompt(params: {
     `SCENE FOR THIS SLIDE (this is what you render):\n${sceneBlock.trim()}`,
     layoutRules.length > 0 ? `TEXT LAYOUT:\n${layoutRules.join('\n')}` : '',
     briefBlock(slide),
+    placeCue,
     /**
      * The master prompt carries both branches of its `textInImage` rule as plain
      * text, so the "forbid every letter" half is present even though the carousel
@@ -2027,6 +2106,26 @@ async function buildCarouselPrompts(
   const slides: CarouselPromptSlideInput[] = [...rawSlides]
     .sort((a, b) => (a.index ?? 0) - (b.index ?? 0))
     .map((s) => ({ ...s, index: s.index ?? 0 }));
+
+  // El lugar/destino que el headline nombra se autoriza como etiqueta legible, para
+  // que la escena lo pueda rotular sobre un objeto real (el paquete, la guía) en vez
+  // de dejarlo solo en el texto horneado. Se hace aquí, una sola vez, porque tanto el
+  // mensaje al escritor de escena como el prompt final leen este mismo `slides`. El
+  // código solo desbloquea el rótulo; CÓMO mostrarlo lo decide el modelo de escena.
+  for (const slide of slides) {
+    const places = headlineProperNouns(slide.headline);
+    if (places.length === 0) continue;
+    const existing = slide.brief?.environmentalText ?? [];
+    const seen = new Set(existing.map((t) => t.toLowerCase()));
+    const merged = [...existing];
+    for (const place of places) {
+      if (!seen.has(place.toLowerCase())) {
+        merged.push(place);
+        seen.add(place.toLowerCase());
+      }
+    }
+    slide.brief = { ...(slide.brief ?? {}), environmentalText: merged };
+  }
 
   const totalSlides = Math.max(
     requestBody.carouselTotalSlides ?? slides.length,

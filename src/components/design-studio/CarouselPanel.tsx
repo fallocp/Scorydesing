@@ -10,7 +10,7 @@
  * its own, without touching the rest of the set.
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertCircle,
   Check,
@@ -60,6 +60,7 @@ import {
   CAROUSEL_ROLE_LABELS,
   DEFAULT_CAROUSEL_OBJECTIVE,
   DEFAULT_CAROUSEL_PRESET_SLUG,
+  deriveCarouselCommercialIntent,
   getCarouselPreset,
   type CarouselBrandElement,
   type CarouselCommercialIntent,
@@ -149,12 +150,17 @@ export function CarouselPanel({
   const [objective, setObjective] = useState<CarouselObjective>(
     DEFAULT_CAROUSEL_OBJECTIVE,
   );
-  const [commercialIntent, setCommercialIntent] = useState<CarouselCommercialIntent>(() => {
-    const branch = (branchSlug ?? '').toLowerCase();
-    if (branch.includes('cobertura')) return 'forward';
-    if (branch.includes('costo')) return 'quote_comparison';
-    return 'cost_component';
-  });
+  /**
+   * El mecanismo comercial arranca DERIVADO del copy, no fijo por rama.
+   *
+   * El ángulo del copy (`row.angle` = angle_tag) decide qué rutas narrativas entran al
+   * plan. Antes esto era un default por rama —costos siempre `quote_comparison`— y por
+   * eso un copy de costo+velocidad terminaba contado como comparación de cotizaciones.
+   * Sigue siendo estado editable: el usuario puede cambiar el chip a mano.
+   */
+  const [commercialIntent, setCommercialIntent] = useState<CarouselCommercialIntent>(() =>
+    deriveCarouselCommercialIntent(branchSlug, bankItem?.row.angle),
+  );
   const commercialIntentOptions: ReadonlyArray<readonly [CarouselCommercialIntent, string]> =
     (branchSlug ?? '').toLowerCase().includes('cobertura')
       ? [['forward', 'Forward']]
@@ -165,6 +171,15 @@ export function CarouselPanel({
             ['cost_component', 'Componente de costo'],
           ]
         : [['cost_component', 'Componente de costo']];
+  /**
+   * Mecanismos que muestran la comparación de dos tasas de la misma operación.
+   *
+   * `cost_plus_speed` cuenta con el escenario de cifras `quote_comparison`, así que
+   * necesita la segunda tasa igual que `quote_comparison`. Sin esto, el campo de la
+   * otra cotización desaparecía y el escenario salía con una tasa fija por default.
+   */
+  const usesQuoteComparison =
+    commercialIntent === 'quote_comparison' || commercialIntent === 'cost_plus_speed';
   const [guidance, setGuidance] = useState('');
   const [isExporting, setIsExporting] = useState<'png' | 'pdf' | null>(null);
 
@@ -237,18 +252,18 @@ export function CarouselPanel({
     if (parsedFxRate === null) {
       return `El tipo de cambio debe estar entre ${CAROUSEL_MIN_FX_RATE} y ${CAROUSEL_MAX_FX_RATE}.`;
     }
-    if (commercialIntent === 'quote_comparison' && parsedComparisonRate === null) {
+    if (usesQuoteComparison && parsedComparisonRate === null) {
       return `La tasa de la otra cotización debe estar entre ${CAROUSEL_MIN_FX_RATE} y ${CAROUSEL_MAX_FX_RATE}.`;
     }
     if (parsedAmountUsd === null) {
       return `El monto debe estar entre USD ${CAROUSEL_MIN_OPERATION_USD} y USD ${CAROUSEL_MAX_OPERATION_USD.toLocaleString('en-US')}.`;
     }
-    if (commercialIntent !== 'quote_comparison' && parsedMarkupPct === null) {
+    if (!usesQuoteComparison && parsedMarkupPct === null) {
       return `El markup debe estar entre ${MIN_MARGIN_PCT}% y ${MAX_MARGIN_PCT}%.`;
     }
     return null;
   }, [
-    commercialIntent,
+    usesQuoteComparison,
     parsedAmountUsd,
     parsedComparisonRate,
     parsedFxRate,
@@ -305,6 +320,24 @@ export function CarouselPanel({
    * describe una idea, y tres historias distintas devolvían los mismos beats 3, 4 y 5.
    */
   const planner = useCarouselPlan({ bankItem, branchId });
+
+  /**
+   * Al cambiar de copy en el banco, re-deriva el mecanismo comercial de su ángulo.
+   *
+   * El init solo corre una vez; sin esto, seleccionar otro copy dejaría el chip del
+   * copy anterior. Se guarda la identidad del copy en un ref para no re-derivar (ni
+   * limpiar planes) en el primer render ni en re-renders que no cambian de copy —
+   * eso pisaría un override manual del usuario sobre el mismo copy.
+   */
+  const derivedIntentCopyId = useRef<string | null>(bankItem?.row.id ?? null);
+  useEffect(() => {
+    const copyId = bankItem?.row.id ?? null;
+    if (copyId === derivedIntentCopyId.current) return;
+    derivedIntentCopyId.current = copyId;
+    const derived = deriveCarouselCommercialIntent(branchSlug, bankItem?.row.angle);
+    setCommercialIntent((current) => (current === derived ? current : derived));
+    planner.clearPlans();
+  }, [bankItem?.row.id, bankItem?.row.angle, branchSlug, planner]);
 
   const {
     slots,
@@ -625,7 +658,7 @@ export function CarouselPanel({
             <div className="flex flex-wrap items-end gap-3">
               <div className="space-y-1">
                 <Label className="text-[10px] text-muted-foreground">
-                  {commercialIntent === 'quote_comparison' ? 'Tasa Xending' : 'Tipo de cambio'}
+                  {usesQuoteComparison ? 'Tasa Xending' : 'Tipo de cambio'}
                 </Label>
                 <Input
                   type="number"
@@ -639,7 +672,7 @@ export function CarouselPanel({
                   className="h-8 w-24 text-sm"
                 />
               </div>
-              {commercialIntent === 'quote_comparison' && (
+              {usesQuoteComparison && (
                 <div className="space-y-1">
                   <Label className="text-[10px] text-muted-foreground">
                     Tasa de otra cotización
@@ -674,7 +707,7 @@ export function CarouselPanel({
                   className="h-8 w-28 text-sm"
                 />
               </div>
-              {commercialIntent !== 'quote_comparison' && (
+              {!usesQuoteComparison && (
                 <div className="space-y-1">
                   <Label className="text-[10px] text-muted-foreground">
                     Markup sobre costo %
@@ -697,7 +730,7 @@ export function CarouselPanel({
               <p className="text-[10px] text-destructive">{fxValidationError}</p>
             )}
             <div className="space-y-0.5 font-mono text-[11px] text-muted-foreground">
-              {commercialIntent === 'quote_comparison'
+              {usesQuoteComparison
                 ? quotePreview.map((doc) => (
                     <div key={doc.label}>
                       {doc.label} — {doc.fields.find((field) => field.label === 'TIPO DE CAMBIO')?.value}
@@ -712,7 +745,7 @@ export function CarouselPanel({
                       {m.labels.delta ? ` · ${m.labels.delta}` : ''}
                     </div>
                   ))}
-              {commercialIntent !== 'quote_comparison' &&
+              {!usesQuoteComparison &&
                 marginPreview.map((doc) => (
                   <div key={doc.label}>
                     {doc.label} — precio {doc.fields[0]?.value} · costo {doc.fields[1]?.value} ·{' '}
@@ -721,7 +754,7 @@ export function CarouselPanel({
                 ))}
             </div>
             <p className="text-[10px] text-muted-foreground">
-              {commercialIntent === 'quote_comparison'
+              {usesQuoteComparison
                 ? 'Misma operación, mismo momento, dos tasas editables. No representa una tasa futura. Los equivalentes MXN no incluyen comisiones ni otros costos.'
                 : 'El monto en USD es el mismo en los tres momentos: lo que se mueve es el tipo de cambio, no el tamaño de la compra. El precio de venta se fija sobre el costo de hoy y tampoco se mueve — lo que cede es el margen.'}
             </p>
