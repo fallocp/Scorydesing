@@ -9,6 +9,7 @@
 import { useCallback, useEffect } from 'react'
 import { ChevronLeft, ChevronRight, Download, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { downloadImage } from '@/utils/downloadFile'
 
 export interface MockupSlideItem {
   /** Stable key */
@@ -95,14 +96,14 @@ export function MockupSlideViewer({
 
         <div className="flex items-center gap-2">
           {renderActions?.(current, index)}
-          <a
-            href={current.src}
-            download={current.downloadName ?? `mockup-${index + 1}.png`}
+          <button
+            type="button"
+            onClick={() => downloadImage(current.src, current.downloadName ?? `mockup-${index + 1}.png`)}
             className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20"
             title="Descargar"
           >
             <Download className="h-5 w-5" />
-          </a>
+          </button>
           <button
             type="button"
             onClick={onClose}

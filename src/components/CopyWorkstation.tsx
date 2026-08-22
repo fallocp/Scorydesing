@@ -34,6 +34,7 @@ import { ImageLightbox } from './ImageLightbox';
 import { MultichannelRenderer } from './multichannel/MultichannelRenderer';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
+import { downloadImage } from '@/utils/downloadFile';
 import type { Json } from '@/integrations/supabase/types';
 
 interface GeneratedVariant {
@@ -1469,17 +1470,18 @@ export function CopyWorkstation({ branch, branchName, initialBrainstormOpen = fa
   };
 
   // --- Download ---
-  const handleDownload = (index: number) => {
+  const handleDownload = async (index: number) => {
     const state = copyStates[index];
     if (!state.renderedPng) return;
 
-    const link = document.createElement('a');
-    link.href = state.renderedPng;
-    link.download = `${branchName.toLowerCase().replace(/\s+/g, '-')}-pieza-${index + 1}.png`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast({ title: `Pieza ${index + 1} descargada` });
+    const name = `${branchName.toLowerCase().replace(/\s+/g, '-')}-pieza-${index + 1}.png`;
+    try {
+      await downloadImage(state.renderedPng, name);
+      toast({ title: `Pieza ${index + 1} descargada` });
+    } catch (err) {
+      console.error('Error descargando pieza:', err);
+      toast({ title: 'No se pudo descargar la pieza', variant: 'destructive' });
+    }
   };
 
   // --- Edit HTML ---
@@ -1544,7 +1546,9 @@ export function CopyWorkstation({ branch, branchName, initialBrainstormOpen = fa
         await handlePreview(i);
       }
       if (copyStates[i]?.renderedPng) {
-        handleDownload(i);
+        await handleDownload(i);
+        // Los navegadores colapsan descargas seguidas; la pausa las conserva.
+        await new Promise((resolve) => setTimeout(resolve, 300));
       }
     }
   };

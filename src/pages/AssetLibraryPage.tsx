@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Image as ImageIcon, Palette, Download, X } from 'lucide-react';
+import { downloadImage } from '@/utils/downloadFile';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -174,11 +175,13 @@ function AssetLibraryPage() {
     return groups;
   }, [allDesigns, branches]);
 
-  const handleDownloadDesign = (renderedUrl: string, headline: string) => {
-    const link = document.createElement('a');
-    link.href = renderedUrl;
-    link.download = `${headline.slice(0, 40).replace(/\s+/g, '-').toLowerCase()}.png`;
-    link.click();
+  const handleDownloadDesign = async (renderedUrl: string, headline: string) => {
+    const name = `${headline.slice(0, 40).replace(/\s+/g, '-').toLowerCase()}.png`;
+    try {
+      await downloadImage(renderedUrl, name);
+    } catch (err) {
+      console.error('Error descargando diseño:', err);
+    }
   };
 
   return (

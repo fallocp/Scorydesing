@@ -5,6 +5,7 @@
  */
 
 import { cn } from '@/lib/utils'
+import { downloadImage } from '@/utils/downloadFile'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Maximize2,
@@ -367,15 +368,14 @@ export function SavedMockupsGrid({
                   >
                     <Maximize2 className="h-4 w-4" />
                   </button>
-                  <a
-                    href={mockup.image_url}
-                    download={`mockup-${mockup.id.slice(0, 8)}.png`}
-                    onClick={(e) => e.stopPropagation()}
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); downloadImage(mockup.image_url, `mockup-${mockup.id.slice(0, 8)}.png`); }}
                     className="h-9 w-9 flex items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80 transition"
                     title="Descargar"
                   >
                     <Download className="h-4 w-4" />
-                  </a>
+                  </button>
                   <button
                     type="button"
                     onClick={(e) => {

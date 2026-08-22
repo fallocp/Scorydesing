@@ -17,6 +17,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Loader2, Copy, Download, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { downloadImage } from '@/utils/downloadFile';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -180,10 +181,14 @@ function PieceTab({ piece, localCaption, onLocalCaptionChange, toast }: PieceTab
     }
   };
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (!pngUrl) return;
-    // Open in new tab — the user uses "Save as" from there.
-    window.open(pngUrl, '_blank', 'noopener,noreferrer');
+    try {
+      await downloadImage(pngUrl, `pieza-${Date.now()}.png`);
+    } catch {
+      // Si falla la descarga (p. ej. CORS), abrir en pestaña como respaldo.
+      window.open(pngUrl, '_blank', 'noopener,noreferrer');
+    }
   };
 
   return (
