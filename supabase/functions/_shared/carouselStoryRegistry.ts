@@ -29,13 +29,14 @@ import type {
   CarouselCompositionFamily,
   CarouselPlanObjective,
   CompositionSpec,
+  EvidenceFamily,
   RegisteredStoryRoute,
   RouteDeepeningMode,
   StoryShape,
 } from './carousel-plan-types.ts';
 
 /** Sube cuando cambian las rutas. Se persiste en el plan. */
-export const STORY_REGISTRY_VERSION = 'carousel-story-registry-v6';
+export const STORY_REGISTRY_VERSION = 'carousel-story-registry-v7';
 
 /**
  * Utilería documental que casi cualquier ruta puede pedir y por eso las volvía
@@ -158,13 +159,25 @@ const COSTOS_ROUTES: RegisteredStoryRoute[] = [
       'mismo monto USD convertido sin cambiar la compra ni el momento',
       'diferencia atribuible al tipo de cambio ingresado',
       'decision entre condiciones simultaneas',
+      // No-papel a propósito: la ruta contaba con cotización/hoja como único material y
+      // los cinco beats salían documentales. La mercancía es el sujeto constante; la
+      // diferencia y la decisión viven fuera del papel.
+      'la mercancia del mismo pedido como sujeto constante mientras cambia la condicion de pago',
+      'la diferencia en pesos como objeto o banda junto a la mercancia, no en una hoja',
+      'la decision entre A y B en una pantalla o comparador',
     ],
     forbiddenEvidenceDevices: [
       ...STACKED_DOCUMENT_DEVICES,
       'la misma operacion en dos fechas',
       'calendario de tesoreria',
     ],
-    preferredVisualProxies: [],
+    // El "producto" de una comparación es la decisión, no una hoja: proxies no-papel para
+    // que el cierre y la solución no caigan en otra cotización impresa.
+    preferredVisualProxies: [
+      'el comparador de cotizaciones en una laptop, con las dos condiciones del mismo pago lado a lado',
+      'el comprobante de la operación ya decidida junto al pedido',
+      'la mercancía del pedido con la condición de pago elegida marcada',
+    ],
     visualDevices: [
       'el mismo pedido conservado como constante mientras cambian las condiciones de pago',
       'dos resultados trazables a supuestos o cotizaciones explícitas',
@@ -1686,6 +1699,54 @@ export function deriveCompositionFamily(spec: CompositionSpec): CarouselComposit
     case 'macro':
       return spec.copyZone === 'top' ? 'editorial_top' : 'hero_clean';
   }
+}
+
+// ---------------------------------------------------------------------------
+// Familia de evidencia
+// ---------------------------------------------------------------------------
+
+/**
+ * Palabras que delatan una familia. Se revisan EN ESTE ORDEN: la primera que pega gana.
+ *
+ * El orden es la parte importante. "columna de diferencias en una hoja impresa" tiene
+ * palabras de dos familias; se decide arriba (chart_data) o se dejaría en document. Las
+ * más específicas van primero, las genéricas al final.
+ */
+const EVIDENCE_FAMILY_KEYWORDS: readonly (readonly [EvidenceFamily, readonly string[]])[] = [
+  ['map_network', ['globo', 'mapa', 'corredor', 'nodo', 'ruta ', 'red de', 'origen-destino', 'origen destino']],
+  ['chart_data', ['grafica', 'curva', 'banda de', 'columna', 'anatomia', 'despiez', 'barras', 'linea de tiempo']],
+  ['screen', ['pantalla', 'laptop', 'monitor', 'dashboard', 'interfaz', 'app ', 'aplicacion', 'celular', 'telefono', 'tablet', 'comparador']],
+  ['document', ['cotizacion', 'factura', 'hoja', 'documento', 'orden de compra', 'estado de cuenta', 'expediente', 'papel', 'impresa', 'impreso', 'carpeta', 'recibo', 'comprobante', 'ticket']],
+  ['package', ['tarima', 'bulto', 'caja', 'empaque', 'embalad', 'contenedor', 'pallet', 'lote', 'precintad', 'paquete']],
+  ['industrial_object', ['maquina', 'motor', 'maquinaria', 'planta', 'linea de produccion', 'equipo industrial', 'instalacion']],
+  ['workspace', ['escritorio', 'mesa de trabajo', 'almacen', 'anden', 'oficina', 'estante', 'piso del', 'bodega']],
+  ['currency_value', ['billete', 'efectivo', 'moneda fisica', 'monedas apiladas', 'fajo']],
+  ['human_context', ['persona', 'operador', 'trabajador', 'mano', 'empresario', 'tesorero', 'comprador']],
+  ['product', ['producto', 'pieza', 'unidad', 'mercancia', 'articulo', 'muestra', 'acabado', 'refaccion']],
+];
+
+/**
+ * De qué familia es la evidencia de un beat, DERIVADA del texto. Es un RESPALDO.
+ *
+ * El camino bueno es que el planner la declare. Esto existe para dos casos: planes
+ * persistidos antes de que el campo existiera, y salidas donde el modelo la omite. Es
+ * deliberadamente imperfecta —clasificar por palabras es lo que el usuario señaló como
+ * frágil— así que nunca sustituye a la familia declarada; solo evita que quede vacía.
+ *
+ * Cuando nada pega, cae en 'product': un default no-papel, para no inflar la familia
+ * documental que el guard justamente vigila.
+ */
+export function deriveEvidenceFamily(
+  beat: { primaryObjects?: string[]; visualDevice?: string; visualEvidence?: string },
+): EvidenceFamily {
+  const haystack = normalize(
+    [...(beat.primaryObjects ?? []), beat.visualDevice ?? '', beat.visualEvidence ?? ''].join(' '),
+  );
+  if (!haystack.trim()) return 'product';
+  for (const [family, keywords] of EVIDENCE_FAMILY_KEYWORDS) {
+    if (keywords.some((k) => haystack.includes(k))) return family;
+  }
+  return 'product';
 }
 
 // ---------------------------------------------------------------------------

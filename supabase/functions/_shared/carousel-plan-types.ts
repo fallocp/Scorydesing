@@ -64,6 +64,57 @@ export const TEXT_IMAGE_RELATIONS: readonly TextImageRelation[] = [
   'resolve',
 ] as const;
 
+/**
+ * La FAMILIA de evidencia de un beat: de qué está hecho el cuadro, no cómo se compone.
+ *
+ * Es el eje que faltaba. El guard `object_family_dominates_set` agrupaba por solapamiento
+ * de tokens y su propio comentario lo admitía: "no atrapa sinónimos sin palabras en común
+ * —'la caja' contra 'el paquete'". Un set con cotización impresa, hoja de cálculo impresa
+ * y pantalla de laptop es papel/pantalla en los cinco beats, pero redactado distinto nunca
+ * clusterizaba, así que pasaba. Cambiar la composición —documento → comparativo → proceso
+ * → dashboard → hero— no cambia la familia: sigue siendo papel.
+ *
+ * La declara el planner (obliga a pensar en estos términos) y hay una derivación de
+ * respaldo para planes viejos y para cuando el modelo la omite. El guard mira la SECUENCIA
+ * de familias, no la redacción.
+ *
+ * Valores en inglés, snake_case, igual que el resto del vocabulario del plan.
+ */
+export type EvidenceFamily =
+  /** Papel: cotización, factura, orden, hoja de cálculo, estado de cuenta, expediente. */
+  | 'document'
+  /** Una pantalla real en la escena: laptop, monitor, dashboard, interfaz. */
+  | 'screen'
+  /** El producto comprado como objeto: la pieza, el equipo, la mercancía suelta. */
+  | 'product'
+  /** El pedido embalado: caja, bulto, tarima, contenedor, lote precintado. */
+  | 'package'
+  /** El valor como objeto físico: la cifra/diferencia integrada en el espacio, no en papel. */
+  | 'currency_value'
+  /** Dato visualizado como forma: banda, columna, curva, anatomía de costo. */
+  | 'chart_data'
+  /** Mapa, globo, corredor origen→destino, red de nodos. */
+  | 'map_network'
+  /** Maquinaria, instalación, infraestructura industrial en operación. */
+  | 'industrial_object'
+  /** El espacio de trabajo: escritorio de tesorería, mesa, almacén, andén. */
+  | 'workspace'
+  /** La persona en su contexto operativo, sin rostro evaluable. */
+  | 'human_context';
+
+export const EVIDENCE_FAMILIES: readonly EvidenceFamily[] = [
+  'document',
+  'screen',
+  'product',
+  'package',
+  'currency_value',
+  'chart_data',
+  'map_network',
+  'industrial_object',
+  'workspace',
+  'human_context',
+] as const;
+
 /** Cómo está armada la historia completa, no un slide. */
 export type StoryShape =
   | 'progressive_reveal'
@@ -646,6 +697,19 @@ export interface CarouselStoryBeat {
   visualDevice: string;
 
   /**
+   * De qué FAMILIA es la evidencia de este beat. La declara el planner.
+   *
+   * Es el eje que `object_family_dominates_set` no podía ver: ese guard agrupa por tokens
+   * y "cotización impresa" / "hoja de cálculo impresa" / "pantalla de laptop" no comparten
+   * palabras, así que un set entero de papel+pantalla pasaba. Con la familia declarada, el
+   * guard mira la secuencia —document, document, document, screen, document— y la corta.
+   *
+   * Para planes viejos y para cuando el modelo la omite hay una derivación de respaldo
+   * (`deriveEvidenceFamily`); nunca queda vacía.
+   */
+  evidenceFamily: EvidenceFamily;
+
+  /**
    * Objetos físicos que cargan la idea de ESTE slide.
    *
    * Solo cosas que una cámara puede captar. La primera corrida devolvió "producto
@@ -785,6 +849,8 @@ export interface CarouselPlanDigest {
   beatTakeaways: string[];
   /** El recurso de evidencia por beat, en orden. */
   evidenceSequence: string[];
+  /** La familia de evidencia por beat, en orden. Para comparar monotonía entre planes. */
+  evidenceFamilySequence: EvidenceFamily[];
   visualProxySequence: string[];
   /** Firma de composición por beat. Ver `compositionSignature`. */
   compositionSequence: string[];

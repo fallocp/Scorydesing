@@ -12,7 +12,7 @@
       "cta"
     ]
   },
-  "generado": "2026-08-21T15:09:44.988Z",
+  "generado": "2026-08-22T04:12:43.249Z",
   "rutasDisponibles": [
     {
       "id": "cost_anatomy",
@@ -40,7 +40,10 @@
         "mismo pedido bajo dos tipos de cambio explicitos",
         "mismo monto USD convertido sin cambiar la compra ni el momento",
         "diferencia atribuible al tipo de cambio ingresado",
-        "decision entre condiciones simultaneas"
+        "decision entre condiciones simultaneas",
+        "la mercancia del mismo pedido como sujeto constante mientras cambia la condicion de pago",
+        "la diferencia en pesos como objeto o banda junto a la mercancia, no en una hoja",
+        "la decision entre A y B en una pantalla o comparador"
       ]
     },
     {
@@ -118,16 +121,17 @@
     },
     {
       "id": "cost_plus_speed",
-      "deepeningMode": "planning_horizon",
+      "deepeningMode": "blocked_dependency",
       "figurePolicy": "optional",
       "figureScenarios": [
         "quote_comparison"
       ],
       "allowedEvidenceDevices": [
-        "misma decision evaluada con dos criterios",
-        "costo conocido y estado operativo confirmado",
-        "consecuencias de cada alternativa sobre el mismo pedido",
-        "decision sin sacrificar un criterio por ocultar el otro"
+        "el mismo pago cotizado a buen precio y ejecutado con agilidad",
+        "un pedido urgente que avanza porque el pago no fue el cuello de botella",
+        "costo cerrado y pedido en movimiento leidos en la misma decision",
+        "un pedido detenido cuando el pago se vuelve el cuello de botella",
+        "precio y avance del pedido resueltos por el mismo pago, sin elegir entre uno y otro"
       ]
     }
   ],
@@ -140,7 +144,7 @@
     "figurePolicy": "fx_documents"
   },
   "tamanos": {
-    "plannerSystem": 38216,
+    "plannerSystem": 42624,
     "plannerUser": 379
   }
 }

@@ -71,6 +71,18 @@ const BRANCH_REWRITES: Record<string, LanguageRewrite[]> = {
     { terms: ['operaciones recurrentes', 'recurring operations'], preferred: ['pagos frecuentes', 'compras frecuentes'] },
     { terms: ['impacto agregado', 'aggregated impact'], preferred: ['diferencia acumulada'] },
     { terms: ['estructura de decisión'], preferred: ['cómo decides pagar'] },
+    /*
+     * "lectura" como sinónimo de cotización es jerga editorial, no como habla un
+     * importador: nadie pide "otra lectura de su pago", pide otra cotización. Salió en el
+     * plan real de second_quote ("otra lectura", "segunda lectura", "dos lecturas
+     * simultáneas", "lectura conjunta"). Van como FRASE para no tocar usos legítimos
+     * ("la lectura del tipo de cambio"): la palabra suelta no se detecta.
+     */
+    { terms: ['otra lectura', 'nueva lectura', 'segunda lectura'], preferred: ['otra cotización', 'una segunda cotización'] },
+    { terms: ['una sola lectura', 'una única lectura', 'misma lectura'], preferred: ['una sola cotización', 'la misma cotización'] },
+    { terms: ['dos lecturas', 'dos lecturas simultáneas'], preferred: ['dos cotizaciones', 'dos cotizaciones al mismo tiempo'] },
+    { terms: ['lectura conjunta', 'leer en conjunto'], preferred: ['comparar las dos cotizaciones', 'ver las dos cotizaciones juntas'] },
+    { terms: ['forma de medir', 'otra forma de medir'], preferred: ['otra cotización con qué comparar', 'un segundo punto de comparación'] },
   ],
 
   coberturas: [

@@ -50,6 +50,7 @@ function beat(overrides: Partial<CarouselStoryBeat> = {}): CarouselStoryBeat {
     mustNotRepeat: [],
     mustNotRevealYet: ['la capacidad de adelantar el pago'],
     visualDevice: 'una hoja de calendario con el día tachado',
+    evidenceFamily: 'document',
     primaryObjects: ['calendario de pared', 'orden de compra impresa'],
     supportingObjects: ['taza sobre el escritorio'],
     productVisualProxy: 'la interfaz en una laptop entreabierta',

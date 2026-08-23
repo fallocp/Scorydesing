@@ -30,6 +30,7 @@ import type {
   CarouselPlanValidation,
   CarouselStoryBeat,
   DiversityMode,
+  EvidenceFamily,
   PreflightIssue,
   RegisteredStoryRoute,
 } from './carousel-plan-types.ts';
@@ -633,6 +634,50 @@ export function validateCarouselCreativePlan(
   }
 
   /*
+   * La FAMILIA de evidencia dominante — el eje que el guard de arriba no ve.
+   *
+   * `object_family_dominates_set` agrupa por solapamiento de tokens, así que "cotización
+   * impresa", "hoja de cálculo impresa" y "pantalla de laptop" no clusterizan y un set de
+   * papel+pantalla pasa. Este mira la familia DECLARADA por el planner (con respaldo
+   * derivado), que es lo mismo dicho de otra forma: cambiar la composición —documento →
+   * comparativo → proceso → dashboard → hero— no cambia que el material sea el mismo.
+   *
+   * No aplica cuando el preset comparte cuadro a propósito: una lista (`repeated`), una
+   * cronología (`progressive`) o ítems independientes tienen razones legítimas para
+   * repetir familia. Es la misma válvula que usa el guard de composición.
+   *
+   * Blocking y reparable con `replace_primary_objects` / `replace_beat_field`, igual que
+   * su hermano: `applyPlanRepairs` re-deriva la familia tras el cambio, así que no queda
+   * desincronizada.
+   */
+  const FAMILY_REPEAT_LIMIT = 2;
+  const familyRepeatAllowed =
+    ctx.layoutPolicy === 'repeated' ||
+    ctx.layoutPolicy === 'progressive' ||
+    ctx.beatCoupling === 'independent';
+  if (beats.length >= 4 && !familyRepeatAllowed) {
+    const positionsByFamily = new Map<EvidenceFamily, number[]>();
+    for (const beat of beats) {
+      const positions = positionsByFamily.get(beat.evidenceFamily) ?? [];
+      positions.push(beat.index);
+      positionsByFamily.set(beat.evidenceFamily, positions);
+    }
+    for (const [family, positions] of positionsByFamily) {
+      if (positions.length > FAMILY_REPEAT_LIMIT) {
+        issues.push(
+          issue(
+            'evidence_family_dominates_set',
+            'blocking',
+            positions[positions.length - 1],
+            `La familia de evidencia "${family}" domina ${positions.length} de ${beats.length} beats (${positions.join(', ')}): cambiar la composición no cambia que el set esté hecho del mismo material, y se lee como el mismo cuadro repetido.`,
+            `Deja "${family}" en máximo ${FAMILY_REPEAT_LIMIT} beats. Conserva el sujeto recurrente, pero dale a los demás otra familia que sirva a SU línea — la diferencia en pesos como "currency_value" o "chart_data", la decisión en "screen", el pedido como "package" o "product".`,
+          ),
+        );
+      }
+    }
+  }
+
+  /*
    * El motivo recurrente es un paréntesis, no el protagonista.
    *
    * Bloqueante: cuando el motivo es el objeto principal en TODOS los beats de en medio,
@@ -651,6 +696,49 @@ export function validateCarouselCreativePlan(
           null,
           'El motivo recurrente es el objeto principal en todos los beats de en medio: el set va a salir como el mismo cuadro repetido.',
           'Quita el motivo de los "primaryObjects" de los beats de en medio y dale a cada uno el objeto que exige SU línea; el motivo puede quedar como detalle de fondo.',
+        ),
+      );
+    }
+  }
+
+  /*
+   * El complemento del anterior: el motivo tiene que PROTAGONIZAR el cierre.
+   *
+   * `motif_dominates_middle` frena que el sujeto recurrente acapare los beats de en medio.
+   * Nadie vigilaba el otro extremo —que esté presente en el último beat—, así que el
+   * cierre se iba a otra cosa (dos cotizaciones en vez del pedido) y el set perdía el
+   * paréntesis que lo hace una sola historia: abre y cierra sobre cosas distintas.
+   *
+   * No se puede reusar `mentions`: exige la FRASE completa del motivo dentro de un objeto,
+   * y los objetos lo nombran con otras palabras ("la mercancía en su empaque" para "el
+   * mismo pedido"). Por eso se mira por TOKEN de contenido: basta con que una palabra
+   * clave del motivo —quitando artículos y muletillas— aparezca en los objetos o el
+   * recurso del cierre.
+   *
+   * No aplica a ítems independientes (un checklist no tiene bookend narrativo). Blocking y
+   * reparable con `replace_primary_objects` sobre el último beat.
+   */
+  const MOTIF_STOPWORDS = new Set([
+    'el', 'la', 'los', 'las', 'un', 'una', 'unos', 'unas', 'de', 'del', 'al', 'a', 'en',
+    'con', 'por', 'para', 'mismo', 'misma', 'mismos', 'mismas', 'su', 'sus', 'lo', 'y', 'o',
+  ]);
+  if (plan.visualMotif.trim() && beats.length >= 2 && ctx.beatCoupling !== 'independent') {
+    const motifTokens = normalize(plan.visualMotif)
+      .split(/\s+/)
+      .filter((w) => w.length > 3 && !MOTIF_STOPWORDS.has(w));
+    const closing = beats[beats.length - 1];
+    const closingText = normalize([...closing.primaryObjects, closing.visualDevice].join(' '));
+    // Si el motivo es solo muletillas no hay token que buscar: no se puede juzgar, no se marca.
+    const motifPresent =
+      motifTokens.length === 0 || motifTokens.some((t) => closingText.includes(t));
+    if (!motifPresent) {
+      issues.push(
+        issue(
+          'motif_absent_from_close',
+          'blocking',
+          closing.index,
+          `El cierre no vuelve al sujeto recurrente ("${plan.visualMotif}"): sus objetos son ${closing.primaryObjects.join(', ') || '—'}. El set abre y cierra sobre cosas distintas y pierde el paréntesis que lo vuelve una sola historia.`,
+          `Haz que el sujeto recurrente sea el objeto principal del beat ${closing.index} — el pedido protagonizando el cierre, con la resolución integrada—; es el complemento de que no domine los beats de en medio.`,
         ),
       );
     }
@@ -1515,6 +1603,7 @@ function digestOf(plan: CarouselCreativePlan): CarouselPlanDigest {
     deepeningMode: plan.deepeningMode,
     beatTakeaways: plan.storyboard.map((b) => b.viewerTakeaway),
     evidenceSequence: plan.storyboard.map((b) => b.visualDevice),
+    evidenceFamilySequence: plan.storyboard.map((b) => b.evidenceFamily),
     visualProxySequence: plan.storyboard.map((b) => b.productVisualProxy ?? ''),
     compositionSequence: plan.storyboard.map((b) => compositionSignature(b.composition)),
     figureScenarioId: plan.figureScenarioId,

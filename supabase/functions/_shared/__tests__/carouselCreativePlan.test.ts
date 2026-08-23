@@ -109,6 +109,7 @@ function validCostPlan(): CarouselCreativePlan {
       mustNotRepeat: [],
       mustNotRevealYet: ['los conceptos separados'],
       visualDevice: 'la cotización de fábrica con un único renglón lleno',
+      evidenceFamily: 'industrial_object',
       primaryObjects: ['el motor', 'la cotización de fábrica'],
       supportingObjects: ['la tarima'],
       sceneState: 'la compra autorizada y su costo todavía sin desglosar',
@@ -132,6 +133,7 @@ function validCostPlan(): CarouselCreativePlan {
       mustNotRepeat: ['la cotización con un único renglón'],
       mustNotRevealYet: ['el concepto que sigue abierto'],
       visualDevice: 'cuatro sobres etiquetados repartidos sobre la mesa',
+      evidenceFamily: 'document',
       primaryObjects: ['los cuatro sobres del expediente', 'la hoja del desglose'],
       supportingObjects: ['la mesa de trabajo'],
       sceneState: 'el total abierto en sus cuatro conceptos',
@@ -161,6 +163,7 @@ function validCostPlan(): CarouselCreativePlan {
       mustNotRepeat: ['la vista desde arriba de los sobres'],
       mustNotRevealYet: ['la hoja con el total sumado'],
       visualDevice: 'el cuarto sobre todavía sellado en primer plano',
+      evidenceFamily: 'package',
       primaryObjects: ['el sobre sellado', 'el sello sin fecha'],
       supportingObjects: ['los tres sobres abiertos'],
       sceneState: 'tres conceptos cerrados y uno pendiente',
@@ -189,6 +192,7 @@ function validCostPlan(): CarouselCreativePlan {
       mustNotRepeat: ['el sobre sellado'],
       mustNotRevealYet: ['el equipo ya instalado'],
       visualDevice: 'una hoja única con los conceptos sumados al pie',
+      evidenceFamily: 'document',
       primaryObjects: ['la hoja del desglose completo', 'la orden de compra firmada'],
       supportingObjects: ['la pluma'],
       productVisualProxy: 'el desglose de la operación impreso en una hoja',
@@ -218,6 +222,7 @@ function validCostPlan(): CarouselCreativePlan {
       mustNotRepeat: ['la orden de compra'],
       mustNotRevealYet: [],
       visualDevice: 'el desglose impreso apoyado junto al equipo instalado',
+      evidenceFamily: 'industrial_object',
       primaryObjects: ['la hoja del desglose', 'el motor instalado'],
       supportingObjects: ['el piso de planta'],
       productVisualProxy: 'la hoja del desglose de la operación',
@@ -515,6 +520,41 @@ describe('validateCarouselCreativePlan', () => {
     plan.storyboard[2].primaryObjects = [...plan.storyboard[1].primaryObjects];
 
     expect(codesOf(plan, ctx)).toContain('repeated_primary_objects');
+  });
+
+  it('atrapa una familia de evidencia que domina el set aunque la redacción varíe', () => {
+    // Tres beats en 'document' con objetos y recursos redactados distinto: el guard de
+    // objetos por tokens no los agrupa, pero el de familia declarada sí. Es el hueco que
+    // dejó pasar el papel×5 real.
+    const plan = validCostPlan();
+    plan.storyboard[0].evidenceFamily = 'document';
+    plan.storyboard[2].evidenceFamily = 'document';
+    plan.storyboard[4].evidenceFamily = 'document';
+
+    expect(codesOf(plan, ctx)).toContain('evidence_family_dominates_set');
+  });
+
+  it('no marca familia dominante en un preset que comparte cuadro a propósito', () => {
+    // Una lista (layoutPolicy 'repeated') puede repetir familia: es lo que la hace serie.
+    const listCtx = ctxFor('costos-ahorro', { layoutPolicy: 'repeated' });
+    const plan = validCostPlan();
+    for (const beat of plan.storyboard) beat.evidenceFamily = 'document';
+
+    expect(codesOf(plan, listCtx)).not.toContain('evidence_family_dominates_set');
+  });
+
+  it('atrapa un cierre que abandona el sujeto recurrente', () => {
+    // El motivo es "el motor importado…"; si el último beat no lo trae, se pierde el bookend.
+    const plan = validCostPlan();
+    plan.storyboard[4].primaryObjects = ['una hoja de cotización', 'un sello sin fecha'];
+    plan.storyboard[4].visualDevice = 'una hoja de cotización con un sello vacío';
+
+    expect(codesOf(plan, ctx)).toContain('motif_absent_from_close');
+  });
+
+  it('no marca el cierre cuando el motivo protagoniza el último beat', () => {
+    // validCostPlan ya cierra con "el motor instalado", y el motivo es "el motor importado…".
+    expect(codesOf(validCostPlan(), ctx)).not.toContain('motif_absent_from_close');
   });
 
   it('atrapa dos beats contiguos con exactamente la misma composición', () => {

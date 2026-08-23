@@ -36,6 +36,7 @@ import {
   COMPOSITION_COPY_ZONES,
   COMPOSITION_DENSITIES,
   COMPOSITION_VISUAL_STRUCTURES,
+  EVIDENCE_FAMILIES,
   ROUTE_DEEPENING_MODES,
   STORY_SHAPES,
   TEXT_IMAGE_RELATIONS,
@@ -57,6 +58,7 @@ import type {
   CompositionDensity,
   CompositionSpec,
   CompositionVisualStructure,
+  EvidenceFamily,
   RegisteredStoryRoute,
   RouteDeepeningMode,
   StoryRouteOrigin,
@@ -67,6 +69,7 @@ import {
   compositionSignature,
   computePlanFingerprint,
   deriveCompositionFamily,
+  deriveEvidenceFamily,
   STORY_REGISTRY_VERSION,
 } from './carouselStoryRegistry.ts';
 import { getLanguageLexicon } from './carouselLanguageLexicon.ts';
@@ -515,6 +518,48 @@ Dos beats seguidos con el mismo objeto principal están mal. Y tres beats del se
 }
 
 /**
+ * La familia de evidencia: el eje que el guard de objetos no veía.
+ *
+ * `object_family_dominates_set` agrupa por tokens, así que "cotización impresa", "hoja de
+ * cálculo impresa" y "pantalla de laptop" no clusterizaban y un set de papel+pantalla
+ * pasaba. Aquí se le pide al planner que declare la familia y se le explican los dos
+ * principios que la prosa suelta no lograba fijar.
+ */
+function buildEvidenceFamilyBlock(ctx: CarouselPlanContext): string {
+  const sharesFamily =
+    ctx.layoutPolicy === 'repeated' || ctx.layoutPolicy === 'progressive';
+
+  const dominationRule = sharesFamily
+    ? 'En esta estructura los beats equivalentes PUEDEN compartir familia a propósito —una lista de documentos, una cronología del mismo objeto—, pero la apertura y el cierre no se resuelven con la misma familia que los ítems.'
+    : `Una misma familia no domina más de DOS de los ${ctx.slides.length} beats. Si tres o más comparten familia, el set se lee como el mismo cuadro repetido aunque el copy y la composición cambien, y se rechaza. Se valida en código.`;
+
+  return `## FAMILIA DE EVIDENCIA (declárala en "evidenceFamily")
+
+Cada beat declara de qué FAMILIA es su evidencia. No es cómo se compone el cuadro: es de qué está HECHO.
+
+- document: papel — cotización, factura, orden, hoja de cálculo, estado de cuenta, expediente.
+- screen: una pantalla real — laptop, monitor, dashboard, interfaz.
+- product: el producto comprado como objeto — la pieza, el equipo, la mercancía suelta.
+- package: el pedido embalado — caja, bulto, tarima, contenedor, lote precintado.
+- currency_value: el valor como objeto físico en el espacio, no sobre papel.
+- chart_data: el dato como forma — banda, columna, curva, anatomía de costo.
+- map_network: mapa, globo, corredor origen→destino, red de nodos.
+- industrial_object: maquinaria, instalación, infraestructura.
+- workspace: el espacio de trabajo — escritorio, mesa, almacén, andén.
+- human_context: la persona en su contexto, sin rostro evaluable.
+
+DOS PRINCIPIOS:
+
+1. CAMBIAR LA COMPOSICIÓN NO CUENTA COMO CAMBIAR LA EVIDENCIA. Un set puede ir documento → comparativo → proceso → dashboard → hero en COMPOSICIÓN y seguir siendo papel, papel, papel, pantalla, papel en FAMILIA. La variedad que importa aquí es la de familia, no la del encuadre.
+
+2. CONTINUIDAD DE SUJETO ≠ REPETICIÓN DE EVIDENCIA. El sujeto recurrente (el pedido, la mercancía) puede y debe permanecer para dar continuidad; lo que cambia es la EVIDENCIA NUEVA alrededor de él en cada beat. El mismo pedido con una cotización, luego el mismo pedido partido en A/B, luego la diferencia en pesos como objeto, luego la decisión en una pantalla: un solo sujeto, cuatro familias.
+
+${dominationRule}
+
+Un beat con cifras NO obliga a "document": la cifra puede vivir en currency_value, chart_data, object_label o integrada en el objeto de la escena.`;
+}
+
+/**
  * De qué está hecha la escena de esta rama.
  *
  * Este bloque no existía, y su ausencia es la causa de que los storyboards colapsaran en
@@ -792,6 +837,8 @@ ${buildCompositionBlock(ctx)}
 
 ${buildObjectsBlock(ctx)}
 
+${buildEvidenceFamilyBlock(ctx)}
+
 ${buildSceneRepertoireBlock(ctx)}
 
 ${buildBansBlock(ctx)}
@@ -806,6 +853,7 @@ ${buildPriorStoriesBlock(ctx)}
 - Afirmar hacia dónde va el tipo de cambio. Un escenario hipotético etiquetado sí; un pronóstico no.
 - Llamar "caso de éxito" a algo sin fuente real autorizada. Sin fuente es un caso ilustrativo y se etiqueta así.
 - Descalificar a un competidor o nombrarlo.
+- Nombrar la marca o el producto por su nombre, en cualquier campo. El plan habla de la CAPACIDAD y la CATEGORÍA —"sumar una segunda cotización", "comparar antes de pagar", "una alternativa para el mismo pago"—, nunca del proveedor. Cuántas veces aparece la marca y en qué slide lo decide el guion según el objetivo del set, y es UNA sola vez. Si la nombras aquí —y peor, en dos beats como la solución y el cierre— metes una decisión de marca en la capa equivocada y el set termina repitiéndola.
 - Afirmar el daño. El riesgo va en condicional: "puede moverse", no "se pierde".
 - Escribir cifras.
 - Escribir copy final.
@@ -844,6 +892,7 @@ Responde SOLO JSON válido, sin fences ni texto alrededor:
       "mustNotRepeat": [],
       "mustNotRevealYet": [],
       "visualDevice": "",
+      "evidenceFamily": "document",
       "primaryObjects": [],
       "supportingObjects": [],
       "productVisualProxy": "",
@@ -874,6 +923,7 @@ Qué va en cada campo del beat:
 - mustNotRepeat: lo que este beat no puede volver a usar del anterior.
 - mustNotRevealYet: lo que todavía no puede aparecer porque es del siguiente. VACÍO en el último.
 - visualDevice: el recurso concreto que hace visible la evidencia. Sale del repertorio de la rama, sirve a la línea de ESTE beat, y no puede ser nada de la evidencia prohibida de tu ruta. Los ejemplos de la ruta son referencias, no la lista de opciones: si dos beats terminan con el mismo tipo de objeto, cambia uno.
+- evidenceFamily: de qué FAMILIA es la evidencia de este beat, una de ${EVIDENCE_FAMILIES.join(', ')}. Es de qué está HECHO el cuadro, no cómo se compone. Ver la sección de familia de evidencia; una familia no puede dominar el set.
 - primaryObjects, supportingObjects, productVisualProxy, sceneState, compositionNotes: según la sección de objetos.
 - composition: los cinco atributos.
 - figureRequirement: según la sección de cifras.
@@ -1184,6 +1234,25 @@ export function normalizeCreativePlan(
     const carryFromPrevious = isFirst || isIndependent ? '' : str(b.carryFromPrevious);
     const setupForNext = isLast || isIndependent ? '' : str(b.setupForNext);
 
+    /*
+     * La familia de evidencia: declarada por el modelo, con respaldo derivado.
+     *
+     * El camino bueno es que el planner la elija del enum. Si manda algo fuera del
+     * vocabulario o la omite, se deriva del texto del beat en vez de caer a un default
+     * fijo — un default fijo pondría la misma familia en todos los beats vacíos y
+     * dispararía el guard de monotonía por un error de formato, no por el contenido.
+     */
+    const declaredFamily = str(b.evidenceFamily);
+    const evidenceFamily: EvidenceFamily = (EVIDENCE_FAMILIES as readonly string[]).includes(
+      declaredFamily,
+    )
+      ? (declaredFamily as EvidenceFamily)
+      : deriveEvidenceFamily({
+          primaryObjects: list(b.primaryObjects),
+          visualDevice: str(b.visualDevice),
+          visualEvidence: str(b.visualEvidence),
+        });
+
     return {
       index: i + 1,
       role: spec.role,
@@ -1203,6 +1272,7 @@ export function normalizeCreativePlan(
       mustNotRepeat: list(b.mustNotRepeat),
       mustNotRevealYet: isLast ? [] : list(b.mustNotRevealYet),
       visualDevice: str(b.visualDevice),
+      evidenceFamily,
       primaryObjects: list(b.primaryObjects),
       supportingObjects: list(b.supportingObjects),
       productVisualProxy: str(b.productVisualProxy) || undefined,
@@ -1340,6 +1410,7 @@ export function digestPlan(plan: CarouselCreativePlan): CarouselPlanDigest {
     deepeningMode: plan.deepeningMode,
     beatTakeaways: plan.storyboard.map((b) => b.viewerTakeaway),
     evidenceSequence: plan.storyboard.map((b) => b.visualDevice),
+    evidenceFamilySequence: plan.storyboard.map((b) => b.evidenceFamily),
     visualProxySequence: plan.storyboard.map((b) => b.productVisualProxy ?? ''),
     compositionSequence: plan.storyboard.map((b) => compositionSignature(b.composition)),
     figureScenarioId: plan.figureScenarioId,

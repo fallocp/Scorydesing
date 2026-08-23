@@ -102,6 +102,9 @@ EJEMPLOS de evidencia que le queda a esta ruta. NO es una lista cerrada ni un me
 - mismo monto USD convertido sin cambiar la compra ni el momento
 - diferencia atribuible al tipo de cambio ingresado
 - decision entre condiciones simultaneas
+- la mercancia del mismo pedido como sujeto constante mientras cambia la condicion de pago
+- la diferencia en pesos como objeto o banda junto a la mercancia, no en una hoja
+- la decision entre A y B en una pantalla o comparador
 EVIDENCIA PROHIBIDA EN ESTA RUTA — esto sí es cerrado. Es de otra historia y usarla la convierte en esa otra:
 - varias facturas
 - multiples facturas
@@ -271,17 +274,18 @@ No puede afirmar:
 ### cost_plus_speed — Costo y tiempo se deciden juntos
 PREGUNTA que contesta: ¿Tengo que elegir entre que salga barato y que salga rápido?
 TESIS: La decisión de cómo se paga define costo y tiempo en el mismo momento, no uno a costa del otro.
-CÓMO PROFUNDIZA (planning_horizon): qué deja de poder planearse: calendario, reserva, horizonte
-CÓMO RESUELVE: la alternativa se evalúa como una decisión empresarial única que combina costo conocido y condición operativa confirmada
-EN QUÉ SE DESTILA EL CIERRE: una decisión tomada con sus dos criterios explícitos, sin prometer tiempos no confirmados
-Formas narrativas admitidas: decision_path, comparison
-Mecanismos de evidencia: two_criteria_decision | same_order_two_conditions
+CÓMO PROFUNDIZA (blocked_dependency): algo detenido esperando otra cosa
+CÓMO RESUELVE: el mismo pago se resuelve con buen precio y con agilidad a la vez, de modo que el costo y el avance del pedido no compiten entre sí
+EN QUÉ SE DESTILA EL CIERRE: una sola decisión de pago que resuelve precio y avance, sin prometer una fecha de entrega
+Formas narrativas admitidas: single_case, cause_effect, decision_path
+Mecanismos de evidencia: two_criteria_decision | good_price_and_agile_payment
 Cifras: opcionales (quote_comparison)
 EJEMPLOS de evidencia que le queda a esta ruta. NO es una lista cerrada ni un menú: son referencias del tipo de cosa que sirve. Puedes usar otra evidencia del repertorio de la rama si cuenta mejor el copy:
-- misma decision evaluada con dos criterios
-- costo conocido y estado operativo confirmado
-- consecuencias de cada alternativa sobre el mismo pedido
-- decision sin sacrificar un criterio por ocultar el otro
+- el mismo pago cotizado a buen precio y ejecutado con agilidad
+- un pedido urgente que avanza porque el pago no fue el cuello de botella
+- costo cerrado y pedido en movimiento leidos en la misma decision
+- un pedido detenido cuando el pago se vuelve el cuello de botella
+- precio y avance del pedido resueltos por el mismo pago, sin elegir entre uno y otro
 EVIDENCIA PROHIBIDA EN ESTA RUTA — esto sí es cerrado. Es de otra historia y usarla la convierte en esa otra:
 - varias facturas
 - multiples facturas
@@ -296,9 +300,17 @@ EVIDENCIA PROHIBIDA EN ESTA RUTA — esto sí es cerrado. Es de otra historia y 
 - varias compras
 - reloj con hora legible
 - tabla de sensibilidad
+- dos cotizaciones que solo se diferencian en el precio
+- la diferencia porcentual entre cotizaciones como tema del set
+- una opcion barata mostrada como la que atrasa el pedido
+- una disyuntiva entre pagar barato y que el pedido avance
+- el lote o el volumen acumulado: esta ruta decide un pedido, no lo acumula
 No puede afirmar:
-- prometer un plazo concreto de acreditación sin condiciones confirmadas
+- prometer un plazo concreto de acreditación o de entrega sin condiciones confirmadas
 - afirmar horas de corte sin fuente operativa vigente
+- plantear precio y velocidad como una disyuntiva o un sacrificio entre sí
+- afirmar que una opción más barata necesariamente tarda más
+- prometer que el pedido llega en una fecha determinada
 
 ## LA RUTA MANDA SOBRE EL ROL
 
@@ -385,6 +397,31 @@ PROHIBIDO en "primaryObjects": sensaciones, beneficios, estados abstractos, adje
 El sujeto recurrente ("visualMotif") es un PARÉNTESIS: protagoniza el primer y el último beat. En los de en medio cada uno trae su propio objeto. Si repites el motivo como protagonista en los 5 beats, salen 5 veces la misma imagen — y la unidad del set no la da el objeto, la da el sistema visual, que ya es idéntico en todos.
 
 Dos beats seguidos con el mismo objeto principal están mal. Y tres beats del set con el mismo TIPO de objeto también, aunque no sean seguidos: tres documentos en posiciones 1, 3 y 5 se leen como el mismo cuadro repetido igual que si fueran contiguos. Esta regla decía solo "seguidos", y con eso autorizaba exactamente ese patrón.
+
+## FAMILIA DE EVIDENCIA (declárala en "evidenceFamily")
+
+Cada beat declara de qué FAMILIA es su evidencia. No es cómo se compone el cuadro: es de qué está HECHO.
+
+- document: papel — cotización, factura, orden, hoja de cálculo, estado de cuenta, expediente.
+- screen: una pantalla real — laptop, monitor, dashboard, interfaz.
+- product: el producto comprado como objeto — la pieza, el equipo, la mercancía suelta.
+- package: el pedido embalado — caja, bulto, tarima, contenedor, lote precintado.
+- currency_value: el valor como objeto físico en el espacio, no sobre papel.
+- chart_data: el dato como forma — banda, columna, curva, anatomía de costo.
+- map_network: mapa, globo, corredor origen→destino, red de nodos.
+- industrial_object: maquinaria, instalación, infraestructura.
+- workspace: el espacio de trabajo — escritorio, mesa, almacén, andén.
+- human_context: la persona en su contexto, sin rostro evaluable.
+
+DOS PRINCIPIOS:
+
+1. CAMBIAR LA COMPOSICIÓN NO CUENTA COMO CAMBIAR LA EVIDENCIA. Un set puede ir documento → comparativo → proceso → dashboard → hero en COMPOSICIÓN y seguir siendo papel, papel, papel, pantalla, papel en FAMILIA. La variedad que importa aquí es la de familia, no la del encuadre.
+
+2. CONTINUIDAD DE SUJETO ≠ REPETICIÓN DE EVIDENCIA. El sujeto recurrente (el pedido, la mercancía) puede y debe permanecer para dar continuidad; lo que cambia es la EVIDENCIA NUEVA alrededor de él en cada beat. El mismo pedido con una cotización, luego el mismo pedido partido en A/B, luego la diferencia en pesos como objeto, luego la decisión en una pantalla: un solo sujeto, cuatro familias.
+
+Una misma familia no domina más de DOS de los 5 beats. Si tres o más comparten familia, el set se lee como el mismo cuadro repetido aunque el copy y la composición cambien, y se rechaza. Se valida en código.
+
+Un beat con cifras NO obliga a "document": la cifra puede vivir en currency_value, chart_data, object_label o integrada en el objeto de la escena.
 
 ## DE QUÉ ESTÁ HECHA LA ESCENA DE COSTOS, TIPO DE CAMBIO Y AHORRO
 
@@ -483,6 +520,18 @@ TÉRMINOS QUE NUNCA SE PUBLICAN — jerga interna de operaciones o calcos del in
 - "impacto agregado"
 - "aggregated impact"
 - "estructura de decisión"
+- "otra lectura"
+- "nueva lectura"
+- "segunda lectura"
+- "una sola lectura"
+- "una única lectura"
+- "misma lectura"
+- "dos lecturas"
+- "dos lecturas simultáneas"
+- "lectura conjunta"
+- "leer en conjunto"
+- "forma de medir"
+- "otra forma de medir"
 - "liberar el pago"
 - "liberación del pago"
 - "release payment"
@@ -537,6 +586,18 @@ CÓMO DECIRLO EN NATURAL — usa la forma de la derecha:
 - "impacto agregado" → "diferencia acumulada"
 - "aggregated impact" → "diferencia acumulada"
 - "estructura de decisión" → "cómo decides pagar"
+- "otra lectura" → "otra cotización" / "una segunda cotización"
+- "nueva lectura" → "otra cotización" / "una segunda cotización"
+- "segunda lectura" → "otra cotización" / "una segunda cotización"
+- "una sola lectura" → "una sola cotización" / "la misma cotización"
+- "una única lectura" → "una sola cotización" / "la misma cotización"
+- "misma lectura" → "una sola cotización" / "la misma cotización"
+- "dos lecturas" → "dos cotizaciones" / "dos cotizaciones al mismo tiempo"
+- "dos lecturas simultáneas" → "dos cotizaciones" / "dos cotizaciones al mismo tiempo"
+- "lectura conjunta" → "comparar las dos cotizaciones" / "ver las dos cotizaciones juntas"
+- "leer en conjunto" → "comparar las dos cotizaciones" / "ver las dos cotizaciones juntas"
+- "forma de medir" → "otra cotización con qué comparar" / "un segundo punto de comparación"
+- "otra forma de medir" → "otra cotización con qué comparar" / "un segundo punto de comparación"
 - "liberar el pago" → "realizar el pago" / "completar el pago"
 - "liberación del pago" → "realizar el pago" / "completar el pago"
 - "release payment" → "realizar el pago" / "completar el pago"
@@ -627,6 +688,7 @@ Responde SOLO JSON válido, sin fences ni texto alrededor:
       "mustNotRepeat": [],
       "mustNotRevealYet": [],
       "visualDevice": "",
+      "evidenceFamily": "document",
       "primaryObjects": [],
       "supportingObjects": [],
       "productVisualProxy": "",
@@ -664,6 +726,7 @@ Qué va en cada campo del beat:
 - mustNotRepeat: lo que este beat no puede volver a usar del anterior.
 - mustNotRevealYet: lo que todavía no puede aparecer porque es del siguiente. VACÍO en el último.
 - visualDevice: el recurso concreto que hace visible la evidencia. Sale del repertorio de la rama, sirve a la línea de ESTE beat, y no puede ser nada de la evidencia prohibida de tu ruta. Los ejemplos de la ruta son referencias, no la lista de opciones: si dos beats terminan con el mismo tipo de objeto, cambia uno.
+- evidenceFamily: de qué FAMILIA es la evidencia de este beat, una de document, screen, product, package, currency_value, chart_data, map_network, industrial_object, workspace, human_context. Es de qué está HECHO el cuadro, no cómo se compone. Ver la sección de familia de evidencia; una familia no puede dominar el set.
 - primaryObjects, supportingObjects, productVisualProxy, sceneState, compositionNotes: según la sección de objetos.
 - composition: los cinco atributos.
 - figureRequirement: según la sección de cifras.

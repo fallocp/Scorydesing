@@ -48,7 +48,12 @@ import type {
   TextImageRelation,
 } from './carousel-plan-types.ts';
 import { fingerprintOfPlan } from './buildCarouselCreativePlan.ts';
-import { compositionSignature, deriveCompositionFamily, getStoryRoute } from './carouselStoryRegistry.ts';
+import {
+  compositionSignature,
+  deriveCompositionFamily,
+  deriveEvidenceFamily,
+  getStoryRoute,
+} from './carouselStoryRegistry.ts';
 
 /**
  * Dos rondas.
@@ -571,6 +576,15 @@ export function applyPlanRepairs(
         } else {
           beat[repair.field] = repair.value;
         }
+        /*
+         * La familia sigue a su evidencia. Si el crítico reescribe el recurso o la
+         * evidencia visual, la familia derivada tiene que seguirlos —igual que
+         * `compositionFamily` sigue a `recompose_beat`—, o el guard de familia se queda
+         * mirando una familia que ya no corresponde al beat.
+         */
+        if (repair.field === 'visualDevice' || repair.field === 'visualEvidence') {
+          beat.evidenceFamily = deriveEvidenceFamily(beat);
+        }
         applied.push({
           type: repair.type,
           slideIndex: repair.slideIndex,
@@ -611,6 +625,9 @@ export function applyPlanRepairs(
 
       case 'replace_primary_objects':
         beat.primaryObjects = [...repair.objects];
+        // La familia se deriva de los objetos: si cambian, la familia los sigue. Es lo
+        // que permite que `evidence_family_dominates_set` se cierre reemplazando objetos.
+        beat.evidenceFamily = deriveEvidenceFamily(beat);
         applied.push({
           type: repair.type,
           slideIndex: repair.slideIndex,
