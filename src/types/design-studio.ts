@@ -10,6 +10,7 @@
  * por URL, así que el bundler lo resuelve igual que Deno.
  */
 import {
+  CAROUSEL_FORWARD_MARGIN_FACT_KEYS,
   CAROUSEL_MAX_FX_RATE,
   CAROUSEL_MAX_OPERATION_USD,
   CAROUSEL_MIN_FX_RATE,
@@ -799,7 +800,32 @@ export interface CarouselFxAssumptions {
    * no margen bruto; se lee solo para compatibilidad.
    */
   marginPct?: number;
+  /**
+   * Tasa expuesta explícita del escenario forward. Cuando está presente, el momento
+   * expuesto usa esta tasa tal cual en vez de derivarla de `driftPct`: es la tasa que el
+   * usuario cree posible a `daysAhead` si no cubre.
+   */
+  exposedRate?: number;
+  /**
+   * Precio de venta comprometido, en MXN, dado por el usuario. Presente => el forward
+   * cuenta la historia de margen; ausente => solo el delta de costo.
+   *
+   * Su semántica depende de `direction`: en importación es el PRECIO DE VENTA (ingreso
+   * fijo); en exportación es el COSTO fijo. El motor calcula el margen en consecuencia.
+   */
+  salePriceMxn?: number;
+  /** Horizonte del escenario forward, en días. Solo etiqueta, nunca fecha de calendario. */
+  daysAhead?: number;
+  /**
+   * Dirección de la operación forward. Importación (debes USD, riesgo = dólar sube) o
+   * exportación (te pagan USD, riesgo = dólar baja). Cambia qué es fijo y qué variable, y
+   * el vocabulario (costo ↔ ingreso). Por defecto 'import'.
+   */
+  direction?: CarouselFxDirection;
 }
+
+/** Dirección de la operación forward. */
+export type CarouselFxDirection = 'import' | 'export';
 
 /**
  * Margen objetivo cuando el llamador no declara ninguno.
@@ -1019,36 +1045,41 @@ export function computeCarouselFx(a: CarouselFxAssumptions): CarouselFxMoment[] 
   // multiplication it displays.
   const toCents = (n: number) => Math.round(n * 100) / 100;
 
-  const moments: CarouselFxMoment[] = [];
   const baseRate = toCents(a.baseRate);
   const base = toCents(baseRate * a.amountUsd);
 
-  const drifts = [0, ...a.driftPct];
-
-  for (let i = 0; i < drifts.length; i++) {
-    const rate = toCents(baseRate * (1 + drifts[i] / 100));
-    const amountMxn = toCents(rate * a.amountUsd);
+  const moment = (rate: number): CarouselFxMoment => {
+    const rounded = toCents(rate);
+    const amountMxn = toCents(rounded * a.amountUsd);
     const deltaMxn = toCents(amountMxn - base);
-
     const deltaPct = base === 0 ? 0 : Math.round((deltaMxn / base) * 1000) / 10;
-
-    moments.push({
-      rate,
+    return {
+      rate: rounded,
       amountUsd: a.amountUsd,
       amountMxn,
       deltaMxn,
       deltaPct,
       labels: {
-        rate: formatAmount(rate).replace(/,/g, ''),
+        rate: formatAmount(rounded).replace(/,/g, ''),
         usd: `USD ${formatAmount(a.amountUsd)}`,
         mxn: `MXN ${formatAmount(amountMxn)}`,
         delta: deltaMxn === 0 ? '' : `+MXN ${formatAmount(deltaMxn)}`,
         pct: deltaPct === 0 ? '' : `+${deltaPct.toFixed(1)}%`,
       },
-    });
+    };
+  };
+
+  /*
+   * Tasa expuesta explícita: el forward. Dos momentos exactos —la pactada y la posible—
+   * en vez de una deriva sintética. El usuario da las dos tasas; el código no inventa
+   * ninguna. Si la expuesta iguala a la pactada, sigue habiendo dos momentos (delta cero),
+   * porque la historia es la comparación, no el movimiento.
+   */
+  if (a.exposedRate !== undefined) {
+    return [moment(baseRate), moment(a.exposedRate)];
   }
 
-  return moments;
+  return [0, ...a.driftPct].map((drift) => moment(baseRate * (1 + drift / 100)));
 }
 
 /** One line of a document in the scene: a field name and its exact value. */
@@ -1185,6 +1216,66 @@ export function accumulatedFxImpact(moments: CarouselFxMoment[]): {
 const toCents = (value: number): number => Math.round(value * 100) / 100;
 const toTenth = (value: number): number => Math.round(value * 10) / 10;
 
+/*
+ * Etiquetas del forward: el lenguaje del negocio, no el técnico, y según la dirección.
+ *
+ * Importas: debes USD, lo VARIABLE es tu COSTO y lo fijo tu precio de venta; el riesgo es
+ * que el dólar SUBA. Exportas: te pagan USD, lo VARIABLE es tu INGRESO y lo fijo tu costo;
+ * el riesgo es que el dólar BAJE. La misma mecánica, vocabulario invertido.
+ */
+const FORWARD_FACT_LABELS_IMPORT: Partial<Record<CarouselEconomicFactKey, string>> = {
+  base_rate: 'TC PRESUPUESTADO',
+  exposed_rate: 'TC AL PAGO',
+  base_cost_mxn: 'COSTO PRESUPUESTADO',
+  exposed_cost_mxn: 'COSTO AL PAGO',
+  cost_delta_mxn: 'AUMENTO DE COSTO',
+  cost_delta_pct: 'VARIACIÓN',
+  base_gross_profit_mxn: 'UTILIDAD PRESUPUESTADA',
+  exposed_gross_profit_mxn: 'UTILIDAD AL PAGO',
+  base_gross_margin_pct: 'MARGEN PRESUPUESTADO',
+  exposed_gross_margin_pct: 'MARGEN AL PAGO',
+  sale_price_mxn: 'PRECIO DE VENTA FIJO',
+};
+
+const FORWARD_FACT_LABELS_EXPORT: Partial<Record<CarouselEconomicFactKey, string>> = {
+  base_rate: 'TC PRESUPUESTADO',
+  exposed_rate: 'TC AL COBRO',
+  base_cost_mxn: 'INGRESO PRESUPUESTADO',
+  exposed_cost_mxn: 'INGRESO AL COBRO',
+  cost_delta_mxn: 'CAÍDA DE INGRESO',
+  cost_delta_pct: 'VARIACIÓN',
+  base_gross_profit_mxn: 'UTILIDAD PRESUPUESTADA',
+  exposed_gross_profit_mxn: 'UTILIDAD AL COBRO',
+  base_gross_margin_pct: 'MARGEN PRESUPUESTADO',
+  exposed_gross_margin_pct: 'MARGEN AL COBRO',
+  sale_price_mxn: 'COSTO FIJO',
+};
+
+/*
+ * En la solución/cierre, la MISMA base cambia de nombre: ya no es "lo presupuestado", es
+ * "lo que el forward dejó pactado". Mismo número, otra lectura, porque el rol del beat es
+ * la resolución. Es la única forma de que un solo escenario cuente el problema y su
+ * solución sin inventar cifras nuevas.
+ */
+const FORWARD_RESOLUTION_LABELS_IMPORT: Partial<Record<CarouselEconomicFactKey, string>> = {
+  base_rate: 'FORWARD PACTADO',
+  base_cost_mxn: 'COSTO FINAL',
+  base_gross_profit_mxn: 'UTILIDAD DEFINIDA',
+  base_gross_margin_pct: 'MARGEN PROTEGIDO',
+};
+
+const FORWARD_RESOLUTION_LABELS_EXPORT: Partial<Record<CarouselEconomicFactKey, string>> = {
+  base_rate: 'FORWARD PACTADO',
+  base_cost_mxn: 'INGRESO FINAL',
+  base_gross_profit_mxn: 'UTILIDAD DEFINIDA',
+  base_gross_margin_pct: 'MARGEN PROTEGIDO',
+};
+
+const forwardFactLabels = (direction: CarouselFxDirection) =>
+  direction === 'export' ? FORWARD_FACT_LABELS_EXPORT : FORWARD_FACT_LABELS_IMPORT;
+const forwardResolutionLabels = (direction: CarouselFxDirection) =>
+  direction === 'export' ? FORWARD_RESOLUTION_LABELS_EXPORT : FORWARD_RESOLUTION_LABELS_IMPORT;
+
 /** Construye una sola columna vertebral financiera para todo el carrusel. */
 export function buildCarouselEconomicScenario(
   scenarioId: Exclude<CarouselFigureScenarioId, 'none'>,
@@ -1206,11 +1297,32 @@ export function buildCarouselEconomicScenario(
     Math.max(assumptions.markupPct ?? assumptions.marginPct ?? DEFAULT_MARKUP_PCT, MIN_MARGIN_PCT),
     MAX_MARGIN_PCT,
   );
-  const salePriceMxn = toCents(base.amountMxn * (1 + markupPct / 100));
-  const baseGrossProfitMxn = toCents(salePriceMxn - base.amountMxn);
-  const exposedGrossProfitMxn = toCents(salePriceMxn - exposed.amountMxn);
-  const grossMargin = (profit: number): number =>
-    salePriceMxn === 0 ? 0 : toTenth((profit / salePriceMxn) * 100);
+  /*
+   * Precio de venta: absoluto si el usuario lo dio (forward), si no derivado del markup.
+   * Es el mismo criterio que la hoja de margen renderizada, para que el preview y el
+   * escenario persistido no discrepen.
+   */
+  const salePriceMxn = assumptions.salePriceMxn !== undefined && assumptions.salePriceMxn > 0
+    ? toCents(assumptions.salePriceMxn)
+    : toCents(base.amountMxn * (1 + markupPct / 100));
+  /*
+   * Utilidad = ingreso − costo, siempre. Lo que cambia con la dirección es CUÁL lado es
+   * fijo y cuál cruza el tipo de cambio:
+   *   - Importas: el ingreso (precio de venta) es fijo; el costo del pago es variable.
+   *   - Exportas: el costo es fijo; el ingreso del cobro es variable.
+   * El margen se mide siempre sobre el ingreso.
+   */
+  const isExport = (assumptions.direction ?? 'import') === 'export';
+  const profitAt = (variableMxn: number): number =>
+    toCents(isExport ? variableMxn - salePriceMxn : salePriceMxn - variableMxn);
+  const marginAt = (profit: number, variableMxn: number): number => {
+    const revenue = isExport ? variableMxn : salePriceMxn;
+    return revenue === 0 ? 0 : toTenth((profit / revenue) * 100);
+  };
+  const baseGrossProfitMxn = profitAt(base.amountMxn);
+  const exposedGrossProfitMxn = profitAt(exposed.amountMxn);
+  const baseGrossMarginPct = marginAt(baseGrossProfitMxn, base.amountMxn);
+  const exposedGrossMarginPct = marginAt(exposedGrossProfitMxn, exposed.amountMxn);
   const accumulatedImpactMxn = accumulatedFxImpact(moments).amount;
 
   const allFacts: CarouselEconomicFact[] = [
@@ -1230,12 +1342,22 @@ export function buildCarouselEconomicScenario(
     { key: 'sale_price_mxn', label: 'PRECIO DE VENTA FIJO', value: salePriceMxn, formattedValue: `MXN ${formatAmount(salePriceMxn)}`, unit: 'MXN', state: 'defined' },
     { key: 'base_gross_profit_mxn', label: 'UTILIDAD BRUTA BASE', value: baseGrossProfitMxn, formattedValue: `MXN ${formatAmount(baseGrossProfitMxn)}`, unit: 'MXN', state: 'base', colorRole: 'control' },
     { key: 'exposed_gross_profit_mxn', label: 'UTILIDAD BRUTA EXPUESTA', value: exposedGrossProfitMxn, formattedValue: `MXN ${formatAmount(exposedGrossProfitMxn)}`, unit: 'MXN', state: 'exposed', colorRole: 'risk' },
-    { key: 'base_gross_margin_pct', label: 'MARGEN BRUTO BASE', value: grossMargin(baseGrossProfitMxn), formattedValue: `${grossMargin(baseGrossProfitMxn).toFixed(1)}%`, unit: 'percent', state: 'base', colorRole: 'control' },
-    { key: 'exposed_gross_margin_pct', label: 'MARGEN BRUTO EXPUESTO', value: grossMargin(exposedGrossProfitMxn), formattedValue: `${grossMargin(exposedGrossProfitMxn).toFixed(1)}%`, unit: 'percent', state: 'exposed', colorRole: 'risk' },
+    { key: 'base_gross_margin_pct', label: 'MARGEN BRUTO BASE', value: baseGrossMarginPct, formattedValue: `${baseGrossMarginPct.toFixed(1)}%`, unit: 'percent', state: 'base', colorRole: 'control' },
+    { key: 'exposed_gross_margin_pct', label: 'MARGEN BRUTO EXPUESTO', value: exposedGrossMarginPct, formattedValue: `${exposedGrossMarginPct.toFixed(1)}%`, unit: 'percent', state: 'exposed', colorRole: 'risk' },
     { key: 'accumulated_impact_mxn', label: 'IMPACTO ACUMULADO', value: accumulatedImpactMxn, formattedValue: `${accumulatedImpactMxn >= 0 ? '+' : ''}MXN ${formatAmount(accumulatedImpactMxn)}`, unit: 'MXN', state: 'delta', colorRole: 'risk' },
     { key: 'defined_cost_mxn', label: 'COSTO DEFINIDO', value: base.amountMxn, formattedValue: `MXN ${formatAmount(base.amountMxn)}`, unit: 'MXN', state: 'defined', colorRole: 'control' },
   ];
   const allowed = new Set(CAROUSEL_SCENARIO_FACT_KEYS[scenarioId]);
+
+  /*
+   * En forward, el margen es opcional: sin precio de venta, la historia es solo el delta
+   * de costo. Se quitan los hechos de margen del set permitido para que ni el escenario
+   * ni el validador esperen algo que el usuario no pidió.
+   */
+  const dropForwardMargin =
+    scenarioId === 'forward_protection' &&
+    !(assumptions.salePriceMxn !== undefined && assumptions.salePriceMxn > 0);
+  const marginKeys = new Set<CarouselEconomicFactKey>(CAROUSEL_FORWARD_MARGIN_FACT_KEYS);
 
   return {
     version: 1,
@@ -1244,6 +1366,10 @@ export function buildCarouselEconomicScenario(
     assumptions: {
       baseRate: assumptions.baseRate,
       comparisonRate: assumptions.comparisonRate,
+      exposedRate: assumptions.exposedRate,
+      salePriceMxn: dropForwardMargin ? undefined : (assumptions.salePriceMxn && assumptions.salePriceMxn > 0 ? salePriceMxn : undefined),
+      daysAhead: assumptions.daysAhead,
+      direction: assumptions.direction ?? 'import',
       amountUsd: assumptions.amountUsd,
       driftPct: [...assumptions.driftPct],
       markupPct,
@@ -1261,22 +1387,48 @@ export function buildCarouselEconomicScenario(
       salePriceMxn,
       baseGrossProfitMxn,
       exposedGrossProfitMxn,
-      baseGrossMarginPct: grossMargin(baseGrossProfitMxn),
-      exposedGrossMarginPct: grossMargin(exposedGrossProfitMxn),
+      baseGrossMarginPct,
+      exposedGrossMarginPct,
       accumulatedImpactMxn,
     },
-    facts: allFacts.filter((fact) => allowed.has(fact.key)),
+    facts: allFacts
+      .filter((fact) => allowed.has(fact.key) && !(dropForwardMargin && marginKeys.has(fact.key)))
+      .map((fact) => {
+        const forwardLabel =
+          scenarioId === 'forward_protection'
+            ? forwardFactLabels(isExport ? 'export' : 'import')[fact.key]
+            : undefined;
+        return forwardLabel ? { ...fact, label: forwardLabel } : fact;
+      }),
     createdAt: now.toISOString(),
   };
 }
 
-/** Selecciona hechos para un beat sin decidir su composición. */
+/**
+ * Selecciona hechos para un beat sin decidir su composición.
+ *
+ * `beatRole` permite que la solución/cierre de un forward renombre la base a "forward
+ * pactado / costo final": el mismo número que en el problema era "lo presupuestado", en la
+ * resolución es "lo que quedó definido". El resto de los beats conservan las etiquetas del
+ * escenario.
+ */
 export function projectCarouselEconomicFacts(
   scenario: CarouselEconomicScenario,
   factKeys: readonly CarouselEconomicFactKey[],
+  beatRole?: string,
 ): CarouselEconomicFact[] {
   const requested = new Set(factKeys);
-  return scenario.facts.filter((fact) => requested.has(fact.key));
+  const isForwardResolution =
+    scenario.scenarioId === 'forward_protection' &&
+    (beatRole === 'solution' || beatRole === 'cta');
+  const resolutionLabels = forwardResolutionLabels(scenario.assumptions.direction ?? 'import');
+  return scenario.facts
+    .filter((fact) => requested.has(fact.key))
+    .map((fact) =>
+      isForwardResolution && resolutionLabels[fact.key]
+        ? { ...fact, label: resolutionLabels[fact.key]! }
+        : fact,
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -1308,8 +1460,17 @@ export interface CarouselPlanFigures {
 export const MIN_MARGIN_PCT = 10;
 export const MAX_MARGIN_PCT = 200;
 
-/** El precio de venta que la historia de margen da por comprometido. */
+/**
+ * El precio de venta que la historia de margen da por comprometido.
+ *
+ * Un precio absoluto (`salePriceMxn`) gana al markup: es el número que el usuario teclea
+ * para el forward y no tiene por qué derivarse del costo. Si no lo da, se cae al markup
+ * sobre el costo base, que es como lo resuelve la hoja de margen de costos.
+ */
 function committedSalePrice(a: CarouselFxAssumptions, baseCostMxn: number): number {
+  if (a.salePriceMxn !== undefined && a.salePriceMxn > 0) {
+    return Math.round(a.salePriceMxn * 100) / 100;
+  }
   const declared = a.markupPct ?? a.marginPct ?? DEFAULT_MARKUP_PCT;
   const pct = Math.min(Math.max(declared, MIN_MARGIN_PCT), MAX_MARGIN_PCT);
   return Math.round(baseCostMxn * (1 + pct / 100) * 100) / 100;
@@ -1367,7 +1528,7 @@ export function buildPlanFigureDocuments(
         isXending: boolean,
       ): CarouselFigureDocument => ({
         label,
-        kind: 'COTIZACIÓN ILUSTRATIVA',
+        kind: 'COTIZACIÓN',
         fields: [
           { label: 'TOTAL USD', value: formatAmount(assumptions.amountUsd) },
           {
@@ -1432,7 +1593,7 @@ export function buildPlanFigureDocuments(
     case 'rate_range': {
       const shape = (m: CarouselFxMoment, label: string, hypothetical: boolean) => ({
         label,
-        kind: 'ESCENARIO ILUSTRATIVO',
+        kind: 'ESCENARIO',
         fields: [
           { label: 'TOTAL USD', value: bare(m.labels.usd) },
           {
@@ -1510,6 +1671,79 @@ export function buildPlanFigureDocuments(
 
       return {
         documents: [shape(first, 'HOY', 0, false), shape(last, 'PAGO', 60, true)],
+      };
+    }
+
+    /*
+     * El forward: el costo pactado hoy contra el costo si no se cubre y la tasa sube.
+     *
+     * Dos documentos del MISMO pedido: el pactado (turquesa, cierto) y el expuesto (coral,
+     * lo que hubiera costado). El monto USD es idéntico; lo que cambia es la tasa. Sin
+     * fecha de calendario: el horizonte va como etiqueta relativa ("60 DÍAS"), porque una
+     * fecha convertiría el ejemplo en un pronóstico.
+     *
+     * El margen es opcional: solo cuando el usuario dio un precio de venta. Con precio, el
+     * renglón de margen muestra cuánto cede la utilidad; sin él, la historia es el puro
+     * costo. El precio de venta se lee IDÉNTICO en los dos: lo que se mueve es el costo.
+     */
+    case 'forward_protection': {
+      const days = assumptions.daysAhead ?? 60;
+      const hasMargin = assumptions.salePriceMxn !== undefined && assumptions.salePriceMxn > 0;
+      const fixedMxn = hasMargin ? committedSalePrice(assumptions, first.amountMxn) : 0;
+      /*
+       * Importas: el MXN variable es el COSTO, y el fijo es tu precio de venta. Exportas:
+       * el MXN variable es el INGRESO, y el fijo es tu costo. La utilidad y el margen se
+       * invierten en consecuencia; el margen siempre se mide sobre el ingreso.
+       */
+      const isExport = (assumptions.direction ?? 'import') === 'export';
+      const fixedLabel = isExport ? 'COSTO FIJO' : 'PRECIO DE VENTA';
+      const variableLabel = isExport ? 'INGRESO MXN' : 'COSTO MXN';
+
+      const shape = (
+        m: CarouselFxMoment,
+        label: string,
+        kind: string,
+        exposed: boolean,
+      ): CarouselFigureDocument => {
+        const role = (exposed ? 'risk' : 'control') as CarouselColorRole;
+        const fields: CarouselFigureField[] = [
+          { label: 'TIPO DE CAMBIO', value: m.labels.rate, colorRole: role },
+        ];
+        if (exposed && m.labels.pct) {
+          fields.push({ label: 'VARIACIÓN', value: m.labels.pct, colorRole: 'risk' });
+        }
+        if (hasMargin) {
+          // El valor fijo es el mismo en los dos: eso hace legible que lo que cambia es el
+          // otro lado. La utilidad y el margen se mueven, y ahí se ve el efecto.
+          fields.push({ label: fixedLabel, value: formatAmount(fixedMxn) });
+          const profit = Math.round((isExport ? m.amountMxn - fixedMxn : fixedMxn - m.amountMxn) * 100) / 100;
+          const revenue = isExport ? m.amountMxn : fixedMxn;
+          const marginPct = revenue > 0 ? Math.round((profit / revenue) * 1000) / 10 : 0;
+          fields.push({ label: 'UTILIDAD BRUTA', value: formatAmount(profit), colorRole: role });
+          fields.push({ label: 'MARGEN BRUTO', value: `${marginPct.toFixed(1)}%`, colorRole: role });
+        } else {
+          // Sin margen: la historia es el puro movimiento. USD como ancla de la operación.
+          fields.unshift({ label: 'TOTAL USD', value: bare(m.labels.usd) });
+        }
+        return {
+          label,
+          kind,
+          fields,
+          total: { label: variableLabel, value: bare(m.labels.mxn), colorRole: role },
+        };
+      };
+
+      /*
+       * Dos momentos de la MISMA operación: al presupuestar (hoy) y al pago sin cobertura
+       * a N días. No es "forward pactado vs no": este slide muestra el RIESGO, el forward
+       * lo resuelve el slide siguiente. El escenario a N días se rotula como ilustrativo,
+       * que es la única forma en que la rama puede mostrar una tasa que todavía no existe.
+       */
+      return {
+        documents: [
+          shape(first, 'HOY', 'AL PRESUPUESTAR', false),
+          shape(last, 'SIN COBERTURA', `ESCENARIO ILUSTRATIVO · ${days} DÍAS`, true),
+        ],
       };
     }
 

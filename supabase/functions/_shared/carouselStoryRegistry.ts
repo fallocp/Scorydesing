@@ -569,8 +569,8 @@ const COBERTURAS_ROUTES: RegisteredStoryRoute[] = [
       'presupuesto y obligación convertidos en una sola referencia en la misma hoja',
     allowedShapes: ['comparison', 'progressive_reveal', 'anatomy'],
     evidenceMechanisms: ['two_currencies_same_operation', 'budget_sheet_and_invoice'],
-    figurePolicy: 'optional',
-    figureScenarios: ['rate_comparison'],
+    figurePolicy: 'required',
+    figureScenarios: ['forward_protection', 'rate_comparison'],
     requiredCapabilities: ['definir el costo en pesos de una obligación en divisa'],
     forbiddenClaims: [
       'decir hacia dónde va a ir el tipo de cambio',
@@ -623,7 +623,7 @@ const COBERTURAS_ROUTES: RegisteredStoryRoute[] = [
     allowedShapes: ['single_case', 'comparison'],
     evidenceMechanisms: ['hypothetical_rate_scenarios', 'same_obligation_two_rates'],
     figurePolicy: 'required',
-    figureScenarios: ['rate_range', 'rate_comparison'],
+    figureScenarios: ['forward_protection', 'rate_range', 'rate_comparison'],
     requiredCapabilities: ['definir hoy el costo en pesos de un pago futuro en divisa'],
     /**
      * El escenario hipotético sí se puede mostrar; la predicción no.
@@ -693,7 +693,13 @@ const COBERTURAS_ROUTES: RegisteredStoryRoute[] = [
     allowedShapes: ['single_case', 'cause_effect'],
     evidenceMechanisms: ['fixed_revenue_variable_cost', 'price_and_cost_side_by_side'],
     figurePolicy: 'required',
-    figureScenarios: ['margin_sensitivity'],
+    /*
+     * Un solo escenario, a propósito: la historia de margen de coberturas ES el forward
+     * —costo presupuestado hoy contra costo al pago sin cobertura, mismo precio de venta,
+     * menor margen—. Dejar `margin_sensitivity` como alternativa hacía que el planner
+     * eligiera la mecánica de deriva sintética e ignorara las dos tasas que da el usuario.
+     */
+    figureScenarios: ['forward_protection'],
     requiredCapabilities: ['definir el costo en pesos antes del pago'],
     forbiddenClaims: ['afirmar que el margen se perderá', 'garantizar un margen'],
     allowedEvidenceDevices: [
@@ -736,7 +742,7 @@ const COBERTURAS_ROUTES: RegisteredStoryRoute[] = [
     closingDistillation: 'el calendario completo con cada fecha ya resuelta',
     allowedShapes: ['timeline', 'accumulation'],
     evidenceMechanisms: ['payment_calendar', 'due_dates_sequence'],
-    figurePolicy: 'optional',
+    figurePolicy: 'required',
     figureScenarios: ['cashflow_certainty'],
     requiredCapabilities: ['definir el costo de obligaciones futuras en divisa'],
     forbiddenClaims: ['decir qué va a pasar con el tipo de cambio en esas fechas'],
@@ -779,7 +785,7 @@ const COBERTURAS_ROUTES: RegisteredStoryRoute[] = [
     closingDistillation: 'el calendario de pago con su reserva de efectivo ya definida',
     allowedShapes: ['progressive_reveal', 'before_after'],
     evidenceMechanisms: ['single_defined_value', 'planning_with_known_cost'],
-    figurePolicy: 'optional',
+    figurePolicy: 'required',
     figureScenarios: ['cashflow_certainty'],
     requiredCapabilities: ['definir hoy el costo en pesos de un pago futuro'],
     forbiddenClaims: ['prometer rendimiento o ahorro'],
@@ -830,8 +836,8 @@ const COBERTURAS_ROUTES: RegisteredStoryRoute[] = [
     closingDistillation: 'el expediente del caso cerrado, etiquetado como ilustrativo',
     allowedShapes: ['single_case', 'timeline'],
     evidenceMechanisms: ['illustrative_operation_walkthrough'],
-    figurePolicy: 'optional',
-    figureScenarios: ['rate_comparison', 'margin_sensitivity'],
+    figurePolicy: 'required',
+    figureScenarios: ['forward_protection', 'rate_comparison', 'margin_sensitivity'],
     requiredCapabilities: ['definir el costo en pesos antes del pago'],
     /**
      * "Caso de éxito" es una afirmación sobre un cliente real.

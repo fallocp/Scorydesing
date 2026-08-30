@@ -237,7 +237,7 @@ describe('quote_comparison', () => {
     expect(documents.every((doc) => doc.date === undefined)).toBe(true);
     expect(documents.map((doc) => doc.label)).not.toContain('HOY');
     expect(documents.map((doc) => doc.label)).not.toContain('PAGO');
-    expect(documents.every((doc) => doc.kind === 'COTIZACIÓN ILUSTRATIVA')).toBe(true);
+    expect(documents.every((doc) => doc.kind === 'COTIZACIÓN')).toBe(true);
   });
 });
 
@@ -264,7 +264,7 @@ describe('rate_range', () => {
     // Una cotización se lee como un hecho. El sello y el tipo de documento son lo que
     // marcan que esto es una hipótesis.
     expect(documents.map((d) => d.label)).toEqual(['ACTUAL', 'SI PASARA A']);
-    expect(documents.every((d) => d.kind === 'ESCENARIO ILUSTRATIVO')).toBe(true);
+    expect(documents.every((d) => d.kind === 'ESCENARIO')).toBe(true);
   });
 
   it('el monto en USD es el mismo: lo que se mueve es la tasa', () => {

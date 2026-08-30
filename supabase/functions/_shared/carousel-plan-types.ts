@@ -416,6 +416,7 @@ export type CarouselFigureScenarioId =
   | 'repeated_operations'
   | 'accumulated_difference'
   | 'margin_sensitivity'
+  | 'forward_protection'
   | 'cashflow_certainty';
 
 export const CAROUSEL_FIGURE_SCENARIOS: readonly CarouselFigureScenarioId[] = [
@@ -426,6 +427,7 @@ export const CAROUSEL_FIGURE_SCENARIOS: readonly CarouselFigureScenarioId[] = [
   'repeated_operations',
   'accumulated_difference',
   'margin_sensitivity',
+  'forward_protection',
   'cashflow_certainty',
 ] as const;
 
@@ -511,8 +513,34 @@ export const CAROUSEL_SCENARIO_FACT_KEYS: Record<
     'exposed_cost_mxn', 'sale_price_mxn', 'base_gross_profit_mxn',
     'exposed_gross_profit_mxn', 'base_gross_margin_pct', 'exposed_gross_margin_pct',
   ],
+  /*
+   * Forward: el costo pactado hoy contra el costo si NO se cubre y la tasa sube.
+   *
+   * Las dos tasas son inputs explícitos del usuario (la pactada y una posible a N días),
+   * no una deriva sintética. Los hechos de margen —de `sale_price_mxn` en adelante— son
+   * un grupo OPCIONAL: solo existen cuando el usuario da un precio de venta. Sin él, la
+   * historia se cuenta con el puro delta de costo, que es exactamente lo que pierde el
+   * margen cuando el precio de venta está fijo.
+   */
+  forward_protection: [
+    'operation_usd', 'base_rate', 'exposed_rate', 'base_cost_mxn',
+    'exposed_cost_mxn', 'cost_delta_mxn', 'cost_delta_pct',
+    'sale_price_mxn', 'base_gross_profit_mxn', 'exposed_gross_profit_mxn',
+    'base_gross_margin_pct', 'exposed_gross_margin_pct',
+  ],
   cashflow_certainty: ['operation_usd', 'base_rate', 'defined_cost_mxn'],
 };
+
+/**
+ * Hechos de margen del escenario forward: el grupo opcional que solo aparece con precio.
+ *
+ * Vive aparte para que el motor y el validador compartan una sola definición de "qué es
+ * margen aquí"; si estuvieran duplicados, uno aceptaría lo que el otro rechaza.
+ */
+export const CAROUSEL_FORWARD_MARGIN_FACT_KEYS: readonly CarouselEconomicFactKey[] = [
+  'sale_price_mxn', 'base_gross_profit_mxn', 'exposed_gross_profit_mxn',
+  'base_gross_margin_pct', 'exposed_gross_margin_pct',
+];
 
 /** Intensidad de la superficie, independiente de cuántas cifras muestra. */
 export type CarouselFigureWeight = 'inline' | 'featured' | 'heavy';
@@ -600,6 +628,21 @@ export interface CarouselEconomicScenario {
     baseRate: number;
     /** Segunda tasa simultánea para comparar cotizaciones. */
     comparisonRate?: number;
+    /**
+     * Tasa expuesta explícita del escenario forward: la que el usuario cree posible a
+     * `daysAhead` si NO cubre. Cuando está presente, el motor la usa tal cual en vez de
+     * derivar el momento expuesto de `driftPct`.
+     */
+    exposedRate?: number;
+    /**
+     * Precio de venta comprometido, en MXN, dado por el usuario. Presente => hay historia
+     * de margen; ausente => el forward se cuenta solo con el delta de costo.
+     */
+    salePriceMxn?: number;
+    /** Horizonte del escenario forward, en días. Solo etiqueta ("a 60 días"), nunca fecha. */
+    daysAhead?: number;
+    /** Dirección forward: 'import' (debes USD) o 'export' (te pagan USD). Por defecto 'import'. */
+    direction?: 'import' | 'export';
     amountUsd: number;
     driftPct: number[];
     /** Markup sobre costo. Sustituye al antiguo nombre ambiguo `marginPct`. */

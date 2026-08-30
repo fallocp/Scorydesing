@@ -180,6 +180,12 @@ export function CarouselPanel({
    */
   const usesQuoteComparison =
     commercialIntent === 'quote_comparison' || commercialIntent === 'cost_plus_speed';
+  /**
+   * Forward (coberturas): dos tasas explícitas del usuario —la pactada y una posible a N
+   * días— y un precio de venta opcional. No hay deriva sintética: la historia es "si no
+   * cierras y la tasa sube, esto hubieras pagado de más, y esto hubiera cedido tu margen".
+   */
+  const usesForward = commercialIntent === 'forward';
   const [guidance, setGuidance] = useState('');
   const [isExporting, setIsExporting] = useState<'png' | 'pdf' | null>(null);
 
@@ -236,6 +242,15 @@ export function CarouselPanel({
   const [fxAmountOverride, setFxAmountOverride] = useState('');
   /** Markup sobre costo. El escenario deriva de aquí utilidad y margen bruto reales. */
   const [fxMarkup, setFxMarkup] = useState(String(DEFAULT_MARKUP_PCT));
+  /**
+   * Forward: tasa posible a N días (la expuesta), horizonte en días, y precio de venta
+   * OPCIONAL. El precio vacío no es cero: es "cuenta la historia solo con el costo".
+   */
+  const [exposedRate, setExposedRate] = useState('18.00');
+  const [forwardDays, setForwardDays] = useState('60');
+  const [salePriceInput, setSalePriceInput] = useState('');
+  /** import: debes USD, riesgo = dólar sube. export: te pagan USD, riesgo = dólar baja. */
+  const [forwardDirection, setForwardDirection] = useState<'import' | 'export'>('import');
 
   const parsedFxRate = parseBoundedNumber(fxRate, CAROUSEL_MIN_FX_RATE, CAROUSEL_MAX_FX_RATE);
   const parsedComparisonRate = parseBoundedNumber(
@@ -243,6 +258,16 @@ export function CarouselPanel({
     CAROUSEL_MIN_FX_RATE,
     CAROUSEL_MAX_FX_RATE,
   );
+  const parsedExposedRate = parseBoundedNumber(
+    exposedRate,
+    CAROUSEL_MIN_FX_RATE,
+    CAROUSEL_MAX_FX_RATE,
+  );
+  const parsedForwardDays = parseBoundedNumber(forwardDays, 1, 3650);
+  /** Vacío => sin margen (undefined). Con texto => tiene que ser un monto válido o es error (null). */
+  const parsedSalePrice = salePriceInput.trim()
+    ? parseBoundedNumber(salePriceInput, 1, CAROUSEL_MAX_OPERATION_USD * CAROUSEL_MAX_FX_RATE)
+    : undefined;
   const parsedAmountUsd = fxAmountOverride.trim()
     ? parseBoundedNumber(fxAmountOverride, CAROUSEL_MIN_OPERATION_USD, CAROUSEL_MAX_OPERATION_USD)
     : derivedAmountUsd;
@@ -255,17 +280,31 @@ export function CarouselPanel({
     if (usesQuoteComparison && parsedComparisonRate === null) {
       return `La tasa de la otra cotización debe estar entre ${CAROUSEL_MIN_FX_RATE} y ${CAROUSEL_MAX_FX_RATE}.`;
     }
+    if (usesForward && parsedExposedRate === null) {
+      return `La tasa posible debe estar entre ${CAROUSEL_MIN_FX_RATE} y ${CAROUSEL_MAX_FX_RATE}.`;
+    }
+    if (usesForward && parsedForwardDays === null) {
+      return 'Los días deben ser un número entre 1 y 3650.';
+    }
+    if (usesForward && salePriceInput.trim() && parsedSalePrice == null) {
+      return 'El precio de venta debe ser un monto válido, o déjalo vacío.';
+    }
     if (parsedAmountUsd === null) {
       return `El monto debe estar entre USD ${CAROUSEL_MIN_OPERATION_USD} y USD ${CAROUSEL_MAX_OPERATION_USD.toLocaleString('en-US')}.`;
     }
-    if (!usesQuoteComparison && parsedMarkupPct === null) {
+    if (!usesQuoteComparison && !usesForward && parsedMarkupPct === null) {
       return `El markup debe estar entre ${MIN_MARGIN_PCT}% y ${MAX_MARGIN_PCT}%.`;
     }
     return null;
   }, [
     usesQuoteComparison,
+    usesForward,
     parsedAmountUsd,
     parsedComparisonRate,
+    parsedExposedRate,
+    parsedForwardDays,
+    parsedSalePrice,
+    salePriceInput,
     parsedFxRate,
     parsedMarkupPct,
   ]);
@@ -279,8 +318,32 @@ export function CarouselPanel({
       markupPct: parsedMarkupPct ?? DEFAULT_MARKUP_PCT,
       // Alias legacy para adaptadores documentales persistidos.
       marginPct: parsedMarkupPct ?? DEFAULT_MARKUP_PCT,
+      /*
+       * Los campos del forward SOLO se pasan en modo forward. En otros modos quedan
+       * undefined, y así `computeCarouselFx` conserva su ruta de deriva y no interpreta
+       * una tasa expuesta que el usuario no dio.
+       */
+      ...(usesForward
+        ? {
+            exposedRate: parsedExposedRate ?? undefined,
+            daysAhead: parsedForwardDays ?? undefined,
+            salePriceMxn: parsedSalePrice ?? undefined,
+            direction: forwardDirection,
+          }
+        : {}),
     }),
-    [parsedFxRate, parsedComparisonRate, parsedAmountUsd, derivedAmountUsd, parsedMarkupPct],
+    [
+      parsedFxRate,
+      parsedComparisonRate,
+      parsedAmountUsd,
+      derivedAmountUsd,
+      parsedMarkupPct,
+      usesForward,
+      parsedExposedRate,
+      parsedForwardDays,
+      parsedSalePrice,
+      forwardDirection,
+    ],
   );
 
   const fxPreview = useMemo(() => computeCarouselFx(fxAssumptions), [fxAssumptions]);
@@ -298,6 +361,15 @@ export function CarouselPanel({
    */
   const marginPreview = useMemo(
     () => buildPlanFigureDocuments('margin_sensitivity', fxAssumptions).documents,
+    [fxAssumptions],
+  );
+
+  /**
+   * El forward, para revisar la aritmética antes de renderizar: costo pactado contra el
+   * costo si no se cubre, y —si hay precio de venta— el margen que cede.
+   */
+  const forwardPreview = useMemo(
+    () => buildPlanFigureDocuments('forward_protection', fxAssumptions).documents,
     [fxAssumptions],
   );
 
@@ -655,10 +727,29 @@ export function CarouselPanel({
             <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
               Cifras ilustrativas
             </Label>
+            {usesForward && (
+              <div className="flex gap-1">
+                {(['import', 'export'] as const).map((d) => (
+                  <button
+                    key={d}
+                    type="button"
+                    disabled={busy}
+                    onClick={() => setForwardDirection(d)}
+                    className={`rounded px-2 py-1 text-[10px] font-medium transition-colors ${
+                      forwardDirection === d
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted text-muted-foreground hover:bg-muted/70'
+                    }`}
+                  >
+                    {d === 'import' ? 'Importación' : 'Exportación'}
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="flex flex-wrap items-end gap-3">
               <div className="space-y-1">
                 <Label className="text-[10px] text-muted-foreground">
-                  {usesQuoteComparison ? 'Tasa Xending' : 'Tipo de cambio'}
+                  {usesQuoteComparison ? 'Tasa Xending' : usesForward ? 'TC presupuestado' : 'Tipo de cambio'}
                 </Label>
                 <Input
                   type="number"
@@ -690,6 +781,40 @@ export function CarouselPanel({
                   />
                 </div>
               )}
+              {usesForward && (
+                <>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] text-muted-foreground">
+                      TC posible a N días
+                    </Label>
+                    <Input
+                      type="number"
+                      min={CAROUSEL_MIN_FX_RATE}
+                      max={CAROUSEL_MAX_FX_RATE}
+                      step="0.01"
+                      value={exposedRate}
+                      onChange={(e) => setExposedRate(e.target.value)}
+                      disabled={busy}
+                      inputMode="decimal"
+                      className="h-8 w-24 text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] text-muted-foreground">Días</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={3650}
+                      step="1"
+                      value={forwardDays}
+                      onChange={(e) => setForwardDays(e.target.value)}
+                      disabled={busy}
+                      inputMode="numeric"
+                      className="h-8 w-20 text-sm"
+                    />
+                  </div>
+                </>
+              )}
               <div className="space-y-1">
                 <Label className="text-[10px] text-muted-foreground">Monto USD</Label>
                 {/* El placeholder es el monto que la historia sugiere; escribir aquí lo
@@ -707,7 +832,7 @@ export function CarouselPanel({
                   className="h-8 w-28 text-sm"
                 />
               </div>
-              {!usesQuoteComparison && (
+              {!usesQuoteComparison && !usesForward && (
                 <div className="space-y-1">
                   <Label className="text-[10px] text-muted-foreground">
                     Markup sobre costo %
@@ -725,12 +850,43 @@ export function CarouselPanel({
                   />
                 </div>
               )}
+              {usesForward && (
+                <div className="space-y-1">
+                  <Label className="text-[10px] text-muted-foreground">
+                    {forwardDirection === 'export' ? 'Costo fijo MXN (opcional)' : 'Precio de venta MXN (opcional)'}
+                  </Label>
+                  {/* Vacío = sin historia de margen: la pieza cuenta solo el delta de costo. */}
+                  <Input
+                    type="number"
+                    min={1}
+                    step="1"
+                    value={salePriceInput}
+                    onChange={(e) => setSalePriceInput(e.target.value)}
+                    disabled={busy}
+                    inputMode="numeric"
+                    placeholder="sin margen"
+                    className="h-8 w-32 text-sm"
+                  />
+                </div>
+              )}
             </div>
             {fxValidationError && (
               <p className="text-[10px] text-destructive">{fxValidationError}</p>
             )}
             <div className="space-y-0.5 font-mono text-[11px] text-muted-foreground">
-              {usesQuoteComparison
+              {usesForward &&
+                forwardPreview.map((doc) => {
+                  const tc = doc.fields.find((f) => f.label === 'TIPO DE CAMBIO')?.value;
+                  const usd = doc.fields.find((f) => f.label === 'TOTAL USD')?.value;
+                  const margin = doc.fields.find((f) => f.label === 'MARGEN')?.value;
+                  return (
+                    <div key={doc.label}>
+                      {doc.label} — {tc} · USD {usd} · costo MXN {doc.total.value}
+                      {margin ? ` · margen ${margin}` : ''}
+                    </div>
+                  );
+                })}
+              {!usesForward && usesQuoteComparison
                 ? quotePreview.map((doc) => (
                     <div key={doc.label}>
                       {doc.label} — {doc.fields.find((field) => field.label === 'TIPO DE CAMBIO')?.value}
@@ -738,14 +894,16 @@ export function CarouselPanel({
                       {' · '}MXN {doc.total.value}
                     </div>
                   ))
-                : fxPreview.map((m, i) => (
+                : null}
+              {!usesForward && !usesQuoteComparison &&
+                fxPreview.map((m, i) => (
                     <div key={i}>
                       {['HOY', 'PAGO', 'COMPRA 3'][i] ?? `MOMENTO ${i + 1}`} — {m.labels.rate} ·{' '}
                       {m.labels.usd} · {m.labels.mxn}
                       {m.labels.delta ? ` · ${m.labels.delta}` : ''}
                     </div>
                   ))}
-              {!usesQuoteComparison &&
+              {!usesForward && !usesQuoteComparison &&
                 marginPreview.map((doc) => (
                   <div key={doc.label}>
                     {doc.label} — precio {doc.fields[0]?.value} · costo {doc.fields[1]?.value} ·{' '}
@@ -754,7 +912,11 @@ export function CarouselPanel({
                 ))}
             </div>
             <p className="text-[10px] text-muted-foreground">
-              {usesQuoteComparison
+              {usesForward
+                ? forwardDirection === 'export'
+                  ? 'Exportación: te pagan en dólares. Das el TC presupuestado y uno posible a N días; si el dólar baja, tu ingreso en pesos baja. Con costo fijo se muestra cuánto cedería el margen. Es un ejemplo ilustrativo, no un pronóstico.'
+                  : 'Importación: pagas en dólares. Das el TC presupuestado y uno posible a N días; si el dólar sube, tu costo en pesos sube. Con precio de venta se muestra cuánto cedería el margen. Es un ejemplo ilustrativo, no un pronóstico.'
+                : usesQuoteComparison
                 ? 'Misma operación, mismo momento, dos tasas editables. No representa una tasa futura. Los equivalentes MXN no incluyen comisiones ni otros costos.'
                 : 'El monto en USD es el mismo en los tres momentos: lo que se mueve es el tipo de cambio, no el tamaño de la compra. El precio de venta se fija sobre el costo de hoy y tampoco se mueve — lo que cede es el margen.'}
             </p>

@@ -560,6 +560,22 @@ export function validateCarouselCreativePlan(
     }
   }
 
+  /*
+   * Historias de un solo sujeto: seguir la MISMA pieza por sus etapas es el recurso, no un
+   * defecto. En `single_case`, `before_after`, `anatomy` y `progressive_reveal` el sujeto
+   * recurrente protagoniza a propósito —"la misma autoparte en distintas etapas de costo"—,
+   * así que la dominancia de objeto (contiguos o en el set) se REPORTA pero no bloquea. La
+   * variedad la aporta la composición y los objetos secundarios, no cambiar el sujeto.
+   *
+   * Lo que SÍ sigue bloqueando es la dominancia de la FAMILIA de evidencia
+   * (`evidence_family_dominates_set`): "hojas y hojas y hojas" es papel repetido, no un
+   * sujeto seguido, y eso se ataca aparte.
+   */
+  const SINGLE_SUBJECT_SHAPES = new Set(['single_case', 'before_after', 'anatomy', 'progressive_reveal']);
+  const objectDominanceSeverity: 'advisory' | 'blocking' = SINGLE_SUBJECT_SHAPES.has(plan.storyShape)
+    ? 'advisory'
+    : 'blocking';
+
   for (let i = 1; i < beats.length; i++) {
     if (ideaOverlap(beats[i - 1].visualDevice, beats[i].visualDevice) >= DUPLICATE_THRESHOLD) {
       issues.push(
@@ -581,7 +597,7 @@ export function validateCarouselCreativePlan(
       issues.push(
         issue(
           'repeated_primary_objects',
-          'blocking',
+          objectDominanceSeverity,
           i + 1,
           `Los beats ${i} y ${i + 1} traen exactamente los mismos objetos.`,
           `Dale al beat ${i + 1} el objeto que exige SU línea, no el del anterior.`,
@@ -623,7 +639,7 @@ export function validateCarouselCreativePlan(
         issues.push(
           issue(
             'object_family_dominates_set',
-            'blocking',
+            objectDominanceSeverity,
             beats[cluster[cluster.length - 1]].index,
             `El mismo objeto domina ${cluster.length} de ${beats.length} beats (${positions}): el set se lee como el mismo cuadro repetido aunque el copy cambie.`,
             `Deja el objeto en máximo ${OBJECT_REPEAT_LIMIT} beats y dale a los demás del grupo el objeto que exige SU línea.`,
@@ -692,7 +708,7 @@ export function validateCarouselCreativePlan(
       issues.push(
         issue(
           'motif_dominates_middle',
-          'blocking',
+          objectDominanceSeverity,
           null,
           'El motivo recurrente es el objeto principal en todos los beats de en medio: el set va a salir como el mismo cuadro repetido.',
           'Quita el motivo de los "primaryObjects" de los beats de en medio y dale a cada uno el objeto que exige SU línea; el motivo puede quedar como detalle de fondo.',
@@ -1031,7 +1047,7 @@ export function validateCarouselCreativePlan(
 
   const allowedByIntent: Partial<Record<NonNullable<CarouselCreativePlan['commercialIntent']>, readonly string[]>> = {
     quote_comparison: ['quote_comparison', 'none'],
-    forward: ['rate_comparison', 'rate_range', 'margin_sensitivity', 'cashflow_certainty', 'none'],
+    forward: ['forward_protection', 'rate_comparison', 'rate_range', 'margin_sensitivity', 'cashflow_certainty', 'none'],
     cost_plus_speed: ['quote_comparison', 'none'],
     cost_component: ['rate_range', 'repeated_operations', 'accumulated_difference', 'margin_sensitivity', 'none'],
   };
@@ -1382,10 +1398,16 @@ export function validateCarouselCreativePlan(
         issues.push(
           issue(
             'speculative_claim',
-            'blocking',
+            /*
+             * Advisory, no bloqueante: un escenario de tasa futura posible es un ejemplo
+             * ilustrativo válido, y el disclaimer de marca lo cubre. Se conserva la nota
+             * para que quede visible qué frase la disparó, pero no impide seleccionar ni
+             * generar el plan. Decisión editorial del negocio.
+             */
+            'advisory',
             beat.index,
-            `El beat ${beat.index} ${label} en ${joinFields(fields)}. Un escenario hipotético etiquetado sí se puede mostrar; un pronóstico no.`,
-            `Reescribe ${joinFields(fields)} del beat ${beat.index} en forma hipotética: "si el tipo de cambio pasara de A a B".`,
+            `El beat ${beat.index} ${label} en ${joinFields(fields)}. Un escenario hipotético etiquetado se lee mejor que un pronóstico; conviene la forma "si el tipo de cambio pasara de A a B".`,
+            `Si quieres, reescribe ${joinFields(fields)} del beat ${beat.index} en forma hipotética: "si el tipo de cambio pasara de A a B".`,
           ),
         );
         break;

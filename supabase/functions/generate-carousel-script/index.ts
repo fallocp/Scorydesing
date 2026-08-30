@@ -386,9 +386,8 @@ ${economicScenario.facts.map((fact) => `- ${fact.key}: ${formatEconomicFactValue
 Cómo usarlos:
 - SON CONTEXTO PARA ESCRIBIR, NO COPY. No copies ningún valor al headline, body, CTA, imageIntent, environmentalText ni brief.
 - Cada beat ya declara qué factKeys le corresponden. Tu texto explica qué significan; el código coloca los valores después.
-- La misma obligación USD permanece fija. Cambian únicamente las variables derivadas que el escenario declara.
+- El monto en USD es EL MISMO en toda comparación (mismo producto, mismo costo); lo único que cambia es el tipo de cambio y el costo resultante en MXN. Nunca contrapongas dos montos en USD distintos ni presentes la diferencia como si fuera en dólares: la comparación es siempre el peso (MXN) vía el TC.
 - No pidas una hoja, cotización o dashboard salvo que el beat haya elegido esa superficie. Una cifra puede integrarse en un producto, caja, lote, banda, anatomía, proceso, espacio o decisión.
-- ${economicScenario.qualifier} tiene que quedar visible junto a los hechos en la imagen, pero tú no lo escribes: lo monta el sistema.
 - Nunca presentes el escenario como tipo de cambio vigente, cotización oficial, pronóstico, ahorro garantizado o rendimiento.`
     : `CIFRAS: no uses ninguna. No hay un escenario económico autorizado para este set, así que ningún slide lleva montos ni tipos de cambio.`;
 

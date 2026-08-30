@@ -1049,6 +1049,89 @@ function briefBlock(slide: CarouselPromptSlideInput): string {
   return `ART DIRECTION FOR THIS SLIDE:\n${parts.join('\n')}\n\nDo not merely depict the industry the copy mentions. The scene has to demonstrate this specific claim: an image that would work just as well under a different headline is the wrong image.`;
 }
 
+/**
+ * The invariant numbers of the whole carousel, restated on every slide that
+ * carries figures.
+ *
+ * The figures are computed ONCE per set upstream, so slide 1 and slide 4 are handed
+ * the exact same USD amount and the exact same rates. But each slide is a separate
+ * image-generation call — the model never sees the other slides — so the only thing
+ * keeping the numbers identical across the set is that each prompt states them
+ * identically AND the model obeys them. It did not: it rounded USD 29,000 up to a
+ * "nicer" 100,000 on one card, printed two different USD totals (12,420 and 13,850)
+ * on a single comparison, and relabelled a peso conversion as USD.
+ *
+ * This block front-loads the invariants as one short, non-negotiable unit. It does NOT
+ * ask the model to compute anything — every value it needs is already final and given
+ * verbatim in the data blocks below; asking an image model to multiply only invites it
+ * to recompute and drift. The rule here is only: copy the given values exactly, keep the
+ * USD amount identical on every card, and understand that the totals that differ between
+ * cards are the peso conversion, never a second USD amount.
+ */
+function canonicalFiguresBlock(slide: CarouselPromptSlideInput): string {
+  const brief = slide.brief;
+  if (!brief) return '';
+  const documents = brief.documents ?? [];
+  const facts = brief.economicFacts ?? [];
+  if (documents.length === 0 && facts.length === 0) return '';
+
+  // The fixed USD operation: the value that must read identical on every USD surface
+  // of the whole set. Pulled from whichever data shape the slide carries.
+  const usdFromDocs = documents.flatMap((d) =>
+    (d.fields ?? []).filter((f) => /USD/i.test(f.label)).map((f) => f.value.trim()),
+  );
+  const usdFromFacts = facts
+    .filter((f) => f.unit === 'USD')
+    .map((f) => f.formattedValue.replace(/^USD\s+/i, '').trim());
+  const usdValues = new Set([...usdFromDocs, ...usdFromFacts].filter(Boolean));
+  const fixedUsd = usdValues.size === 1 ? [...usdValues][0] : null;
+
+  // The exchange rate(s) the story compares. Same operation, different rate — that is
+  // the only axis allowed to move.
+  const ratesFromDocs = documents.flatMap((d) =>
+    (d.fields ?? []).filter((f) => /TIPO DE CAMBIO/i.test(f.label)).map((f) => f.value.trim()),
+  );
+  const ratesFromFacts = facts
+    .filter((f) => f.unit === 'rate')
+    .map((f) => f.formattedValue.trim());
+  const rates = [...new Set([...ratesFromDocs, ...ratesFromFacts].filter(Boolean))];
+
+  // The peso conversions the story shows. FINAL values — handed over so the model
+  // copies them, never so it derives them.
+  const mxnFromDocs = documents
+    .map((d) => d.total?.value?.trim())
+    .filter((v): v is string => Boolean(v));
+  const mxnFromFacts = facts
+    .filter((f) => f.unit === 'MXN')
+    .map((f) => f.formattedValue.replace(/^MXN\s+/i, '').trim());
+  const mxnValues = [...new Set([...mxnFromDocs, ...mxnFromFacts].filter(Boolean))];
+
+  const lines: string[] = [];
+  if (fixedUsd) {
+    lines.push(
+      `- The operation is USD ${fixedUsd}. EVERY USD amount in this image is exactly USD ${fixedUsd}: the same digits on every card, column and document. Never round it to a "nicer" figure, never scale it, never show a different USD amount on two cards, and never change it from one slide to another.`,
+    );
+  }
+  if (rates.length >= 2 && fixedUsd) {
+    lines.push(
+      `- Both cards are the SAME purchase of USD ${fixedUsd}, shown converted to pesos at two different exchange rates (${rates.join(' and ')}). The USD amount is identical on both cards; what differs is the exchange rate and the resulting PESO total.`,
+    );
+    lines.push(
+      `- The total that differs between the two cards is a PESO amount (MXN)${mxnValues.length >= 2 ? `: exactly ${mxnValues.join(' and ')}` : ''}. NEVER show two different USD totals — two "USD" numbers that disagree is the single most common mistake here and it is wrong. USD is the same on both; only the peso conversion moves.`,
+    );
+  } else if (rates.length === 1 && fixedUsd) {
+    lines.push(
+      `- The peso (MXN) total${mxnValues.length ? ` is exactly ${mxnValues[0]}` : ''}, shown at rate ${rates[0]}. Label it in pesos/MXN, never as USD.`,
+    );
+  }
+
+  if (lines.length === 0) return '';
+
+  return `CANONICAL FIGURES — NON-NEGOTIABLE, AND IDENTICAL ON EVERY SLIDE OF THIS SET:
+${lines.join('\n')}
+You are NOT calculating anything. These figures were computed once for the whole carousel and every value is given final below — reproduce the exact characters. Do not invent, round, average, recompute or swap any of them.`;
+}
+
 function economicDataBlock(slide: CarouselPromptSlideInput): string {
   const facts = slide.brief?.economicFacts ?? [];
   const presentation = slide.brief?.figurePresentation;
@@ -1074,9 +1157,11 @@ function economicDataBlock(slide: CarouselPromptSlideInput): string {
       ? 'The figures are primary evidence, but the scene remains a visual composition rather than a data table.'
       : 'This is one of at most two dense numeric surfaces in the set. Keep it singular and coherent.';
 
+  // El qualifier "ESCENARIO ILUSTRATIVO" es interno: gobierna validación y persistencia,
+  // pero NO se dibuja en la imagen. El respaldo legal de la pieza es el disclaimer de marca
+  // que se monta aparte, no un sello sobre los documentos.
   return `ECONOMIC FACTS — EXACT AND NON-NEGOTIABLE
 Scenario: ${presentation.scenarioId}
-Required visible qualifier: ${presentation.qualifier}
 Narrative purpose: ${presentation.narrativePurpose}
 Surface: ${presentation.suggestedSurface}
 Weight: ${presentation.weight}
@@ -1182,10 +1267,22 @@ function environmentalTextBlock(slide: CarouselPromptSlideInput): string {
     ? `Beyond the ${dataBlockName} above and these labels, nothing else renders legibly: every other surface stays abstract — out of focus, cropped or turned away.`
     : 'Only these, spelled exactly. Everything else on those surfaces stays abstract: out of focus, cropped or turned away.';
 
+  /**
+   * The rule the user keeps hitting: a surface's numbers must match its authorization.
+   *
+   * When NO figures are authorized, the scene may still show a quote card, an invoice
+   * or a screen because the visual metaphor asked for one — and the model fills it with
+   * an invented "total 1,472.80 USD". A lone amount is not "words", so "no invented
+   * words" did not stop it. This spells out that with no authorized data there are NO
+   * amounts, numbers, currencies, rates or totals at all: the card is a blank shape.
+   */
+  const noInventedNumbers =
+    'No amounts, numbers, currency symbols, exchange rates, totals or prices of any kind — a card, quote or invoice with no authorized data stays completely blank on its value lines (grey placeholder rules, never a legible figure).';
+
   if (labels.length === 0) {
     return hasAuthorizedData
       ? `TEXT INSIDE OBJECTS: nothing beyond the ${dataBlockName} above. Any other document, screen or label in frame stays abstract — out of focus, cropped or turned away. No invented words, no filler paragraphs, no pseudo-text.`
-      : 'TEXT INSIDE OBJECTS: none on this slide. Documents, screens and labels stay abstract — out of focus, cropped or turned away. No invented words, no filler paragraphs, no pseudo-text.';
+      : `TEXT INSIDE OBJECTS: none on this slide. Documents, screens, quote cards and labels stay abstract — out of focus, cropped or turned away. No invented words, no filler paragraphs, no pseudo-text. ${noInventedNumbers}`;
   }
 
   return `TEXT INSIDE OBJECTS — these exact labels render legibly, because they are what makes the scene explain the concept:\n${labels
@@ -1476,6 +1573,14 @@ function assembleCarouselSlidePrompt(params: {
      * is the visual SYSTEM; the subject belongs to each slide.
      */
     `CAROUSEL SLIDE ${slide.index + 1} OF ${totalSlides} — narrative role "${slide.role}". This image is one piece of a series. The DESIGN SPEC below is identical across every slide on purpose: keep the same visual family, the same camera treatment and the same palette. The SUBJECT and the COMPOSITION are this slide's own — they are stated below and they change from slide to slide.`,
+    /**
+     * The numeric invariants go FIRST, before the long creative brief.
+     *
+     * Placed near the numbers-heavy blocks at the end, this got buried: the prompt is
+     * mostly art direction, and the model weights the half it has more of. Stated at
+     * the top it anchors the amount before the scene is even described.
+     */
+    canonicalFiguresBlock(slide),
     /**
      * The recurring subject is asserted only where it belongs.
      *

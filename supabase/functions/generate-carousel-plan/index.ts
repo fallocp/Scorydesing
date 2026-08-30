@@ -31,6 +31,7 @@ import { getSceneKit } from '../_shared/sceneKitRegistry.ts';
 import { parseModelJson } from '../_shared/parseModelJson.ts';
 import { rankRoutesByNovelty, resolveCompatibleRoutes } from '../_shared/carouselStoryRegistry.ts';
 import {
+  applyForwardFigureSchema,
   beatJobForRole,
   buildCarouselPlanPrompt,
   digestPlan,
@@ -409,7 +410,12 @@ serve(async (req) => {
 
     // --- Preflight ----------------------------------------------------------
 
-    let plan = initialPlan;
+    /*
+     * Forward: el código fija qué cifras lleva cada slide según su rol, en vez de dejarlo
+     * al LLM (que inventaba). Se aplica antes del preflight para que la validación vea la
+     * estructura definitiva.
+     */
+    let plan = applyForwardFigureSchema(initialPlan);
     let validation = validateCarouselCreativePlan(plan, ctx);
     const appliedRepairs: AppliedRepair[] = [];
     const repairHistory: RepairRound[] = [];

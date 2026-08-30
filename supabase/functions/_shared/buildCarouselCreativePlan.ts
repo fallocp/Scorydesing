@@ -129,6 +129,122 @@ export function beatJobForRole(role: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// Schema de cifras del forward
+// ---------------------------------------------------------------------------
+
+/**
+ * Qué cifras lleva cada slide del forward, decidido por CÓDIGO y no por el LLM.
+ *
+ * El planner inventaba: la slide de riesgo mezclaba tipo de cambio con el monto en USD, y
+ * la de solución repetía el riesgo en vez de mostrar el costo ya cerrado. Con un schema
+ * fijo por rol, la estructura financiera es la misma en cada corrida y cada slide dice lo
+ * que le toca. El LLM sigue escribiendo la historia; las cifras las coloca el sistema.
+ *
+ * La clave: solución y cierre NO piden `exposed_*` ni el delta, así que dejan de repetir
+ * el riesgo y muestran el estado resuelto. Los hechos de margen se piden aunque puedan no
+ * existir (sin precio de venta): en ese caso se filtran solos al proyectar.
+ */
+interface ForwardFigureSlot {
+  factKeys: CarouselEconomicFactKey[];
+  weight: CarouselFigureWeight;
+  suggestedSurface: CarouselFigureSurface;
+  /**
+   * La escena, fija. Qué muestra la imagen y —sobre todo— CUÁNTOS escenarios. La escena
+   * que escribía el LLM pedía "dos supuestos de tipo de cambio" en slides que el schema
+   * dejó con una sola cifra, y el modelo inventaba la segunda tasa para cumplirla. Aquí la
+   * escena y las cifras se declaran juntas para que no puedan contradecirse.
+   */
+  visualEvidence: string;
+  /** El recurso que lo demuestra. También fijo. */
+  visualDevice: string;
+}
+
+const FORWARD_FIGURE_SCHEMA: Record<string, ForwardFigureSlot> = {
+  // El precio ya está puesto; el costo importado todavía no. UN escenario.
+  tension: {
+    factKeys: ['operation_usd', 'base_rate', 'base_cost_mxn', 'sale_price_mxn'],
+    weight: 'featured',
+    suggestedSurface: 'object_label',
+    visualEvidence:
+      'La autoparte importada, lista para venderse, con su etiqueta de precio de venta y, junto a ella, su costo presupuestado en pesos. Un solo estado: el precio ya existe, el costo apenas se define. No comparar tasas ni mostrar un segundo escenario.',
+    visualDevice: 'la autoparte con su etiqueta de precio de venta y su costo presupuestado',
+  },
+  // El costo nace en dólares. UN escenario.
+  shift: {
+    factKeys: ['operation_usd', 'base_rate', 'base_cost_mxn'],
+    weight: 'featured',
+    suggestedSurface: 'object_label',
+    visualEvidence:
+      'La misma autoparte con una etiqueta que revela que su costo nace en dólares: la operación en USD y su costo presupuestado en pesos al tipo de cambio actual. Una sola lectura, no una comparación de tasas.',
+    visualDevice: 'la autoparte con una etiqueta que muestra la operación en USD y su costo en pesos',
+  },
+  // Dos escenarios de costo y el margen que se aprieta. La ÚNICA slide comparativa.
+  risk: {
+    factKeys: [
+      'base_rate', 'exposed_rate', 'base_cost_mxn', 'exposed_cost_mxn',
+      'cost_delta_mxn', 'base_gross_margin_pct', 'exposed_gross_margin_pct',
+    ],
+    weight: 'heavy',
+    suggestedSurface: 'document',
+    visualEvidence:
+      'La misma autoparte con dos etiquetas de costo comparables sobre el mismo pedido: presupuestado (HOY) y sin cobertura (PAGO). El precio de venta es idéntico en las dos; lo que cambia es el costo, y con él el margen se aprieta. Exactamente dos escenarios, ni uno más.',
+    visualDevice: 'dos etiquetas de costo sobre la misma autoparte, HOY contra PAGO, con el margen visible',
+  },
+  // El costo queda cerrado: forward pactado, costo final, utilidad definida. UN escenario.
+  solution: {
+    factKeys: ['operation_usd', 'base_rate', 'base_cost_mxn', 'sale_price_mxn', 'base_gross_profit_mxn'],
+    weight: 'featured',
+    suggestedSurface: 'object_label',
+    visualEvidence:
+      'La misma autoparte con una confirmación de cobertura y una sola etiqueta de costo ya cerrado en pesos: forward pactado, costo final y utilidad definida. Un único valor resuelto, sin comparar escenarios.',
+    visualDevice: 'la autoparte con la confirmación de cobertura y la etiqueta de costo final cerrado',
+  },
+  // El cierre: margen protegido. UN escenario.
+  cta: {
+    factKeys: ['sale_price_mxn', 'base_cost_mxn', 'base_gross_profit_mxn', 'base_gross_margin_pct'],
+    weight: 'featured',
+    suggestedSurface: 'object_label',
+    visualEvidence:
+      'La misma autoparte como cierre de la historia, con una etiqueta de margen protegido: precio de venta fijo, costo final y utilidad definida. Un solo estado, ya resuelto.',
+    visualDevice: 'la autoparte resuelta con una etiqueta de margen protegido y el comprobante final',
+  },
+};
+
+/**
+ * Reemplaza los requisitos de imagen de cada beat forward por los del schema de su rol:
+ * las cifras (factKeys, peso, superficie) Y la escena (qué muestra, cuántos escenarios).
+ *
+ * El copy (headline/body) lo sigue escribiendo el guion; lo que se fija aquí es lo que se
+ * dibuja, para que el LLM no pueda pedir una comparación en un slide de un solo escenario y
+ * el modelo de imagen termine inventando una segunda tasa. Se corre después de normalizar y
+ * antes del preflight, así el plan validado ya trae la estructura definitiva.
+ */
+export function applyForwardFigureSchema(plan: CarouselCreativePlan): CarouselCreativePlan {
+  if (plan.figureScenarioId !== 'forward_protection') return plan;
+  return {
+    ...plan,
+    storyboard: plan.storyboard.map((beat) => {
+      const slot = FORWARD_FIGURE_SCHEMA[beat.role];
+      if (!slot) return beat;
+      const figureRequirement: CarouselBeatFigureRequirement = {
+        mode: 'illustrative',
+        scenarioId: 'forward_protection',
+        factKeys: [...slot.factKeys],
+        narrativePurpose: slot.visualEvidence,
+        weight: slot.weight,
+        suggestedSurface: slot.suggestedSurface,
+      };
+      return {
+        ...beat,
+        visualEvidence: slot.visualEvidence,
+        visualDevice: slot.visualDevice,
+        figureRequirement,
+      };
+    }),
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Prompt
 // ---------------------------------------------------------------------------
 
@@ -413,20 +529,22 @@ Ninguna de las rutas disponibles lleva cifras. "figureScenarioId" va en "none" y
   }
 
   const descriptions: Record<string, string> = {
-    quote_comparison: 'dos cotizaciones simultáneas de la misma obligación, sin fechas futuras',
+    quote_comparison: 'dos cotizaciones simultáneas de la MISMA compra: el costo en USD es idéntico en ambas (mismo producto, mismo monto) y lo único que cambia es el tipo de cambio y el costo resultante en MXN. Nunca dos precios en USD distintos; sin fechas futuras',
     rate_comparison: 'la misma obligación con dos tipos de cambio distintos',
     rate_range:
       'un escenario hipotético entre dos niveles. La forma correcta es "si el tipo de cambio pasara de A a B"; la incorrecta es afirmar que llegará a B',
     repeated_operations: 'la misma operación varias veces',
     accumulated_difference: 'la suma de las diferencias de varias operaciones',
     margin_sensitivity: 'precio de venta fijo contra costo importado variable',
+    forward_protection:
+      'el forward: el costo PACTADO hoy contra el costo si NO se cubre y la tasa sube a un nivel posible. La misma operación en USD; lo que cambia es la tasa y el costo en MXN. Los hechos de margen (sale_price_mxn en adelante) solo existen cuando el set los trae: úsalos únicamente si aparecen en la lista. La conclusión es certidumbre del costo, nunca "hacia dónde va el mercado"',
     cashflow_certainty: 'un solo valor ya definido, sin contraparte',
   };
 
   return `## CIFRAS
 
 ${ctx.commercialIntent === 'quote_comparison'
-  ? 'MECANISMO COMERCIAL: compara dos cotizaciones SIMULTÁNEAS de la misma operación. Prohibido convertirlas en HOY/PAGO, usar fechas futuras o hablar de fijar, cerrar o definir una tasa. No es un forward.'
+  ? 'MECANISMO COMERCIAL: compara dos cotizaciones SIMULTÁNEAS de la misma operación. El monto en USD es EL MISMO en ambas —el producto no cambia de precio—; lo único que se compara es el costo en MXN que resulta de aplicar cada tipo de cambio. El copy nunca contrapone un monto en USD menor contra uno mayor (eso diría que se compró algo distinto): la única variable comparada es el peso vía el TC. Prohibido convertirlas en HOY/PAGO, usar fechas futuras o hablar de fijar, cerrar o definir una tasa. No es un forward.'
   : ctx.commercialIntent === 'cost_plus_speed'
     ? 'MECANISMO COMERCIAL: costo y condición operativa confirmada son dos criterios de una misma decisión. No inventes horas ni plazos.'
     : ctx.commercialIntent === 'forward'

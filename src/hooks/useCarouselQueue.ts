@@ -539,6 +539,7 @@ export function useCarouselQueue({
           const economicFacts = projectCarouselEconomicFacts(
             nextEconomicScenario,
             requirement.factKeys ?? [],
+            beat.role,
           );
           if (economicFacts.length === 0) return slot;
 

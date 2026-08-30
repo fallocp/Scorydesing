@@ -1,4 +1,5 @@
 import {
+  CAROUSEL_FORWARD_MARGIN_FACT_KEYS,
   CAROUSEL_MAX_FX_RATE,
   CAROUSEL_MAX_OPERATION_USD,
   CAROUSEL_MIN_FX_RATE,
@@ -89,6 +90,28 @@ export function validateCarouselEconomicScenario(
     return `La segunda tasa debe estar entre ${CAROUSEL_MIN_FX_RATE} y ${CAROUSEL_MAX_FX_RATE}.`;
   }
 
+  /*
+   * Forward: la tasa expuesta es un input explícito, no una deriva. Tiene que existir y
+   * caer en el mismo rango que cualquier otra tasa. El precio de venta es opcional —marca
+   * si hay historia de margen— pero cuando viene, tiene que ser un monto positivo.
+   */
+  if (expectedScenarioId === 'forward_protection') {
+    if (
+      !isPositiveFinite(assumptions.exposedRate) ||
+      assumptions.exposedRate < CAROUSEL_MIN_FX_RATE ||
+      assumptions.exposedRate > CAROUSEL_MAX_FX_RATE
+    ) {
+      return `La tasa expuesta debe estar entre ${CAROUSEL_MIN_FX_RATE} y ${CAROUSEL_MAX_FX_RATE}.`;
+    }
+    if (
+      assumptions.salePriceMxn !== undefined &&
+      (!isPositiveFinite(assumptions.salePriceMxn) ||
+        assumptions.salePriceMxn > CAROUSEL_MAX_OPERATION_USD * CAROUSEL_MAX_FX_RATE)
+    ) {
+      return 'El precio de venta debe ser un monto positivo.';
+    }
+  }
+
   if (!isRecord(value.derived)) return 'Los valores derivados no son válidos.';
   for (const derivedValue of Object.values(value.derived)) {
     if (derivedValue !== undefined && (typeof derivedValue !== 'number' || !Number.isFinite(derivedValue))) {
@@ -97,7 +120,17 @@ export function validateCarouselEconomicScenario(
   }
 
   if (!Array.isArray(value.facts)) return 'Los hechos económicos deben ser una lista.';
-  const expectedKeys = CAROUSEL_SCENARIO_FACT_KEYS[expectedScenarioId];
+  /*
+   * En forward, los hechos de margen son un grupo opcional: existen exactamente cuando el
+   * escenario trae precio de venta. Sin él, el set esperado es solo el costo. Así el
+   * "todo o nada" del margen se valida con la misma comparación exacta que el resto.
+   */
+  const marginKeySet = new Set<CarouselEconomicFactKey>(CAROUSEL_FORWARD_MARGIN_FACT_KEYS);
+  const forwardWithoutMargin =
+    expectedScenarioId === 'forward_protection' && assumptions.salePriceMxn === undefined;
+  const expectedKeys = forwardWithoutMargin
+    ? CAROUSEL_SCENARIO_FACT_KEYS[expectedScenarioId].filter((key) => !marginKeySet.has(key))
+    : CAROUSEL_SCENARIO_FACT_KEYS[expectedScenarioId];
   const expectedKeySet = new Set<CarouselEconomicFactKey>(expectedKeys);
   const factsByKey = new Map<CarouselEconomicFactKey, UnknownRecord>();
 
@@ -155,6 +188,58 @@ export function validateCarouselEconomicScenario(
     for (const [key, expected] of Object.entries(expectedValues)) {
       const actual = factsByKey.get(key as CarouselEconomicFactKey)?.value as number;
       const tolerance = key === 'quote_difference_pct' ? 0.05 : 0.005;
+      if (!approximatelyEqual(actual, expected as number, tolerance)) {
+        return `El hecho económico ${key} no coincide con las asunciones del escenario.`;
+      }
+    }
+  }
+
+  /*
+   * Forward: el costo pactado y el expuesto son cada uno USD × su tasa, y el delta es su
+   * resta. El margen, si viene, sale del mismo precio de venta contra los dos costos. Se
+   * revisa aquí, en la frontera, porque el caller calcula pero no se le cree.
+   */
+  if (expectedScenarioId === 'forward_protection') {
+    const amountUsd = assumptions.amountUsd as number;
+    const baseRate = roundTo(assumptions.baseRate as number, 2);
+    const exposedRate = roundTo(assumptions.exposedRate as number, 2);
+    const baseCost = roundTo(baseRate * amountUsd, 2);
+    const exposedCost = roundTo(exposedRate * amountUsd, 2);
+    const deltaMxn = roundTo(exposedCost - baseCost, 2);
+    const deltaPct = baseCost === 0 ? 0 : roundTo((deltaMxn / baseCost) * 100, 1);
+    const expectedValues: Partial<Record<CarouselEconomicFactKey, number>> = {
+      operation_usd: amountUsd,
+      base_rate: baseRate,
+      exposed_rate: exposedRate,
+      base_cost_mxn: baseCost,
+      exposed_cost_mxn: exposedCost,
+      cost_delta_mxn: deltaMxn,
+      cost_delta_pct: deltaPct,
+    };
+
+    if (!forwardWithoutMargin) {
+      /*
+       * Utilidad = ingreso − costo. Importas: el fijo es el ingreso (precio de venta) y el
+       * variable es el costo. Exportas: el fijo es el costo y el variable es el ingreso. El
+       * margen se mide sobre el ingreso, que es el fijo en importación y el variable en
+       * exportación.
+       */
+      const isExport = assumptions.direction === 'export';
+      const fixed = roundTo(assumptions.salePriceMxn as number, 2);
+      const baseProfit = roundTo(isExport ? baseCost - fixed : fixed - baseCost, 2);
+      const exposedProfit = roundTo(isExport ? exposedCost - fixed : fixed - exposedCost, 2);
+      const baseRevenue = isExport ? baseCost : fixed;
+      const exposedRevenue = isExport ? exposedCost : fixed;
+      expectedValues.sale_price_mxn = fixed;
+      expectedValues.base_gross_profit_mxn = baseProfit;
+      expectedValues.exposed_gross_profit_mxn = exposedProfit;
+      expectedValues.base_gross_margin_pct = baseRevenue === 0 ? 0 : roundTo((baseProfit / baseRevenue) * 100, 1);
+      expectedValues.exposed_gross_margin_pct = exposedRevenue === 0 ? 0 : roundTo((exposedProfit / exposedRevenue) * 100, 1);
+    }
+
+    for (const [key, expected] of Object.entries(expectedValues)) {
+      const actual = factsByKey.get(key as CarouselEconomicFactKey)?.value as number;
+      const tolerance = key.endsWith('_pct') ? 0.05 : 0.005;
       if (!approximatelyEqual(actual, expected as number, tolerance)) {
         return `El hecho económico ${key} no coincide con las asunciones del escenario.`;
       }
