@@ -60,6 +60,7 @@ export function SlideGeneratorPanel({
 
   const [mode, setMode] = useState<'create' | 'refine'>('create');
   const [style, setStyle] = useState<'light' | 'navy'>('light');
+  const [format, setFormat] = useState<'slide' | 'letter'>('slide');
   const [instruction, setInstruction] = useState('');
   const [feedback, setFeedback] = useState('');
   const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
@@ -116,6 +117,7 @@ export function SlideGeneratorPanel({
         instruction: instruction.trim() || undefined,
         image_base64: imageDataUrl || undefined,
         style,
+        format,
       });
       onInsert(res.html);
       toast({ title: '✨ Slide generado', description: 'Se insertó después del slide actual. Edítalo en el Editor Visual.' });
@@ -308,6 +310,31 @@ export function SlideGeneratorPanel({
                     title="Próximamente"
                   >
                     Navy (próximamente)
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium">Formato</label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setFormat('slide')}
+                    className={cn(
+                      'flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors',
+                      format === 'slide' ? 'border-[#FF7A4A] bg-[#FF7A4A]/10 text-[#E85A2C]' : 'text-muted-foreground hover:bg-muted',
+                    )}
+                  >
+                    16:9 (slide)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormat('letter')}
+                    className={cn(
+                      'flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors',
+                      format === 'letter' ? 'border-[#FF7A4A] bg-[#FF7A4A]/10 text-[#E85A2C]' : 'text-muted-foreground hover:bg-muted',
+                    )}
+                  >
+                    Carta vertical
                   </button>
                 </div>
               </div>

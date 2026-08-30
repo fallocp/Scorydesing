@@ -30,6 +30,8 @@ export interface GenerateSlideRequest {
   logo_url?: string;
   /** Estilo del sistema de diseño. Hoy 'light' (claro). 'navy' próximamente. */
   style?: 'light' | 'navy';
+  /** Formato del lienzo: 'slide' = 16:9 (default), 'letter' = carta vertical. */
+  format?: 'slide' | 'letter';
 }
 
 export interface GenerateSlideResponse {

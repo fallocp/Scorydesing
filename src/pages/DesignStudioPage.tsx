@@ -15,7 +15,7 @@
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Loader2, Sparkles, Save } from 'lucide-react';
+import { ArrowLeft, Loader2, Sparkles, Save, Newspaper, TrendingUp } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -31,6 +31,8 @@ import { ContentModeSelector } from '@/components/design-studio/ContentModeSelec
 import { PieceCopyEditor } from '@/components/design-studio/PieceCopyEditor';
 import { CopyBankPanel } from '@/components/design-studio/CopyBankPanel';
 import { CarouselPanel } from '@/components/design-studio/CarouselPanel';
+import { NewsPanel } from '@/components/design-studio/NewsPanel';
+import { FxDailyPanel } from '@/components/design-studio/FxDailyPanel';
 import { AngleSelector, type SelectedAngle } from '@/components/AngleSelector';
 import { IndustrySelector } from '@/components/design-studio/IndustrySelector';
 import { ReferenceImageUploader } from '@/components/design-studio/ReferenceImageUploader';
@@ -1146,6 +1148,30 @@ export default function DesignStudioPage() {
           validationErrors={validationErrors}
         />
 
+        {/* Top-level: Estudio comercial vs Xending News (independiente) */}
+        <Tabs defaultValue="studio" className="w-full">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="studio">Estudio</TabsTrigger>
+            <TabsTrigger value="news">
+              <Newspaper className="mr-2 h-4 w-4" />
+              Xending News
+            </TabsTrigger>
+            <TabsTrigger value="fx-daily">
+              <TrendingUp className="mr-2 h-4 w-4" />
+              Daily Report FX
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="news" className="mt-6">
+            <NewsPanel />
+          </TabsContent>
+
+          <TabsContent value="fx-daily" className="mt-6">
+            <FxDailyPanel />
+          </TabsContent>
+
+          <TabsContent value="studio" className="mt-6 space-y-8">
+
         {/* Mode Selection Tabs */}
         <Tabs
           value={store.inputMode}
@@ -1721,6 +1747,8 @@ export default function DesignStudioPage() {
             });
           }}
         />
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );

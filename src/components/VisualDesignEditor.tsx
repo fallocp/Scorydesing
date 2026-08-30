@@ -2358,6 +2358,10 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
   // Manda la imagen al fondo del slide (detrás de cards y texto)
   const sendBehindAll = useCallback(() => applyStyleChange('zIndex', '-1'), [applyStyleChange]);
 
+  // Ancestros neutralizados por "usar como fondo", por selector de imagen, para
+  // poder revertirlos en clearSlideBackground.
+  const bgAncestorsRef = useRef<Record<string, string[]>>({});
+
   // Convierte la imagen en FONDO de todo el slide (capa absoluta detrás del contenido).
   // No reacomoda el resto (sale del flujo) y cubre toda la diapositiva.
   const useAsSlideBackground = useCallback(() => {
@@ -2367,18 +2371,28 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
     pushUndo();
     const sel = overlay.def.selector;
 
-    // Calcula el selector del SLOT/contenedor original del que sale la imagen, para
-    // ocultar su cajita (fondo/borde/sombra). Si no, queda una caja vacía visible
-    // detrás del fondo a pantalla completa.
-    let parentSel: string | null = null;
+    // La imagen se posiciona 'absolute' y debe llenar el .slide COMPLETO. Como
+    // 'absolute' se resuelve contra el ancestro POSICIONADO más cercano, si la
+    // imagen vive dentro de un slot/banda posicionada solo llenaría esa caja
+    // (de ahí "se hace grande pero no sale de ahí"). Recogemos toda la cadena de
+    // ancestros hasta el .slide y la neutralizamos (position:static, overflow
+    // visible) para que la imagen escape de sus cajas y el .slide sea su bloque
+    // contenedor. El slot inmediato además pierde su cajita (fondo/borde/sombra).
+    let slotSel: string | null = null;
+    const ancestorSels: string[] = [];
     try {
       const doc = iframeRef.current?.contentDocument || null;
       const root = doc ? (doc.querySelector('.slide') || doc.querySelector('.card') || doc.body) : null;
       const el = doc ? doc.querySelector(sel) : null;
-      const parent = el?.parentElement || null;
-      if (doc && root && el && parent && parent !== root && root.contains(parent)) {
+      if (doc && root && el) {
         const rootSel = root.classList.length ? `.${root.classList[0]}` : root.tagName.toLowerCase();
-        parentSel = `${rootSel} > ${cssUniquePath(parent, root)}`;
+        let node: HTMLElement | null = el.parentElement;
+        while (node && node !== root && root.contains(node)) {
+          const s = `${rootSel} > ${cssUniquePath(node, root)}`;
+          if (!slotSel) slotSel = s;
+          ancestorSels.push(s);
+          node = node.parentElement;
+        }
       }
     } catch { /* selector no resoluble */ }
 
@@ -2400,10 +2414,19 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
           transform: '',
         },
       };
+      // Neutraliza la cadena de ancestros para que el .slide (position:relative)
+      // sea el bloque contenedor de la imagen absoluta.
+      for (const aSel of ancestorSels) {
+        next[aSel] = {
+          ...(prev[aSel] || {}),
+          position: 'static',
+          overflow: 'visible',
+        };
+      }
       // Oculta la cajita del slot original (sin borrarla, para no romper el layout).
-      if (parentSel) {
-        next[parentSel] = {
-          ...(prev[parentSel] || {}),
+      if (slotSel) {
+        next[slotSel] = {
+          ...(next[slotSel] || {}),
           background: 'transparent',
           'background-image': 'none',
           border: '0',
@@ -2413,6 +2436,7 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
       }
       return next;
     });
+    bgAncestorsRef.current[sel] = ancestorSels;
     setChanges((c) => [...c, { id: sel, property: 'slide-background', oldValue: '', newValue: '' }]);
   }, [selectedId, overlays, pushUndo]);
 
@@ -2432,11 +2456,22 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
       'transform', 'mask-image', '-webkit-mask-image', 'mask-repeat',
       '-webkit-mask-repeat', 'mask-size', '-webkit-mask-size',
     ];
+    const ancestors = bgAncestorsRef.current[sel] || [];
     setStyleOverrides((prev) => {
       const cur = { ...(prev[sel] || {}) };
       for (const p of STRIP) delete cur[p];
-      return { ...prev, [sel]: cur };
+      const nextAll: Record<string, Record<string, string>> = { ...prev, [sel]: cur };
+      // Revierte los ancestros que se neutralizaron para el modo fondo.
+      for (const aSel of ancestors) {
+        const a = { ...(nextAll[aSel] || {}) };
+        for (const p of ['position', 'overflow', 'background', 'background-image', 'border', 'box-shadow']) {
+          delete a[p];
+        }
+        nextAll[aSel] = a;
+      }
+      return nextAll;
     });
+    delete bgAncestorsRef.current[sel];
     // Limpia también la config de fundido radial guardada para este selector.
     delete radialRef.current[sel];
     setChanges((c) => [...c, { id: sel, property: 'clear-background', oldValue: '', newValue: '' }]);

@@ -523,13 +523,40 @@ const SLIDE_HERO_PLACEHOLDER = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.o
  */
 type SlideStyle = 'light' | 'navy';
 
-function buildSlideSystemPrompt(logoUrl: string, style: SlideStyle = 'light'): string {
+/** Formato del lienzo. 'slide' = pitch deck 16:9; 'letter' = carta vertical. */
+type SlideFormat = 'slide' | 'letter';
+
+/**
+ * Dimensiones del lienzo por formato. 'letter' mantiene el MISMO ancho que 16:9
+ * (1920) y solo crece en alto (carta vertical 8.5×11 → 1920×2485). Así todos los
+ * componentes horizontales y sus tamaños de fuente siguen válidos sin retoque: la
+ * página se compone apilando bandas de ancho completo de arriba hacia abajo.
+ */
+const SLIDE_FORMATS: Record<SlideFormat, { w: number; h: number; label: string }> = {
+  slide: { w: 1920, h: 1080, label: '1920×1080 (16:9 horizontal)' },
+  letter: { w: 1920, h: 2485, label: '1920×2485 (carta vertical 8.5×11)' },
+};
+
+function buildSlideSystemPrompt(
+  logoUrl: string,
+  style: SlideStyle = 'light',
+  format: SlideFormat = 'slide',
+): string {
   // 'navy' aún no está diseñado: se renderiza con 'light' hasta tener su set.
   void style;
+  const { w: SW, h: SH, label: sizeLabel } = SLIDE_FORMATS[format];
+  const isLetter = format === 'letter';
   const examples = buildSlideExamples(SLIDE_FONTS_URL, SLIDE_ICON_PLACEHOLDER, SLIDE_HERO_PLACEHOLDER);
+
+  // Regla de layout raíz: en 16:9 todo cabe en una pantalla; en carta la página
+  // fluye en vertical apilando bandas de ancho completo.
+  const layoutL1 = isLetter
+    ? `L1. Es una PÁGINA VERTICAL (carta). Compón apilando BANDAS de ancho completo de arriba hacia abajo, con margen exterior uniforme de 64px a los lados y separación uniforme (≈56px) entre bandas. Usa el alto disponible (${SH}px) con aire generoso; nada puede desbordar horizontalmente. Si una banda queda muy vacía, sube paddings/tamaños; si sobra contenido, AGREGA otra banda debajo en vez de encoger todo. El contenido puede terminar antes del borde inferior: no lo estires a la fuerza.`
+    : `L1. TODO el contenido vive DENTRO del lienzo ${SW}×${SH} con margen exterior uniforme de 64px por lado. NADA puede desbordar ni recortarse horizontal o verticalmente. Si no cabe, REDUCE tamaños/cantidad de ítems; jamás dejes que algo salga del borde.`;
+
   return `Eres un diseñador front-end senior especializado en slides de pitch deck B2B fintech.
-Generas UN slide HTML completo y autónomo de 1920×1080 en el sistema de diseño "Xending Light Editorial".
-NO inventas estilos nuevos: combinas EXCLUSIVAMENTE los componentes de la librería de abajo.
+Generas UN ${isLetter ? 'documento' : 'slide'} HTML completo y autónomo de ${sizeLabel} en el sistema de diseño "Xending Light Editorial".
+NO inventas estilos nuevos: combinas EXCLUSIVAMENTE los componentes de la librería de abajo.${isLetter ? '\nFORMATO CARTA VERTICAL: la página es RETRATO. Apila BANDAS de ancho completo de arriba hacia abajo (header con eyebrow+título, luego 1–4 bandas de contenido, y un footer opcional). Hay alto de sobra: NO intentes meter todo en una pantalla. Cada banda usa los MISMOS componentes horizontales de la librería (cards en fila, strip, panel, stats, mini-grid, split-row) a todo el ancho.' : ''}
 
 ## TOKENS
 :root { --mint:#2ED4C7; --coral:#FF7A4A; --navy:#0F1419; --navy-title:#081B57; --gray:#6B7280; }
@@ -553,10 +580,10 @@ Todo icono o ilustración es un PLACEHOLDER de imagen swappable con id ÚNICO en
 :root{--mint:#2ED4C7;--coral:#FF7A4A;--navy:#0F1419;--navy-title:#081B57;--gray:#6B7280;}
 *{margin:0;padding:0;box-sizing:border-box;}
 body{margin:0;overflow:hidden;background:#ffffff;}
-.slide{width:1920px;height:1080px;position:relative;overflow:hidden;font-family:'Poppins',sans-serif;background:linear-gradient(180deg,#ffffff 0%,#fbfcfd 100%);transform-origin:top left;}
+.slide{width:${SW}px;height:${SH}px;position:relative;overflow:hidden;font-family:'Poppins',sans-serif;background:linear-gradient(180deg,#ffffff 0%,#fbfcfd 100%);transform-origin:top left;}
 /* …estilos de componentes… */
 </style>
-<script>(function(){function resize(){var s=document.querySelector('.slide');if(!s)return;var w=document.documentElement.clientWidth||window.innerWidth;var h=document.documentElement.clientHeight||window.innerHeight;s.style.transform='scale('+Math.min(w/1920,h/1080)+')';}window.addEventListener('resize',resize);resize();setTimeout(resize,50);setTimeout(resize,200);})();</script>
+<script>(function(){function resize(){var s=document.querySelector('.slide');if(!s)return;var w=document.documentElement.clientWidth||window.innerWidth;var h=document.documentElement.clientHeight||window.innerHeight;s.style.transform='scale('+Math.min(w/${SW},h/${SH})+')';}window.addEventListener('resize',resize);resize();setTimeout(resize,50);setTimeout(resize,200);})();</script>
 </head><body style="margin:0;overflow:hidden;background:#ffffff;width:100%;height:100vh;"><div class="slide"><!-- contenido --></div></body></html>
 
 ## LIBRERÍA DE COMPONENTES (HTML + CSS exacto)
@@ -628,8 +655,16 @@ HTML:
 </div>
 CSS: .split-row{display:flex;gap:28px;align-items:stretch;} .split-card{flex:1;background:#fff;border:1px solid rgba(8,27,87,0.06);border-radius:26px;box-shadow:0 20px 55px rgba(15,20,25,0.06);padding:38px 40px;display:flex;align-items:flex-start;gap:30px;} .split-icon{flex:none;width:150px;height:150px;display:flex;align-items:center;justify-content:center;} .split-icon img{width:100%;height:100%;object-fit:contain;} .split-body{flex:1;min-width:0;} .split-card h3{font-family:'Montserrat',sans-serif;font-weight:700;font-size:28px;line-height:1.1;color:var(--navy-title);} .split-tagline{font-weight:600;font-size:15px;margin-top:4px;} .split-tagline.tq{color:var(--mint);} .split-tagline.cr{color:var(--coral);} .split-text{font-weight:400;font-size:15px;line-height:1.55;color:var(--gray);margin-top:12px;} .split-list-label{font-weight:600;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--gray);margin-top:18px;} .split-list{display:grid;grid-template-columns:1fr 1fr;gap:8px 20px;margin-top:12px;} .split-li{font-weight:500;font-size:14px;line-height:1.35;color:var(--navy-title);display:flex;align-items:center;gap:8px;} .split-li::before{content:'›';color:var(--coral);font-weight:700;font-size:16px;line-height:1;}
 
+### Banda hero a sangre (imagen GRANDE full-bleed + texto) — portadas/encabezados
+Úsala cuando se pida una imagen GRANDE que llegue hasta los bordes de la página, con el texto al lado o encima. SOLO la imagen sangra a los bordes; el TEXTO conserva SIEMPRE su margen seguro (padding 64px) y NUNCA usa márgenes/offsets negativos ni se sale del lienzo. La imagen ocupa su columna completa con object-fit:cover (se recorta, no se deforma). Coloca esta banda como PRIMER hijo directo del .slide y NO le pongas padding horizontal al .slide (el padding va dentro de cada banda), para que la imagen toque el borde real. Variante de UNA imagen (a la derecha) o DOS (una a cada lado con el texto al centro, usando .hero-full.duo).
+HTML (una imagen a la derecha):
+<div class="hero-full"><div class="hero-media right"><img src="${SLIDE_HERO_PLACEHOLDER}#hero1" alt=""/></div><div class="hero-copy"><div class="eyebrow-row"><span class="eyebrow-line"></span><span class="eyebrow">Eyebrow</span></div><h1>Título <span class="accent">acento</span></h1><div class="accent-line"></div><p class="subtitle">Texto de apoyo.</p></div></div>
+HTML (dos imágenes, texto al centro): añade class \`duo\` a .hero-full y una segunda media a la izquierda: <div class="hero-full duo"><div class="hero-media left"><img src="${SLIDE_HERO_PLACEHOLDER}#hero1" alt=""/></div><div class="hero-copy">…</div><div class="hero-media right"><img src="${SLIDE_HERO_PLACEHOLDER}#hero2" alt=""/></div></div>
+CSS: .hero-full{position:relative;width:100%;height:820px;overflow:hidden;display:flex;} .hero-media{position:absolute;top:0;height:100%;width:52%;overflow:hidden;} .hero-media img{width:100%;height:100%;object-fit:cover;display:block;} .hero-media.right{right:0;} .hero-media.left{left:0;} .hero-copy{position:relative;z-index:2;width:48%;height:100%;padding:64px;display:flex;flex-direction:column;justify-content:center;} .hero-full.duo .hero-media{width:28%;} .hero-full.duo .hero-copy{width:44%;margin:0 auto;text-align:center;align-items:center;} .hero-full.duo .eyebrow-row{justify-content:center;}
+(Para el texto ENCIMA de una imagen a sangre total: usa una sola .hero-media a width:100% y añade un velo de legibilidad \`.hero-copy::before{content:'';position:absolute;inset:0;background:linear-gradient(90deg,rgba(255,255,255,0.92) 0%,rgba(255,255,255,0.75) 45%,rgba(255,255,255,0) 70%);z-index:-1;}\`.)
+
 ## REGLAS DURAS
-1. Lienzo 1920×1080 SIEMPRE, con el <script> de resize del scaffold.
+1. Lienzo ${SW}×${SH} SIEMPRE, con el <script> de resize del scaffold.
 2. Fondo claro (gradiente blanco). Prohibido fondo navy/coral lleno.
 3. Cajas/paneles blancos con borde neutro. Sin color en el borde exterior.
 4. Acentos de color SOLO en: línea coral, título acento coral, pill turquesa, .hl turquesa, marcas/divisores. Nunca saturar.
@@ -638,7 +673,7 @@ CSS: .split-row{display:flex;gap:28px;align-items:stretch;} .split-card{flex:1;b
 7. Texto en español. No inventes datos ni claims.
 
 ## LAYOUT Y ALINEACIÓN (REGLAS DURAS — prohibido romperlas)
-L1. TODO el contenido vive DENTRO del lienzo 1920×1080 con margen exterior uniforme de 64px por lado. NADA puede desbordar ni recortarse horizontal o verticalmente. Si no cabe, REDUCE tamaños/cantidad de ítems; jamás dejes que algo salga del borde.
+${layoutL1}
 L2. Paneles con 3 o más ítems = SIEMPRE CSS grid con columnas fijas (\`grid-template-columns:1fr 1fr\` para 4 ítems en 2×2, o \`repeat(4,1fr)\` para una franja de 4). PROHIBIDO un \`display:flex\` en una sola fila que pueda exceder el ancho. Si dudas, usa grid y deja que envuelva.
 L3. Tamaño de iconos según contexto:
    - icon-slot grande (≈190px, centrado) SOLO en cards verticales tipo "stat" donde el icono es el héroe visual de la caja.
@@ -646,6 +681,7 @@ L3. Tamaño de iconos según contexto:
 L4. Cards en una misma fila: mismo ancho (\`flex:1\` o columnas iguales), misma altura (\`align-items:stretch\` o height común) y mismo gap. Comparten línea superior e inferior; nada queda "flotando" más arriba o abajo que su vecino.
 L5. Alineación consistente: gutters/gaps iguales entre bloques hermanos, márgenes izquierdo/derecho idénticos en header, cuerpo y franja inferior (todos arrancan y terminan en la misma columna de 64px). Listas de 2 columnas usan grid con el mismo gap.
 L6. Densidad: máximo 2–3 cards grandes por fila, máximo 4 ítems en una franja, máximo ~6–8 ítems por lista. Si el contenido pedido excede esto, prioriza y resume en lugar de encoger todo hasta romper la jerarquía.
+L7. Imágenes a sangre (full-bleed): SOLO las imágenes pueden llegar hasta el borde real de la página; usa el componente "Banda hero a sangre". El TEXTO NUNCA sangra ni se pega al borde: conserva su padding seguro (≥64px) y JAMÁS uses márgenes/offsets negativos, width mayor al lienzo, ni left/right negativos que empujen contenido fuera del borde. Si una imagen debe crecer, crece la imagen o su columna; el texto se queda dentro de su área segura. Prohibido que cualquier letra quede cortada por el borde del lienzo.
 
 ## EJEMPLOS DE REFERENCIA (GOLD STANDARD)
 Estos son slides REALES del deck. Replica EXACTAMENTE este nivel de detalle: estructura, clases, tamaños, espaciados, sombras, líneas coral, tipografía y colores. NO cambies los estilos del sistema; SOLO adapta el texto, el número de cajas/columnas y los ids de las imágenes según lo que se pida o lo que muestre la imagen de referencia.
@@ -682,14 +718,14 @@ Responde SOLO con el HTML completo del slide. Sin explicaciones, sin markdown fe
 
 /** Refinement prompt for slide HTML→HTML iteration (chat estilo Canva). */
 function buildSlideIterationPrompt(): string {
-  return `Eres un diseñador front-end senior. Refinas un slide HTML existente (1920×1080, sistema "Xending Light Editorial") según el feedback del usuario.
+  return `Eres un diseñador front-end senior. Refinas un slide/documento HTML existente (sistema "Xending Light Editorial") según el feedback del usuario.
 
 ## REGLAS
 1. Aplica SOLO los cambios solicitados; mantén todo lo demás intacto.
-2. Conserva el lienzo 1920×1080 y el <script> de resize.
+2. Conserva el lienzo con las dimensiones ACTUALES del HTML (no cambies width/height del .slide) y el <script> de resize tal como están.
 3. Respeta los tokens y componentes del sistema (cajas blancas borde neutro, Montserrat/Poppins, acentos coral/turquesa, placeholders de imagen con id único).
 4. No elimines ids de imágenes existentes salvo que se pida.
-5. Mantén la alineación: nada puede desbordar el lienzo 1920×1080 (margen exterior 64px). Paneles con 3+ ítems en grid, nunca en una fila que se salga. Iconos inline 40–64px salvo el icon-slot héroe (≈190px) de cards stat. Cards de una fila con igual ancho, alto y gap.
+5. Mantén la alineación: nada puede desbordar el ancho del lienzo (margen exterior 64px). Si el lienzo es vertical (carta), el contenido apila bandas de ancho completo de arriba hacia abajo. Paneles con 3+ ítems en grid, nunca en una fila que se salga. Iconos inline 40–64px salvo el icon-slot héroe (≈190px) de cards stat. Cards de una fila con igual ancho, alto y gap.
 6. Si recibes DOS imágenes (OBJETIVO + RESULTADO ACTUAL), compáralas: detecta qué difiere (orden, layout, alineación, tamaños, componentes, contenido) y corrige el HTML para que el resultado se parezca al OBJETIVO. No te limites al texto del feedback si las imágenes muestran más diferencias.
 7. Devuelve HTML completo y funcional.
 
@@ -720,6 +756,7 @@ serve(async (req) => {
         render_base64,
         logo_url,
         style,
+        format,
       } = body as {
         instruction?: string;
         image_base64?: string;
@@ -729,10 +766,12 @@ serve(async (req) => {
         render_base64?: string;
         logo_url?: string;
         style?: SlideStyle;
+        format?: SlideFormat;
       };
 
       const slideLogoUrl = logo_url || XENDING_LOGO_URL;
       const slideStyle: SlideStyle = style === 'navy' ? 'navy' : 'light';
+      const slideFormat: SlideFormat = format === 'letter' ? 'letter' : 'slide';
       let messages: Array<{ role: string; content: any }>;
 
       if (current_html && iteration_feedback) {
@@ -778,7 +817,7 @@ serve(async (req) => {
           );
         }
 
-        const systemPrompt = buildSlideSystemPrompt(slideLogoUrl, slideStyle);
+        const systemPrompt = buildSlideSystemPrompt(slideLogoUrl, slideStyle, slideFormat);
         const refImage = image_base64
           ? (image_base64.startsWith('data:') ? image_base64 : `data:image/png;base64,${image_base64}`)
           : image_url;

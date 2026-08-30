@@ -45,6 +45,26 @@ import { HtmlSectionEditor } from '@/components/HtmlSectionEditor';
 import { VisualDesignEditor, type ElementDef } from '@/components/VisualDesignEditor';
 import { SlideGeneratorPanel } from '@/components/presentations/SlideGeneratorPanel';
 
+/** Tamaño por defecto (16:9) cuando el HTML no declara sus dimensiones. */
+const DEFAULT_SLIDE_DIMENSIONS = { width: 1920, height: 1080 } as const;
+
+/**
+ * Lee el tamaño real de un slide desde su HTML (el `.slide`/`.story` declara
+ * `width:Npx;height:Npx`). Así un deck puede mezclar 16:9 y carta vertical y la
+ * exportación/preview usan el tamaño correcto por slide, no un fijo 1920×1080.
+ */
+function getSlideDimensions(html: string): { width: number; height: number } {
+  const m = html.match(/\.(?:slide|story)\s*\{[^}]*?width:\s*(\d+)px[^}]*?height:\s*(\d+)px/i);
+  if (m) {
+    const width = parseInt(m[1], 10);
+    const height = parseInt(m[2], 10);
+    if (Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0) {
+      return { width, height };
+    }
+  }
+  return { ...DEFAULT_SLIDE_DIMENSIONS };
+}
+
 // --- Traducción estable a inglés -------------------------------------------
 // Se traduce POR ELEMENTO de texto (headline, subcopy, CTA…), no fragmento a
 // fragmento: cuando un elemento tiene palabras dentro de spans (p.ej. una
@@ -882,9 +902,10 @@ function PresentationsPage() {
         setExportProgress(i);
         const html = slides[i].html;
         const slideInfo = slides[i];
+        const { width: sw, height: sh } = getSlideDimensions(html);
 
         // Render via Puppeteer server → PNG base64
-        const pngDataUrl = await renderHtmlToPng(html, 'xending', 1920, 1080);
+        const pngDataUrl = await renderHtmlToPng(html, 'xending', sw, sh);
 
         // Decode base64 PNG directly to Blob (lossless, no compression artifacts)
         const base64 = pngDataUrl.replace(/^data:image\/png;base64,/, '');
@@ -925,7 +946,7 @@ function PresentationsPage() {
     }
   }, [slides, toast]);
 
-  // --- Export con selección (PDF o PNG, mismas dimensiones 1920×1080) ---
+  // --- Export con selección (PDF o PNG, cada slide en su propio tamaño) ---
   const [exportingPdf, setExportingPdf] = useState(false);
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [exportFormat, setExportFormat] = useState<'pdf' | 'png'>('pdf');
@@ -957,9 +978,12 @@ function PresentationsPage() {
 
     if (exportFormat === 'pdf') {
       setExportingPdf(true);
-      toast({ title: 'Generando PDF…', description: `${indices.length} slide(s) a 1920×1080.` });
+      toast({ title: 'Generando PDF…', description: `${indices.length} slide(s).` });
       try {
-        const items = indices.map((i) => ({ html: slides[i].html, width: 1920, height: 1080 }));
+        const items = indices.map((i) => {
+          const { width, height } = getSlideDimensions(slides[i].html);
+          return { html: slides[i].html, width, height };
+        });
         const pdfBase64 = await renderSlidesToPdf(items, 'xending-slides.pdf');
         const bin = atob(pdfBase64);
         const bytes = new Uint8Array(bin.length);
@@ -968,7 +992,7 @@ function PresentationsPage() {
           ? `slide-${String(indices[0] + 1).padStart(2, '0')}.pdf`
           : 'xending-slides.pdf';
         downloadBlob(new Blob([bytes], { type: 'application/pdf' }), name);
-        toast({ title: '✅ PDF exportado', description: 'Cada página a 1920×1080.' });
+        toast({ title: '✅ PDF exportado', description: 'Cada página en su propio tamaño.' });
       } catch (err) {
         toast({ title: 'Error al exportar PDF', description: err instanceof Error ? err.message : 'Error desconocido', variant: 'destructive' });
       } finally {
@@ -982,7 +1006,8 @@ function PresentationsPage() {
         for (let k = 0; k < indices.length; k++) {
           setExportProgress(k);
           const i = indices[k];
-          const pngDataUrl = await renderHtmlToPng(slides[i].html, 'xending', 1920, 1080);
+          const { width: sw, height: sh } = getSlideDimensions(slides[i].html);
+          const pngDataUrl = await renderHtmlToPng(slides[i].html, 'xending', sw, sh);
           const base64 = pngDataUrl.replace(/^data:image\/png;base64,/, '');
           const bin = atob(base64);
           const bytes = new Uint8Array(bin.length);
@@ -1150,6 +1175,7 @@ function PresentationsPage() {
 
   const currentHtml = slides[currentSlide].html;
   const slideTitle = slides[currentSlide].title;
+  const currentDims = getSlideDimensions(currentHtml);
 
   const handleCancelEdit = useCallback(() => {
     setEditingMode('none');
@@ -1161,7 +1187,7 @@ function PresentationsPage() {
       <VisualDesignEditor
         html={currentHtml}
         pieceIndex={currentSlide}
-        dimensions={{ width: 1920, height: 1080 }}
+        dimensions={currentDims}
         editableElements={PRESENTATION_ELEMENTS}
         businessId={activeBusinessId}
         onSave={handleSaveHtml}
@@ -1596,8 +1622,8 @@ function PresentationsPage() {
       <div ref={containerRef} className="space-y-4">
         <Card className="overflow-hidden border-2 border-[#0F1419]/10">
           <CardContent className="p-0">
-            {/* 16:9 aspect ratio container */}
-            <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+            {/* Aspect ratio del slide (16:9 o carta vertical), según su tamaño real */}
+            <div className="relative w-full" style={{ paddingBottom: `${(currentDims.height / currentDims.width) * 100}%` }}>
               <iframe
                 srcDoc={currentHtml}
                 className="absolute inset-0 w-full h-full border-0"
@@ -1732,7 +1758,7 @@ function PresentationsPage() {
                     {f}
                   </button>
                 ))}
-                <span className="text-[11px] text-muted-foreground ml-auto">1920×1080</span>
+                <span className="text-[11px] text-muted-foreground ml-auto">{currentDims.width}×{currentDims.height}</span>
               </div>
 
               {/* Presets */}
