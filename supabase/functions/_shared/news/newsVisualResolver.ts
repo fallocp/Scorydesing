@@ -20,6 +20,7 @@ import {
   type NewsArchetypeId,
   type NewsLayoutFamily,
   type NewsSlidePlan,
+  type NewsStoryType,
   type NewsVisualEngine,
   type NewsVisualResolution,
   type NewsTextSafeArea,
@@ -51,11 +52,14 @@ const ARCHETYPES: NewsArchetypeId[] = [
   'bonds',
   'trade_map',
   'energy',
+  'mixed_macro',
   'executive_wrap',
   'fallback_institutional',
   'fallback_industrial_macro',
   'fallback_maps_flows',
 ];
+
+const STORY_TYPES: NewsStoryType[] = ['single', 'mixed'];
 
 // ---------------------------------------------------------------------------
 // Guardia de energía (detección tipo B: dominio del LLM + señales del titular)
@@ -105,19 +109,84 @@ function normalizeForMatch(s: string): string {
 }
 
 /**
- * Detección tipo B: la nota es de energía si el LLM etiquetó un dominio de
- * energía, O si el titular/subcopy/dato trae una señal petrolera. Lo segundo es
- * la red que no depende de que el modelo clasifique bien (fue justo lo que falló
- * cuando una nota de Brent salió con edificio del Tesoro).
+ * Dominios que representan una fuerza monetaria/fiscal/institucional. Cuando una
+ * nota trae señal petrolera Y ADEMÁS una de estas fuerzas, no es una nota pura
+ * de petróleo: es MIXTA (ej. "La Fed sube el tono y el petróleo presiona"). La
+ * guardia de energía no debe borrar la institución primaria en ese caso.
  */
-function isEnergyNote(domain: string, plan: NewsSlidePlan): boolean {
-  if (ENERGY_DOMAINS.has(domain.toLowerCase().trim())) return true;
+const COMPETING_DOMAINS = new Set([
+  'rates',
+  'bonds',
+  'fiscal',
+  'central_bank',
+  'monetary_policy',
+  'inflation',
+  'banking',
+  'employment',
+]);
+
+/**
+ * Señales fuertes de una fuerza monetaria/fiscal/institucional en el texto.
+ * A propósito NO incluye "dólar/dolar" ni "peso" sueltos: en notas petroleras
+ * el dólar aparece como unidad de precio ("90 dólares") y daría falsos MIXED.
+ * El caso FX-mixto real (ej. "Petróleo cae y fortalece al peso") lo cubre la
+ * clasificación del LLM (story_type), no esta red determinística.
+ */
+const COMPETING_KEYWORDS = [
+  'fed',
+  'reserva federal',
+  'federal reserve',
+  'fomc',
+  'banco central',
+  'central bank',
+  ' bce',
+  ' ecb',
+  'tesoro',
+  'treasury',
+  'bono', // bono, bonos
+  'yield',
+  'tasa de interes',
+  'tasas de interes',
+  ' tasas',
+  'payrolls',
+  'nomina', // nómina/nominas (empleo)
+  'empleo',
+  'desempleo',
+  'recesion',
+];
+
+/**
+ * Cue de energía como fuerza SECUNDARIA en una historia mixta. No es una escena
+ * petrolera completa: es un elemento restringido pero reconocible dentro de la
+ * misma foto, subordinado al sujeto primario (ej. la institución monetaria).
+ */
+const MIXED_ENERGY_CUE =
+  'a restrained but clearly recognizable crude-oil / energy-market cue integrated into the same frame — e.g. subtle refinery or pipeline valves, a distant oil tanker, or storage tanks — kept subordinate to the primary subject';
+
+/** Normaliza texto de la nota para el match de keywords, con padding. */
+function paddedText(plan: NewsSlidePlan): string {
   const text = normalizeForMatch(
     `${plan.headline ?? ''} ${plan.subcopy ?? ''} ${plan.key_data ?? ''}`,
   );
-  // Prefijo con espacio para " oil" ya viene en la lista; el resto son substrings.
-  const padded = ` ${text} `;
+  return ` ${text} `;
+}
+
+/**
+ * Señal de energía (detección tipo B): dominio de energía etiquetado por el
+ * LLM, o keyword petrolera en el titular/subcopy/dato. Es la red que no depende
+ * de que el modelo clasifique bien (fue el bug de "Brent arriba de 90").
+ */
+function hasEnergySignal(domain: string, plan: NewsSlidePlan): boolean {
+  if (ENERGY_DOMAINS.has(domain.toLowerCase().trim())) return true;
+  const padded = paddedText(plan);
   return ENERGY_KEYWORDS.some((k) => padded.includes(k));
+}
+
+/** Señal de una fuerza monetaria/fiscal/institucional que compite con la energía. */
+function hasCompetingPrimary(domain: string, plan: NewsSlidePlan): boolean {
+  if (COMPETING_DOMAINS.has(domain.toLowerCase().trim())) return true;
+  const padded = paddedText(plan);
+  return COMPETING_KEYWORDS.some((k) => padded.includes(k));
 }
 
 // ---------------------------------------------------------------------------
@@ -146,7 +215,9 @@ Para cada slide infiere:
 - text_safe_area: uno de ${TEXT_SAFE_AREAS.join(', ')}.
 - visual_subject: el sujeto visual concreto de la escena, en inglés, descriptivo.
 - supporting_elements: hasta 3 elementos de apoyo, en inglés (vacío si no aplica).
-- archetype: uno de ${ARCHETYPES.join(', ')}. Usa fx/bonds/trade_map/energy/executive_wrap solo cuando la nota calza claramente; si no, usa un fallback. REGLA DURA: si la nota es de petróleo, crudo, Brent, WTI, OPEP, gasolina o geopolítica energética (ej. Estrecho de Ormuz), usa "energy" con motor "industrial_macro" — NUNCA "bonds" ni edificios del Tesoro/bancos/yield curve, aunque se mencionen precios o tasas.
+- archetype: uno de ${ARCHETYPES.join(', ')}. Usa fx/bonds/trade_map/energy/mixed_macro/executive_wrap solo cuando la nota calza claramente; si no, usa un fallback. REGLA DE PETRÓLEO: si la nota es PURAMENTE de petróleo, crudo, Brent, WTI, OPEP, gasolina o geopolítica energética (ej. Estrecho de Ormuz) y NO hay una segunda fuerza esencial, usa "energy" con motor "industrial_macro" — NUNCA "bonds" ni edificios del Tesoro/bancos/yield curve. Pero si la nota MEZCLA petróleo con otra fuerza esencial (ej. la Fed/tasas/inflación + petróleo), NO es energy pura: es MIXTA (ver story_type) y el sujeto primario NO debe borrarse.
+- story_type: "single" si un solo tema domina prácticamente toda la nota; "mixed" si DOS fuerzas distintas son esenciales para entender el titular (ej. "La Fed sube el tono y el petróleo presiona" = política monetaria + energía). El titular define la narrativa: no dejes que el dominio borre uno de sus componentes.
+- Solo cuando story_type es "mixed", además devuelve: secondary_domain (dominio de la segunda fuerza), secondary_visual_subject (sujeto visual concreto de la segunda fuerza, en inglés), visual_weight_primary y visual_weight_secondary (importancia visual en %, típicamente ~65 y ~35). En "mixed" usa archetype "mixed_macro". visual_subject describe el sujeto PRIMARIO (la fuerza dominante del titular), secondary_visual_subject el secundario. Ambos deben coexistir en UNA sola foto, sin collage ni split-screen.
 - visual_confidence: número 0.0–1.0. Bajo 0.5 significa que no hay arquetipo claro.
 
 MEDIO (importante): Xending News es FOTOGRAFÍA editorial hiperrealista. El sujeto puede ser una escena real (desk, puerto, institución, almacén) o un OBJETO premium real fotografiado (globo de vidrio, componente metálico, reporte impreso), con iconografía/datos solo como acento sutil. Prefiere "editorial_photography", "editorial_photography_plus_data" o "industrial_macro"; usa "hybrid_editorial_objects" cuando un objeto premium real represente mejor la nota (descríbelo como objeto FOTOGRAFIADO hiperrealista, no como icono). Evita "data_environment" salvo que no exista escena ni objeto real. visual_subject debe describir una escena o un objeto real fotografiado hiperrealista; nunca un icono plano, cartoon o flotante.
@@ -162,7 +233,7 @@ REGLAS DE DIVERSIDAD (aplican al conjunto):
 NO inventes datos ni fuentes. NO propongas texto ni logos dentro de la imagen.
 
 Responde SOLO con JSON válido, sin markdown:
-{ "slides": [ { "slide_number": 1, "domain": "", "mechanism": "", "entities": [], "geography": [], "economic_object": "", "physical_context": "", "visual_priority": "", "visual_engine": "", "layout_family": "", "text_safe_area": "left", "visual_subject": "", "supporting_elements": [], "archetype": "", "visual_confidence": 0.0 } ] }`;
+{ "slides": [ { "slide_number": 1, "domain": "", "mechanism": "", "entities": [], "geography": [], "economic_object": "", "physical_context": "", "visual_priority": "", "visual_engine": "", "layout_family": "", "text_safe_area": "left", "visual_subject": "", "supporting_elements": [], "archetype": "", "visual_confidence": 0.0, "story_type": "single", "secondary_domain": "", "secondary_visual_subject": "", "visual_weight_primary": 0, "visual_weight_secondary": 0 } ] }`;
 
   const planForModel = slidePlan.map((s) => ({
     slide_number: s.slide_number,
@@ -216,12 +287,26 @@ export function coerceResolutions(
     const confidence = clamp01(toNum(o.visual_confidence) ?? 0);
     const isWrap = plan.is_executive_wrap === true;
     const rawDomain = toStr(o.domain);
+    const rawIsEnergyDomain = ENERGY_DOMAINS.has(rawDomain.toLowerCase().trim());
 
     let engine = pick(VISUAL_ENGINES, o.visual_engine, 'editorial_photography_plus_data');
     let layout = pick(LAYOUTS, o.layout_family, 'L1');
     let archetype = pick(ARCHETYPES, o.archetype, 'fallback_institutional');
     let textSafeArea = pick(TEXT_SAFE_AREAS, o.text_safe_area, 'left');
     let domain = rawDomain || 'macro';
+
+    // Campos de historia mixta (solo se rellenan cuando story_type === 'mixed').
+    let storyType: NewsStoryType = 'single';
+    let secondaryDomain: string | undefined;
+    let secondaryVisualSubject: string | undefined;
+    let weightPrimary: number | undefined;
+    let weightSecondary: number | undefined;
+
+    const llmStoryType = pick(STORY_TYPES, o.story_type, 'single');
+    const llmSecondarySubject = toStr(o.secondary_visual_subject);
+    const llmSecondaryDomain = toStr(o.secondary_domain);
+    const energySignal = hasEnergySignal(rawDomain, plan);
+    const competing = hasCompetingPrimary(rawDomain, plan);
 
     // Executive wrap: dirección fija (secciones 36, 44). Foto de research-desk,
     // no objetos 3D. El texto siempre va a la izquierda (el archetype pide la
@@ -233,10 +318,37 @@ export function coerceResolutions(
       layout = 'L4';
       archetype = 'executive_wrap';
       textSafeArea = 'left';
-    } else if (isEnergyNote(rawDomain, plan)) {
-      // Guardia dura de energía (detección tipo B): una nota de petróleo/crudo
-      // JAMÁS sale con edificio del Tesoro/bonos, aunque el LLM eligiera "bonds"
-      // o etiquetara mal el dominio. Fue el bug de "Brent arriba de 90".
+    } else if (llmStoryType === 'mixed' && (llmSecondarySubject || llmSecondaryDomain)) {
+      // El LLM clasificó la nota como MIXTA (dos fuerzas esenciales) y dio un
+      // segundo sujeto: se respeta. Ya no forzamos energy y borramos la
+      // institución primaria — ese era el bug de "Fed + petróleo".
+      storyType = 'mixed';
+      archetype = 'mixed_macro';
+      engine = energySignal ? 'industrial_macro' : engine;
+      secondaryDomain = llmSecondaryDomain || (energySignal ? 'energy' : '');
+      secondaryVisualSubject =
+        llmSecondarySubject || (energySignal ? MIXED_ENERGY_CUE : '');
+      [weightPrimary, weightSecondary] = resolveWeights(o);
+    } else if (energySignal && competing) {
+      // Red determinística: hay señal petrolera Y una fuerza monetaria/fiscal,
+      // pero el LLM no la marcó como mixta. En vez de forzar energy puro (que
+      // borraba la Fed), la subimos a MIXTA con el petróleo como fuerza
+      // secundaria. El sujeto primario sigue siendo el que resolvió el LLM.
+      storyType = 'mixed';
+      archetype = 'mixed_macro';
+      engine = 'industrial_macro';
+      layout = 'L1';
+      // Si el LLM etiquetó 'energy' como dominio, la fuerza primaria real es la
+      // monetaria/institucional; dejamos 'macro' como neutro y energy secundario.
+      domain = rawIsEnergyDomain ? 'macro' : domain;
+      secondaryDomain = 'energy';
+      secondaryVisualSubject = MIXED_ENERGY_CUE;
+      weightPrimary = 65;
+      weightSecondary = 35;
+    } else if (energySignal) {
+      // Guardia dura de energía (detección tipo B): una nota PURA de petróleo/
+      // crudo JAMÁS sale con edificio del Tesoro/bonos, aunque el LLM eligiera
+      // "bonds" o etiquetara mal el dominio. Fue el bug de "Brent arriba de 90".
       archetype = 'energy';
       engine = 'industrial_macro';
       layout = 'L1';
@@ -264,6 +376,15 @@ export function coerceResolutions(
       supporting_elements: toStrArray(o.supporting_elements).slice(0, 3),
       archetype,
       visual_confidence: confidence,
+      story_type: storyType,
+      ...(storyType === 'mixed'
+        ? {
+            secondary_domain: secondaryDomain || undefined,
+            secondary_visual_subject: secondaryVisualSubject || undefined,
+            visual_weight_primary: weightPrimary,
+            visual_weight_secondary: weightSecondary,
+          }
+        : {}),
     };
   });
 
@@ -317,4 +438,16 @@ function toStrArray(v: unknown): string[] {
 
 function clamp01(n: number): number {
   return Math.min(1, Math.max(0, n));
+}
+
+/**
+ * Pesos visuales primario/secundario para historias mixtas. Default 65/35. Si el
+ * LLM propone números, se clampan a un rango que preserve la dominancia del
+ * primario (55–80) para que el secundario nunca termine mandando en la foto.
+ */
+function resolveWeights(o: Record<string, unknown>): [number, number] {
+  const rawP = toNum(o.visual_weight_primary);
+  let primary = rawP == null ? 65 : Math.round(rawP);
+  primary = Math.min(80, Math.max(55, primary));
+  return [primary, 100 - primary];
 }

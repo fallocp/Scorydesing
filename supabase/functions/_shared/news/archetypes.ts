@@ -129,6 +129,36 @@ Avoid cartoon 3D, toy-like objects, neon, clutter, generic stock and fake dashbo
 Do not generate text or logos.`,
 };
 
+/**
+ * Historia MIXTA (dos fuerzas macro esenciales, ej. política monetaria +
+ * petróleo). A diferencia de los arquetipos de tema único, este NO excluye
+ * ninguna institución: su trabajo es hacer coexistir el sujeto primario y el
+ * secundario en UNA sola foto editorial, con jerarquía. Los sujetos concretos
+ * y los pesos llegan desde el bloque VISUAL DIRECTION que arma el prompt builder
+ * (Story type / Primary subject / Secondary subject / Visual hierarchy).
+ */
+export const archetypeMixedMacro: NewsArchetype = {
+  id: 'mixed_macro',
+  label: 'Macro mixta (dos fuerzas)',
+  defaultEngine: 'industrial_macro',
+  defaultLayout: 'L1',
+  prompt: `Create a premium Xending News editorial PHOTOGRAPH for a MIXED MACRO story: two distinct economic forces are both essential to the headline.
+
+Compose ONE cohesive, hyper-realistic editorial photograph that visually combines both forces in the same frame — never a split-screen, never a collage, never two separate photographs.
+
+Follow the VISUAL DIRECTION block above: the PRIMARY subject is the dominant visual anchor and must clearly lead the composition; the SECONDARY subject appears as a restrained but clearly recognizable second element within the same scene, supporting the story without taking over.
+
+Respect the declared visual hierarchy (primary vs secondary weight). Do NOT drop or hide the primary subject merely because the secondary theme is also mentioned, and do NOT let the secondary element dominate the primary one.
+
+DSLR editorial look, real materials (stone, steel, concrete, glass, paper, water), bright high-key daylight, clean whites, shallow depth of field, generous negative space. Keep a clear text-safe area on the declared side; the combined scene lives on the opposite side.
+
+Layer only a subtle Xending data accent: one thin turquoise line or a small label; restrained coral only for the pressure/risk force. Maximum 2–3 accent elements.
+
+Avoid cartoon 3D, toy-like objects, neon, clutter, generic stock and fake dashboards.
+
+Do not generate text or logos.`,
+};
+
 /** Sección 44 — Executive View / cierre editorial (Xending View, sección 36). */
 export const archetypeExecutiveWrap: NewsArchetype = {
   id: 'executive_wrap',
@@ -218,6 +248,7 @@ export const NEWS_ARCHETYPES: Record<NewsArchetypeId, NewsArchetype> = {
   bonds: archetypeBonds,
   trade_map: archetypeTradeMap,
   energy: archetypeEnergy,
+  mixed_macro: archetypeMixedMacro,
   executive_wrap: archetypeExecutiveWrap,
   fallback_institutional: archetypeFallbackInstitutional,
   fallback_industrial_macro: archetypeFallbackIndustrialMacro,

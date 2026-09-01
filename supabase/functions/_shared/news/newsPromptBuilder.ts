@@ -51,6 +51,48 @@ export function buildSlideVisual(
     ? `\nCountry cues: the story involves ${geography}. You MAY add small, realistic, PHOTOGRAPHIC national flag cues that fit the scene — a flag decal on a truck or container, a license plate, or small flags at a checkpoint. Keep them subtle and secondary. Never a giant flag and never a flag-filled background.`
     : '';
 
+  const isMixed = resolution.story_type === 'mixed';
+  const primarySubject = resolution.visual_subject || archetype.label;
+
+  // Bloque VISUAL DIRECTION. En historias mixtas se declara la jerarquía de dos
+  // fuerzas en UNA sola foto (primario dominante + secundario subordinado), sin
+  // collage. En historias simples se mantiene el bloque de un solo sujeto.
+  let visualDirection: string;
+  if (isMixed) {
+    const secondarySubject = resolution.secondary_visual_subject || '—';
+    const weightPrimary = resolution.visual_weight_primary ?? 65;
+    const weightSecondary = resolution.visual_weight_secondary ?? 35;
+    visualDirection = `VISUAL DIRECTION
+Visual engine: ${resolution.visual_engine}
+Story type: mixed macro — two essential forces combined in ONE image
+Primary subject: ${primarySubject}
+Secondary subject: ${secondarySubject}
+Visual hierarchy: primary subject ~${weightPrimary}% of visual weight, secondary subject ~${weightSecondary}%
+Physical context: ${resolution.physical_context || '—'}
+Supporting elements: ${supporting}
+Layout family: ${resolution.layout_family}
+Text-safe area: ${resolution.text_safe_area}${countryCue}
+Composition rule: Create ONE cohesive hyper-realistic editorial photograph that combines both forces in the same frame. The primary subject is the dominant visual anchor and must clearly lead the composition; the secondary subject is restrained but clearly recognizable and must stay subordinate. Do NOT create a split-screen, a collage or two separate photographs, and do NOT drop the primary subject merely because the secondary theme is also mentioned.`;
+  } else {
+    visualDirection = `VISUAL DIRECTION
+Visual engine: ${resolution.visual_engine}
+Primary subject: ${primarySubject}
+Physical context: ${resolution.physical_context || '—'}
+Supporting elements: ${supporting}
+Layout family: ${resolution.layout_family}
+Text-safe area: ${resolution.text_safe_area}${countryCue}`;
+  }
+
+  // Negativos: en mixto se añaden las prohibiciones de collage/split-screen.
+  const negativeRules = isMixed
+    ? `${NEWS_NEGATIVE_PROMPT}
+No split-screen composition.
+No collage.
+No two separate photographs side by side.
+No 50/50 balance between the two subjects.
+No dropping or hiding the primary subject.`
+    : NEWS_NEGATIVE_PROMPT;
+
   // Estructura exacta de la sección 49.
   const prompt = `${NEWS_MASTER_STYLE_PROMPT}
 
@@ -63,13 +105,7 @@ Mechanism: ${resolution.mechanism}
 Relevant entities: ${entities}
 Relevant geography: ${geography}
 
-VISUAL DIRECTION
-Visual engine: ${resolution.visual_engine}
-Primary subject: ${resolution.visual_subject || archetype.label}
-Physical context: ${resolution.physical_context || '—'}
-Supporting elements: ${supporting}
-Layout family: ${resolution.layout_family}
-Text-safe area: ${resolution.text_safe_area}${countryCue}
+${visualDirection}
 
 STYLE
 ${archetype.prompt}
@@ -85,12 +121,12 @@ If the news names a real person (official, executive, politician), do NOT depict
 ${NEWS_NO_LOGO_DIRECTIVE}
 
 NEGATIVE RULES
-${NEWS_NEGATIVE_PROMPT}`;
+${negativeRules}`;
 
   return {
     ...resolution,
     image_prompt: prompt,
-    negative_rules: NEWS_NEGATIVE_PROMPT,
+    negative_rules: negativeRules,
   };
 }
 
