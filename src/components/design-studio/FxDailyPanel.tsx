@@ -293,8 +293,11 @@ export function FxDailyPanel() {
                         value={d.bullets.join('\n')}
                         rows={3}
                         onChange={(v) => {
+                          // No filtramos/trimeamos aquí: si quitamos las líneas vacías al
+                          // vuelo, el Enter se "come" y no se puede agregar una viñeta nueva.
+                          // El HTML final ya descarta las líneas vacías al componer.
                           const drivers = report.drivers.map((x, j) =>
-                            j === i ? { ...x, bullets: v.split('\n').map((b) => b.trim()).filter(Boolean) } : x,
+                            j === i ? { ...x, bullets: v.split('\n') } : x,
                           );
                           fx.updateReport({ drivers });
                         }}

@@ -97,6 +97,7 @@ export function buildFxDailyHtml(input: FxDailyHtmlInput): string {
   const drivers = report.drivers
     .map((d) => {
       const bullets = d.bullets
+        .map((b) => b.trim())
         .filter(Boolean)
         .map((b) => `• ${escapeHtml(b)}`)
         .join('<br><br>');
@@ -127,7 +128,7 @@ export function buildFxDailyHtml(input: FxDailyHtmlInput): string {
     .map((item) => {
       const url = kit[FX_MIRA_CATEGORY_OBJECT[item.category]];
       const icon = url
-        ? `<img src="${url}" alt="" style="width:30px;height:30px;object-fit:contain;" />`
+        ? `<img src="${url}" alt="" style="width:36px;height:36px;object-fit:contain;" />`
         : `<span style="width:12px;height:12px;border-radius:50%;background:${MINT};display:inline-block;"></span>`;
       return `<div class="mini-item"><div class="mini-icon">${icon}</div><div class="mini-text"><div class="mini-title">${escapeHtml(item.label)}</div></div></div>`;
     })
@@ -187,12 +188,12 @@ body{margin:0;overflow:hidden;background:#ffffff;}
 .card{flex:1;background:#fff;border:1px solid rgba(8,27,87,0.06);border-radius:26px;padding:28px 24px;box-shadow:0 20px 55px rgba(15,20,25,0.06);display:flex;flex-direction:column;min-height:320px;}
 .card .icon-slot{width:112px;height:112px;}
 .card-body{font-weight:500;font-size:17px;line-height:1.55;color:var(--navy-title);margin-top:8px;}
-.mini-label{font-weight:700;font-size:15px;letter-spacing:3px;text-transform:uppercase;color:var(--navy-title);text-align:center;}
-.mini-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px 22px;margin-top:22px;}
-.mini-item{display:flex;align-items:flex-start;gap:14px;}
-.mini-icon{flex:none;width:56px;height:56px;border-radius:14px;background:#fff;border:1px solid rgba(8,27,87,0.06);box-shadow:0 8px 22px rgba(15,20,25,0.05);display:flex;align-items:center;justify-content:center;}
-.mini-title{font-weight:600;font-size:18px;line-height:1.25;color:var(--navy-title);}
-.mini-desc{font-weight:400;font-size:14px;line-height:1.4;color:var(--navy-title);margin-top:3px;}
+.mini-label{font-weight:700;font-size:17px;letter-spacing:3px;text-transform:uppercase;color:var(--navy-title);text-align:center;}
+.mini-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px 24px;margin-top:22px;}
+.mini-item{display:flex;align-items:center;gap:16px;}
+.mini-icon{flex:none;width:60px;height:60px;border-radius:14px;background:#fff;border:1px solid rgba(8,27,87,0.06);box-shadow:0 8px 22px rgba(15,20,25,0.05);display:flex;align-items:center;justify-content:center;}
+.mini-title{font-weight:600;font-size:23px;line-height:1.25;color:var(--navy-title);}
+.mini-desc{font-weight:400;font-size:17px;line-height:1.4;color:var(--navy-title);margin-top:4px;}
 .footer-note{font-family:'Fraunces',serif;font-size:12px;line-height:1.45;color:#6f7580;margin-top:18px;}
 </style>
 <script>(function(){function resize(){var s=document.querySelector('.slide');if(!s)return;var w=document.documentElement.clientWidth||window.innerWidth;var h=document.documentElement.clientHeight||window.innerHeight;s.style.transform='scale('+Math.min(w/${W},h/${H})+')';}window.addEventListener('resize',resize);resize();setTimeout(resize,50);setTimeout(resize,200);})();</script>
@@ -228,7 +229,7 @@ body{margin:0;overflow:hidden;background:#ffffff;}
     </div>
     <div class="card">
       <div class="mini-label">ESCENARIOS</div>
-      <div class="mini-grid">${escenarios}</div>
+      <div class="mini-grid" style="grid-template-columns:1fr;gap:18px;">${escenarios}</div>
     </div>
     <div class="card">
       <div class="mini-label">EN LA MIRA</div>
