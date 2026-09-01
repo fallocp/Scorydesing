@@ -407,9 +407,12 @@ export function useCarouselQueue({
        * como tabla de contexto: son la mecánica con la que el texto tiene que cuadrar.
        */
       const fxAssumptions = params.fx ?? DEFAULT_CAROUSEL_FX;
+      // Solo coberturas voltea labels por dirección (import/export). Costos comparte
+      // rate_range/margin_sensitivity y ahí los labels quedan neutrales.
+      const directionAware = (branchSlug ?? '').toLowerCase().includes('cobertura');
       const nextEconomicScenario =
         usesFigures && plan.figureScenarioId !== 'none'
-          ? buildCarouselEconomicScenario(plan.figureScenarioId, fxAssumptions)
+          ? buildCarouselEconomicScenario(plan.figureScenarioId, fxAssumptions, undefined, directionAware)
           : null;
       setIsScripting(true);
       setError(null);

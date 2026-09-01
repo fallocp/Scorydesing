@@ -1271,16 +1271,81 @@ const FORWARD_RESOLUTION_LABELS_EXPORT: Partial<Record<CarouselEconomicFactKey, 
   base_gross_margin_pct: 'MARGEN PROTEGIDO',
 };
 
-const forwardFactLabels = (direction: CarouselFxDirection) =>
-  direction === 'export' ? FORWARD_FACT_LABELS_EXPORT : FORWARD_FACT_LABELS_IMPORT;
 const forwardResolutionLabels = (direction: CarouselFxDirection) =>
   direction === 'export' ? FORWARD_RESOLUTION_LABELS_EXPORT : FORWARD_RESOLUTION_LABELS_IMPORT;
+
+/*
+ * Etiquetas direccionales del RESTO de escenarios de coberturas, con el mismo criterio que
+ * forward: importas hablan de COSTO y PAGO; exportas de INGRESO y COBRO. Solo se aplican
+ * cuando la rama es coberturas (`directionAware`), para no ensuciar costos_ahorro, que
+ * comparte rate_range y margin_sensitivity y donde import/export no significa nada.
+ *
+ * margin_sensitivity comparte vocabulario exacto con forward, así que reusa sus mapas.
+ */
+type FactLabelMap = Partial<Record<CarouselEconomicFactKey, string>>;
+
+const RATE_COMPARISON_LABELS_IMPORT: FactLabelMap = {
+  base_rate: 'TC ACTUAL',
+  exposed_rate: 'TC AL PAGO',
+  base_cost_mxn: 'COSTO ACTUAL',
+  exposed_cost_mxn: 'COSTO AL PAGO',
+  cost_delta_mxn: 'AUMENTO DE COSTO',
+  cost_delta_pct: 'VARIACIÓN',
+};
+const RATE_COMPARISON_LABELS_EXPORT: FactLabelMap = {
+  base_rate: 'TC ACTUAL',
+  exposed_rate: 'TC AL COBRO',
+  base_cost_mxn: 'INGRESO ACTUAL',
+  exposed_cost_mxn: 'INGRESO AL COBRO',
+  cost_delta_mxn: 'CAÍDA DE INGRESO',
+  cost_delta_pct: 'VARIACIÓN',
+};
+const RATE_RANGE_LABELS_IMPORT: FactLabelMap = {
+  base_rate: 'TC ACTUAL',
+  exposed_rate: 'TC HIPOTÉTICO',
+  base_cost_mxn: 'COSTO ACTUAL',
+  exposed_cost_mxn: 'COSTO HIPOTÉTICO',
+  cost_delta_mxn: 'AUMENTO DE COSTO',
+  cost_delta_pct: 'VARIACIÓN',
+};
+const RATE_RANGE_LABELS_EXPORT: FactLabelMap = {
+  base_rate: 'TC ACTUAL',
+  exposed_rate: 'TC HIPOTÉTICO',
+  base_cost_mxn: 'INGRESO ACTUAL',
+  exposed_cost_mxn: 'INGRESO HIPOTÉTICO',
+  cost_delta_mxn: 'CAÍDA DE INGRESO',
+  cost_delta_pct: 'VARIACIÓN',
+};
+const CASHFLOW_LABELS_IMPORT: FactLabelMap = {
+  base_rate: 'TIPO DE CAMBIO',
+  defined_cost_mxn: 'COSTO DEFINIDO',
+};
+const CASHFLOW_LABELS_EXPORT: FactLabelMap = {
+  base_rate: 'TIPO DE CAMBIO',
+  defined_cost_mxn: 'INGRESO DEFINIDO',
+};
+
+/** Mapas de labels por escenario y dirección. La ausencia = escenario sin direccionalidad. */
+const DIRECTIONAL_FACT_LABELS: Partial<
+  Record<Exclude<CarouselFigureScenarioId, 'none'>, { import: FactLabelMap; export: FactLabelMap }>
+> = {
+  forward_protection: { import: FORWARD_FACT_LABELS_IMPORT, export: FORWARD_FACT_LABELS_EXPORT },
+  margin_sensitivity: { import: FORWARD_FACT_LABELS_IMPORT, export: FORWARD_FACT_LABELS_EXPORT },
+  rate_comparison: { import: RATE_COMPARISON_LABELS_IMPORT, export: RATE_COMPARISON_LABELS_EXPORT },
+  rate_range: { import: RATE_RANGE_LABELS_IMPORT, export: RATE_RANGE_LABELS_EXPORT },
+  cashflow_certainty: { import: CASHFLOW_LABELS_IMPORT, export: CASHFLOW_LABELS_EXPORT },
+};
 
 /** Construye una sola columna vertebral financiera para todo el carrusel. */
 export function buildCarouselEconomicScenario(
   scenarioId: Exclude<CarouselFigureScenarioId, 'none'>,
   assumptions: CarouselFxAssumptions,
   now: Date = new Date(),
+  /**
+   * Solo coberturas voltea los labels por dirección (import/export). En costos_ahorro los
+   * escenarios compartidos (rate_range, margin_sensitivity) conservan sus labels neutrales.
+   */
+  directionAware = false,
 ): CarouselEconomicScenario {
   const moments = computeCarouselFx(assumptions);
   const base = moments[0];
@@ -1394,11 +1459,10 @@ export function buildCarouselEconomicScenario(
     facts: allFacts
       .filter((fact) => allowed.has(fact.key) && !(dropForwardMargin && marginKeys.has(fact.key)))
       .map((fact) => {
-        const forwardLabel =
-          scenarioId === 'forward_protection'
-            ? forwardFactLabels(isExport ? 'export' : 'import')[fact.key]
-            : undefined;
-        return forwardLabel ? { ...fact, label: forwardLabel } : fact;
+        const directionalLabel = directionAware
+          ? DIRECTIONAL_FACT_LABELS[scenarioId]?.[isExport ? 'export' : 'import'][fact.key]
+          : undefined;
+        return directionalLabel ? { ...fact, label: directionalLabel } : fact;
       }),
     createdAt: now.toISOString(),
   };

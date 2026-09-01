@@ -249,8 +249,29 @@ export function CarouselPanel({
   const [exposedRate, setExposedRate] = useState('18.00');
   const [forwardDays, setForwardDays] = useState('60');
   const [salePriceInput, setSalePriceInput] = useState('');
-  /** import: debes USD, riesgo = dólar sube. export: te pagan USD, riesgo = dólar baja. */
-  const [forwardDirection, setForwardDirection] = useState<'import' | 'export'>('import');
+  /**
+   * import: debes USD, riesgo = dólar sube. export: te pagan USD, riesgo = dólar baja.
+   *
+   * Arranca del vertical del copy, no de un default fijo `import`: en coberturas los
+   * verticales son importadores/exportadores, así que el nombre del vertical
+   * (`meta.industryName`) lleva el lado de la operación. Un copy de exportador con default
+   * importación era justo el fallo observado (labels COSTO/PAGO y escena de importador
+   * sobre una historia de cobro). Sigue siendo override manual con el toggle; el `angle_tag`
+   * no codifica dirección, por eso se usa el vertical.
+   */
+  const [forwardDirection, setForwardDirection] = useState<'import' | 'export'>(() =>
+    (bankItem?.meta.industryName ?? '').toLowerCase().includes('exportador') ? 'export' : 'import',
+  );
+  /**
+   * Al cambiar de copy en el banco (sin remontar el panel), reinicia la dirección al lado
+   * del nuevo copy. Solo corre cuando cambia el vertical, así un toggle manual dentro del
+   * mismo copy se conserva.
+   */
+  useEffect(() => {
+    setForwardDirection(
+      (bankItem?.meta.industryName ?? '').toLowerCase().includes('exportador') ? 'export' : 'import',
+    );
+  }, [bankItem?.meta.industryName]);
 
   const parsedFxRate = parseBoundedNumber(fxRate, CAROUSEL_MIN_FX_RATE, CAROUSEL_MAX_FX_RATE);
   const parsedComparisonRate = parseBoundedNumber(

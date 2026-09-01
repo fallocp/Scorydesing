@@ -255,8 +255,221 @@ const FORWARD_SCENE_EXPORT: Record<string, ForwardSceneSlot> = {
   },
 };
 
+/*
+ * =====================================================================
+ * Modelo base + delta + transform para los escenarios de coberturas.
+ * =====================================================================
+ *
+ * En vez de escribir un schema independiente por escenario, hay UNA base estructural
+ * (qué cifras, peso y superficie lleva cada rol) y cada escenario deriva de ella:
+ *   - forward_protection: la base con margen (schema y escenas hechas a mano; es el rico).
+ *   - rate_comparison / rate_range: la base SIN los hechos de margen (dos tasas).
+ *   - margin_sensitivity: la base con margen, y la superficie del riesgo es la franja.
+ *   - cashflow_certainty: el caso degenerado de UN solo valor en todos los slides.
+ *
+ * La dirección (importación/exportación) NO se escribe dos veces: es una transformación
+ * del vocabulario (costo↔ingreso, pago↔cobro, sube↔baja, precio de venta↔costo). Solo
+ * forward conserva sus escenas hechas a mano por su riqueza; el resto las deriva de un
+ * builder parametrizado por ese vocabulario.
+ */
+
+/** El vocabulario que voltea una escena de importación a exportación. */
+interface DirectionVocab {
+  variable: string;       // lo que cruza el tipo de cambio: costo | ingreso
+  moment: string;         // el evento futuro: pago | cobro
+  rises: string;          // el riesgo del dólar: suba | baje
+  arrow: string;          // la señal cualitativa: hacia arriba | hacia abajo
+  fixedThing: string;     // lo que queda fijo: precio de venta | costo
+}
+
+const DIRECTION_VOCAB: Record<'import' | 'export', DirectionVocab> = {
+  import: { variable: 'costo', moment: 'pago', rises: 'suba', arrow: 'hacia arriba', fixedThing: 'precio de venta' },
+  export: { variable: 'ingreso', moment: 'cobro', rises: 'baje', arrow: 'hacia abajo', fixedThing: 'costo' },
+};
+
+const cap = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
+
+/** Hechos de margen: el grupo que las historias de dos tasas SIN margen no llevan. */
+const MARGIN_FACT_KEYS = new Set<CarouselEconomicFactKey>([
+  'sale_price_mxn', 'base_gross_profit_mxn', 'exposed_gross_profit_mxn',
+  'base_gross_margin_pct', 'exposed_gross_margin_pct',
+]);
+
+/** Deriva un schema quitando un grupo de hechos de cada rol (base → variante). */
+function deriveFigureSchema(
+  base: Record<string, ForwardFigureSlot>,
+  drop: Set<CarouselEconomicFactKey>,
+): Record<string, ForwardFigureSlot> {
+  return Object.fromEntries(
+    Object.entries(base).map(([role, slot]) => [
+      role,
+      { ...slot, factKeys: slot.factKeys.filter((k) => !drop.has(k)) },
+    ]),
+  );
+}
+
+/*
+ * rate_comparison / rate_range: la base forward SIN margen. Dos tasas, un solo valor por
+ * slide salvo el riesgo (dos). Misma cardinalidad que forward, sin precio ni utilidad.
+ */
+const RATE_FIGURE_SCHEMA = deriveFigureSchema(FORWARD_FIGURE_SCHEMA, MARGIN_FACT_KEYS);
+
+/*
+ * margin_sensitivity: la base forward con margen, pero el slide de riesgo se dibuja como
+ * franja de margen (no documento) y lleva explícito el precio/costo fijo.
+ */
+const MARGIN_FIGURE_SCHEMA: Record<string, ForwardFigureSlot> = {
+  ...FORWARD_FIGURE_SCHEMA,
+  risk: {
+    factKeys: [
+      'base_rate', 'exposed_rate', 'base_cost_mxn', 'exposed_cost_mxn', 'cost_delta_mxn',
+      'sale_price_mxn', 'base_gross_margin_pct', 'exposed_gross_margin_pct',
+    ],
+    weight: 'heavy',
+    suggestedSurface: 'margin_band',
+  },
+};
+
+/*
+ * cashflow_certainty: UN solo valor en TODOS los slides. Sin `exposed_*` en ningún rol,
+ * así `hasExposed` en el motor de imagen fuerza EXACTAMENTE UN escenario y nunca aparece
+ * una segunda tarjeta. `defined_cost_mxn` (unit MXN) garantiza el total en pesos en cada
+ * slide con cifras: es justo lo que faltaba en el caso roto.
+ */
+const CASHFLOW_FIGURE_SCHEMA: Record<string, ForwardFigureSlot> = {
+  tension: { factKeys: ['operation_usd', 'base_rate', 'defined_cost_mxn'], weight: 'featured', suggestedSurface: 'object_label' },
+  shift: { factKeys: ['operation_usd', 'base_rate', 'defined_cost_mxn'], weight: 'featured', suggestedSurface: 'object_label' },
+  risk: { factKeys: ['operation_usd', 'base_rate', 'defined_cost_mxn'], weight: 'featured', suggestedSurface: 'object_label' },
+  solution: { factKeys: ['operation_usd', 'base_rate', 'defined_cost_mxn'], weight: 'featured', suggestedSurface: 'object_label' },
+  cta: { factKeys: ['base_rate', 'defined_cost_mxn'], weight: 'featured', suggestedSurface: 'object_label' },
+};
+
+/** cashflow: un solo valor definido, sin coral, sin comparación. Reserva de efectivo. */
+function cashflowScenes(v: DirectionVocab): Record<string, ForwardSceneSlot> {
+  const one = `un solo valor, todo en turquesa, sin coral, sin comparar tipos de cambio ni un segundo escenario`;
+  return {
+    tension: {
+      visualEvidence: `El producto de la operación con una sola etiqueta: su ${v.variable} en pesos ya definido para un ${v.moment} futuro en dólares. ${cap(one)}: la certeza de cuánto será, no la duda de cuánto podría ser.`,
+      visualDevice: `el producto con su única etiqueta de ${v.variable} definido en pesos`,
+    },
+    shift: {
+      visualEvidence: `El mismo producto mostrando que ese ${v.variable} nace en dólares: la operación en USD y su ${v.variable} en pesos al tipo de cambio ya fijado. ${cap(one)}; nada insinúa que el número pueda moverse, porque ya quedó definido.`,
+      visualDevice: `el producto con la operación en USD y su ${v.variable} definido en pesos, un solo valor en turquesa`,
+    },
+    risk: {
+      visualEvidence: `El mismo producto junto a un calendario que marca la fecha del ${v.moment}: el ${v.variable} en pesos ya definido para ese día, ${one}. Es lo que permite reservar el efectivo con anticipación en vez de esperar a ver el tipo de cambio.`,
+      visualDevice: `el producto junto a un calendario con el ${v.variable} definido para la fecha del ${v.moment}`,
+    },
+    solution: {
+      visualEvidence: `El mismo producto con su ${v.variable} en pesos ya cerrado y la operación lista para presupuestarse: ${one}. Un número que ya se puede planear.`,
+      visualDevice: `el producto con su ${v.variable} definido y la operación ya presupuestada`,
+    },
+    cta: {
+      visualEvidence: `El producto como cierre, resuelto y en primer plano, con una etiqueta discreta del ${v.variable} ya definido en pesos. Escena tranquila, ${one}; el foco es la decisión de definir hoy el ${v.variable} del ${v.moment} futuro.`,
+      visualDevice: `el producto resuelto en primer plano con la etiqueta del ${v.variable} definido`,
+    },
+  };
+}
+
+/*
+ * rate_comparison / rate_range: dos tasas de la misma obligación. `hypothetical=true`
+ * (rate_range) enmarca la segunda tasa como un nivel al que PODRÍA llegar, nunca como una
+ * afirmación de que llegará —requisito de la rama—. Solo el riesgo lleva dos valores.
+ */
+function rateScenes(v: DirectionVocab, hypothetical: boolean): Record<string, ForwardSceneSlot> {
+  const secondState = hypothetical
+    ? 'un nivel hipotético al que PODRÍA llegar (nunca una afirmación de que llegará)'
+    : `el nivel al ${v.moment}`;
+  const secondLabel = hypothetical ? 'un nivel hipotético' : `el nivel al ${v.moment}`;
+  return {
+    tension: {
+      visualEvidence: `El producto de la operación con su ${v.variable} en pesos al tipo de cambio de hoy. Un solo estado y un solo ${v.variable}; sin comparar tasas todavía, la escena deja abierta cuánto podría cambiar ese ${v.variable} si el dólar se mueve.`,
+      visualDevice: `el producto con su ${v.variable} en pesos al tipo de cambio actual`,
+    },
+    shift: {
+      visualEvidence: `El mismo producto mostrando que su ${v.variable} nace en dólares: la operación en USD y su ${v.variable} en pesos al tipo de cambio actual. Un solo escenario y un solo ${v.variable}, sin una segunda tarjeta. Sobre el tipo de cambio, una señal coral sutil ${v.arrow} insinúa que puede ${v.rises}: es cualitativa, un presagio, NUNCA un segundo número.`,
+      visualDevice: `el producto con su ${v.variable} y una marca coral ${v.arrow} sobre el tipo de cambio`,
+    },
+    risk: {
+      visualEvidence: `El mismo producto con dos ${v.variable}s del mismo pedido, lado a lado: al tipo de cambio actual (turquesa) y a ${secondState} (coral). La operación en USD es idéntica en ambos; lo único que cambia es el tipo de cambio y el ${v.variable} en pesos resultante. Exactamente dos escenarios, ni uno más.`,
+      visualDevice: `dos ${v.variable}s del mismo pedido, actual contra ${secondLabel}, con la operación en USD idéntica`,
+    },
+    solution: {
+      visualEvidence: `El mismo producto con un solo ${v.variable} en pesos ya definido al fijar el tipo de cambio con Xending: un único valor cierto, en turquesa, sin comparar escenarios ni usar coral.`,
+      visualDevice: `el producto con su ${v.variable} ya definido al tipo de cambio fijado`,
+    },
+    cta: {
+      visualEvidence: `El producto como cierre, resuelto y en primer plano, con una etiqueta discreta del ${v.variable} ya definido en pesos. Escena tranquila, un solo valor; el foco es fijar hoy el tipo de cambio de la operación.`,
+      visualDevice: `el producto resuelto con la etiqueta del ${v.variable} definido`,
+    },
+  };
+}
+
+/*
+ * margin_sensitivity: el lado fijo (precio de venta en import, costo en export) contra el
+ * lado variable, con la franja del margen estrechándose. Dos estados solo en el riesgo.
+ */
+function marginScenes(v: DirectionVocab): Record<string, ForwardSceneSlot> {
+  return {
+    tension: {
+      visualEvidence: `El producto de la operación con dos etiquetas: su ${v.fixedThing} en pesos ya comprometido y, a su lado, su ${v.variable} presupuestado. Un solo estado; el ${v.fixedThing} ya quedó fijo pero el ${v.variable} apenas se cierra, y entre ambos vive el margen.`,
+      visualDevice: `el producto con su ${v.fixedThing} fijo y su ${v.variable} presupuestado, y la franja de margen entre ambos`,
+    },
+    shift: {
+      visualEvidence: `El mismo producto mostrando que su ${v.variable} nace en dólares: la operación en USD y su ${v.variable} en pesos al tipo de cambio actual, con el ${v.fixedThing} fijo al lado. Un solo escenario; sobre el tipo de cambio una marca coral sutil ${v.arrow} insinúa que el ${v.variable} puede ${v.rises}. Señal cualitativa, NUNCA un segundo número.`,
+      visualDevice: `el producto con su ${v.variable} y una marca coral ${v.arrow} sobre el tipo de cambio, junto al ${v.fixedThing} fijo`,
+    },
+    risk: {
+      visualEvidence: `El mismo producto con una sola franja de margen entre el ${v.fixedThing} fijo (idéntico en ambos estados) y el ${v.variable}: al presupuestar (turquesa) y sin cobertura al ${v.moment} (coral). El ${v.fixedThing} se repite igual para que se vea que lo único que se movió es el ${v.variable}; la franja del margen se estrecha. Exactamente dos estados.`,
+      visualDevice: `una franja de margen que se estrecha entre el ${v.fixedThing} fijo y el ${v.variable} que se movió`,
+    },
+    solution: {
+      visualEvidence: `El mismo producto con el tipo de cambio ya fijado: ${v.fixedThing} fijo, ${v.variable} final y utilidad definida, un solo estado en turquesa. La franja del margen queda estable, sin coral.`,
+      visualDevice: `el producto con su margen ya estable y el ${v.variable} final definido`,
+    },
+    cta: {
+      visualEvidence: `El producto como cierre, resuelto y en primer plano, con una etiqueta discreta de margen definido: ${v.fixedThing} fijo, ${v.variable} final y utilidad protegida. Escena tranquila, un solo estado; el foco es proteger el margen fijando el tipo de cambio.`,
+      visualDevice: `el producto resuelto con una etiqueta de margen definido`,
+    },
+  };
+}
+
+/** Un escenario registrado: su schema de cifras y sus escenas por dirección. */
+interface ScenarioFigureSchema {
+  figureSchema: Record<string, ForwardFigureSlot>;
+  scenes: { import: Record<string, ForwardSceneSlot>; export: Record<string, ForwardSceneSlot> };
+}
+
+/*
+ * El registro que reemplaza el hardcode de forward. Solo escenarios de coberturas: la
+ * aplicación se gatea además por rama, así costos_ahorro —que comparte rate_range y
+ * margin_sensitivity— conserva sus propias escenas.
+ */
+const SCENARIO_SCHEMAS: Partial<Record<CarouselFigureScenarioId, ScenarioFigureSchema>> = {
+  forward_protection: {
+    figureSchema: FORWARD_FIGURE_SCHEMA,
+    scenes: { import: FORWARD_SCENE_IMPORT, export: FORWARD_SCENE_EXPORT },
+  },
+  cashflow_certainty: {
+    figureSchema: CASHFLOW_FIGURE_SCHEMA,
+    scenes: { import: cashflowScenes(DIRECTION_VOCAB.import), export: cashflowScenes(DIRECTION_VOCAB.export) },
+  },
+  rate_comparison: {
+    figureSchema: RATE_FIGURE_SCHEMA,
+    scenes: { import: rateScenes(DIRECTION_VOCAB.import, false), export: rateScenes(DIRECTION_VOCAB.export, false) },
+  },
+  rate_range: {
+    figureSchema: RATE_FIGURE_SCHEMA,
+    scenes: { import: rateScenes(DIRECTION_VOCAB.import, true), export: rateScenes(DIRECTION_VOCAB.export, true) },
+  },
+  margin_sensitivity: {
+    figureSchema: MARGIN_FIGURE_SCHEMA,
+    scenes: { import: marginScenes(DIRECTION_VOCAB.import), export: marginScenes(DIRECTION_VOCAB.export) },
+  },
+};
+
 /**
- * Reemplaza los requisitos de imagen de cada beat forward por los del schema de su rol:
+ * Reemplaza los requisitos de imagen de cada beat por los del schema de su escenario:
  * las cifras (factKeys, peso, superficie) Y la escena (qué muestra, cuántos escenarios),
  * esta última según la DIRECCIÓN (importación o exportación).
  *
@@ -264,22 +477,30 @@ const FORWARD_SCENE_EXPORT: Record<string, ForwardSceneSlot> = {
  * dibuja, para que el LLM no pueda pedir una comparación en un slide de un solo escenario y
  * el modelo de imagen termine inventando una segunda tasa. Se corre después de normalizar y
  * antes del preflight, así el plan validado ya trae la estructura definitiva.
+ *
+ * Gateado por rama: solo coberturas. rate_range y margin_sensitivity también los usa
+ * costos_ahorro, donde import/export no significa nada; ahí el schema no se aplica y la
+ * escena la sigue escribiendo el guion.
  */
-export function applyForwardFigureSchema(
+export function applyScenarioFigureSchema(
   plan: CarouselCreativePlan,
   direction: 'import' | 'export' = 'import',
 ): CarouselCreativePlan {
-  if (plan.figureScenarioId !== 'forward_protection') return plan;
-  const sceneByRole = direction === 'export' ? FORWARD_SCENE_EXPORT : FORWARD_SCENE_IMPORT;
+  if (!(plan.branchSlug ?? '').toLowerCase().includes('cobertura')) return plan;
+  const scenarioId = plan.figureScenarioId;
+  if (scenarioId === 'none') return plan;
+  const schema = SCENARIO_SCHEMAS[scenarioId];
+  if (!schema) return plan;
+  const sceneByRole = direction === 'export' ? schema.scenes.export : schema.scenes.import;
   return {
     ...plan,
     storyboard: plan.storyboard.map((beat) => {
-      const slot = FORWARD_FIGURE_SCHEMA[beat.role];
+      const slot = schema.figureSchema[beat.role];
       const scene = sceneByRole[beat.role];
       if (!slot || !scene) return beat;
       const figureRequirement: CarouselBeatFigureRequirement = {
         mode: 'illustrative',
-        scenarioId: 'forward_protection',
+        scenarioId,
         factKeys: [...slot.factKeys],
         narrativePurpose: scene.visualEvidence,
         weight: slot.weight,
@@ -294,6 +515,12 @@ export function applyForwardFigureSchema(
     }),
   };
 }
+
+/**
+ * Alias histórico. El nombre viejo apuntaba solo a forward; el comportamiento sigue siendo
+ * idéntico para forward y ahora cubre todos los escenarios de coberturas.
+ */
+export const applyForwardFigureSchema = applyScenarioFigureSchema;
 
 // ---------------------------------------------------------------------------
 // Prompt
