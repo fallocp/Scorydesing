@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-08-21T15:07:27.461Z",
-  "count": 180,
+  "generated_at": "2026-08-31T04:38:41.857Z",
+  "count": 329,
   "copies": [
     {
       "branch": "costos-ahorro",
@@ -12,6 +12,7 @@
       "angleTag": "costo_total_de_importacion",
       "angleLabel": "Costo total de importación",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.costos-ahorro.v3.1.md"
     },
     {
@@ -24,6 +25,7 @@
       "angleTag": "impacto_acumulado",
       "angleLabel": "Impacto acumulado",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.costos-ahorro.v3.1.md"
     },
     {
@@ -36,6 +38,7 @@
       "angleTag": "segunda_cotizacion",
       "angleLabel": "Segunda cotización",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.costos-ahorro.v3.1.md"
     },
     {
@@ -48,6 +51,7 @@
       "angleTag": "diversificacion_de_proveedores",
       "angleLabel": "Diversificación de proveedores",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.costos-ahorro.v3.1.md"
     },
     {
@@ -60,6 +64,7 @@
       "angleTag": "proteccion_margen",
       "angleLabel": "Protección del margen",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.costos-ahorro.v3.1.md"
     },
     {
@@ -72,6 +77,7 @@
       "angleTag": "costo_total_de_importacion",
       "angleLabel": "Costo total de importación",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.costos-ahorro.v3.1.md"
     },
     {
@@ -84,6 +90,7 @@
       "angleTag": "impacto_acumulado",
       "angleLabel": "Impacto acumulado",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.costos-ahorro.v3.1.md"
     },
     {
@@ -96,6 +103,7 @@
       "angleTag": "segunda_cotizacion",
       "angleLabel": "Segunda cotización",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.costos-ahorro.v3.1.md"
     },
     {
@@ -108,6 +116,7 @@
       "angleTag": "costo_velocidad",
       "angleLabel": "Costo + velocidad",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.costos-ahorro.v3.1.md"
     },
     {
@@ -120,6 +129,7 @@
       "angleTag": "diferencias_por_mercado",
       "angleLabel": "Diferencias por mercado",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.costos-ahorro.v3.1.md"
     },
     {
@@ -132,6 +142,7 @@
       "angleTag": "impacto_anual",
       "angleLabel": "Impacto anual",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.costos-ahorro.v3.1.md"
     },
     {
@@ -144,6 +155,7 @@
       "angleTag": "proteccion_margen",
       "angleLabel": "Protección del margen",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.costos-ahorro.v3.1.md"
     },
     {
@@ -156,6 +168,7 @@
       "angleTag": "simplificacion_operativa",
       "angleLabel": "Simplificación operativa",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.costos-ahorro.v3.1.md"
     },
     {
@@ -168,6 +181,7 @@
       "angleTag": "proveedor_habitual",
       "angleLabel": "Proveedor habitual",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.costos-ahorro.v3.1.md"
     },
     {
@@ -180,6 +194,7 @@
       "angleTag": "comparacion_integral",
       "angleLabel": "Comparación completa",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.costos-ahorro.v3.1.md"
     },
     {
@@ -192,6 +207,7 @@
       "angleTag": "costo_cambiario",
       "angleLabel": "Costo cambiario",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.costos-ahorro.v3.1.md"
     },
     {
@@ -204,6 +220,7 @@
       "angleTag": "costo_total_de_importacion",
       "angleLabel": "Costo total de importación",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.costos-ahorro.v3.1.md"
     },
     {
@@ -216,6 +233,7 @@
       "angleTag": "segunda_cotizacion",
       "angleLabel": "Segunda cotización",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.costos-ahorro.v3.1.md"
     },
     {
@@ -228,6 +246,7 @@
       "angleTag": "proteccion_margen",
       "angleLabel": "Protección del margen",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.costos-ahorro.v3.1.md"
     },
     {
@@ -240,6 +259,7 @@
       "angleTag": "escala_e_impacto_acumulado",
       "angleLabel": "Escala e impacto acumulado",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.costos-ahorro.v3.1.md"
     },
     {
@@ -252,6 +272,7 @@
       "angleTag": "costo_velocidad",
       "angleLabel": "Costo + velocidad",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.costos-ahorro.v3.1.md"
     },
     {
@@ -264,6 +285,7 @@
       "angleTag": "costo_cambiario",
       "angleLabel": "Costo cambiario",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.costos-ahorro.v3.1.md"
     },
     {
@@ -276,6 +298,7 @@
       "angleTag": "segunda_cotizacion",
       "angleLabel": "Segunda cotización",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.costos-ahorro.v3.1.md"
     },
     {
@@ -288,6 +311,7 @@
       "angleTag": "costo_total_de_importacion",
       "angleLabel": "Costo total de importación",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.costos-ahorro.v3.1.md"
     },
     {
@@ -300,6 +324,7 @@
       "angleTag": "proteccion_margen",
       "angleLabel": "Protección del margen",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.costos-ahorro.v3.1.md"
     },
     {
@@ -312,6 +337,7 @@
       "angleTag": "escala_e_impacto_acumulado",
       "angleLabel": "Escala e impacto acumulado",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.costos-ahorro.v3.1.md"
     },
     {
@@ -324,6 +350,7 @@
       "angleTag": "diferencias_por_mercado_y_moneda",
       "angleLabel": "Diferencias por mercado y moneda",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.costos-ahorro.v3.1.md"
     },
     {
@@ -336,6 +363,7 @@
       "angleTag": "segunda_cotizacion",
       "angleLabel": "Segunda cotización",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.costos-ahorro.v3.1.md"
     },
     {
@@ -348,6 +376,7 @@
       "angleTag": "proteccion_margen",
       "angleLabel": "Protección del margen",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.costos-ahorro.v3.1.md"
     },
     {
@@ -360,6 +389,7 @@
       "angleTag": "costo_velocidad",
       "angleLabel": "Costo + velocidad",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.costos-ahorro.v3.1.md"
     },
     {
@@ -372,6 +402,7 @@
       "angleTag": "costo_total_de_importacion",
       "angleLabel": "Costo total de importación",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.costos-ahorro.v3.1.md"
     },
     {
@@ -384,6 +415,7 @@
       "angleTag": "costo_cambiario",
       "angleLabel": "Costo cambiario",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.costos-ahorro.v3.1.md"
     },
     {
@@ -396,6 +428,7 @@
       "angleTag": "segunda_cotizacion",
       "angleLabel": "Segunda cotización",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.costos-ahorro.v3.1.md"
     },
     {
@@ -408,6 +441,7 @@
       "angleTag": "escala_e_impacto_acumulado",
       "angleLabel": "Escala e impacto acumulado",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.costos-ahorro.v3.1.md"
     },
     {
@@ -420,6 +454,7 @@
       "angleTag": "costo_total_de_importacion",
       "angleLabel": "Costo total de importación",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.costos-ahorro.v3.1.md"
     },
     {
@@ -432,6 +467,7 @@
       "angleTag": "costo_cambiario",
       "angleLabel": "Costo cambiario",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.costos-ahorro.v3.1.md"
     },
     {
@@ -444,6 +480,7 @@
       "angleTag": "proteccion_margen",
       "angleLabel": "Protección del margen",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.costos-ahorro.v3.1.md"
     },
     {
@@ -456,6 +493,7 @@
       "angleTag": "segunda_cotizacion",
       "angleLabel": "Segunda cotización",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.costos-ahorro.v3.1.md"
     },
     {
@@ -468,6 +506,7 @@
       "angleTag": "escala_e_impacto_acumulado",
       "angleLabel": "Escala e impacto acumulado",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.costos-ahorro.v3.1.md"
     },
     {
@@ -480,6 +519,7 @@
       "angleTag": "costo_velocidad",
       "angleLabel": "Costo + velocidad",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.costos-ahorro.v3.1.md"
     },
     {
@@ -492,6 +532,7 @@
       "angleTag": "diferencias_por_mercado_y_moneda",
       "angleLabel": "Diferencias por mercado y moneda",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.costos-ahorro.v3.1.md"
     },
     {
@@ -504,6 +545,7 @@
       "angleTag": "costo_total_de_importacion",
       "angleLabel": "Costo total de importación",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.costos-ahorro.v3.1.md"
     },
     {
@@ -516,6 +558,7 @@
       "angleTag": "simplificacion_operativa",
       "angleLabel": "Simplificación operativa",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.costos-ahorro.v3.1.md"
     },
     {
@@ -528,6 +571,7 @@
       "angleTag": "simplificacion_operativa",
       "angleLabel": "Simplificación operativa",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.costos-ahorro.v3.1.md"
     },
     {
@@ -540,6 +584,7 @@
       "angleTag": "costo_cambiario",
       "angleLabel": "Costo cambiario",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.costos-ahorro.v3.1.md"
     },
     {
@@ -552,6 +597,7 @@
       "angleTag": "mismo_dia",
       "angleLabel": "Mismo día",
       "needsLegalNote": true,
+      "businessSide": null,
       "source": "_contexto-editorial.velocidad.v3.1.md"
     },
     {
@@ -564,6 +610,7 @@
       "angleTag": "especializacion_china_y_asia",
       "angleLabel": "Especialización China y Asia",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.velocidad.v3.1.md"
     },
     {
@@ -576,6 +623,7 @@
       "angleTag": "proveedor_esperando",
       "angleLabel": "Proveedor esperando",
       "needsLegalNote": true,
+      "businessSide": null,
       "source": "_contexto-editorial.velocidad.v3.1.md"
     },
     {
@@ -588,6 +636,7 @@
       "angleTag": "horario_aplicable_mismo_dia",
       "angleLabel": "Horario aplicable + mismo día",
       "needsLegalNote": true,
+      "businessSide": null,
       "source": "_contexto-editorial.velocidad.v3.1.md"
     },
     {
@@ -600,6 +649,7 @@
       "angleTag": "continuidad_operativa",
       "angleLabel": "Continuidad operativa",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.velocidad.v3.1.md"
     },
     {
@@ -612,6 +662,7 @@
       "angleTag": "proveedor_agilidad",
       "angleLabel": "Proveedor + agilidad",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.velocidad.v3.1.md"
     },
     {
@@ -624,6 +675,7 @@
       "angleTag": "pedido_terminado_siguiente_etapa",
       "angleLabel": "Pedido terminado / siguiente etapa",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.velocidad.v3.1.md"
     },
     {
@@ -636,6 +688,7 @@
       "angleTag": "agilidad_internacional_general",
       "angleLabel": "Agilidad internacional general",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.velocidad.v3.1.md"
     },
     {
@@ -648,6 +701,7 @@
       "angleTag": "momento_del_pago",
       "angleLabel": "Momento del pago",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.velocidad.v3.1.md"
     },
     {
@@ -660,6 +714,7 @@
       "angleTag": "confirmacion_y_claridad",
       "angleLabel": "Confirmación y claridad",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.velocidad.v3.1.md"
     },
     {
@@ -672,6 +727,7 @@
       "angleTag": "seguimiento_y_claridad",
       "angleLabel": "Seguimiento y claridad",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.velocidad.v3.1.md"
     },
     {
@@ -684,6 +740,7 @@
       "angleTag": "inventario_y_reposicion",
       "angleLabel": "Inventario y reposición",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.velocidad.v3.1.md"
     },
     {
@@ -696,6 +753,7 @@
       "angleTag": "refaccion_y_mantenimiento",
       "angleLabel": "Refacción y mantenimiento",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.velocidad.v3.1.md"
     },
     {
@@ -708,6 +766,7 @@
       "angleTag": "agilidad_internacional_general",
       "angleLabel": "Agilidad internacional general",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.velocidad.v3.1.md"
     },
     {
@@ -720,6 +779,7 @@
       "angleTag": "posicionamiento_china",
       "angleLabel": "Posicionamiento China",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.velocidad.v3.1.md"
     },
     {
@@ -732,6 +792,7 @@
       "angleTag": "continuidad_de_suministro",
       "angleLabel": "Continuidad de suministro",
       "needsLegalNote": true,
+      "businessSide": null,
       "source": "_contexto-editorial.velocidad.v3.1.md"
     },
     {
@@ -744,6 +805,7 @@
       "angleTag": "continuidad_de_proyecto",
       "angleLabel": "Continuidad de proyecto",
       "needsLegalNote": true,
+      "businessSide": null,
       "source": "_contexto-editorial.velocidad.v3.1.md"
     },
     {
@@ -756,6 +818,7 @@
       "angleTag": "velocidad_de_mercado",
       "angleLabel": "Velocidad de mercado",
       "needsLegalNote": true,
+      "businessSide": null,
       "source": "_contexto-editorial.velocidad.v3.1.md"
     },
     {
@@ -768,6 +831,7 @@
       "angleTag": "temporada_comercial",
       "angleLabel": "Temporada comercial",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.velocidad.v3.1.md"
     },
     {
@@ -780,18 +844,20 @@
       "angleTag": "continuidad_produccion",
       "angleLabel": "Continuidad de producción",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.velocidad.v3.1.md"
     },
     {
       "branch": "velocidad",
       "corridor": "industria",
       "industry": "mobiliario",
-      "headline": "El mobiliario está terminado. Falta hacerlo avanzar",
+      "headline": "El mobiliario está listo. Falta el pago",
       "subcopy": "Xending te ayuda a realizar el pago internacional con mayor agilidad y acompañamiento.",
       "cta": "Paga sin demoras a tu proveedor",
       "angleTag": "pedido_terminado",
       "angleLabel": "Pedido terminado",
       "needsLegalNote": true,
+      "businessSide": null,
       "source": "_contexto-editorial.velocidad.v3.1.md"
     },
     {
@@ -804,6 +870,7 @@
       "angleTag": "continuidad_productiva",
       "angleLabel": "Continuidad productiva",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.velocidad.v3.1.md"
     },
     {
@@ -816,6 +883,7 @@
       "angleTag": "refaccion_y_mantenimiento",
       "angleLabel": "Refacción y mantenimiento",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.velocidad.v3.1.md"
     },
     {
@@ -828,6 +896,7 @@
       "angleTag": "arranque_de_produccion",
       "angleLabel": "Arranque de producción",
       "needsLegalNote": true,
+      "businessSide": null,
       "source": "_contexto-editorial.velocidad.v3.1.md"
     },
     {
@@ -840,18 +909,20 @@
       "angleTag": "pedido_terminado_por_volumen",
       "angleLabel": "Pedido terminado por volumen",
       "needsLegalNote": true,
+      "businessSide": null,
       "source": "_contexto-editorial.velocidad.v3.1.md"
     },
     {
       "branch": "velocidad",
       "corridor": "industria",
       "industry": "automotriz",
-      "headline": "Cada componente cuenta cuando la línea lo necesita",
+      "headline": "La producción necesita los componentes a tiempo",
       "subcopy": "Xending te ayuda a pagar al proveedor para acompañar el ritmo de tu ensamble.",
       "cta": "Habla con Xending",
       "angleTag": "continuidad_de_ensamble",
       "angleLabel": "Continuidad de ensamble",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.velocidad.v3.1.md"
     },
     {
@@ -864,6 +935,7 @@
       "angleTag": "cumplimiento_de_proyecto",
       "angleLabel": "Cumplimiento de proyecto",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.velocidad.v3.1.md"
     },
     {
@@ -876,6 +948,7 @@
       "angleTag": "temporada_comercial",
       "angleLabel": "Temporada comercial",
       "needsLegalNote": true,
+      "businessSide": null,
       "source": "_contexto-editorial.velocidad.v3.1.md"
     },
     {
@@ -888,6 +961,7 @@
       "angleTag": "calendario_de_instalacion",
       "angleLabel": "Calendario de instalación",
       "needsLegalNote": true,
+      "businessSide": null,
       "source": "_contexto-editorial.velocidad.v3.1.md"
     },
     {
@@ -900,6 +974,7 @@
       "angleTag": "cumplimiento_de_obra",
       "angleLabel": "Cumplimiento de obra",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.velocidad.v3.1.md"
     },
     {
@@ -912,6 +987,7 @@
       "angleTag": "continuidad_industrial",
       "angleLabel": "Continuidad industrial",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.velocidad.v3.1.md"
     },
     {
@@ -924,6 +1000,7 @@
       "angleTag": "avance_de_instalacion",
       "angleLabel": "Avance de instalación",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.velocidad.v3.1.md"
     },
     {
@@ -936,6 +1013,7 @@
       "angleTag": "reposicion_critica",
       "angleLabel": "Reposición crítica",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.velocidad.v3.1.md"
     },
     {
@@ -948,6 +1026,7 @@
       "angleTag": "continuidad_operativa",
       "angleLabel": "Continuidad operativa",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.velocidad.v3.1.md"
     },
     {
@@ -960,6 +1039,7 @@
       "angleTag": "mantenimiento_industrial",
       "angleLabel": "Mantenimiento industrial",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.velocidad.v3.1.md"
     },
     {
@@ -972,42 +1052,46 @@
       "angleTag": "continuidad_produccion",
       "angleLabel": "Continuidad de producción",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.velocidad.v3.1.md"
     },
     {
       "branch": "velocidad",
       "corridor": "industria",
       "industry": "manufactura",
-      "headline": "Las piezas plásticas no deberían frenar el ensamble",
+      "headline": "Las piezas plásticas deben estar antes del ensamble",
       "subcopy": "Paga a fabricantes internacionales con mayor agilidad cuando esos componentes forman parte de la siguiente producción.",
       "cta": "Cotiza tu pago",
       "angleTag": "continuidad_de_ensamble",
       "angleLabel": "Continuidad de ensamble",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.velocidad.v3.1.md"
     },
     {
       "branch": "velocidad",
       "corridor": "industria",
       "industry": "retail",
-      "headline": "El inventario de electrodomésticos tiene fechas de venta",
+      "headline": "Los electrodomésticos tienen que llegar antes de la venta",
       "subcopy": "Xending te ayuda a pagar al proveedor para acompañar la reposición y disponibilidad de producto.",
       "cta": "Cotiza tu próximo pago",
       "angleTag": "disponibilidad_de_inventario",
       "angleLabel": "Disponibilidad de inventario",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.velocidad.v3.1.md"
     },
     {
       "branch": "velocidad",
       "corridor": "industria",
       "industry": "equipamiento",
-      "headline": "La cocina debe estar lista antes de abrir",
+      "headline": "La apertura ya tiene fecha. El equipo también debe llegar",
       "subcopy": "Paga equipos y utensilios importados con mayor agilidad para acompañar la fecha del proyecto.",
       "cta": "Cotiza tu pago",
       "angleTag": "fecha_de_apertura",
       "angleLabel": "Fecha de apertura",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.velocidad.v3.1.md"
     },
     {
@@ -1020,18 +1104,20 @@
       "angleTag": "renovacion_tecnologica",
       "angleLabel": "Renovación tecnológica",
       "needsLegalNote": true,
+      "businessSide": null,
       "source": "_contexto-editorial.velocidad.v3.1.md"
     },
     {
       "branch": "velocidad",
       "corridor": "industria",
       "industry": "retail",
-      "headline": "El inventario no se repone con una transferencia detenida",
+      "headline": "Cuando baja el inventario, el tiempo del pago importa",
       "subcopy": "Xending te ayuda a realizar pagos internacionales con mayor agilidad para acompañar tu reposición.",
       "cta": "Habla con Xending",
       "angleTag": "reposicion_comercial",
       "angleLabel": "Reposición comercial",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.velocidad.v3.1.md"
     },
     {
@@ -1044,6 +1130,7 @@
       "angleTag": "reposicion_de_inventario",
       "angleLabel": "Reposición de inventario",
       "needsLegalNote": true,
+      "businessSide": null,
       "source": "_contexto-editorial.velocidad.v3.1.md"
     },
     {
@@ -1056,6 +1143,7 @@
       "angleTag": "demanda_y_reposicion",
       "angleLabel": "Demanda y reposición",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.velocidad.v3.1.md"
     },
     {
@@ -1068,18 +1156,20 @@
       "angleTag": "temporada_y_proyecto",
       "angleLabel": "Temporada y proyecto",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.velocidad.v3.1.md"
     },
     {
       "branch": "velocidad",
       "corridor": "industria",
       "industry": "automotriz",
-      "headline": "Los sensores no deberían llegar después del ensamble",
+      "headline": "Los sensores tienen que llegar antes del ensamble",
       "subcopy": "Xending te ayuda a pagar componentes internacionales con mayor agilidad cuando la producción tiene fecha.",
       "cta": "Cotiza tu próximo pago",
       "angleTag": "ensamble_y_timing_de_produccion",
       "angleLabel": "Ensamble y timing de producción",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.velocidad.v3.1.md"
     },
     {
@@ -1092,6 +1182,7 @@
       "angleTag": "factura_usd_vs_presupuesto_mxn",
       "angleLabel": "Factura USD vs presupuesto MXN",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.coberturas.v3.1.md"
     },
     {
@@ -1104,6 +1195,7 @@
       "angleTag": "tiempo_entre_cotizacion_y_pago",
       "angleLabel": "Tiempo entre cotización y pago",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.coberturas.v3.1.md"
     },
     {
@@ -1116,6 +1208,7 @@
       "angleTag": "forward_fecha_futura",
       "angleLabel": "Forward / fecha futura",
       "needsLegalNote": true,
+      "businessSide": null,
       "source": "_contexto-editorial.coberturas.v3.1.md"
     },
     {
@@ -1128,6 +1221,7 @@
       "angleTag": "precio_del_proveedor_vs_costo_final",
       "angleLabel": "Precio del proveedor vs costo final",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.coberturas.v3.1.md"
     },
     {
@@ -1140,6 +1234,7 @@
       "angleTag": "margen_calculado_vs_pago_posterior",
       "angleLabel": "Margen calculado vs pago posterior",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.coberturas.v3.1.md"
     },
     {
@@ -1152,6 +1247,7 @@
       "angleTag": "beneficio_central_del_forward",
       "angleLabel": "Beneficio central del forward",
       "needsLegalNote": true,
+      "businessSide": null,
       "source": "_contexto-editorial.coberturas.v3.1.md"
     },
     {
@@ -1164,6 +1260,7 @@
       "angleTag": "previsibilidad_financiera",
       "angleLabel": "Previsibilidad financiera",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.coberturas.v3.1.md"
     },
     {
@@ -1176,6 +1273,7 @@
       "angleTag": "margen_mxn_vs_pago_usd",
       "angleLabel": "Margen MXN vs pago USD",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.coberturas.v3.1.md"
     },
     {
@@ -1188,6 +1286,7 @@
       "angleTag": "calendario_de_pagos",
       "angleLabel": "Calendario de pagos",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.coberturas.v3.1.md"
     },
     {
@@ -1200,6 +1299,7 @@
       "angleTag": "plazo_del_proveedor_vs_mercado",
       "angleLabel": "Plazo del proveedor vs mercado",
       "needsLegalNote": true,
+      "businessSide": null,
       "source": "_contexto-editorial.coberturas.v3.1.md"
     },
     {
@@ -1212,6 +1312,7 @@
       "angleTag": "planeacion_de_efectivo",
       "angleLabel": "Planeación de efectivo",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.coberturas.v3.1.md"
     },
     {
@@ -1224,6 +1325,7 @@
       "angleTag": "costo_futuro_en_pesos",
       "angleLabel": "Costo futuro en pesos",
       "needsLegalNote": true,
+      "businessSide": null,
       "source": "_contexto-editorial.coberturas.v3.1.md"
     },
     {
@@ -1236,6 +1338,7 @@
       "angleTag": "decision_anticipada",
       "angleLabel": "Decisión anticipada",
       "needsLegalNote": true,
+      "businessSide": null,
       "source": "_contexto-editorial.coberturas.v3.1.md"
     },
     {
@@ -1248,6 +1351,7 @@
       "angleTag": "presupuesto_impacto_cambiario",
       "angleLabel": "Presupuesto / impacto cambiario",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.coberturas.v3.1.md"
     },
     {
@@ -1260,6 +1364,7 @@
       "angleTag": "disciplina_financiera_vs_mercado",
       "angleLabel": "Disciplina financiera vs mercado",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.coberturas.v3.1.md"
     },
     {
@@ -1272,6 +1377,7 @@
       "angleTag": "margen_por_unidad",
       "angleLabel": "Margen por unidad",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.coberturas.v3.1.md"
     },
     {
@@ -1284,6 +1390,7 @@
       "angleTag": "materia_prima_pago_posterior",
       "angleLabel": "Materia prima / pago posterior",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.coberturas.v3.1.md"
     },
     {
@@ -1296,6 +1403,7 @@
       "angleTag": "temporada",
       "angleLabel": "Temporada",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.coberturas.v3.1.md"
     },
     {
@@ -1308,6 +1416,7 @@
       "angleTag": "proyecto_previsibilidad",
       "angleLabel": "Proyecto / previsibilidad",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.coberturas.v3.1.md"
     },
     {
@@ -1320,6 +1429,7 @@
       "angleTag": "proyecto_vendido_vs_equipo_importado",
       "angleLabel": "Proyecto vendido vs equipo importado",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.coberturas.v3.1.md"
     },
     {
@@ -1332,6 +1442,7 @@
       "angleTag": "inventario_margen",
       "angleLabel": "Inventario / margen",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.coberturas.v3.1.md"
     },
     {
@@ -1344,6 +1455,7 @@
       "angleTag": "margen_por_lote",
       "angleLabel": "Margen por lote",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.coberturas.v3.1.md"
     },
     {
@@ -1356,6 +1468,7 @@
       "angleTag": "tiempo_de_entrega",
       "angleLabel": "Tiempo de entrega",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.coberturas.v3.1.md"
     },
     {
@@ -1368,6 +1481,7 @@
       "angleTag": "compra_hoy_pago_posterior",
       "angleLabel": "Compra hoy / pago posterior",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.coberturas.v3.1.md"
     },
     {
@@ -1380,6 +1494,7 @@
       "angleTag": "forward_entrega_futura",
       "angleLabel": "Forward / entrega futura",
       "needsLegalNote": true,
+      "businessSide": null,
       "source": "_contexto-editorial.coberturas.v3.1.md"
     },
     {
@@ -1392,6 +1507,7 @@
       "angleTag": "precio_fijo_vs_moneda",
       "angleLabel": "Precio fijo vs moneda",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.coberturas.v3.1.md"
     },
     {
@@ -1404,6 +1520,7 @@
       "angleTag": "margen_por_pieza",
       "angleLabel": "Margen por pieza",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.coberturas.v3.1.md"
     },
     {
@@ -1416,6 +1533,7 @@
       "angleTag": "precio_confirmado_moneda_pendiente",
       "angleLabel": "Precio confirmado / moneda pendiente",
       "needsLegalNote": true,
+      "businessSide": null,
       "source": "_contexto-editorial.coberturas.v3.1.md"
     },
     {
@@ -1428,6 +1546,7 @@
       "angleTag": "escala_y_volumen",
       "angleLabel": "Escala y volumen",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.coberturas.v3.1.md"
     },
     {
@@ -1440,6 +1559,7 @@
       "angleTag": "precio_de_venta_vs_insumo_futuro",
       "angleLabel": "Precio de venta vs insumo futuro",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.coberturas.v3.1.md"
     },
     {
@@ -1452,6 +1572,7 @@
       "angleTag": "proyecto_vendido_vs_equipo_importado",
       "angleLabel": "Proyecto vendido vs equipo importado",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.coberturas.v3.1.md"
     },
     {
@@ -1464,6 +1585,7 @@
       "angleTag": "proyecto_largo",
       "angleLabel": "Proyecto largo",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.coberturas.v3.1.md"
     },
     {
@@ -1476,6 +1598,7 @@
       "angleTag": "margen_de_proyecto",
       "angleLabel": "Margen de proyecto",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.coberturas.v3.1.md"
     },
     {
@@ -1488,6 +1611,7 @@
       "angleTag": "costo_de_produccion",
       "angleLabel": "Costo de producción",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.coberturas.v3.1.md"
     },
     {
@@ -1500,6 +1624,7 @@
       "angleTag": "materia_prima_costo_unitario",
       "angleLabel": "Materia prima / costo unitario",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.coberturas.v3.1.md"
     },
     {
@@ -1512,6 +1637,7 @@
       "angleTag": "precio_de_fabrica_vs_costo_local",
       "angleLabel": "Precio de fábrica vs costo local",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.coberturas.v3.1.md"
     },
     {
@@ -1524,6 +1650,7 @@
       "angleTag": "equipamiento_de_proyecto",
       "angleLabel": "Equipamiento de proyecto",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.coberturas.v3.1.md"
     },
     {
@@ -1536,6 +1663,7 @@
       "angleTag": "inversion_previa_a_produccion",
       "angleLabel": "Inversión previa a producción",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.coberturas.v3.1.md"
     },
     {
@@ -1548,6 +1676,7 @@
       "angleTag": "maquinaria_agricola_forward",
       "angleLabel": "Maquinaria agrícola / forward",
       "needsLegalNote": true,
+      "businessSide": null,
       "source": "_contexto-editorial.coberturas.v3.1.md"
     },
     {
@@ -1560,6 +1689,7 @@
       "angleTag": "insumo_importado_vs_precio_de_venta",
       "angleLabel": "Insumo importado vs precio de venta",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.coberturas.v3.1.md"
     },
     {
@@ -1572,6 +1702,7 @@
       "angleTag": "volumen_costo_por_lote",
       "angleLabel": "Volumen / costo por lote",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.coberturas.v3.1.md"
     },
     {
@@ -1584,6 +1715,7 @@
       "angleTag": "proyecto_local_vs_componentes_importados",
       "angleLabel": "Proyecto local vs componentes importados",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.coberturas.v3.1.md"
     },
     {
@@ -1596,6 +1728,7 @@
       "angleTag": "proyecto_vendido_compra_futura",
       "angleLabel": "Proyecto vendido / compra futura",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.coberturas.v3.1.md"
     },
     {
@@ -1608,6 +1741,7 @@
       "angleTag": "volumen_compra_futura",
       "angleLabel": "Volumen / compra futura",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.coberturas.v3.1.md"
     },
     {
@@ -1620,7 +1754,1945 @@
       "angleTag": "presupuesto_de_equipamiento",
       "angleLabel": "Presupuesto de equipamiento",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.coberturas.v3.1.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "autopartes",
+      "headline": "El lote de rodamientos se paga dentro de 60 días",
+      "subcopy": "El costo en pesos todavía puede cambiar antes del vencimiento.",
+      "cta": "Planea hoy tus costos futuros",
+      "angleTag": "pago_futuro_60_dias",
+      "angleLabel": "pago futuro 60 días",
+      "needsLegalNote": false,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "autopartes",
+      "headline": "Ya vendiste las balatas. La reposición sigue cotizada en dólares",
+      "subcopy": "El tipo de cambio puede modificar el margen del siguiente lote.",
+      "cta": "Protege tu margen",
+      "angleTag": "reposicion_margen_comprometido",
+      "angleLabel": "reposición / margen comprometido",
+      "needsLegalNote": false,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "autopartes",
+      "headline": "Cada mes compras arneses. Cada pago llega en una fecha distinta",
+      "subcopy": "Una cobertura puede ayudarte a dar mayor estabilidad al costo de tus compras recurrentes.",
+      "cta": "Administra tu riesgo cambiario",
+      "angleTag": "compras_recurrentes",
+      "angleLabel": "compras recurrentes",
+      "needsLegalNote": false,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "autopartes",
+      "headline": "El lote de baterías llega en 90 días. El presupuesto ya está definido",
+      "subcopy": "El tipo de cambio todavía puede modificar cuánto terminarás pagando en pesos.",
+      "cta": "Protege tus costos",
+      "angleTag": "presupuesto_90_dias",
+      "angleLabel": "presupuesto + 90 días",
+      "needsLegalNote": false,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "autopartes",
+      "headline": "El módulo electrónico lleva anticipo hoy y saldo antes del embarque",
+      "subcopy": "Dos fechas de pago pueden significar dos momentos de riesgo cambiario.",
+      "cta": "Planea tus costos",
+      "angleTag": "anticipo_saldo",
+      "angleLabel": "anticipo + saldo",
+      "needsLegalNote": false,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "autopartes",
+      "headline": "Los discos de freno ya tienen precio con tu cliente. El costo de reposición no",
+      "subcopy": "Una cobertura puede ayudarte a proteger el margen del siguiente pedido.",
+      "cta": "Cuida tu margen",
+      "angleTag": "precio_de_venta_fijo_reposicion_variable",
+      "angleLabel": "precio de venta fijo / reposición variable",
+      "needsLegalNote": false,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "autopartes",
+      "headline": "Cotizaste las suspensiones para ganar el programa. El dólar puede cambiar la ecuación",
+      "subcopy": "Una cobertura puede ayudarte a proteger el margen con el que competiste.",
+      "cta": "Protege tu margen",
+      "angleTag": "competitividad",
+      "angleLabel": "competitividad",
+      "needsLegalNote": false,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "autopartes",
+      "headline": "La transmisión tiene precio de venta. Su costo final en pesos todavía no",
+      "subcopy": "Una cobertura puede reducir la incertidumbre antes de pagar al proveedor.",
+      "cta": "Define tu costo cambiario",
+      "angleTag": "precio_de_venta_costo_futuro",
+      "angleLabel": "precio de venta / costo futuro",
+      "needsLegalNote": false,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "autopartes",
+      "headline": "El pedido de sensores está confirmado. El pago será en 60 días",
+      "subcopy": "Un forward puede ayudarte a definir hoy el tipo de cambio de ese pago.",
+      "cta": "Define hoy. Paga después.",
+      "angleTag": "pedido_confirmado_60_dias",
+      "angleLabel": "pedido confirmado + 60 días",
+      "needsLegalNote": true,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "maquinaria",
+      "headline": "La CNC que compras hoy se liquida dentro de 90 días",
+      "subcopy": "Una cobertura puede ayudarte a dar mayor certidumbre al costo en pesos.",
+      "cta": "Protege tus costos",
+      "angleTag": "pago_futuro_90_dias",
+      "angleLabel": "pago futuro 90 días",
+      "needsLegalNote": false,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "maquinaria",
+      "headline": "La inyectora lleva anticipo hoy. El saldo se paga después",
+      "subcopy": "El tipo de cambio puede ser diferente en cada fecha de pago.",
+      "cta": "Planea tus costos",
+      "angleTag": "anticipo_saldo",
+      "angleLabel": "anticipo + saldo",
+      "needsLegalNote": false,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "maquinaria",
+      "headline": "El molde se paga antes de fabricar la primera pieza",
+      "subcopy": "El tipo de cambio también forma parte de esa inversión inicial.",
+      "cta": "Define tu costo cambiario",
+      "angleTag": "inversion_previa_a_produccion",
+      "angleLabel": "inversión previa a producción",
+      "needsLegalNote": false,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "maquinaria",
+      "headline": "La prensa estará lista después del FAT. El presupuesto ya está aprobado",
+      "subcopy": "Una cobertura puede ayudarte a cuidar el costo hasta el pago final.",
+      "cta": "Planea hoy tus costos futuros",
+      "angleTag": "fabricacion_presupuesto_aprobado",
+      "angleLabel": "fabricación + presupuesto aprobado",
+      "needsLegalNote": false,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "maquinaria",
+      "headline": "El compresor ya está fabricándose. El saldo se paga antes del embarque",
+      "subcopy": "Un forward puede ayudarte a definir el tipo de cambio de ese saldo.",
+      "cta": "Cotiza un forward",
+      "angleTag": "fabricacion_saldo_futuro",
+      "angleLabel": "fabricación + saldo futuro",
+      "needsLegalNote": true,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "maquinaria",
+      "headline": "El torno está cotizado en euros. Tu CAPEX está aprobado en pesos",
+      "subcopy": "Una cobertura puede ayudarte a cuidar el presupuesto de la inversión.",
+      "cta": "Protege tus costos",
+      "angleTag": "eur_vs_capex_mxn",
+      "angleLabel": "EUR vs. CAPEX MXN",
+      "needsLegalNote": false,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "maquinaria",
+      "headline": "Una línea de producción puede tener varios pagos antes de arrancar",
+      "subcopy": "Cada desembolso puede tener un tipo de cambio diferente.",
+      "cta": "Administra tu riesgo cambiario",
+      "angleTag": "varios_desembolsos",
+      "angleLabel": "varios desembolsos",
+      "needsLegalNote": false,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "maquinaria",
+      "headline": "Vendiste la instalación. Todavía falta comprar la bomba industrial",
+      "subcopy": "El tipo de cambio puede modificar el margen del proyecto antes de la compra.",
+      "cta": "Protege tu margen",
+      "angleTag": "proyecto_vendido_compra_posterior",
+      "angleLabel": "proyecto vendido + compra posterior",
+      "needsLegalNote": false,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "maquinaria",
+      "headline": "Cotizaste la máquina para ganar el proyecto. El saldo se paga en 90 días",
+      "subcopy": "Una cobertura puede ayudarte a proteger el margen con el que competiste.",
+      "cta": "Protege tu margen",
+      "angleTag": "competitividad_pago_90_dias",
+      "angleLabel": "competitividad + pago 90 días",
+      "needsLegalNote": false,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "maquinaria",
+      "headline": "El saldo de la inyectora ya tiene monto y fecha",
+      "subcopy": "Un forward puede ayudarte a definir hoy el tipo de cambio aplicable.",
+      "cta": "Define hoy. Paga después.",
+      "angleTag": "monto_fecha_conocidos",
+      "angleLabel": "monto + fecha conocidos",
+      "needsLegalNote": true,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "electronicos",
+      "headline": "Las tarjetas PCB se pagan en 60 días. La producción ya está programada",
+      "subcopy": "El costo en pesos todavía puede cambiar antes del vencimiento.",
+      "cta": "Protege tus costos",
+      "angleTag": "produccion_60_dias",
+      "angleLabel": "producción + 60 días",
+      "needsLegalNote": false,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "electronicos",
+      "headline": "Las cámaras ya tienen precio de venta. Falta reponer el inventario",
+      "subcopy": "El tipo de cambio puede modificar el margen del siguiente pedido.",
+      "cta": "Cuida tu margen",
+      "angleTag": "precio_de_venta_reposicion",
+      "angleLabel": "precio de venta + reposición",
+      "needsLegalNote": false,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "electronicos",
+      "headline": "Miles de chips hacen relevante una variación pequeña",
+      "subcopy": "El volumen también amplifica el efecto sobre el costo total.",
+      "cta": "Protege tus costos",
+      "angleTag": "volumen",
+      "angleLabel": "volumen",
+      "needsLegalNote": false,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "electronicos",
+      "headline": "El pedido de baterías es para la próxima temporada",
+      "subcopy": "El costo final en pesos todavía puede cambiar antes del pago.",
+      "cta": "Planea hoy tus costos futuros",
+      "angleTag": "temporada_futura",
+      "angleLabel": "temporada futura",
+      "needsLegalNote": false,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "electronicos",
+      "headline": "Los cargadores se venden en pesos. El proveedor cobra en dólares",
+      "subcopy": "Una cobertura puede ayudarte a cuidar el margen de la reposición.",
+      "cta": "Protege tu margen",
+      "angleTag": "venta_mxn_compra_usd",
+      "angleLabel": "venta MXN / compra USD",
+      "needsLegalNote": false,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "electronicos",
+      "headline": "Dos lotes de displays. Dos fechas diferentes de pago",
+      "subcopy": "Cada compra puede terminar con un costo distinto en pesos.",
+      "cta": "Administra tu riesgo cambiario",
+      "angleTag": "dos_lotes_dos_fechas",
+      "angleLabel": "dos lotes / dos fechas",
+      "needsLegalNote": false,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "electronicos",
+      "headline": "Cotizaste los sensores para mantenerte competitivo",
+      "subcopy": "El tipo de cambio puede apretar el margen antes de reponer el inventario.",
+      "cta": "Protege tu margen",
+      "angleTag": "competitividad_reposicion",
+      "angleLabel": "competitividad / reposición",
+      "needsLegalNote": false,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "electronicos",
+      "headline": "El inventario de fuentes de poder llega antes de temporada alta",
+      "subcopy": "Una cobertura puede ayudarte a dar mayor certidumbre al costo de la reposición.",
+      "cta": "Da certidumbre a tus costos",
+      "angleTag": "inventario_para_temporada",
+      "angleLabel": "inventario para temporada",
+      "needsLegalNote": false,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "electronicos",
+      "headline": "Las pantallas ya están pedidas. El pago será dentro de 60 días",
+      "subcopy": "Un forward puede ayudarte a definir hoy el tipo de cambio.",
+      "cta": "Cotiza un forward",
+      "angleTag": "pedido_confirmado_60_dias",
+      "angleLabel": "pedido confirmado + 60 días",
+      "needsLegalNote": true,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "textiles_calzado",
+      "headline": "El algodón se compra hoy. La colección se vende meses después",
+      "subcopy": "Una cobertura puede ayudarte a dar mayor certidumbre al costo desde la compra.",
+      "cta": "Planea hoy tus costos futuros",
+      "angleTag": "materia_prima_temporada_futura",
+      "angleLabel": "materia prima + temporada futura",
+      "needsLegalNote": false,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "textiles_calzado",
+      "headline": "El cuero se paga en dólares. El zapato se vende en pesos",
+      "subcopy": "El tipo de cambio puede modificar el margen por par.",
+      "cta": "Protege tu margen",
+      "angleTag": "compra_usd_venta_mxn",
+      "angleLabel": "compra USD / venta MXN",
+      "needsLegalNote": false,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "textiles_calzado",
+      "headline": "Ya definiste el precio de temporada. Falta pagar la producción",
+      "subcopy": "El costo en pesos todavía puede cambiar antes del embarque.",
+      "cta": "Cuida tu margen",
+      "angleTag": "precio_definido_pago_futuro",
+      "angleLabel": "precio definido + pago futuro",
+      "needsLegalNote": false,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "textiles_calzado",
+      "headline": "Miles de metros de tela hacen relevante cualquier movimiento cambiario",
+      "subcopy": "El volumen puede amplificar el efecto sobre el costo del pedido.",
+      "cta": "Protege tus costos",
+      "angleTag": "volumen",
+      "angleLabel": "volumen",
+      "needsLegalNote": false,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "textiles_calzado",
+      "headline": "Cotizaste la colección para competir en temporada",
+      "subcopy": "El tipo de cambio puede modificar el margen con el que ganaste la venta.",
+      "cta": "Protege tu margen",
+      "angleTag": "competitividad_temporada",
+      "angleLabel": "competitividad / temporada",
+      "needsLegalNote": false,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "textiles_calzado",
+      "headline": "La fábrica de calzado recibió el anticipo. El saldo viene después",
+      "subcopy": "Dos fechas de pago pueden requerir dos decisiones cambiarias.",
+      "cta": "Planea tus costos",
+      "angleTag": "anticipo_saldo",
+      "angleLabel": "anticipo + saldo",
+      "needsLegalNote": false,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "textiles_calzado",
+      "headline": "La producción de chamarras termina en 60 días. El saldo ya tiene fecha",
+      "subcopy": "Un forward puede ayudarte a definir hoy el tipo de cambio del pago.",
+      "cta": "Define hoy. Paga después.",
+      "angleTag": "produccion_saldo_60_dias",
+      "angleLabel": "producción + saldo 60 días",
+      "needsLegalNote": true,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "solar_iluminacion_electrico",
+      "headline": "Los paneles se compran hoy. Los inversores, semanas después",
+      "subcopy": "Dos compras pueden significar dos momentos de riesgo cambiario.",
+      "cta": "Planea tus costos",
+      "angleTag": "compras_en_fechas_distintas",
+      "angleLabel": "compras en fechas distintas",
+      "needsLegalNote": false,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "solar_iluminacion_electrico",
+      "headline": "El proyecto dura 90 días. El presupuesto ya está cerrado",
+      "subcopy": "El tipo de cambio todavía puede mover el costo durante la ejecución.",
+      "cta": "Protege tus costos",
+      "angleTag": "presupuesto_cerrado_90_dias",
+      "angleLabel": "presupuesto cerrado + 90 días",
+      "needsLegalNote": false,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "solar_iluminacion_electrico",
+      "headline": "El cliente ya aprobó el proyecto. Falta comprar las baterías",
+      "subcopy": "Una cobertura puede ayudarte a cuidar el margen de la instalación.",
+      "cta": "Protege tu margen",
+      "angleTag": "proyecto_aprobado_compra_futura",
+      "angleLabel": "proyecto aprobado + compra futura",
+      "needsLegalNote": false,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "solar_iluminacion_electrico",
+      "headline": "El transformador tiene entrega futura. Su costo está en dólares",
+      "subcopy": "Una cobertura puede dar mayor certidumbre antes del pago.",
+      "cta": "Planea hoy tus costos futuros",
+      "angleTag": "entrega_futura",
+      "angleLabel": "entrega futura",
+      "needsLegalNote": false,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "solar_iluminacion_electrico",
+      "headline": "Cable, breakers y tableros se compran en etapas distintas",
+      "subcopy": "Cada desembolso puede tener un tipo de cambio diferente.",
+      "cta": "Administra tu riesgo cambiario",
+      "angleTag": "compras_por_etapas",
+      "angleLabel": "compras por etapas",
+      "needsLegalNote": false,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "solar_iluminacion_electrico",
+      "headline": "Cotizaste los paneles para ganar el proyecto",
+      "subcopy": "El tipo de cambio puede cambiar el margen con el que competiste.",
+      "cta": "Protege tu margen",
+      "angleTag": "competitividad",
+      "angleLabel": "competitividad",
+      "needsLegalNote": false,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "solar_iluminacion_electrico",
+      "headline": "El pedido de inversores está confirmado para pagar en 60 días",
+      "subcopy": "Un forward puede ayudarte a definir hoy el tipo de cambio.",
+      "cta": "Cotiza un forward",
+      "angleTag": "pedido_confirmado_60_dias",
+      "angleLabel": "pedido confirmado + 60 días",
+      "needsLegalNote": true,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "solar_iluminacion_electrico",
+      "headline": "El transformador llega en tres meses. El pago ya está programado",
+      "subcopy": "Un forward puede ayudarte a definir el tipo de cambio antes del vencimiento.",
+      "cta": "Define hoy. Paga después.",
+      "angleTag": "entrega_90_dias",
+      "angleLabel": "entrega 90 días",
+      "needsLegalNote": true,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "hvac_climatizacion",
+      "headline": "El chiller se compra meses después de adjudicar el proyecto",
+      "subcopy": "El tipo de cambio todavía puede modificar el presupuesto de la obra.",
+      "cta": "Protege tus costos",
+      "angleTag": "adjudicacion_compra_futura",
+      "angleLabel": "adjudicación + compra futura",
+      "needsLegalNote": false,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "hvac_climatizacion",
+      "headline": "El elevador lleva anticipo hoy y saldo antes de la entrega",
+      "subcopy": "Dos fechas de pago pueden implicar dos momentos cambiarios diferentes.",
+      "cta": "Planea tus costos",
+      "angleTag": "anticipo_saldo",
+      "angleLabel": "anticipo + saldo",
+      "needsLegalNote": false,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "hvac_climatizacion",
+      "headline": "Ya vendiste la obra. Falta comprar las manejadoras de aire",
+      "subcopy": "El tipo de cambio todavía puede modificar el margen del proyecto.",
+      "cta": "Protege tu margen",
+      "angleTag": "obra_vendida_compra_futura",
+      "angleLabel": "obra vendida + compra futura",
+      "needsLegalNote": false,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "hvac_climatizacion",
+      "headline": "El compresor llega en 60 días. El presupuesto ya está aprobado",
+      "subcopy": "Una cobertura puede darte mayor certidumbre antes del pago.",
+      "cta": "Planea hoy tus costos futuros",
+      "angleTag": "presupuesto_60_dias",
+      "angleLabel": "presupuesto + 60 días",
+      "needsLegalNote": false,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "hvac_climatizacion",
+      "headline": "Bombas, chillers y controles se compran en etapas distintas",
+      "subcopy": "Cada compra puede llegar con un costo diferente en pesos.",
+      "cta": "Administra tu riesgo cambiario",
+      "angleTag": "obra_por_etapas",
+      "angleLabel": "obra por etapas",
+      "needsLegalNote": false,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "hvac_climatizacion",
+      "headline": "El contrato del cliente ya tiene precio. La refrigeración todavía falta por comprar",
+      "subcopy": "Una cobertura puede ayudarte a proteger el margen del proyecto.",
+      "cta": "Protege tu margen",
+      "angleTag": "contrato_fijo_compra_pendiente",
+      "angleLabel": "contrato fijo + compra pendiente",
+      "needsLegalNote": false,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "hvac_climatizacion",
+      "headline": "Cotizaste el sistema VRF para ganar la obra",
+      "subcopy": "El tipo de cambio puede cambiar el margen con el que competiste.",
+      "cta": "Protege tu margen",
+      "angleTag": "competitividad",
+      "angleLabel": "competitividad",
+      "needsLegalNote": false,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "hvac_climatizacion",
+      "headline": "El chiller ya está en fabricación. El saldo se paga antes del embarque",
+      "subcopy": "Un forward puede ayudarte a definir hoy el tipo de cambio del saldo.",
+      "cta": "Cotiza un forward",
+      "angleTag": "fabricacion_saldo_futuro",
+      "angleLabel": "fabricación + saldo futuro",
+      "needsLegalNote": true,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "hvac_climatizacion",
+      "headline": "El elevador ya tiene fecha de entrega y pago",
+      "subcopy": "Un forward puede ayudarte a definir también el tipo de cambio.",
+      "cta": "Define hoy. Paga después.",
+      "angleTag": "fecha_pago_conocidos",
+      "angleLabel": "fecha + pago conocidos",
+      "needsLegalNote": true,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "empaques_envases",
+      "headline": "El margen de cada botella también depende del costo de la resina",
+      "subcopy": "Una cobertura puede ayudarte a cuidar el costo de producción.",
+      "cta": "Protege tu margen",
+      "angleTag": "margen_por_unidad",
+      "angleLabel": "margen por unidad",
+      "needsLegalNote": false,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "empaques_envases",
+      "headline": "Millones de tapas hacen grande una diferencia pequeña",
+      "subcopy": "El volumen puede amplificar el efecto sobre el costo del lote.",
+      "cta": "Protege tus costos",
+      "angleTag": "volumen",
+      "angleLabel": "volumen",
+      "needsLegalNote": false,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "empaques_envases",
+      "headline": "La resina entra a producción el próximo mes. El pago sigue en dólares",
+      "subcopy": "El costo en pesos todavía puede cambiar antes de recibirla.",
+      "cta": "Planea tus costos",
+      "angleTag": "produccion_futura",
+      "angleLabel": "producción futura",
+      "needsLegalNote": false,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "empaques_envases",
+      "headline": "Cada mes vuelves a comprar pellets para mantener la producción",
+      "subcopy": "Cada compra llega con una nueva fecha y un nuevo riesgo cambiario.",
+      "cta": "Administra tu riesgo cambiario",
+      "angleTag": "compra_recurrente",
+      "angleLabel": "compra recurrente",
+      "needsLegalNote": false,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "empaques_envases",
+      "headline": "El precio de las cajas ya está pactado con tu cliente",
+      "subcopy": "El costo del material importado todavía puede cambiar.",
+      "cta": "Protege tu margen",
+      "angleTag": "precio_de_venta_fijo",
+      "angleLabel": "precio de venta fijo",
+      "needsLegalNote": false,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "empaques_envases",
+      "headline": "Cotizaste los envases para ganar el contrato",
+      "subcopy": "El tipo de cambio puede apretar el margen con el que competiste.",
+      "cta": "Protege tu margen",
+      "angleTag": "competitividad",
+      "angleLabel": "competitividad",
+      "needsLegalNote": false,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "empaques_envases",
+      "headline": "El molde de las botellas se paga antes de producir la primera unidad",
+      "subcopy": "Una cobertura puede dar mayor certidumbre a esa inversión.",
+      "cta": "Protege tus costos",
+      "angleTag": "inversion_previa_a_produccion",
+      "angleLabel": "inversión previa a producción",
+      "needsLegalNote": false,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "empaques_envases",
+      "headline": "El pedido de película plástica se paga dentro de 60 días",
+      "subcopy": "El costo futuro en pesos todavía puede cambiar.",
+      "cta": "Planea hoy tus costos futuros",
+      "angleTag": "pago_futuro_60_dias",
+      "angleLabel": "pago futuro 60 días",
+      "needsLegalNote": false,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "empaques_envases",
+      "headline": "La compra de resina ya está programada para dentro de 90 días",
+      "subcopy": "Un forward puede ayudarte a definir hoy el tipo de cambio del pago.",
+      "cta": "Define hoy. Paga después.",
+      "angleTag": "compra_programada_90_dias",
+      "angleLabel": "compra programada 90 días",
+      "needsLegalNote": true,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "insumos_industriales",
+      "headline": "Ya vendiste las válvulas. El siguiente pedido sigue en dólares",
+      "subcopy": "Una cobertura puede ayudarte a cuidar el margen de la reposición.",
+      "cta": "Protege tu margen",
+      "angleTag": "reposicion",
+      "angleLabel": "reposición",
+      "needsLegalNote": false,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "insumos_industriales",
+      "headline": "El pallet de herramientas llega después. Su costo en pesos todavía puede cambiar",
+      "subcopy": "Una cobertura puede ayudarte a definir mejor el costo del siguiente pago.",
+      "cta": "Define tu costo cambiario",
+      "angleTag": "entrega_futura",
+      "angleLabel": "entrega futura",
+      "needsLegalNote": false,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "insumos_industriales",
+      "headline": "Cada mes repones mangueras y conexiones del inventario",
+      "subcopy": "Cada compra vuelve a tener una fecha y un tipo de cambio distintos.",
+      "cta": "Administra tu riesgo cambiario",
+      "angleTag": "reposicion_mensual",
+      "angleLabel": "reposición mensual",
+      "needsLegalNote": false,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "insumos_industriales",
+      "headline": "Los abrasivos ya tienen precio de catálogo. La reposición todavía no",
+      "subcopy": "El tipo de cambio puede modificar el margen del siguiente lote.",
+      "cta": "Cuida tu margen",
+      "angleTag": "catalogo_fijo_reposicion",
+      "angleLabel": "catálogo fijo + reposición",
+      "needsLegalNote": false,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "insumos_industriales",
+      "headline": "Cientos de cajas de tornillería cambian la escala del riesgo",
+      "subcopy": "Una cobertura puede darte mayor certidumbre sobre el costo total.",
+      "cta": "Protege tus costos",
+      "angleTag": "volumen",
+      "angleLabel": "volumen",
+      "needsLegalNote": false,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "insumos_industriales",
+      "headline": "La bomba industrial tiene precio. El proyecto ya tiene presupuesto",
+      "subcopy": "El tipo de cambio todavía puede modificar el costo antes de comprarla.",
+      "cta": "Protege tu margen",
+      "angleTag": "proyecto_presupuestado",
+      "angleLabel": "proyecto presupuestado",
+      "needsLegalNote": false,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "insumos_industriales",
+      "headline": "Cotizaste las herramientas de corte para ganar el contrato",
+      "subcopy": "El tipo de cambio puede modificar el margen antes de reponerlas.",
+      "cta": "Protege tu margen",
+      "angleTag": "competitividad",
+      "angleLabel": "competitividad",
+      "needsLegalNote": false,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "insumos_industriales",
+      "headline": "El compresor se paga antes del embarque. La fecha ya está definida",
+      "subcopy": "Un forward puede ayudarte a definir hoy el tipo de cambio de ese saldo.",
+      "cta": "Cotiza un forward",
+      "angleTag": "pago_antes_de_embarque",
+      "angleLabel": "pago antes de embarque",
+      "needsLegalNote": true,
+      "businessSide": "importador",
+      "source": "coberturas.importadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "autopartes",
+      "headline": "Los arneses ya tienen precio. Tu ingreso en pesos todavía puede cambiar",
+      "subcopy": "La factura está en dólares y el cobro llegará después.",
+      "cta": "Protege tus ingresos",
+      "angleTag": "precio_pactado_ingreso_mxn_variable",
+      "angleLabel": "precio pactado / ingreso MXN variable",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "autopartes",
+      "headline": "Sensores exportados. Tu cobro en dólares llega en 60 días",
+      "subcopy": "El tipo de cambio puede modificar el margen que calculaste al vender.",
+      "cta": "Protege tu margen",
+      "angleTag": "exportacion_60_dias",
+      "angleLabel": "exportación + 60 días",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "autopartes",
+      "headline": "Las transmisiones se vendieron en dólares. Tus costos quedaron en pesos",
+      "subcopy": "Una cobertura puede ayudarte a cuidar el resultado hasta recibir el pago.",
+      "cta": "Protege tu margen",
+      "angleTag": "ingreso_usd_costos_mxn",
+      "angleLabel": "ingreso USD / costos MXN",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "autopartes",
+      "headline": "Exportas asientos cada mes. El ingreso en pesos puede cambiar cada mes",
+      "subcopy": "Las facturas vencen en fechas distintas y el tipo de cambio también puede hacerlo.",
+      "cta": "Da estabilidad a tu margen",
+      "angleTag": "ventas_recurrentes",
+      "angleLabel": "ventas recurrentes",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "autopartes",
+      "headline": "Cotizaste los frenos para ganar el programa. El tipo de cambio puede cambiar la ecuación",
+      "subcopy": "Una cobertura puede ayudarte a proteger el margen con el que competiste.",
+      "cta": "Protege tu margen",
+      "angleTag": "competitividad",
+      "angleLabel": "competitividad",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "autopartes",
+      "headline": "Las baterías tienen precio fijo para todo el proyecto",
+      "subcopy": "El valor en pesos de los cobros todavía puede cambiar durante el programa.",
+      "cta": "Da certidumbre a tus ingresos",
+      "angleTag": "precio_fijo_proyecto_largo",
+      "angleLabel": "precio fijo / proyecto largo",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "autopartes",
+      "headline": "Los sensores ya se vendieron. Ese margen ya está en tu presupuesto",
+      "subcopy": "El tipo de cambio todavía puede moverlo antes del cobro.",
+      "cta": "Protege tu margen",
+      "angleTag": "margen_comprometido",
+      "angleLabel": "margen comprometido",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "autopartes",
+      "headline": "Tres embarques de suspensión. Tres fechas distintas para cobrar",
+      "subcopy": "El mismo precio en dólares puede representar distintos ingresos en pesos.",
+      "cta": "Protege tus exportaciones",
+      "angleTag": "varias_facturas_varias_fechas",
+      "angleLabel": "varias facturas / varias fechas",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "autopartes",
+      "headline": "Los módulos ya están facturados. Monto y fecha de cobro ya están definidos",
+      "subcopy": "Un forward puede ayudarte a definir también el tipo de cambio.",
+      "cta": "Define hoy. Cobra después.",
+      "angleTag": "monto_fecha_conocidos",
+      "angleLabel": "monto + fecha conocidos",
+      "needsLegalNote": true,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "autopartes",
+      "headline": "Los motores se cobran en 90 días. Hoy ya conoces la factura",
+      "subcopy": "Un forward puede reducir la incertidumbre cambiaria antes del vencimiento.",
+      "cta": "Cotiza un forward",
+      "angleTag": "factura_a_90_dias",
+      "angleLabel": "factura a 90 días",
+      "needsLegalNote": true,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "electronicos",
+      "headline": "Los servidores tienen precio en dólares. Tu presupuesto de caja está en pesos",
+      "subcopy": "Una cobertura puede darte mayor certidumbre sobre el ingreso futuro.",
+      "cta": "Protege tus ingresos",
+      "angleTag": "ingreso_usd_presupuesto_mxn",
+      "angleLabel": "ingreso USD / presupuesto MXN",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "electronicos",
+      "headline": "Las computadoras ya se exportaron. Cobrarás dentro de 60 días",
+      "subcopy": "El tipo de cambio todavía puede modificar el resultado de la venta.",
+      "cta": "Protege tu margen",
+      "angleTag": "exportacion_60_dias",
+      "angleLabel": "exportación + 60 días",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "electronicos",
+      "headline": "Miles de tarjetas electrónicas hacen relevante una variación pequeña",
+      "subcopy": "El efecto también se multiplica cuando el lote es grande.",
+      "cta": "Protege el margen de tus exportaciones",
+      "angleTag": "volumen",
+      "angleLabel": "volumen",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "electronicos",
+      "headline": "El precio de los displays ya quedó fijo. El ingreso en pesos no",
+      "subcopy": "La factura seguirá en dólares hasta la fecha de cobro.",
+      "cta": "Da certidumbre a tus ingresos",
+      "angleTag": "precio_fijo_ingreso_variable",
+      "angleLabel": "precio fijo / ingreso variable",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "electronicos",
+      "headline": "Las cámaras ya tienen precio. Tu flujo en pesos todavía puede cambiar",
+      "subcopy": "Una cobertura puede ayudarte a reducir esa incertidumbre.",
+      "cta": "Protege tus ingresos",
+      "angleTag": "flujo_esperado",
+      "angleLabel": "flujo esperado",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "electronicos",
+      "headline": "Dos lotes de fuentes de poder. Dos clientes. Dos vencimientos",
+      "subcopy": "Cada factura puede convertirse a pesos bajo condiciones distintas.",
+      "cta": "Administra tu riesgo cambiario",
+      "angleTag": "dos_clientes_dos_fechas",
+      "angleLabel": "dos clientes / dos fechas",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "electronicos",
+      "headline": "Los sensores ya se vendieron con margen calculado",
+      "subcopy": "Ese margen todavía puede moverse antes de recibir los dólares.",
+      "cta": "Protege tu margen",
+      "angleTag": "margen_comprometido",
+      "angleLabel": "margen comprometido",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "electronicos",
+      "headline": "Los cargadores ya se vendieron. El siguiente lote necesita pesos para producirse",
+      "subcopy": "Dar mayor certidumbre al ingreso puede estabilizar el siguiente ciclo.",
+      "cta": "Da estabilidad a tu margen",
+      "angleTag": "siguiente_ciclo_productivo",
+      "angleLabel": "siguiente ciclo productivo",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "electronicos",
+      "headline": "Los servidores se cobran dentro de 90 días",
+      "subcopy": "Un forward puede ayudarte a definir hoy el tipo de cambio de esa venta.",
+      "cta": "Fija hoy tu tipo de cambio",
+      "angleTag": "cobro_a_90_dias",
+      "angleLabel": "cobro a 90 días",
+      "needsLegalNote": true,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "electronicos",
+      "headline": "Las pantallas ya tienen monto, moneda y fecha de cobro",
+      "subcopy": "Monto y fecha están definidos. El tipo de cambio también puede estarlo.",
+      "cta": "Define hoy. Cobra después.",
+      "angleTag": "monto_fecha_conocidos",
+      "angleLabel": "monto + fecha conocidos",
+      "needsLegalNote": true,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "equipo_electrico",
+      "headline": "Los transformadores se venden en dólares. Fabricarlos cuesta pesos",
+      "subcopy": "El tipo de cambio puede cambiar el margen mientras esperas el cobro.",
+      "cta": "Protege tu margen",
+      "angleTag": "venta_usd_costos_mxn",
+      "angleLabel": "venta USD / costos MXN",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "equipo_electrico",
+      "headline": "El tablero ya está instalado. La factura vence en 60 días",
+      "subcopy": "Una cobertura puede darte mayor certidumbre sobre ese ingreso.",
+      "cta": "Protege tus ingresos",
+      "angleTag": "instalacion_60_dias",
+      "angleLabel": "instalación + 60 días",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "equipo_electrico",
+      "headline": "Miles de breakers hacen grande una variación pequeña",
+      "subcopy": "El tipo de cambio puede modificar el margen de todo el pedido.",
+      "cta": "Protege tu margen",
+      "angleTag": "volumen",
+      "angleLabel": "volumen",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "equipo_electrico",
+      "headline": "El cableado tiene precio fijo durante todo el contrato",
+      "subcopy": "El equivalente en pesos de cada factura todavía puede cambiar.",
+      "cta": "Da estabilidad a tu margen",
+      "angleTag": "contrato_de_largo_plazo",
+      "angleLabel": "contrato de largo plazo",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "equipo_electrico",
+      "headline": "Los conectores ya se exportaron. Falta convertir esa venta en pesos",
+      "subcopy": "Una cobertura puede ayudarte a proteger el resultado hasta cobrar.",
+      "cta": "Protege lo que ya vendiste",
+      "angleTag": "venta_realizada_cobro_pendiente",
+      "angleLabel": "venta realizada / cobro pendiente",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "equipo_electrico",
+      "headline": "Tres pedidos de controles eléctricos. Tres fechas distintas de cobro",
+      "subcopy": "Cada vencimiento puede traer un resultado diferente en pesos.",
+      "cta": "Protege tus exportaciones",
+      "angleTag": "varias_fechas",
+      "angleLabel": "varias fechas",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "equipo_electrico",
+      "headline": "Cotizaste las luminarias para ganar el proyecto. El margen quedó comprometido desde entonces",
+      "subcopy": "El tipo de cambio todavía puede modificarlo antes del cobro.",
+      "cta": "Protege tu margen",
+      "angleTag": "competitividad_margen_comprometido",
+      "angleLabel": "competitividad / margen comprometido",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "equipo_electrico",
+      "headline": "Los arneses eléctricos ya están facturados. Ese ingreso ya está en el presupuesto",
+      "subcopy": "Una cobertura puede dar mayor certidumbre sobre cuánto llegará en pesos.",
+      "cta": "Da certidumbre a tus ingresos",
+      "angleTag": "ingreso_presupuestado",
+      "angleLabel": "ingreso presupuestado",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "equipo_electrico",
+      "headline": "El transformador se cobra dentro de 90 días",
+      "subcopy": "Un forward puede ayudarte a definir hoy el tipo de cambio.",
+      "cta": "Define hoy. Cobra después.",
+      "angleTag": "cobro_a_90_dias",
+      "angleLabel": "cobro a 90 días",
+      "needsLegalNote": true,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "equipo_electrico",
+      "headline": "Los breakers ya tienen factura, monto y vencimiento",
+      "subcopy": "Un forward puede ayudarte a definir el componente cambiario antes del cobro.",
+      "cta": "Cotiza un forward",
+      "angleTag": "factura_definida",
+      "angleLabel": "factura definida",
+      "needsLegalNote": true,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "equipo_medico",
+      "headline": "Los catéteres se venden en dólares. Producirlos cuesta pesos",
+      "subcopy": "Una cobertura puede ayudarte a proteger el margen de cada pedido.",
+      "cta": "Protege tu margen",
+      "angleTag": "venta_usd_costos_mxn",
+      "angleLabel": "venta USD / costos MXN",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "equipo_medico",
+      "headline": "El instrumental ya se exportó. La factura sigue pendiente",
+      "subcopy": "El ingreso equivalente en pesos todavía puede cambiar.",
+      "cta": "Protege tus ingresos",
+      "angleTag": "producto_entregado_cobro_pendiente",
+      "angleLabel": "producto entregado / cobro pendiente",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "equipo_medico",
+      "headline": "Miles de sets médicos hacen relevante cualquier movimiento cambiario",
+      "subcopy": "Una variación puede modificar el resultado del lote completo.",
+      "cta": "Protege el margen de tus exportaciones",
+      "angleTag": "volumen",
+      "angleLabel": "volumen",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "equipo_medico",
+      "headline": "Los monitores ya tienen precio pactado. El margen todavía puede moverse",
+      "subcopy": "El cobro llegará después y seguirá denominado en dólares.",
+      "cta": "Protege tu margen",
+      "angleTag": "precio_pactado_margen_variable",
+      "angleLabel": "precio pactado / margen variable",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "equipo_medico",
+      "headline": "Los consumibles médicos salen cada semana. Los cobros llegan después",
+      "subcopy": "La recurrencia también multiplica las fechas de exposición.",
+      "cta": "Administra tu riesgo cambiario",
+      "angleTag": "ventas_recurrentes",
+      "angleLabel": "ventas recurrentes",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "equipo_medico",
+      "headline": "El equipo de diagnóstico se cobra en 60 días. Ese ingreso ya está presupuestado",
+      "subcopy": "Una cobertura puede darte mayor certidumbre sobre el monto en pesos.",
+      "cta": "Da certidumbre a tus ingresos",
+      "angleTag": "ingreso_presupuestado_60_dias",
+      "angleLabel": "ingreso presupuestado + 60 días",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "equipo_medico",
+      "headline": "Cotizaste los componentes médicos para mantenerte competitivo",
+      "subcopy": "El tipo de cambio puede apretar el margen con el que ganaste la venta.",
+      "cta": "Protege tu margen",
+      "angleTag": "competitividad",
+      "angleLabel": "competitividad",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "equipo_medico",
+      "headline": "El instrumental ya está vendido. La siguiente producción no espera al cliente",
+      "subcopy": "Dar mayor certidumbre al ingreso puede ayudar a estabilizar el siguiente ciclo.",
+      "cta": "Protege tus ingresos",
+      "angleTag": "siguiente_ciclo_productivo",
+      "angleLabel": "siguiente ciclo productivo",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "equipo_medico",
+      "headline": "El equipo médico se cobra dentro de 90 días",
+      "subcopy": "Un forward puede ayudarte a definir hoy el tipo de cambio.",
+      "cta": "Fija hoy tu tipo de cambio",
+      "angleTag": "cobro_a_90_dias",
+      "angleLabel": "cobro a 90 días",
+      "needsLegalNote": true,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "equipo_medico",
+      "headline": "Los catéteres ya tienen monto y fecha de cobro",
+      "subcopy": "Un forward puede reducir la incertidumbre cambiaria antes del vencimiento.",
+      "cta": "Cotiza un forward",
+      "angleTag": "monto_fecha_conocidos",
+      "angleLabel": "monto + fecha conocidos",
+      "needsLegalNote": true,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "refrigeracion_electrodomesticos",
+      "headline": "Los refrigeradores se venden en dólares. La planta trabaja en pesos",
+      "subcopy": "Una cobertura puede ayudarte a cuidar el margen hasta el cobro.",
+      "cta": "Protege tu margen",
+      "angleTag": "venta_usd_operacion_mxn",
+      "angleLabel": "venta USD / operación MXN",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "refrigeracion_electrodomesticos",
+      "headline": "Los congeladores ya se exportaron. El pago llega después",
+      "subcopy": "El ingreso en pesos todavía puede cambiar antes de recibirlo.",
+      "cta": "Protege tus ingresos",
+      "angleTag": "producto_exportado_pago_futuro",
+      "angleLabel": "producto exportado / pago futuro",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "refrigeracion_electrodomesticos",
+      "headline": "Cientos de refrigeradores hacen relevante una variación pequeña",
+      "subcopy": "El tipo de cambio puede modificar el resultado del embarque completo.",
+      "cta": "Protege el margen de tus exportaciones",
+      "angleTag": "volumen",
+      "angleLabel": "volumen",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "refrigeracion_electrodomesticos",
+      "headline": "Los compresores tienen precio fijo durante todo el programa",
+      "subcopy": "El equivalente en pesos de cada cobro todavía puede variar.",
+      "cta": "Da estabilidad a tu margen",
+      "angleTag": "programa_precio_fijo",
+      "angleLabel": "programa / precio fijo",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "refrigeracion_electrodomesticos",
+      "headline": "Los equipos de refrigeración salen todos los meses",
+      "subcopy": "Cada factura tiene una fecha distinta para convertirse en pesos.",
+      "cta": "Administra tu riesgo cambiario",
+      "angleTag": "ventas_recurrentes",
+      "angleLabel": "ventas recurrentes",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "refrigeracion_electrodomesticos",
+      "headline": "Las vitrinas refrigeradas ya están instaladas. Esa venta ya está hecha",
+      "subcopy": "El margen todavía puede moverse antes de recibir los dólares.",
+      "cta": "Protege lo que ya vendiste",
+      "angleTag": "venta_realizada_margen_pendiente",
+      "angleLabel": "venta realizada / margen pendiente",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "refrigeracion_electrodomesticos",
+      "headline": "Cotizaste los congeladores para ganar la temporada",
+      "subcopy": "El tipo de cambio puede cambiar el margen con el que competiste.",
+      "cta": "Protege tu margen",
+      "angleTag": "competitividad_temporada",
+      "angleLabel": "competitividad / temporada",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "refrigeracion_electrodomesticos",
+      "headline": "Dos contenedores de refrigeradores. Dos clientes. Dos fechas para cobrar",
+      "subcopy": "El mismo precio en dólares puede producir distintos resultados en pesos.",
+      "cta": "Protege tus exportaciones",
+      "angleTag": "multiples_clientes_fechas",
+      "angleLabel": "múltiples clientes / fechas",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "refrigeracion_electrodomesticos",
+      "headline": "Los compresores se cobran dentro de 60 días",
+      "subcopy": "Un forward puede ayudarte a definir el tipo de cambio desde hoy.",
+      "cta": "Define hoy. Cobra después.",
+      "angleTag": "cobro_a_60_dias",
+      "angleLabel": "cobro a 60 días",
+      "needsLegalNote": true,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "refrigeracion_electrodomesticos",
+      "headline": "Los refrigeradores ya están facturados y tienen vencimiento",
+      "subcopy": "Un forward puede darte mayor certidumbre antes del cobro.",
+      "cta": "Cotiza un forward",
+      "angleTag": "factura_emitida",
+      "angleLabel": "factura emitida",
+      "needsLegalNote": true,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "mobiliario",
+      "headline": "Las sillas se venden en dólares. Fabricarlas cuesta pesos",
+      "subcopy": "El tipo de cambio puede cambiar el margen antes de recibir el pago.",
+      "cta": "Protege tu margen",
+      "angleTag": "venta_usd_costos_mxn",
+      "angleLabel": "venta USD / costos MXN",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "mobiliario",
+      "headline": "El mobiliario del hotel ya está instalado. Cobrarás en 60 días",
+      "subcopy": "Una cobertura puede ayudarte a proteger el ingreso de esa venta.",
+      "cta": "Protege tus ingresos",
+      "angleTag": "proyecto_entregado_60_dias",
+      "angleLabel": "proyecto entregado + 60 días",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "mobiliario",
+      "headline": "Cientos de mesas hacen relevante el tipo de cambio del cobro",
+      "subcopy": "Una variación puede modificar el margen de todo el proyecto.",
+      "cta": "Protege tu margen",
+      "angleTag": "volumen",
+      "angleLabel": "volumen",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "mobiliario",
+      "headline": "Los gabinetes ya tienen precio firmado para todo el proyecto",
+      "subcopy": "El ingreso en pesos todavía puede cambiar entre hoy y el cobro.",
+      "cta": "Da estabilidad a tu margen",
+      "angleTag": "proyecto_precio_fijo",
+      "angleLabel": "proyecto / precio fijo",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "mobiliario",
+      "headline": "Las luminarias salen hacia varios proyectos durante el mes",
+      "subcopy": "Cada factura también tiene una fecha distinta de vencimiento.",
+      "cta": "Protege tus exportaciones",
+      "angleTag": "multiples_proyectos",
+      "angleLabel": "múltiples proyectos",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "mobiliario",
+      "headline": "El mobiliario de oficina ya está vendido. El margen todavía puede moverse",
+      "subcopy": "El tipo de cambio sigue presente mientras la factura continúe en dólares.",
+      "cta": "Protege lo que ya vendiste",
+      "angleTag": "venta_hecha_margen_pendiente",
+      "angleLabel": "venta hecha / margen pendiente",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "mobiliario",
+      "headline": "Cotizaste las sillas para ganar el proyecto. Ahora hay que proteger ese margen",
+      "subcopy": "Una cobertura puede ayudarte a reducir la incertidumbre hasta el cobro.",
+      "cta": "Protege tu margen",
+      "angleTag": "competitividad",
+      "angleLabel": "competitividad",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "mobiliario",
+      "headline": "Tres embarques de mesas. Tres fechas para recibir los dólares",
+      "subcopy": "Cada venta puede terminar representando un monto distinto en pesos.",
+      "cta": "Da certidumbre a tus ingresos",
+      "angleTag": "varios_embarques",
+      "angleLabel": "varios embarques",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "mobiliario",
+      "headline": "Las luminarias se cobran dentro de 90 días",
+      "subcopy": "Un forward puede ayudarte a definir hoy el tipo de cambio.",
+      "cta": "Define hoy tu tipo de cambio",
+      "angleTag": "cobro_a_90_dias",
+      "angleLabel": "cobro a 90 días",
+      "needsLegalNote": true,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "mobiliario",
+      "headline": "El proyecto de mobiliario ya tiene factura y vencimiento",
+      "subcopy": "Monto y fecha están definidos. El tipo de cambio también puede estarlo.",
+      "cta": "Define hoy. Cobra después.",
+      "angleTag": "factura_vencimiento",
+      "angleLabel": "factura + vencimiento",
+      "needsLegalNote": true,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "agro_fresco",
+      "headline": "El aguacate ya se vendió. El margen todavía puede moverse",
+      "subcopy": "La venta está en dólares y los costos de producción quedaron en pesos.",
+      "cta": "Protege tu margen",
+      "angleTag": "venta_usd_costos_mxn",
+      "angleLabel": "venta USD / costos MXN",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "agro_fresco",
+      "headline": "Las fresas ya cruzaron la frontera. Cobrarás en 30 días",
+      "subcopy": "El tipo de cambio puede cambiar lo que esa factura represente en pesos.",
+      "cta": "Protege tus ingresos",
+      "angleTag": "embarque_30_dias",
+      "angleLabel": "embarque + 30 días",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "agro_fresco",
+      "headline": "Vendiste tomate en dólares. Cosecharlo y empacarlo costó pesos",
+      "subcopy": "Una cobertura puede ayudarte a cuidar el margen hasta el cobro.",
+      "cta": "Protege tu margen",
+      "angleTag": "costos_agricolas_mxn",
+      "angleLabel": "costos agrícolas MXN",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "agro_fresco",
+      "headline": "Las berries salen cada semana. Los dólares llegan en fechas distintas",
+      "subcopy": "Cada factura puede convertirse a pesos bajo un tipo de cambio diferente.",
+      "cta": "Protege tus exportaciones",
+      "angleTag": "temporada_recurrencia",
+      "angleLabel": "temporada / recurrencia",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "agro_fresco",
+      "headline": "El pimiento ya tiene precio de venta. El ingreso en pesos todavía no",
+      "subcopy": "Una cobertura puede darte mayor certidumbre hasta recibir el pago.",
+      "cta": "Da certidumbre a tus ingresos",
+      "angleTag": "precio_fijo_ingreso_variable",
+      "angleLabel": "precio fijo / ingreso variable",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "agro_fresco",
+      "headline": "Vendiste limón con margen. La siguiente cosecha ya necesita recursos",
+      "subcopy": "Proteger el ingreso puede dar mayor estabilidad entre un ciclo y otro.",
+      "cta": "Protege tus ingresos",
+      "angleTag": "siguiente_ciclo_agricola",
+      "angleLabel": "siguiente ciclo agrícola",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "agro_fresco",
+      "headline": "Cotizaste el mango para competir en temporada",
+      "subcopy": "El tipo de cambio puede modificar el margen con el que ganaste esa venta.",
+      "cta": "Protege tu margen",
+      "angleTag": "competitividad_temporada",
+      "angleLabel": "competitividad / temporada",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "agro_fresco",
+      "headline": "Cosechar, seleccionar y empacar el aguacate ya costó pesos",
+      "subcopy": "El valor en pesos de la venta todavía puede cambiar hasta el cobro.",
+      "cta": "Protege lo que ya vendiste",
+      "angleTag": "costos_ya_realizados",
+      "angleLabel": "costos ya realizados",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "agro_fresco",
+      "headline": "Las berries se cobran dentro de 30 días",
+      "subcopy": "Un forward puede ayudarte a definir el tipo de cambio antes del cobro.",
+      "cta": "Cotiza un forward",
+      "angleTag": "cobro_a_30_dias",
+      "angleLabel": "cobro a 30 días",
+      "needsLegalNote": true,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "agro_fresco",
+      "headline": "El tomate ya tiene monto y fecha de pago",
+      "subcopy": "La venta está definida. El tipo de cambio también puede definirse.",
+      "cta": "Define hoy. Cobra después.",
+      "angleTag": "monto_fecha_conocidos",
+      "angleLabel": "monto + fecha conocidos",
+      "needsLegalNote": true,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "alimentos_bebidas",
+      "headline": "Vendiste café en dólares. Producirlo costó pesos",
+      "subcopy": "Una cobertura puede ayudarte a cuidar el margen hasta recibir el pago.",
+      "cta": "Protege tu margen",
+      "angleTag": "produccion_mxn_venta_usd",
+      "angleLabel": "producción MXN / venta USD",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "alimentos_bebidas",
+      "headline": "El tequila ya salió hacia el cliente. La factura vence en 60 días",
+      "subcopy": "El ingreso equivalente en pesos todavía puede cambiar.",
+      "cta": "Protege tus ingresos",
+      "angleTag": "embarque_60_dias",
+      "angleLabel": "embarque + 60 días",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "alimentos_bebidas",
+      "headline": "Miles de cajas de panificación hacen relevante cualquier variación cambiaria",
+      "subcopy": "El volumen puede amplificar el efecto sobre el margen del pedido.",
+      "cta": "Protege el margen de tus exportaciones",
+      "angleTag": "volumen",
+      "angleLabel": "volumen",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "alimentos_bebidas",
+      "headline": "La confitería ya tiene precio pactado en dólares",
+      "subcopy": "El resultado en pesos todavía puede cambiar antes del cobro.",
+      "cta": "Da estabilidad a tu margen",
+      "angleTag": "precio_pactado_ingreso_variable",
+      "angleLabel": "precio pactado / ingreso variable",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "alimentos_bebidas",
+      "headline": "La cerveza sale cada mes. Los clientes pagan en fechas distintas",
+      "subcopy": "Una cobertura puede ayudarte a administrar el riesgo entre varias facturas.",
+      "cta": "Administra tu riesgo cambiario",
+      "angleTag": "ventas_recurrentes",
+      "angleLabel": "ventas recurrentes",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "alimentos_bebidas",
+      "headline": "La fruta procesada ya está vendida. La siguiente producción viene después",
+      "subcopy": "Dar mayor certidumbre al ingreso puede ayudar a estabilizar el siguiente ciclo.",
+      "cta": "Protege tus ingresos",
+      "angleTag": "siguiente_ciclo_productivo",
+      "angleLabel": "siguiente ciclo productivo",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "alimentos_bebidas",
+      "headline": "Cotizaste la salsa para ganar espacio con el distribuidor",
+      "subcopy": "El tipo de cambio puede modificar el margen con el que competiste.",
+      "cta": "Protege tu margen",
+      "angleTag": "competitividad",
+      "angleLabel": "competitividad",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "alimentos_bebidas",
+      "headline": "Tres embarques de café. Tres fechas distintas para cobrar",
+      "subcopy": "El mismo precio en dólares puede representar distintos montos en pesos.",
+      "cta": "Protege tus exportaciones",
+      "angleTag": "varios_embarques",
+      "angleLabel": "varios embarques",
+      "needsLegalNote": false,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "alimentos_bebidas",
+      "headline": "El tequila se cobra dentro de 60 días",
+      "subcopy": "Un forward puede ayudarte a definir hoy el tipo de cambio.",
+      "cta": "Fija hoy tu tipo de cambio",
+      "angleTag": "cobro_a_60_dias",
+      "angleLabel": "cobro a 60 días",
+      "needsLegalNote": true,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
+    },
+    {
+      "branch": "coberturas",
+      "corridor": "industria",
+      "industry": "alimentos_bebidas",
+      "headline": "El café ya tiene monto, moneda y vencimiento",
+      "subcopy": "Un forward puede darte mayor certidumbre antes de la fecha de cobro.",
+      "cta": "Cotiza un forward",
+      "angleTag": "monto_fecha_conocidos",
+      "angleLabel": "monto + fecha conocidos",
+      "needsLegalNote": true,
+      "businessSide": "exportador",
+      "source": "coberturas.exportadores.vertical.v2.md"
     },
     {
       "branch": "cuenta-multidivisa",
@@ -1632,6 +3704,7 @@
       "angleTag": "mas_monedas_no_mas_cuentas",
       "angleLabel": "Más monedas, no más cuentas",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.cuenta-multidivisa.v1.md"
     },
     {
@@ -1644,6 +3717,7 @@
       "angleTag": "cada_cuenta_suma_procesos",
       "angleLabel": "Cada cuenta suma procesos",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.cuenta-multidivisa.v1.md"
     },
     {
@@ -1656,6 +3730,7 @@
       "angleTag": "cobro_y_pago_entre_monedas",
       "angleLabel": "Cobro y pago entre monedas",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.cuenta-multidivisa.v1.md"
     },
     {
@@ -1668,6 +3743,7 @@
       "angleTag": "proveedores_distintos_mercados",
       "angleLabel": "Proveedores en distintos mercados",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.cuenta-multidivisa.v1.md"
     },
     {
@@ -1680,6 +3756,7 @@
       "angleTag": "menos_portales",
       "angleLabel": "Menos portales",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.cuenta-multidivisa.v1.md"
     },
     {
@@ -1692,6 +3769,7 @@
       "angleTag": "procesos_y_portales",
       "angleLabel": "Procesos y portales",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.cuenta-multidivisa.v1.md"
     },
     {
@@ -1704,6 +3782,7 @@
       "angleTag": "consecuencia_operativa",
       "angleLabel": "Consecuencia operativa",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.cuenta-multidivisa.v1.md"
     },
     {
@@ -1716,6 +3795,7 @@
       "angleTag": "visibilidad_antes_del_pago",
       "angleLabel": "Visibilidad antes del pago",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.cuenta-multidivisa.v1.md"
     },
     {
@@ -1728,6 +3808,7 @@
       "angleTag": "escala_internacional",
       "angleLabel": "Escala internacional",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.cuenta-multidivisa.v1.md"
     },
     {
@@ -1740,6 +3821,7 @@
       "angleTag": "crecimiento_internacional",
       "angleLabel": "Crecimiento internacional",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.cuenta-multidivisa.v1.md"
     },
     {
@@ -1752,6 +3834,7 @@
       "angleTag": "proceso_manual",
       "angleLabel": "Proceso manual",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.cuenta-multidivisa.v1.md"
     },
     {
@@ -1764,6 +3847,7 @@
       "angleTag": "problema_oculto",
       "angleLabel": "Problema oculto",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.cuenta-multidivisa.v1.md"
     },
     {
@@ -1776,6 +3860,7 @@
       "angleTag": "centralizacion_conceptual",
       "angleLabel": "Centralización conceptual",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.cuenta-multidivisa.v1.md"
     },
     {
@@ -1788,6 +3873,7 @@
       "angleTag": "visibilidad_saldos",
       "angleLabel": "Visibilidad de saldos",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.cuenta-multidivisa.v1.md"
     },
     {
@@ -1800,6 +3886,7 @@
       "angleTag": "institucional_simplificacion_general",
       "angleLabel": "Institucional / simplificación general",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.cuenta-multidivisa.v1.md"
     },
     {
@@ -1812,6 +3899,7 @@
       "angleTag": "proveedores_distintos_mercados",
       "angleLabel": "Proveedores en distintos mercados",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.cuenta-multidivisa.v1.md"
     },
     {
@@ -1824,6 +3912,7 @@
       "angleTag": "proceso_fragmentado",
       "angleLabel": "Proceso fragmentado",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.cuenta-multidivisa.v1.md"
     },
     {
@@ -1836,6 +3925,7 @@
       "angleTag": "monedas_por_componente",
       "angleLabel": "Monedas por componente",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.cuenta-multidivisa.v1.md"
     },
     {
@@ -1848,6 +3938,7 @@
       "angleTag": "cada_cuenta_suma_procesos",
       "angleLabel": "Cada cuenta suma procesos",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.cuenta-multidivisa.v1.md"
     },
     {
@@ -1860,6 +3951,7 @@
       "angleTag": "pagos_recurrentes",
       "angleLabel": "Pagos recurrentes",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.cuenta-multidivisa.v1.md"
     },
     {
@@ -1872,6 +3964,7 @@
       "angleTag": "compra_en_varios_mercados",
       "angleLabel": "Compra en varios mercados",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.cuenta-multidivisa.v1.md"
     },
     {
@@ -1884,6 +3977,7 @@
       "angleTag": "menos_portales",
       "angleLabel": "Menos portales",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.cuenta-multidivisa.v1.md"
     },
     {
@@ -1896,6 +3990,7 @@
       "angleTag": "reposicion_de_inventario",
       "angleLabel": "Reposición de inventario",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.cuenta-multidivisa.v1.md"
     },
     {
@@ -1908,6 +4003,7 @@
       "angleTag": "consecuencia_operativa",
       "angleLabel": "Consecuencia operativa",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.cuenta-multidivisa.v1.md"
     },
     {
@@ -1920,6 +4016,7 @@
       "angleTag": "cobro_y_pago_entre_monedas",
       "angleLabel": "Cobro y pago entre monedas",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.cuenta-multidivisa.v1.md"
     },
     {
@@ -1932,6 +4029,7 @@
       "angleTag": "despues_del_cobro",
       "angleLabel": "Después del cobro",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.cuenta-multidivisa.v1.md"
     },
     {
@@ -1944,6 +4042,7 @@
       "angleTag": "mercado_cruzado",
       "angleLabel": "Mercado cruzado",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.cuenta-multidivisa.v1.md"
     },
     {
@@ -1956,6 +4055,7 @@
       "angleTag": "cobro_vs_gastos",
       "angleLabel": "Cobro vs gastos",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.cuenta-multidivisa.v1.md"
     },
     {
@@ -1968,6 +4068,7 @@
       "angleTag": "conciliacion_manual",
       "angleLabel": "Conciliación manual",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.cuenta-multidivisa.v1.md"
     },
     {
@@ -1980,6 +4081,7 @@
       "angleTag": "proveedores_distintos_mercados",
       "angleLabel": "Proveedores en distintos mercados",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.cuenta-multidivisa.v1.md"
     },
     {
@@ -1992,6 +4094,7 @@
       "angleTag": "monedas_por_proveedor",
       "angleLabel": "Monedas por proveedor",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.cuenta-multidivisa.v1.md"
     },
     {
@@ -2004,6 +4107,7 @@
       "angleTag": "costo_operativo_no_numerico",
       "angleLabel": "Costo operativo no numérico",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.cuenta-multidivisa.v1.md"
     },
     {
@@ -2016,6 +4120,7 @@
       "angleTag": "operacion_multi_pais",
       "angleLabel": "Operación multi-país",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.cuenta-multidivisa.v1.md"
     },
     {
@@ -2028,6 +4133,7 @@
       "angleTag": "proceso_detras_del_pedido",
       "angleLabel": "Proceso detrás del pedido",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.cuenta-multidivisa.v1.md"
     },
     {
@@ -2040,6 +4146,7 @@
       "angleTag": "proveedores_multiples",
       "angleLabel": "Proveedores múltiples",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.cuenta-multidivisa.v1.md"
     },
     {
@@ -2052,6 +4159,7 @@
       "angleTag": "compra_por_componentes",
       "angleLabel": "Compra por componentes",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.cuenta-multidivisa.v1.md"
     },
     {
@@ -2064,6 +4172,7 @@
       "angleTag": "proveedores_por_moneda",
       "angleLabel": "Proveedores por moneda",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.cuenta-multidivisa.v1.md"
     },
     {
@@ -2076,6 +4185,7 @@
       "angleTag": "temporada_e_inventario",
       "angleLabel": "Temporada e inventario",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.cuenta-multidivisa.v1.md"
     },
     {
@@ -2088,6 +4198,7 @@
       "angleTag": "operacion_comercial_cruzada",
       "angleLabel": "Operación comercial cruzada",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.cuenta-multidivisa.v1.md"
     },
     {
@@ -2100,6 +4211,7 @@
       "angleTag": "fabricacion_internacional",
       "angleLabel": "Fabricación internacional",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.cuenta-multidivisa.v1.md"
     },
     {
@@ -2112,6 +4224,7 @@
       "angleTag": "cada_cuenta_suma_procesos",
       "angleLabel": "Cada cuenta suma procesos",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.cuenta-multidivisa.v1.md"
     },
     {
@@ -2124,6 +4237,7 @@
       "angleTag": "proyecto_con_varios_proveedores",
       "angleLabel": "Proyecto con varios proveedores",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.cuenta-multidivisa.v1.md"
     },
     {
@@ -2136,6 +4250,7 @@
       "angleTag": "proyecto_y_procesos",
       "angleLabel": "Proyecto y procesos",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.cuenta-multidivisa.v1.md"
     },
     {
@@ -2148,6 +4263,7 @@
       "angleTag": "pedido_recurrente",
       "angleLabel": "Pedido recurrente",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.cuenta-multidivisa.v1.md"
     },
     {
@@ -2160,6 +4276,7 @@
       "angleTag": "insumos_y_procesos",
       "angleLabel": "Insumos y procesos",
       "needsLegalNote": false,
+      "businessSide": null,
       "source": "_contexto-editorial.cuenta-multidivisa.v1.md"
     }
   ]

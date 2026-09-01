@@ -35,6 +35,7 @@ import {
   angleLabelOf,
   applyCopyBankFilters,
   branchLabel,
+  businessSideLabel,
   copyBankProgress,
   COPY_BANK_TAB_LABELS,
   COPY_BANK_TAB_ORDER,
@@ -304,6 +305,18 @@ export function CopyBankV2Panel({
             }))}
             selected={filters.corridor}
             onSelect={(v) => patch({ corridor: v })}
+          />
+        )}
+
+        {counts.businessSides.length > 0 && (
+          <ChipRow
+            label="Operación"
+            options={counts.businessSides.map((s) => ({
+              value: s.value,
+              label: `${businessSideLabel(s.value)} (${s.count})`,
+            }))}
+            selected={filters.businessSide}
+            onSelect={(v) => patch({ businessSide: v })}
           />
         )}
 

@@ -1160,6 +1160,21 @@ function economicDataBlock(slide: CarouselPromptSlideInput): string {
   // El qualifier "ESCENARIO ILUSTRATIVO" es interno: gobierna validación y persistencia,
   // pero NO se dibuja en la imagen. El respaldo legal de la pieza es el disclaimer de marca
   // que se monta aparte, no un sello sobre los documentos.
+  /*
+   * Cardinalidad mandatoria, derivada de los HECHOS y no de la escena.
+   *
+   * El bug: el schema le da a un beat una sola tasa, pero la escena podía pedir "dos
+   * supuestos de tipo de cambio". El modelo, para cumplir la escena, INVENTABA la segunda
+   * tasa (apareció un 18.50 que nadie calculó). La regla: cuántos escenarios se dibujan lo
+   * decide qué hechos hay aquí, y esto gana sobre cualquier cosa que la escena insinúe.
+   */
+  const hasExposed = facts.some(
+    (f) => f.key === 'exposed_rate' || f.key === 'exposed_cost_mxn' || f.key === 'cost_delta_mxn',
+  );
+  const scenarioRule = hasExposed
+    ? 'NÚMERO DE ESCENARIOS — EXACTAMENTE DOS: el presupuestado (HOY) y el expuesto (PAGO), usando ÚNICAMENTE los dos tipos de cambio y los dos costos listados arriba. No agregues un tercero ni inventes valores intermedios.'
+    : 'NÚMERO DE ESCENARIOS — EXACTAMENTE UNO. Dibuja un solo tipo de cambio y un solo costo, los de arriba. PROHIBIDO renderizar un segundo tipo de cambio, una tarjeta PAGO, un costo "alternativo" o "futuro", una variación, un porcentaje o cualquier comparación: en este slide NO existe un segundo escenario. Si la escena de arriba insinúa dos, los HECHOS mandan: muestra uno.';
+
   return `ECONOMIC FACTS — EXACT AND NON-NEGOTIABLE
 Scenario: ${presentation.scenarioId}
 Narrative purpose: ${presentation.narrativePurpose}
@@ -1169,6 +1184,8 @@ Weight: ${presentation.weight}
 ${facts.map((fact) => `  ${fact.label}: ${fact.formattedValue}`).join('\n')}
 
 Render every value exactly as written. Do not invent, replace, average, re-round or supplement any number.
+${scenarioRule}
+Every rate, cost and percentage in the image must be one of the figures above. If the scene description implies a value that is not listed here, do not render it.
 ${surfaceRules[presentation.suggestedSurface] ?? surfaceRules.freeform}
 ${weightRule}
 The FACTS do not prescribe a document. The declared surface governs their physical representation.`;
@@ -1279,13 +1296,28 @@ function environmentalTextBlock(slide: CarouselPromptSlideInput): string {
   const noInventedNumbers =
     'No amounts, numbers, currency symbols, exchange rates, totals or prices of any kind — a card, quote or invoice with no authorized data stays completely blank on its value lines (grey placeholder rules, never a legible figure).';
 
-  if (labels.length === 0) {
+  /*
+   * Las cifras se renderizan aquí, junto a las etiquetas de escena, no solo en el bloque
+   * de ECONOMIC FACTS de más arriba. El modelo trataba ese bloque como referencia y lo
+   * despriorizaba: las cifras no aparecían hasta moverlas a esta zona a mano. En superficie
+   * `object_label` (etiquetas sobre la pieza) las listamos como texto legible obligatorio.
+   * En superficie de documento las maneja `documentDataBlock`, así que no se duplican.
+   */
+  const factLabels =
+    hasEconomicFacts && !hasDocuments
+      ? (slide.brief?.economicFacts ?? [])
+          .filter((f) => f?.label && f?.formattedValue)
+          .map((f) => `${f.label}: ${f.formattedValue}`)
+      : [];
+  const legible = [...factLabels, ...labels];
+
+  if (legible.length === 0) {
     return hasAuthorizedData
       ? `TEXT INSIDE OBJECTS: nothing beyond the ${dataBlockName} above. Any other document, screen or label in frame stays abstract — out of focus, cropped or turned away. No invented words, no filler paragraphs, no pseudo-text.`
       : `TEXT INSIDE OBJECTS: none on this slide. Documents, screens, quote cards and labels stay abstract — out of focus, cropped or turned away. No invented words, no filler paragraphs, no pseudo-text. ${noInventedNumbers}`;
   }
 
-  return `TEXT INSIDE OBJECTS — these exact labels render legibly, because they are what makes the scene explain the concept:\n${labels
+  return `TEXT INSIDE OBJECTS — these exact labels and figures RENDER LEGIBLY as text physically on the object; they are rendered text, not reference. They are what makes the scene explain the concept:\n${legible
     .map((t) => `  - ${t}`)
     .join('\n')}\n${exclusivity} No filler paragraphs, no gibberish, no pseudo-text, and no figure of your own.`;
 }
@@ -1461,11 +1493,22 @@ function motifLine(
   slide: CarouselPromptSlideInput,
   totalSlides: number,
   visualMotif: string,
+  singleSubjectStory: boolean,
 ): string {
   const motif = visualMotif.trim();
   if (!motif) return '';
 
   const isBookend = slide.index === 0 || slide.index === totalSlides - 1;
+
+  /*
+   * Historia de un solo sujeto (p. ej. forward): el mismo objeto es el HILO de la historia
+   * y protagoniza los cinco slides —lo que cambia entre ellos es la composición y las
+   * etiquetas, no el sujeto—. La regla de "solo en la 1 y la 5" es para sets donde el
+   * motivo es un paréntesis; aquí contradice la narrativa y hay que apagarla.
+   */
+  if (singleSubjectStory) {
+    return `SUBJECT OF THIS SLIDE — this set follows a SINGLE case from beginning to end, so the recurring subject is the protagonist on every slide, including this one: ${motif}. What changes between slides is the composition and the labels, never the subject.`;
+  }
 
   if (isBookend) {
     return `SUBJECT OF THIS SLIDE — it opens or closes the set, so the recurring subject is the protagonist here: ${motif}`;
@@ -1492,10 +1535,11 @@ function assembleCarouselSlidePrompt(params: {
   negativeInstructions: string;
   visualMotif: string;
   aspectRatio: string;
+  singleSubjectStory: boolean;
 }): string {
   const {
     slide, totalSlides, designBlock, sceneBlock,
-    negativeInstructions, visualMotif, aspectRatio,
+    negativeInstructions, visualMotif, aspectRatio, singleSubjectStory,
   } = params;
 
   /**
@@ -1589,7 +1633,7 @@ function assembleCarouselSlidePrompt(params: {
      * image model actually reads was telling it, five times, to put the same object
      * in the frame. Saying nothing on the middle slides is what makes them free.
      */
-    motifLine(slide, totalSlides, visualMotif),
+    motifLine(slide, totalSlides, visualMotif, singleSubjectStory),
     /**
      * The spec can come from a finished single-image prompt, which by contract
      * carries its own subject and scene. Reusing it is the point — that is how the
@@ -2367,6 +2411,15 @@ async function buildCarouselPrompts(
     );
   }
 
+  /*
+   * ¿El set sigue un solo caso de principio a fin? El forward lo hace: la misma autoparte
+   * es el hilo en los cinco slides. En ese caso el sujeto recurrente protagoniza todos, no
+   * solo la portada y el cierre.
+   */
+  const singleSubjectStory = slides.some(
+    (s) => s.brief?.figurePresentation?.scenarioId === 'forward_protection',
+  );
+
   const builtSlides = slides.map((slide) => {
     const scene = sceneByIndex.get(slide.index)!;
     return {
@@ -2380,6 +2433,7 @@ async function buildCarouselPrompts(
         negativeInstructions: scene.negativeInstructions ?? '',
         visualMotif,
         aspectRatio,
+        singleSubjectStory,
       }),
       negativeInstructions: scene.negativeInstructions ?? '',
     };

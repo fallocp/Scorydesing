@@ -136,6 +136,7 @@ export type NewsArchetypeId =
   | 'fx'
   | 'bonds'
   | 'trade_map'
+  | 'energy'
   | 'executive_wrap'
   | 'fallback_institutional'
   | 'fallback_industrial_macro'

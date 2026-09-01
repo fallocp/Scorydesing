@@ -45,6 +45,8 @@ export interface CopyBankRow {
   branch_slug: string;
   corridor: string | null;
   industry: string | null;
+  /** Lado de la operación para coberturas verticales; null si no aplica. */
+  business_side: 'importador' | 'exportador' | null;
 
   headline: string;
   subcopy: string;
@@ -169,6 +171,8 @@ export interface CopyBankFilters {
   corridor: string | null;
   angleTag: string | null;
   industry: string | null;
+  /** Lado de la operación: 'importador' | 'exportador'. */
+  businessSide: string | null;
   /** 'available' hides used copies, 'used' shows only those, 'all' shows both. */
   usage: 'available' | 'used' | 'all';
   /** Free-text match over headline + subcopy. */
@@ -180,6 +184,7 @@ export const DEFAULT_COPY_BANK_FILTERS: CopyBankFilters = {
   corridor: null,
   angleTag: null,
   industry: null,
+  businessSide: null,
   usage: 'available',
   search: '',
 };
@@ -202,6 +207,17 @@ export const BRANCH_LABELS: Record<string, string> = {
   'costos-ahorro': 'Costos y ahorro',
   coberturas: 'Coberturas y forwards',
 };
+
+/** Human labels for the business_side values used by the coberturas verticals. */
+export const BUSINESS_SIDE_LABELS: Record<string, string> = {
+  importador: 'Importador',
+  exportador: 'Exportador',
+};
+
+export function businessSideLabel(slug: string | null): string {
+  if (!slug) return 'Sin lado';
+  return BUSINESS_SIDE_LABELS[slug] ?? slug;
+}
 
 export function corridorLabel(slug: string | null): string {
   if (!slug) return 'Sin corredor';
@@ -290,6 +306,7 @@ export function applyCopyBankFilters(
     if (f.corridor && r.corridor !== f.corridor) return false;
     if (f.angleTag && r.angle_tag !== f.angleTag) return false;
     if (f.industry && r.industry !== f.industry) return false;
+    if (f.businessSide && r.business_side !== f.businessSide) return false;
     if (f.usage === 'available' && r.used_at) return false;
     if (f.usage === 'used' && !r.used_at) return false;
     if (needle) {

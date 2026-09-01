@@ -132,7 +132,10 @@ describe("banco aprobado vs copy-kits", () => {
   const approved = loadApproved();
 
   it("el banco está parseado", () => {
-    expect(approved.length).toBe(180);
+    // 180 del banco maestro v3.1 + 149 de los bancos verticales de coberturas /
+    // forwards (importadores v2 + exportadores v2; 11 de los 160 se descartaron
+    // por ser near-duplicados de copys ya aprobados).
+    expect(approved.length).toBe(329);
   });
 
   it("todo CTA aprobado existe en el banco de su corredor", () => {

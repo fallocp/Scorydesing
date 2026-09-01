@@ -155,7 +155,12 @@ export function useNewsEdition() {
         slideNumber,
         totalSlides: slidesRef.current.length,
         textSafeArea: slide.text_safe_area,
-        isExecutiveWrap: plan?.is_executive_wrap,
+        // El tratamiento Executive View (texto a la izquierda, L4) se dispara por
+        // el ARQUETIPO resuelto, no solo por la bandera del plan: el resolver
+        // puede marcar archetype 'executive_wrap' en el último slide aunque no
+        // sea el comentario de cierre "Xending View". Sin esto, esa pieza queda
+        // con el texto a la derecha sobre la foto.
+        isExecutiveWrap: plan?.is_executive_wrap || slide.archetype === 'executive_wrap',
       });
 
       const composedDataUrl = await renderHtmlToPng(

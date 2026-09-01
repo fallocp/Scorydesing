@@ -50,11 +50,75 @@ const ARCHETYPES: NewsArchetypeId[] = [
   'fx',
   'bonds',
   'trade_map',
+  'energy',
   'executive_wrap',
   'fallback_institutional',
   'fallback_industrial_macro',
   'fallback_maps_flows',
 ];
+
+// ---------------------------------------------------------------------------
+// Guardia de energía (detección tipo B: dominio del LLM + señales del titular)
+// ---------------------------------------------------------------------------
+
+/**
+ * Dominios que el LLM puede etiquetar y que son inequívocamente de energía.
+ * `commodities` NO entra aquí a propósito: es demasiado amplio (cobre, granos)
+ * y forzar una escena petrolera sobre una nota de metales sería peor. La señal
+ * real de petróleo se captura por keywords del titular.
+ */
+const ENERGY_DOMAINS = new Set([
+  'energy',
+  'oil',
+  'crude',
+  'petroleum',
+  'brent',
+  'wti',
+  'geopolitics_energy',
+  'energy_geopolitics',
+]);
+
+/** Señales de petróleo/energía en el texto de la nota (sin acentos, minúsculas). */
+const ENERGY_KEYWORDS = [
+  'brent',
+  'wti',
+  'crudo',
+  'petrol', // cubre "petroleo", "petroleos", "petrolero"
+  'barril',
+  'opep',
+  'opec',
+  'ormuz',
+  'hormuz',
+  'gasolina',
+  'diesel',
+  'refiner', // "refineria", "refinery"
+  'oleoduct', // "oleoducto"
+  ' oil', // evita falsos positivos tipo "spoil"; con espacio delante
+];
+
+/** Normaliza a minúsculas sin diacríticos para el match de keywords. */
+function normalizeForMatch(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
+/**
+ * Detección tipo B: la nota es de energía si el LLM etiquetó un dominio de
+ * energía, O si el titular/subcopy/dato trae una señal petrolera. Lo segundo es
+ * la red que no depende de que el modelo clasifique bien (fue justo lo que falló
+ * cuando una nota de Brent salió con edificio del Tesoro).
+ */
+function isEnergyNote(domain: string, plan: NewsSlidePlan): boolean {
+  if (ENERGY_DOMAINS.has(domain.toLowerCase().trim())) return true;
+  const text = normalizeForMatch(
+    `${plan.headline ?? ''} ${plan.subcopy ?? ''} ${plan.key_data ?? ''}`,
+  );
+  // Prefijo con espacio para " oil" ya viene en la lista; el resto son substrings.
+  const padded = ` ${text} `;
+  return ENERGY_KEYWORDS.some((k) => padded.includes(k));
+}
 
 // ---------------------------------------------------------------------------
 // Prompt del resolver
@@ -82,7 +146,7 @@ Para cada slide infiere:
 - text_safe_area: uno de ${TEXT_SAFE_AREAS.join(', ')}.
 - visual_subject: el sujeto visual concreto de la escena, en inglés, descriptivo.
 - supporting_elements: hasta 3 elementos de apoyo, en inglés (vacío si no aplica).
-- archetype: uno de ${ARCHETYPES.join(', ')}. Usa fx/bonds/trade_map/executive_wrap solo cuando la nota calza claramente; si no, usa un fallback.
+- archetype: uno de ${ARCHETYPES.join(', ')}. Usa fx/bonds/trade_map/energy/executive_wrap solo cuando la nota calza claramente; si no, usa un fallback. REGLA DURA: si la nota es de petróleo, crudo, Brent, WTI, OPEP, gasolina o geopolítica energética (ej. Estrecho de Ormuz), usa "energy" con motor "industrial_macro" — NUNCA "bonds" ni edificios del Tesoro/bancos/yield curve, aunque se mencionen precios o tasas.
 - visual_confidence: número 0.0–1.0. Bajo 0.5 significa que no hay arquetipo claro.
 
 MEDIO (importante): Xending News es FOTOGRAFÍA editorial hiperrealista. El sujeto puede ser una escena real (desk, puerto, institución, almacén) o un OBJETO premium real fotografiado (globo de vidrio, componente metálico, reporte impreso), con iconografía/datos solo como acento sutil. Prefiere "editorial_photography", "editorial_photography_plus_data" o "industrial_macro"; usa "hybrid_editorial_objects" cuando un objeto premium real represente mejor la nota (descríbelo como objeto FOTOGRAFIADO hiperrealista, no como icono). Evita "data_environment" salvo que no exista escena ni objeto real. visual_subject debe describir una escena o un objeto real fotografiado hiperrealista; nunca un icono plano, cartoon o flotante.
@@ -151,17 +215,32 @@ export function coerceResolutions(
     const o = byNumber.get(plan.slide_number) ?? (rawSlides[i] as Record<string, unknown>) ?? {};
     const confidence = clamp01(toNum(o.visual_confidence) ?? 0);
     const isWrap = plan.is_executive_wrap === true;
+    const rawDomain = toStr(o.domain);
 
     let engine = pick(VISUAL_ENGINES, o.visual_engine, 'editorial_photography_plus_data');
     let layout = pick(LAYOUTS, o.layout_family, 'L1');
     let archetype = pick(ARCHETYPES, o.archetype, 'fallback_institutional');
+    let textSafeArea = pick(TEXT_SAFE_AREAS, o.text_safe_area, 'left');
+    let domain = rawDomain || 'macro';
 
     // Executive wrap: dirección fija (secciones 36, 44). Foto de research-desk,
-    // no objetos 3D.
-    if (isWrap) {
+    // no objetos 3D. El texto siempre va a la izquierda (el archetype pide la
+    // escena a la derecha), así que la zona segura también se fija.
+    // Vale tanto si es el wrap del plan como si el modelo eligió el archetype
+    // executive_wrap por su cuenta para el último slide.
+    if (isWrap || archetype === 'executive_wrap') {
       engine = 'editorial_photography';
       layout = 'L4';
       archetype = 'executive_wrap';
+      textSafeArea = 'left';
+    } else if (isEnergyNote(rawDomain, plan)) {
+      // Guardia dura de energía (detección tipo B): una nota de petróleo/crudo
+      // JAMÁS sale con edificio del Tesoro/bonos, aunque el LLM eligiera "bonds"
+      // o etiquetara mal el dominio. Fue el bug de "Brent arriba de 90".
+      archetype = 'energy';
+      engine = 'industrial_macro';
+      layout = 'L1';
+      domain = 'energy';
     } else if (confidence < NEWS_CONFIDENCE_THRESHOLD) {
       // Bajo el umbral no adivinamos con un arquetipo temático (sección 52).
       archetype = 'fallback_institutional';
@@ -171,7 +250,7 @@ export function coerceResolutions(
 
     return {
       slide_number: plan.slide_number,
-      domain: toStr(o.domain) || 'macro',
+      domain,
       mechanism: toStr(o.mechanism) || 'holds',
       entities: toStrArray(o.entities),
       geography: toStrArray(o.geography),
@@ -180,7 +259,7 @@ export function coerceResolutions(
       visual_priority: toStr(o.visual_priority) || 'real context + data',
       visual_engine: engine,
       layout_family: layout,
-      text_safe_area: pick(TEXT_SAFE_AREAS, o.text_safe_area, 'left'),
+      text_safe_area: textSafeArea,
       visual_subject: toStr(o.visual_subject),
       supporting_elements: toStrArray(o.supporting_elements).slice(0, 3),
       archetype,

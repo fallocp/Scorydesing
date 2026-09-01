@@ -83,17 +83,50 @@ export const archetypeTradeMap: NewsArchetype = {
   label: 'Comercio / Mapa',
   defaultEngine: 'maps_and_flows',
   defaultLayout: 'L3',
-  prompt: `Create a premium Xending News editorial PHOTOGRAPH about North American trade, tariffs or cross-border commerce.
+  prompt: `Create a premium Xending News editorial PHOTOGRAPH about trade, tariffs or cross-border commerce.
 
-Shoot a real, hyper-realistic cross-border logistics scene: a border crossing or port with real cargo trucks in line, shipping containers, metal coils or a cargo vessel, under soft daylight with clean whites and light haze. DSLR editorial look, real materials, shallow depth of field.
+Shoot ONE hyper-realistic trade/logistics scene, choosing whichever best fits the specific story. VARY the choice between slides so several trade or tariff notes are NOT identical — do not default to cargo trucks every time:
+(a) a container port with stacked shipping containers and cranes;
+(b) a border crossing or customs terminal;
+(c) a cargo vessel at sea or docked;
+(d) rail freight with intermodal containers;
+(e) a warehouse or distribution hub with palletized goods;
+(f) metal coils, machinery or packaged export goods photographed on a clean surface;
+(g) cargo trucks in line at a crossing (use only when it genuinely fits, not as the default).
 
-Keep a clear text-safe area on the left; the photographed scene lives on the right.
+Use soft daylight, clean whites, light haze, DSLR editorial look, real materials, shallow depth of field. Keep a clear text-safe area on the left; the photographed scene lives on the right.
 
 Layer only a subtle Xending route accent over the photo: a couple of thin turquoise and coral flow lines suggesting cross-border movement. No sculptural 3D map, no cartoon icons, no giant flags.
 
 Keep it airy, elegant and uncluttered.
 
 Do not generate text or the Xending logo.`,
+};
+
+/** Comercio energético / petróleo / crudo / geopolítica energética. */
+export const archetypeEnergy: NewsArchetype = {
+  id: 'energy',
+  label: 'Energía / Petróleo',
+  defaultEngine: 'industrial_macro',
+  defaultLayout: 'L1',
+  prompt: `Create a premium Xending News editorial PHOTOGRAPH about energy, oil or crude markets.
+
+Shoot ONE hyper-realistic energy scene, choosing whichever fits the specific story. VARY the choice between slides so several energy notes are NOT identical:
+(a) a coastal oil terminal or storage tank farm under soft daylight;
+(b) an oil refinery or pipeline infrastructure with clean metal and concrete;
+(c) a real oil tanker vessel at sea or transiting a strategic strait;
+(d) a marine loading dock / port energy terminal with pipes and valves;
+(e) a clean printed commodities market sheet with a subtle Brent/WTI price chart as the subject, on a bright desk.
+
+DSLR editorial look, real materials (steel, concrete, water, paper), bright high-key daylight, clean whites, shallow depth of field, generous negative space. Keep a clear text-safe area on the left; the scene lives on the right.
+
+Layer only a subtle Xending data accent: one thin turquoise price line or a small "Brent"/"WTI" label. If the story is about geopolitical tension or supply risk (e.g. a strait chokepoint like Hormuz), you MAY add a restrained coral accent or a subtle geographic route cue — never a giant flag, never a cartoon map.
+
+This is an ENERGY story: do NOT show a Treasury or government building, a bank, a yield curve, bond reports or fiscal iconography.
+
+Avoid cartoon 3D, toy-like objects, neon, clutter, generic stock and fake dashboards.
+
+Do not generate text or logos.`,
 };
 
 /** Sección 44 — Executive View / cierre editorial (Xending View, sección 36). */
@@ -184,6 +217,7 @@ export const NEWS_ARCHETYPES: Record<NewsArchetypeId, NewsArchetype> = {
   fx: archetypeFx,
   bonds: archetypeBonds,
   trade_map: archetypeTradeMap,
+  energy: archetypeEnergy,
   executive_wrap: archetypeExecutiveWrap,
   fallback_institutional: archetypeFallbackInstitutional,
   fallback_industrial_macro: archetypeFallbackIndustrialMacro,

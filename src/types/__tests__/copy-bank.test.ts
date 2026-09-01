@@ -29,6 +29,7 @@ function row(over: Partial<CopyBankRow>): CopyBankRow {
     branch_slug: 'velocidad',
     corridor: 'china_asia',
     industry: null,
+    business_side: null,
     headline: 'Headline',
     subcopy: 'Subline',
     cta: 'Paga a China hoy',

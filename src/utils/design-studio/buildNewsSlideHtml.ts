@@ -90,7 +90,11 @@ export function buildNewsSlideHtml(input: NewsSlideHtmlInput): string {
     isExecutiveWrap,
   } = input;
 
-  const onRight = textSafeArea === 'right' || textSafeArea === 'upper_right';
+  // Executive wrap (Xending View) siempre lleva el texto a la izquierda,
+  // sin importar qué text_safe_area haya quedado resuelta (sección 44):
+  // el archetype pide la escena a la derecha, así que esto no puede depender
+  // de una resolución vieja o de un valor inesperado del modelo.
+  const onRight = !isExecutiveWrap && (textSafeArea === 'right' || textSafeArea === 'upper_right');
   const pad = Math.round(width * 0.06);
 
   // Métricas proporcionales al lienzo.
@@ -101,10 +105,13 @@ export function buildNewsSlideHtml(input: NewsSlideHtmlInput): string {
   const metaFont = Math.max(10, Math.round(width * 0.014));
 
   // Scrim: degradado blanco del lado del texto para garantizar legibilidad
-  // sobre la escena, sin tapar el lado visual.
+  // sobre la escena, sin tapar el lado visual. El bloque de texto llega hasta
+  // ~56% del ancho (pad + max-width 50%), así que el velo debe seguir opaco
+  // hasta ahí antes de empezar a desvanecerse; si se apaga antes (como pasaba
+  // con el corte a 34–66%), la foto se ve detrás de las últimas palabras.
   const scrim = onRight
-    ? `linear-gradient(270deg, rgba(255,255,255,0.96) 0%, rgba(255,255,255,0.90) 34%, rgba(255,255,255,0) 66%)`
-    : `linear-gradient(90deg, rgba(255,255,255,0.96) 0%, rgba(255,255,255,0.90) 34%, rgba(255,255,255,0) 66%)`;
+    ? `linear-gradient(270deg, rgba(255,255,255,0.97) 0%, rgba(255,255,255,0.94) 50%, rgba(255,255,255,0) 82%)`
+    : `linear-gradient(90deg, rgba(255,255,255,0.97) 0%, rgba(255,255,255,0.94) 50%, rgba(255,255,255,0) 82%)`;
 
   const sideStyle = onRight
     ? `right:${pad}px;left:auto;align-items:flex-end;text-align:right;`

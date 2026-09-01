@@ -995,6 +995,7 @@ export function CarouselPanel({
                   presetSlug,
                   objective,
                   commercialIntent,
+                  forwardDirection: usesForward ? forwardDirection : undefined,
                   imageType: setImageType,
                   guidance,
                 })

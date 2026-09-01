@@ -129,6 +129,12 @@ interface GenerateCarouselPlanRequest {
   /** Si el agente puede inventar una ruta. Por defecto sí. */
   allowAgentProposedRoute?: boolean;
 
+  /**
+   * Dirección de la operación forward: 'import' (debes USD) o 'export' (te pagan USD).
+   * Solo relevante en coberturas/forward; decide la escena fija que pone el schema.
+   */
+  forwardDirection?: 'import' | 'export';
+
   guidance?: string;
 }
 
@@ -415,7 +421,10 @@ serve(async (req) => {
      * al LLM (que inventaba). Se aplica antes del preflight para que la validación vea la
      * estructura definitiva.
      */
-    let plan = applyForwardFigureSchema(initialPlan);
+    let plan = applyForwardFigureSchema(
+      initialPlan,
+      body.forwardDirection === 'export' ? 'export' : 'import',
+    );
     let validation = validateCarouselCreativePlan(plan, ctx);
     const appliedRepairs: AppliedRepair[] = [];
     const repairHistory: RepairRound[] = [];

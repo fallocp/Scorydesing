@@ -81,6 +81,7 @@ export function useCarouselPlan({ bankItem, branchId }: UseCarouselPlanParams) {
       objective: CarouselObjective;
       imageType: DesignImageType;
       commercialIntent?: CarouselCommercialIntent;
+      forwardDirection?: 'import' | 'export';
       guidance?: string;
     }): Promise<boolean> => {
       if (!bankItem || !activeBusinessId) return false;
@@ -126,6 +127,7 @@ export function useCarouselPlan({ bankItem, branchId }: UseCarouselPlanParams) {
               closingPolicy: preset.closingPolicy,
               objective: params.objective,
               commercialIntent: params.commercialIntent,
+              forwardDirection: params.forwardDirection,
               imageType: params.imageType,
               angleName: bankItem.meta.angleName,
               industryName: bankItem.meta.industryName,

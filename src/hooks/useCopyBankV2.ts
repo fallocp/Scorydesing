@@ -91,6 +91,7 @@ export function useCopyBankView(rows: CopyBankRow[], filters: CopyBankFilters) {
     const withoutBranch = applyCopyBankFilters(rows, { ...filters, branch: null });
     const withoutAngle = applyCopyBankFilters(rows, { ...filters, angleTag: null });
     const withoutIndustry = applyCopyBankFilters(rows, { ...filters, industry: null });
+    const withoutBusinessSide = applyCopyBankFilters(rows, { ...filters, businessSide: null });
 
     const scopeForUsage = applyCopyBankFilters(rows, { ...filters, usage: 'all' });
 
@@ -101,6 +102,7 @@ export function useCopyBankView(rows: CopyBankRow[], filters: CopyBankFilters) {
         corridors: tallyBy(withoutCorridor, (r) => r.corridor),
         angles: tallyBy(withoutAngle, (r) => r.angle_tag),
         industries: tallyBy(withoutIndustry, (r) => r.industry),
+        businessSides: tallyBy(withoutBusinessSide, (r) => r.business_side),
       },
       usage: {
         total: scopeForUsage.length,

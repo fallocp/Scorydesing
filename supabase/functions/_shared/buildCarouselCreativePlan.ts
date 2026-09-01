@@ -144,41 +144,31 @@ export function beatJobForRole(role: string): string {
  * el riesgo y muestran el estado resuelto. Los hechos de margen se piden aunque puedan no
  * existir (sin precio de venta): en ese caso se filtran solos al proyectar.
  */
+/** Las cifras de cada slide forward: iguales en importación y exportación (las etiquetas cambian aguas abajo). */
 interface ForwardFigureSlot {
   factKeys: CarouselEconomicFactKey[];
   weight: CarouselFigureWeight;
   suggestedSurface: CarouselFigureSurface;
-  /**
-   * La escena, fija. Qué muestra la imagen y —sobre todo— CUÁNTOS escenarios. La escena
-   * que escribía el LLM pedía "dos supuestos de tipo de cambio" en slides que el schema
-   * dejó con una sola cifra, y el modelo inventaba la segunda tasa para cumplirla. Aquí la
-   * escena y las cifras se declaran juntas para que no puedan contradecirse.
-   */
+}
+
+/** La escena fija de cada slide: qué muestra y CUÁNTOS escenarios. Cambia con la dirección. */
+interface ForwardSceneSlot {
   visualEvidence: string;
-  /** El recurso que lo demuestra. También fijo. */
   visualDevice: string;
 }
 
 const FORWARD_FIGURE_SCHEMA: Record<string, ForwardFigureSlot> = {
-  // El precio ya está puesto; el costo importado todavía no. UN escenario.
   tension: {
     factKeys: ['operation_usd', 'base_rate', 'base_cost_mxn', 'sale_price_mxn'],
     weight: 'featured',
     suggestedSurface: 'object_label',
-    visualEvidence:
-      'La autoparte importada, lista para venderse, con su etiqueta de precio de venta y, junto a ella, su costo presupuestado en pesos. Un solo estado: el precio ya existe, el costo apenas se define. No comparar tasas ni mostrar un segundo escenario.',
-    visualDevice: 'la autoparte con su etiqueta de precio de venta y su costo presupuestado',
   },
-  // El costo nace en dólares. UN escenario.
   shift: {
     factKeys: ['operation_usd', 'base_rate', 'base_cost_mxn'],
     weight: 'featured',
     suggestedSurface: 'object_label',
-    visualEvidence:
-      'La misma autoparte con una etiqueta que revela que su costo nace en dólares: la operación en USD y su costo presupuestado en pesos al tipo de cambio actual. Una sola lectura, no una comparación de tasas.',
-    visualDevice: 'la autoparte con una etiqueta que muestra la operación en USD y su costo en pesos',
   },
-  // Dos escenarios de costo y el margen que se aprieta. La ÚNICA slide comparativa.
+  // La ÚNICA slide comparativa: dos escenarios.
   risk: {
     factKeys: [
       'base_rate', 'exposed_rate', 'base_cost_mxn', 'exposed_cost_mxn',
@@ -186,58 +176,119 @@ const FORWARD_FIGURE_SCHEMA: Record<string, ForwardFigureSlot> = {
     ],
     weight: 'heavy',
     suggestedSurface: 'document',
-    visualEvidence:
-      'La misma autoparte con dos etiquetas de costo comparables sobre el mismo pedido: presupuestado (HOY) y sin cobertura (PAGO). El precio de venta es idéntico en las dos; lo que cambia es el costo, y con él el margen se aprieta. Exactamente dos escenarios, ni uno más.',
-    visualDevice: 'dos etiquetas de costo sobre la misma autoparte, HOY contra PAGO, con el margen visible',
   },
-  // El costo queda cerrado: forward pactado, costo final, utilidad definida. UN escenario.
   solution: {
     factKeys: ['operation_usd', 'base_rate', 'base_cost_mxn', 'sale_price_mxn', 'base_gross_profit_mxn'],
     weight: 'featured',
     suggestedSurface: 'object_label',
-    visualEvidence:
-      'La misma autoparte con una confirmación de cobertura y una sola etiqueta de costo ya cerrado en pesos: forward pactado, costo final y utilidad definida. Un único valor resuelto, sin comparar escenarios.',
-    visualDevice: 'la autoparte con la confirmación de cobertura y la etiqueta de costo final cerrado',
   },
-  // El cierre: margen protegido. UN escenario.
   cta: {
     factKeys: ['sale_price_mxn', 'base_cost_mxn', 'base_gross_profit_mxn', 'base_gross_margin_pct'],
     weight: 'featured',
     suggestedSurface: 'object_label',
+  },
+};
+
+/*
+ * Escena por rol, IMPORTACIÓN: debes USD, lo variable es el COSTO, el riesgo es que el
+ * dólar SUBA. La escena y las cifras se declaran juntas para que no se contradigan: el LLM
+ * pedía "dos supuestos de tipo de cambio" en slides de un solo escenario y el modelo
+ * inventaba la segunda tasa. Aquí la cardinalidad está fija.
+ */
+const FORWARD_SCENE_IMPORT: Record<string, ForwardSceneSlot> = {
+  tension: {
     visualEvidence:
-      'La misma autoparte como cierre de la historia, con una etiqueta de margen protegido: precio de venta fijo, costo final y utilidad definida. Un solo estado, ya resuelto.',
-    visualDevice: 'la autoparte resuelta con una etiqueta de margen protegido y el comprobante final',
+      'La autoparte importada, terminada y lista para venderse, con su etiqueta de precio de venta ya definido y, a su lado, su costo presupuestado en pesos. Un solo estado: el ingreso ya quedó fijo, pero el costo apenas se está cerrando. Sin comparar tipos de cambio ni un segundo escenario; la escena deja abierta la pregunta de si el margen ya está a salvo.',
+    visualDevice: 'la autoparte con su etiqueta de precio de venta y, a su lado, la de su costo presupuestado',
+  },
+  shift: {
+    visualEvidence:
+      'La misma autoparte con una etiqueta que revela que su costo nace en dólares: la operación en USD y su costo presupuestado en pesos al tipo de cambio actual. Un solo escenario y un solo costo, sin tarjeta PAGO ni una segunda cifra. Pero sobre el tipo de cambio va una señal sutil —una fina flecha o marca coral hacia arriba— que indica que ese costo pende del dólar y todavía puede moverse. La señal es cualitativa, un presagio de la tensión: NUNCA un segundo número.',
+    visualDevice: 'la autoparte con su costo presupuestado y una marca coral sobre el tipo de cambio que insinúa que puede subir',
+  },
+  risk: {
+    visualEvidence:
+      'La misma autoparte con dos etiquetas de costo del mismo pedido, lado a lado: presupuestado (HOY, en turquesa) y sin cobertura (PAGO, en coral). El precio de venta se repite idéntico en ambas para que se vea que lo único que se movió es el costo; entre venta y costo, la franja del margen se estrecha. Exactamente dos escenarios, ni uno más.',
+    visualDevice: 'dos etiquetas de costo sobre la misma autoparte, HOY contra PAGO, con la franja de margen encogiéndose entre venta y costo',
+  },
+  solution: {
+    visualEvidence:
+      'La misma autoparte junto a una confirmación de cobertura y una sola etiqueta de costo ya cerrado en pesos: forward pactado, costo final y utilidad definida. Todo en turquesa —no hay exposición que señalar—, un único valor resuelto, sin comparar escenarios ni usar coral.',
+    visualDevice: 'la autoparte junto a la confirmación de cobertura y la etiqueta del costo final ya cerrado',
+  },
+  cta: {
+    visualEvidence:
+      'La misma autoparte como cierre, resuelta y en primer plano, con una etiqueta discreta de margen protegido: precio de venta fijo, costo final y utilidad definida. Máximo aire y escena tranquila, un solo estado ya resuelto; el foco es la decisión de proteger el margen, no otra explicación.',
+    visualDevice: 'la autoparte resuelta en primer plano con una etiqueta de margen protegido y, discreto, el comprobante final',
+  },
+};
+
+/*
+ * Escena por rol, EXPORTACIÓN: te pagan USD, lo variable es el INGRESO, el riesgo es que el
+ * dólar BAJE. El costo es lo fijo. El presagio de la slide 2 apunta hacia abajo.
+ */
+const FORWARD_SCENE_EXPORT: Record<string, ForwardSceneSlot> = {
+  tension: {
+    visualEvidence:
+      'La autoparte de exportación, terminada y lista para embarcarse, con su costo fijo en pesos ya definido y, a su lado, el ingreso presupuestado que dejará al cobrarse en dólares. Un solo estado: el costo ya quedó fijo, pero el ingreso apenas se está cerrando. Sin comparar tipos de cambio ni un segundo escenario; la escena deja abierta la pregunta de si el margen ya está a salvo.',
+    visualDevice: 'la autoparte con su etiqueta de costo fijo y, a su lado, la de su ingreso presupuestado',
+  },
+  shift: {
+    visualEvidence:
+      'La misma autoparte con una etiqueta que revela que su ingreso llega en dólares: la operación en USD y el ingreso presupuestado en pesos al tipo de cambio actual. Un solo escenario y un solo ingreso, sin tarjeta COBRO ni una segunda cifra. Pero sobre el tipo de cambio va una señal sutil —una fina flecha o marca coral hacia abajo— que indica que ese ingreso pende del dólar y todavía puede bajar. La señal es cualitativa, un presagio de la tensión: NUNCA un segundo número.',
+    visualDevice: 'la autoparte con su ingreso presupuestado y una marca coral sobre el tipo de cambio que insinúa que puede bajar',
+  },
+  risk: {
+    visualEvidence:
+      'La misma autoparte con dos etiquetas de ingreso del mismo pedido, lado a lado: presupuestado (HOY, en turquesa) y sin cobertura (COBRO, en coral). El costo se repite idéntico en ambas para que se vea que lo único que se movió es el ingreso; entre ingreso y costo, la franja del margen se estrecha. Exactamente dos escenarios, ni uno más.',
+    visualDevice: 'dos etiquetas de ingreso sobre la misma autoparte, HOY contra COBRO, con la franja de margen encogiéndose entre ingreso y costo',
+  },
+  solution: {
+    visualEvidence:
+      'La misma autoparte junto a una confirmación de cobertura y un solo ingreso ya cerrado en pesos: forward pactado, ingreso final y utilidad definida. Todo en turquesa —no hay exposición que señalar—, un único valor resuelto, sin comparar escenarios ni usar coral.',
+    visualDevice: 'la autoparte junto a la confirmación de cobertura y la etiqueta del ingreso final ya cerrado',
+  },
+  cta: {
+    visualEvidence:
+      'La misma autoparte como cierre, resuelta y en primer plano, con una etiqueta discreta de margen protegido: costo fijo, ingreso final y utilidad definida. Máximo aire y escena tranquila, un solo estado ya resuelto; el foco es la decisión de proteger el margen, no otra explicación.',
+    visualDevice: 'la autoparte resuelta en primer plano con una etiqueta de margen protegido y, discreto, el comprobante final',
   },
 };
 
 /**
  * Reemplaza los requisitos de imagen de cada beat forward por los del schema de su rol:
- * las cifras (factKeys, peso, superficie) Y la escena (qué muestra, cuántos escenarios).
+ * las cifras (factKeys, peso, superficie) Y la escena (qué muestra, cuántos escenarios),
+ * esta última según la DIRECCIÓN (importación o exportación).
  *
  * El copy (headline/body) lo sigue escribiendo el guion; lo que se fija aquí es lo que se
  * dibuja, para que el LLM no pueda pedir una comparación en un slide de un solo escenario y
  * el modelo de imagen termine inventando una segunda tasa. Se corre después de normalizar y
  * antes del preflight, así el plan validado ya trae la estructura definitiva.
  */
-export function applyForwardFigureSchema(plan: CarouselCreativePlan): CarouselCreativePlan {
+export function applyForwardFigureSchema(
+  plan: CarouselCreativePlan,
+  direction: 'import' | 'export' = 'import',
+): CarouselCreativePlan {
   if (plan.figureScenarioId !== 'forward_protection') return plan;
+  const sceneByRole = direction === 'export' ? FORWARD_SCENE_EXPORT : FORWARD_SCENE_IMPORT;
   return {
     ...plan,
     storyboard: plan.storyboard.map((beat) => {
       const slot = FORWARD_FIGURE_SCHEMA[beat.role];
-      if (!slot) return beat;
+      const scene = sceneByRole[beat.role];
+      if (!slot || !scene) return beat;
       const figureRequirement: CarouselBeatFigureRequirement = {
         mode: 'illustrative',
         scenarioId: 'forward_protection',
         factKeys: [...slot.factKeys],
-        narrativePurpose: slot.visualEvidence,
+        narrativePurpose: scene.visualEvidence,
         weight: slot.weight,
         suggestedSurface: slot.suggestedSurface,
       };
       return {
         ...beat,
-        visualEvidence: slot.visualEvidence,
-        visualDevice: slot.visualDevice,
+        visualEvidence: scene.visualEvidence,
+        visualDevice: scene.visualDevice,
         figureRequirement,
       };
     }),
