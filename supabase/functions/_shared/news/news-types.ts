@@ -137,10 +137,20 @@ export type NewsArchetypeId =
   | 'bonds'
   | 'trade_map'
   | 'energy'
+  | 'mixed_macro'
   | 'executive_wrap'
   | 'fallback_institutional'
   | 'fallback_industrial_macro'
   | 'fallback_maps_flows';
+
+/**
+ * Tipo de historia (clasificación previa a la escena):
+ *  - `single`: un solo tema domina prácticamente toda la nota.
+ *  - `mixed`: dos fuerzas distintas son esenciales para entender el titular
+ *    (ej. "La Fed sube el tono y el petróleo presiona"). En `mixed` el prompt
+ *    combina ambos sujetos en UNA sola foto con jerarquía, sin collage.
+ */
+export type NewsStoryType = 'single' | 'mixed';
 
 // ---------------------------------------------------------------------------
 // Esquema normalizado interno (sección 7) — puente Morning Brief ↔ News
@@ -151,6 +161,10 @@ export interface NewsNormalizedSlide {
   headline: string;
   subcopy: string;
   key_data: string;
+  /** Rótulo corto que le da sentido al key_data cuando no se explica solo
+   *  (ej "prob. de alza de la Fed" para "66%"). Vacío si el número es
+   *  autoexplicativo (un precio, un tipo de cambio). */
+  data_label: string;
   secondary_data: string;
   source: string[];
   source_urls: string[];
@@ -184,6 +198,9 @@ export interface NewsSlidePlan {
   headline: string;
   subcopy: string;
   key_data: string;
+  /** Rótulo corto del key_data (ej "prob. de alza de la Fed"). Vacío si el
+   *  número se explica solo. */
+  data_label: string;
   secondary_data: string;
   source: string[];
   editorial_type: NewsEditorialType;
@@ -213,6 +230,20 @@ export interface NewsVisualResolution {
   archetype: NewsArchetypeId;
   /** 0–1 (sección 52). Bajo el threshold se fuerza el fallback institucional. */
   visual_confidence: number;
+  /**
+   * `single` (default) o `mixed`. En `mixed` la nota tiene dos fuerzas
+   * esenciales y el prompt builder compone una dirección visual con jerarquía
+   * primario/secundario en una sola foto (ver `NewsStoryType`).
+   */
+  story_type?: NewsStoryType;
+  /** Dominio de la fuerza secundaria cuando `story_type === 'mixed'`. */
+  secondary_domain?: NewsDomain;
+  /** Sujeto visual de la fuerza secundaria (en inglés) cuando es `mixed`. */
+  secondary_visual_subject?: string;
+  /** Peso visual del sujeto primario (0–100). Default 65 en `mixed`. */
+  visual_weight_primary?: number;
+  /** Peso visual del sujeto secundario (0–100). Default 35 en `mixed`. */
+  visual_weight_secondary?: number;
 }
 
 /** Resolución + prompt final listo para el generador (o para pegar en GPT-Image). */

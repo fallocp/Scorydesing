@@ -102,6 +102,7 @@ function normalizeSlideObject(s: Record<string, unknown>, fallbackNumber: number
     headline: str(s.headline) || '',
     subcopy: str(s.subcopy ?? s.body) || '',
     key_data: str(s.key_data ?? s.data ?? s.stat) || '',
+    data_label: str(s.data_label ?? s.dato_label ?? s.stat_label ?? s.label) || '',
     secondary_data: str(s.secondary_data ?? s.delta) || '',
     source: toStringArray(s.source),
     source_urls: toStringArray(s.source_urls ?? s.urls),
@@ -140,6 +141,12 @@ export function parseStructuredMarkdown(raw: string): NewsNormalizedEdition | nu
       headline: fieldFromBlock(block, 'headline') || '',
       subcopy: fieldFromBlock(block, 'subcopy') || '',
       key_data: fieldFromBlock(block, 'dato') || fieldFromBlock(block, 'data') || '',
+      data_label:
+        fieldFromBlock(block, 'rotulo') ||
+        fieldFromBlock(block, 'rótulo') ||
+        fieldFromBlock(block, 'dato_label') ||
+        fieldFromBlock(block, 'data_label') ||
+        '',
       secondary_data: fieldFromBlock(block, 'delta') || '',
       source: splitSources(fieldFromBlock(block, 'fuente') || fieldFromBlock(block, 'source') || ''),
       source_urls: [],

@@ -59,7 +59,7 @@ export interface NewsSlideRuntime extends NewsSlideVisual {
 
 /** Campos de texto editables por slide (viven en el slide plan). */
 export type NewsSlideTextPatch = Partial<
-  Pick<NewsSlidePlan, 'headline' | 'subcopy' | 'key_data' | 'secondary_data' | 'source'>
+  Pick<NewsSlidePlan, 'headline' | 'subcopy' | 'key_data' | 'data_label' | 'secondary_data' | 'source'>
 >;
 
 /**
@@ -149,6 +149,7 @@ export function useNewsEdition() {
         headline: plan?.headline ?? slide.visual_subject,
         subcopy: plan?.subcopy ?? '',
         keyData: plan?.key_data ?? '',
+        dataLabel: plan?.data_label ?? '',
         delta: plan?.secondary_data ?? '',
         source: (plan?.source ?? []).join(' · '),
         dateLabel: formatEditionDate(normalizedRef.current?.date),

@@ -30,6 +30,10 @@ export interface NewsSlideHtmlInput {
   subcopy: string;
   /** Dato principal, ej "$16.9083" o "4.36%". */
   keyData: string;
+  /** Rótulo corto que explica el dato cuando no se entiende solo, ej
+   *  "prob. de alza de la Fed" para "66%". Vacío si el número es
+   *  autoexplicativo. */
+  dataLabel?: string;
   /** Delta secundario, ej "-0.04 pp" o "+1.2%". Colorea coral si es negativo. */
   delta?: string;
   /** Fuente(s), ej "Investing.com México". */
@@ -81,6 +85,7 @@ export function buildNewsSlideHtml(input: NewsSlideHtmlInput): string {
     headline,
     subcopy,
     keyData,
+    dataLabel,
     delta,
     source,
     dateLabel,
@@ -102,6 +107,7 @@ export function buildNewsSlideHtml(input: NewsSlideHtmlInput): string {
   const eyebrowFont = Math.max(11, Math.round(width * 0.016));
   const subFont = Math.max(12, Math.round(width * 0.02));
   const dataFont = Math.round(width * 0.055);
+  const labelFont = Math.max(11, Math.round(width * 0.017));
   const metaFont = Math.max(10, Math.round(width * 0.014));
 
   // Scrim: degradado blanco del lado del texto para garantizar legibilidad
@@ -122,25 +128,39 @@ export function buildNewsSlideHtml(input: NewsSlideHtmlInput): string {
 
   const eyebrowLabel = isExecutiveWrap ? 'XENDING VIEW' : eyebrow;
 
-  const dataBlock = keyData?.trim()
-    ? `
-      <div style="margin-top:${Math.round(height * 0.03)}px;display:flex;flex-direction:column;gap:2px;">
-        <span style="font-family:'Poppins',sans-serif;font-weight:700;font-size:${dataFont}px;color:${NAVY};line-height:1;">${escapeHtml(keyData)}</span>
-        ${
-          delta?.trim()
-            ? `<span style="font-family:'Poppins',sans-serif;font-weight:600;font-size:${metaFont}px;color:${deltaColor(delta)};">${deltaArrow(delta)}${escapeHtml(delta)}</span>`
-            : ''
-        }
-      </div>`
-    : '';
-
   const subBlock = subcopy?.trim()
     ? `<p style="margin:${Math.round(height * 0.02)}px 0 0;font-family:'Poppins',sans-serif;font-weight:400;font-size:${subFont}px;line-height:1.4;color:${INK};max-width:${Math.round(width * 0.42)}px;">${escapeHtml(subcopy)}</p>`
     : '';
 
-  const sourceBlock = source?.trim()
-    ? `<div style="position:absolute;bottom:${pad}px;${onRight ? `right:${pad}px;` : `left:${pad}px;`}font-family:'Poppins',sans-serif;font-weight:500;font-size:${metaFont}px;color:${MUTED};">Fuente: ${escapeHtml(source)}</div>`
+  // El dato principal y la fuente viven en una zona FIJA anclada al pie, del
+  // mismo lado que el texto. Antes el dato fluía entre headline y subcopy: con
+  // titulares largos (ej. "La Fed sube el tono y el petróleo presiona") el
+  // bloque crecía y el dato se empujaba, se encimaba o quedaba fuera. Anclarlo
+  // abajo le garantiza un lugar estable, sea 66%, un precio Brent o "23.5%".
+  const dataInner = keyData?.trim()
+    ? `<span style="font-family:'Poppins',sans-serif;font-weight:700;font-size:${dataFont}px;color:${NAVY};line-height:1;">${escapeHtml(keyData)}</span>${
+        dataLabel?.trim()
+          ? `<span style="font-family:'Poppins',sans-serif;font-weight:500;font-size:${labelFont}px;letter-spacing:0.03em;color:${MUTED};line-height:1.2;margin-top:${Math.round(height * 0.008)}px;">${escapeHtml(dataLabel)}</span>`
+          : ''
+      }${
+        delta?.trim()
+          ? `<span style="font-family:'Poppins',sans-serif;font-weight:600;font-size:${metaFont}px;color:${deltaColor(delta)};margin-top:2px;">${deltaArrow(delta)}${escapeHtml(delta)}</span>`
+          : ''
+      }`
     : '';
+
+  const sourceInner = source?.trim()
+    ? `<span style="font-family:'Poppins',sans-serif;font-weight:500;font-size:${metaFont}px;color:${MUTED};margin-top:${Math.round(height * 0.018)}px;">Fuente: ${escapeHtml(source)}</span>`
+    : '';
+
+  const bottomBlock =
+    dataInner || sourceInner
+      ? `<div style="position:absolute;bottom:${pad}px;${
+          onRight
+            ? `right:${pad}px;align-items:flex-end;text-align:right;`
+            : `left:${pad}px;align-items:flex-start;text-align:left;`
+        }display:flex;flex-direction:column;max-width:${Math.round(width * 0.5)}px;">${dataInner}${sourceInner}</div>`
+      : '';
 
   return `<!DOCTYPE html>
 <html lang="es">
@@ -174,11 +194,10 @@ export function buildNewsSlideHtml(input: NewsSlideHtmlInput): string {
       <div style="position:absolute;top:${Math.round(height * 0.2)}px;${sideStyle}max-width:${Math.round(width * 0.5)}px;display:flex;flex-direction:column;">
         <span style="font-family:'Poppins',sans-serif;font-weight:600;font-size:${eyebrowFont}px;letter-spacing:0.12em;color:${TURQUOISE};margin-bottom:${Math.round(height * 0.015)}px;">${escapeHtml(eyebrowLabel).toUpperCase()}</span>
         <h1 style="margin:0;font-family:'Poppins',sans-serif;font-weight:700;font-size:${headlineFont}px;line-height:1.08;color:${NAVY};">${headlineHtml(headline)}</h1>
-        ${dataBlock}
         ${subBlock}
       </div>
 
-      ${sourceBlock}
+      ${bottomBlock}
     </div>
   </div>
 </body>

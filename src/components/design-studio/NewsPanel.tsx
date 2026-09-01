@@ -339,6 +339,11 @@ export function NewsPanel() {
               </Button>
             </div>
 
+            <p className="text-[11px] text-muted-foreground">
+              Puedes editar el titular, el dato y la fuente de cada slide antes de resolver la
+              dirección visual.
+            </p>
+
             <ol className="space-y-2">
               {news.slidePlan.map((s) => (
                 <li
@@ -363,6 +368,75 @@ export function NewsPanel() {
                       {s.source.join(', ')}
                     </p>
                   )}
+
+                  {/* Editar el plan editorial de este slide, antes de resolver visuales */}
+                  <details className="mt-2 rounded-md border border-border/50 bg-muted/40 px-2 py-1">
+                    <summary className="cursor-pointer text-[10px] text-muted-foreground">
+                      <Pencil className="mr-1 inline h-3 w-3" />
+                      Editar
+                    </summary>
+                    <div className="mt-2 space-y-2">
+                      <div>
+                        <Label className="text-[10px]">Headline</Label>
+                        <Textarea
+                          value={s.headline}
+                          onChange={(e) =>
+                            news.updateSlideText(s.slide_number, { headline: e.target.value })
+                          }
+                          className="min-h-14 text-xs"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Label className="text-[10px]">Dato</Label>
+                          <Input
+                            value={s.key_data ?? ''}
+                            onChange={(e) =>
+                              news.updateSlideText(s.slide_number, { key_data: e.target.value })
+                            }
+                            className="h-8 text-xs"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-[10px]">Delta</Label>
+                          <Input
+                            value={s.secondary_data ?? ''}
+                            onChange={(e) =>
+                              news.updateSlideText(s.slide_number, {
+                                secondary_data: e.target.value,
+                              })
+                            }
+                            className="h-8 text-xs"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-[10px]">Subcopy</Label>
+                        <Textarea
+                          value={s.subcopy ?? ''}
+                          onChange={(e) =>
+                            news.updateSlideText(s.slide_number, { subcopy: e.target.value })
+                          }
+                          className="min-h-14 text-xs"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-[10px]">Fuente</Label>
+                        <Input
+                          value={(s.source ?? []).join(', ')}
+                          onChange={(e) =>
+                            news.updateSlideText(s.slide_number, {
+                              source: e.target.value
+                                .split(',')
+                                .map((x) => x.trim())
+                                .filter(Boolean),
+                            })
+                          }
+                          className="h-8 text-xs"
+                        />
+                      </div>
+                    </div>
+                  </details>
                 </li>
               ))}
             </ol>
@@ -584,6 +658,15 @@ export function NewsPanel() {
                             className="h-8 text-xs"
                           />
                         </div>
+                      </div>
+                      <div>
+                        <Label className="text-[10px]">Rótulo del dato</Label>
+                        <Input
+                          value={planBySlide.get(s.slide_number)?.data_label ?? ''}
+                          onChange={(e) => news.updateSlideText(s.slide_number, { data_label: e.target.value })}
+                          placeholder="ej: prob. de alza de la Fed"
+                          className="h-8 text-xs"
+                        />
                       </div>
                       <div>
                         <Label className="text-[10px]">Subcopy</Label>

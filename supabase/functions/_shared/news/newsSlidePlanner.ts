@@ -40,6 +40,7 @@ REGLAS ESTRICTAS:
 - No conviertas la noticia en problema-solución-CTA. El contenido de la nota ya es el guion.
 - Separa cada noticia en su propio slide.
 - key_data es el dato principal citado (ej: "$16.9083", "4.36%"). secondary_data es un delta si existe (ej: "-0.04 pp").
+- data_label es un rótulo corto (2–5 palabras) que explica QUÉ es key_data, SOLO cuando el número no se explica solo. Ej: para "66%" → "prob. de alza de la Fed"; para "2 millones" → "barriles por buque". Si el dato ya es autoexplicativo (un precio como "$92.21", un tipo de cambio como "16.9582"), déjalo vacío. No inventes: si no puedes deducir el rótulo del texto, déjalo vacío.
 - editorial_type debe ser uno de: market_update, breaking_news, stat_of_the_day, executive_commentary, special_report, weekly_recap, macro_event, company_news. Si dudas, usa market_update.
 - Si el texto trae un comentario o cierre general del día, ponlo en executive_commentary.
 
@@ -53,6 +54,7 @@ Responde SOLO con JSON válido, sin markdown ni explicaciones, con esta forma ex
       "headline": "",
       "subcopy": "",
       "key_data": "",
+      "data_label": "",
       "secondary_data": "",
       "source": [],
       "source_urls": [],
@@ -90,6 +92,7 @@ export function coerceNormalizedEdition(data: unknown): NewsNormalizedEdition | 
       headline: toStr(o.headline),
       subcopy: toStr(o.subcopy),
       key_data: toStr(o.key_data),
+      data_label: toStr(o.data_label),
       secondary_data: toStr(o.secondary_data),
       source: toStrArray(o.source),
       source_urls: toStrArray(o.source_urls),
@@ -145,6 +148,7 @@ export function selectAndPlan(
     headline: s.headline,
     subcopy: s.subcopy,
     key_data: s.key_data,
+    data_label: s.data_label,
     secondary_data: s.secondary_data,
     source: s.source,
     editorial_type: s.editorial_type,
@@ -157,6 +161,7 @@ export function selectAndPlan(
       headline: 'Xending View',
       subcopy: edition.executive_commentary.trim(),
       key_data: '',
+      data_label: '',
       secondary_data: '',
       source: [],
       editorial_type: 'executive_commentary',
