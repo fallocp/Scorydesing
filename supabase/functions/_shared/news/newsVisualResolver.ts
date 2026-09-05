@@ -50,8 +50,10 @@ const TEXT_SAFE_AREAS: NewsTextSafeArea[] = [
 const ARCHETYPES: NewsArchetypeId[] = [
   'fx',
   'bonds',
+  'central_bank',
   'trade_map',
   'energy',
+  'equities',
   'mixed_macro',
   'executive_wrap',
   'fallback_institutional',
@@ -190,6 +192,95 @@ function hasCompetingPrimary(domain: string, plan: NewsSlidePlan): boolean {
 }
 
 // ---------------------------------------------------------------------------
+// Guardia de equities (mismo patrón que energía: dominio del LLM + keywords)
+// ---------------------------------------------------------------------------
+
+/** Dominios que el LLM puede etiquetar y que son inequívocamente de bolsa. */
+const EQUITIES_DOMAINS = new Set([
+  'equities',
+  'equity',
+  'stocks',
+  'stock_market',
+]);
+
+/**
+ * Señales de bolsa/Wall Street en el texto (sin acentos, minúsculas, con
+ * padding). A propósito se evitan términos demasiado ambiguos sueltos como
+ * "acciones" (puede ser "acciones legales") o "bolsa" (bolsa de valores vs.
+ * bolsa de trabajo): se usan combinaciones y nombres de índices/plazas claros.
+ */
+const EQUITIES_KEYWORDS = [
+  'wall street',
+  'wall st',
+  's&p 500',
+  's&p500',
+  'sp 500',
+  'nasdaq',
+  'dow jones',
+  ' nyse',
+  'stoxx',
+  ' ftse',
+  'nikkei',
+  ' ipo',
+  'stock market',
+  'stock index',
+  'equities',
+  'renta variable',
+  'bolsa de valores',
+  'mercado bursatil',
+  'indice bursatil',
+  'bursatil', // bursátil, bursatiles
+];
+
+/** Señal de equities: dominio bursátil etiquetado por el LLM o keyword en la nota. */
+function hasEquitiesSignal(domain: string, plan: NewsSlidePlan): boolean {
+  if (EQUITIES_DOMAINS.has(domain.toLowerCase().trim())) return true;
+  const padded = paddedText(plan);
+  return EQUITIES_KEYWORDS.some((k) => padded.includes(k));
+}
+
+// ---------------------------------------------------------------------------
+// Guardia de banco central (Fed / FOMC / Banxico / BCE)
+// ---------------------------------------------------------------------------
+
+/** Dominios que el LLM puede etiquetar como banco central / política monetaria. */
+const CENTRAL_BANK_DOMAINS = new Set(['central_bank', 'monetary_policy']);
+
+/**
+ * Señales de una decisión de banco central / política monetaria en el texto. A
+ * propósito es MÁS ESTRECHA que COMPETING_KEYWORDS: aquí no entran "tesoro",
+ * "bono", "yield" ni "empleo" (esos son bonos/fiscal/macro, no banco central),
+ * para que una nota del Tesoro siga cayendo en `bonds` y solo las de Fed/Banxico/
+ * BCE tomen el arquetipo institucional propio.
+ */
+const CENTRAL_BANK_KEYWORDS = [
+  'fed',
+  'reserva federal',
+  'federal reserve',
+  'fomc',
+  'banxico',
+  'banco de mexico',
+  'banco central',
+  'central bank',
+  ' bce',
+  ' ecb',
+  'politica monetaria',
+  'monetary policy',
+  'tasa de referencia',
+  'tasa objetivo',
+  'tasa de politica',
+  'policy rate',
+  'rate decision',
+];
+
+/** Señal de banco central: dominio de política monetaria o keyword en la nota. */
+function hasCentralBankSignal(domain: string, plan: NewsSlidePlan): boolean {
+  if (CENTRAL_BANK_DOMAINS.has(domain.toLowerCase().trim())) return true;
+  const padded = paddedText(plan);
+  return CENTRAL_BANK_KEYWORDS.some((k) => padded.includes(k));
+}
+
+// ---------------------------------------------------------------------------
 // Prompt del resolver
 // ---------------------------------------------------------------------------
 
@@ -206,7 +297,7 @@ Para cada slide infiere:
 - domain: dominio de la noticia (fx, rates, bonds, fiscal, macro, trade, tariffs, energy, commodities, equities, companies, geopolitics, industry, central_bank, forecast, employment, inflation, logistics, technology, semiconductors, banking, regulation, supply_chain, u otro si aplica). La lista NO es cerrada.
 - mechanism: qué hace (rises, falls, expands, contracts, tightens, cuts, holds, negotiates, restricts, supports, pressures, revises, projects, surprises, accelerates, slows, recovers, breaks_level, adds_risk, reduces_risk, u otro).
 - entities: entidades/objetos protagonistas (ej: ["U.S. Treasury", "Treasury bonds"]).
-- geography: geografías relevantes (vacío si no importa).
+- geography: geografías relevantes (vacío si no importa). REGLA DE PAÍS: si la nota gira en torno a un dato oficial, una institución o un mercado de un país concreto (ej. Nonfarm Payrolls / NPF, CPI o desempleo de EE.UU., la Reserva Federal, el BLS, Banxico, el BCE, un índice bursátil nacional), incluye ese país en geography aunque el foco sea económico y no "geográfico". Sirve para añadir un guiño de bandera sutil y coherente.
 - economic_object: el objeto económico central (ej: "government bonds").
 - physical_context: contexto físico real que explica la nota (ej: "U.S. Treasury-style institution").
 - visual_priority: qué pesa más (ej: "institution + data", "stat", "map").
@@ -215,7 +306,7 @@ Para cada slide infiere:
 - text_safe_area: uno de ${TEXT_SAFE_AREAS.join(', ')}.
 - visual_subject: el sujeto visual concreto de la escena, en inglés, descriptivo.
 - supporting_elements: hasta 3 elementos de apoyo, en inglés (vacío si no aplica).
-- archetype: uno de ${ARCHETYPES.join(', ')}. Usa fx/bonds/trade_map/energy/mixed_macro/executive_wrap solo cuando la nota calza claramente; si no, usa un fallback. REGLA DE PETRÓLEO: si la nota es PURAMENTE de petróleo, crudo, Brent, WTI, OPEP, gasolina o geopolítica energética (ej. Estrecho de Ormuz) y NO hay una segunda fuerza esencial, usa "energy" con motor "industrial_macro" — NUNCA "bonds" ni edificios del Tesoro/bancos/yield curve. Pero si la nota MEZCLA petróleo con otra fuerza esencial (ej. la Fed/tasas/inflación + petróleo), NO es energy pura: es MIXTA (ver story_type) y el sujeto primario NO debe borrarse.
+- archetype: uno de ${ARCHETYPES.join(', ')}. Usa fx/bonds/central_bank/trade_map/energy/equities/mixed_macro/executive_wrap solo cuando la nota calza claramente; si no, usa un fallback. REGLA DE BANCO CENTRAL: si la nota es una decisión de política monetaria o de tasas de un banco central (Reserva Federal/Fed/FOMC, Banco de México/Banxico, BCE) y NO hay una segunda fuerza esencial, usa "central_bank" con la fachada/sede de la institución o una sala/atril institucional VACÍOS más un dial o indicador de tasa — NUNCA el edificio del Tesoro, ni un banco comercial genérico, ni el rostro del funcionario. REGLA DE PETRÓLEO: si la nota es PURAMENTE de petróleo, crudo, Brent, WTI, OPEP, gasolina o geopolítica energética (ej. Estrecho de Ormuz) y NO hay una segunda fuerza esencial, usa "energy" con motor "industrial_macro" — NUNCA "bonds" ni edificios del Tesoro/bancos/yield curve. Pero si la nota MEZCLA petróleo con otra fuerza esencial (ej. la Fed/tasas/inflación + petróleo), NO es energy pura: es MIXTA (ver story_type) y el sujeto primario NO debe borrarse. REGLA DE EQUITIES: si la nota es de la bolsa, acciones, Wall Street o un índice bursátil (S&P 500, Nasdaq, Dow Jones, NYSE, renta variable) y NO hay una segunda fuerza esencial, usa "equities" con motor "editorial_photography_plus_data" y una escena bursátil reconocible (piso de remates con pizarras de tickers, fachada neoclásica de bolsa estilo NYSE, torre del distrito financiero con cinta de cotizaciones estilo Nasdaq) — NUNCA una oficina financiera genérica ni el edificio del Tesoro. Ata el color: coral para caídas/presión, turquesa para alzas/dato.
 - story_type: "single" si un solo tema domina prácticamente toda la nota; "mixed" si DOS fuerzas distintas son esenciales para entender el titular (ej. "La Fed sube el tono y el petróleo presiona" = política monetaria + energía). El titular define la narrativa: no dejes que el dominio borre uno de sus componentes.
 - Solo cuando story_type es "mixed", además devuelve: secondary_domain (dominio de la segunda fuerza), secondary_visual_subject (sujeto visual concreto de la segunda fuerza, en inglés), visual_weight_primary y visual_weight_secondary (importancia visual en %, típicamente ~65 y ~35). En "mixed" usa archetype "mixed_macro". visual_subject describe el sujeto PRIMARIO (la fuerza dominante del titular), secondary_visual_subject el secundario. Ambos deben coexistir en UNA sola foto, sin collage ni split-screen.
 - visual_confidence: número 0.0–1.0. Bajo 0.5 significa que no hay arquetipo claro.
@@ -307,6 +398,8 @@ export function coerceResolutions(
     const llmSecondaryDomain = toStr(o.secondary_domain);
     const energySignal = hasEnergySignal(rawDomain, plan);
     const competing = hasCompetingPrimary(rawDomain, plan);
+    const equitiesSignal = hasEquitiesSignal(rawDomain, plan);
+    const centralBankSignal = hasCentralBankSignal(rawDomain, plan);
 
     // Executive wrap: dirección fija (secciones 36, 44). Foto de research-desk,
     // no objetos 3D. El texto siempre va a la izquierda (el archetype pide la
@@ -353,6 +446,24 @@ export function coerceResolutions(
       engine = 'industrial_macro';
       layout = 'L1';
       domain = 'energy';
+    } else if (equitiesSignal) {
+      // Guardia de equities: una nota de bolsa/Wall Street/índices se resuelve
+      // con la escena bursátil (piso de remates, fachada de bolsa, torre con
+      // tickers), no con la oficina financiera genérica del fallback. Antes de
+      // este arquetipo, una nota de equities caía a fallback_institutional.
+      archetype = 'equities';
+      engine = 'editorial_photography_plus_data';
+      layout = 'L1';
+      domain = 'equities';
+    } else if (centralBankSignal) {
+      // Guardia de banco central: una decisión de la Fed/Banxico/BCE toma el
+      // arquetipo institucional propio (fachada o atril VACÍOS + dial de tasa),
+      // no el edificio del Tesoro ni el fallback genérico. Antes caía en 'bonds'
+      // o 'fallback_institutional' y se confundía con una nota fiscal.
+      archetype = 'central_bank';
+      engine = 'editorial_photography_plus_data';
+      layout = 'L2';
+      domain = 'central_bank';
     } else if (confidence < NEWS_CONFIDENCE_THRESHOLD) {
       // Bajo el umbral no adivinamos con un arquetipo temático (sección 52).
       archetype = 'fallback_institutional';

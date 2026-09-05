@@ -18,6 +18,7 @@ import {
   Download,
   FilePlus2,
   FileText,
+  ImagePlus,
   Images,
   Loader2,
   Newspaper,
@@ -26,6 +27,7 @@ import {
   Save,
   Sparkles,
   Trash2,
+  Upload,
   Wand2,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -39,9 +41,12 @@ import { cn } from '@/lib/utils';
 
 import { ImageLightbox } from '@/components/ImageLightbox';
 import { useNewsEdition } from '@/hooks/useNewsEdition';
-import { useNewsEditions, useDiscardNewsEdition } from '@/hooks/useNewsEditions';
+import { useNewsEditions, useNewsScenes, useDiscardNewsEdition } from '@/hooks/useNewsEditions';
 import { exportCarouselPdf, exportCarouselPngs } from '@/utils/design-studio/exportCarousel';
-import type { NewsSlidePlan } from '../../supabase/functions/_shared/news/news-types';
+import type {
+  NewsEditionType,
+  NewsSlidePlan,
+} from '../../supabase/functions/_shared/news/news-types';
 
 /** Vía A: generar en la app. Vía B: solo entregar el prompt para GPT-Image. */
 type ImageMode = 'app' | 'prompt';
@@ -50,6 +55,7 @@ export function NewsPanel() {
   const { toast } = useToast();
   const news = useNewsEdition();
   const editions = useNewsEditions();
+  const scenes = useNewsScenes();
   const discardEdition = useDiscardNewsEdition();
   const [imageMode, setImageMode] = useState<ImageMode>('app');
   const [isExporting, setIsExporting] = useState(false);
@@ -58,6 +64,17 @@ export function NewsPanel() {
   const commentaryOptions = news.normalized?.commentary_options ?? [];
   const caption = news.normalized?.caption ?? '';
   const wrapSlide = news.slidePlan.find((p) => p.is_executive_wrap) ?? null;
+
+  // Opciones de piezas según la cadencia: flash 1–3, diaria 5–8.
+  const slideOptions = news.editionType === 'flash' ? [1, 2, 3] : [5, 6, 7, 8];
+
+  // Al cambiar de cadencia, reencuadra el objetivo dentro del rango válido para
+  // que no quede seleccionado un valor fuera de rango (ej. 7 slides en flash).
+  const handleSetEditionType = (t: NewsEditionType) => {
+    news.setEditionType(t);
+    if (t === 'flash' && news.targetSlides > 3) news.setTargetSlides(1);
+    if (t === 'daily' && news.targetSlides < 5) news.setTargetSlides(7);
+  };
 
   // Elegir el cierre (Comentario final): pasa a ser el subcopy del Xending View.
   // Si ese slide ya tiene imagen, se re-hornea el texto nuevo al vuelo.
@@ -82,6 +99,42 @@ export function NewsPanel() {
     } else {
       toast({ title: 'Texto actualizado' });
     }
+  };
+
+  // Lee un archivo local como data URL para montarlo como escena del slide.
+  const fileToDataUrl = (file: File) =>
+    new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => reject(new Error('No se pudo leer el archivo'));
+      reader.readAsDataURL(file);
+    });
+
+  // Subir tu propia imagen como escena y hornear el texto encima (sin IA).
+  const handleMountUpload = async (slideNumber: number, file?: File) => {
+    if (!file) return;
+    try {
+      const dataUrl = await fileToDataUrl(file);
+      const ok = await news.mountSceneImage(slideNumber, { dataUrl });
+      if (ok) {
+        toast({ title: 'Imagen montada', description: 'Texto horneado sobre tu imagen.' });
+        scenes.refetch();
+      } else {
+        toast({ title: 'No se pudo montar la imagen', variant: 'destructive' });
+      }
+    } catch {
+      toast({ title: 'No se pudo leer la imagen', variant: 'destructive' });
+    }
+  };
+
+  // Reusar una escena ya guardada (misma imagen, cifras nuevas).
+  const handleMountReuse = async (slideNumber: number, url: string) => {
+    const ok = await news.mountSceneImage(slideNumber, { url });
+    toast(
+      ok
+        ? { title: 'Escena reutilizada' }
+        : { title: 'No se pudo reutilizar la escena', variant: 'destructive' },
+    );
   };
 
   const handleCopyCaption = async () => {
@@ -176,8 +229,8 @@ export function NewsPanel() {
         <div className="flex-1">
           <h2 className="text-lg font-semibold text-foreground">Xending News</h2>
           <p className="text-sm text-muted-foreground">
-            Convierte noticias en un set editorial visual de 5 a 8 piezas. Pega Markdown, JSON o
-            texto (o la salida de Morning Brief).
+            Convierte noticias en un set editorial visual. Diaria (5–8 piezas) o Flash (1–3, para
+            una nota urgente). Pega Markdown, JSON o texto (o la salida de Morning Brief).
           </p>
         </div>
         <div className="flex shrink-0 gap-2">
@@ -259,24 +312,26 @@ export function NewsPanel() {
             <div className="space-y-1">
               <Label className="text-xs">Edición</Label>
               <div className="flex gap-1">
-                {(['daily', 'special'] as const).map((t) => (
+                {(['daily', 'flash'] as const).map((t) => (
                   <Button
                     key={t}
                     type="button"
                     size="sm"
                     variant={news.editionType === t ? 'default' : 'outline'}
-                    onClick={() => news.setEditionType(t)}
+                    onClick={() => handleSetEditionType(t)}
                   >
-                    {t === 'daily' ? 'Diaria' : 'Especial'}
+                    {t === 'daily' ? 'Diaria' : 'Flash'}
                   </Button>
                 ))}
               </div>
             </div>
 
             <div className="space-y-1">
-              <Label className="text-xs">Slides objetivo</Label>
+              <Label className="text-xs">
+                {news.editionType === 'flash' ? 'Piezas' : 'Slides objetivo'}
+              </Label>
               <div className="flex gap-1">
-                {[5, 6, 7, 8].map((n) => (
+                {slideOptions.map((n) => (
                   <Button
                     key={n}
                     type="button"
@@ -732,6 +787,64 @@ export function NewsPanel() {
                       Copiar prompt
                     </Button>
                   )}
+
+                  {/* Montar tu propia imagen y solo hornear el texto (Fed/Banxico,
+                      notas urgentes con foto fija). No gasta IA. */}
+                  <details className="rounded-md border border-border/50 bg-muted/40 px-2 py-1">
+                    <summary className="cursor-pointer text-[10px] text-muted-foreground">
+                      <ImagePlus className="mr-1 inline h-3 w-3" />
+                      Montar imagen (solo texto)
+                    </summary>
+                    <div className="mt-2 space-y-2">
+                      <p className="text-[9px] text-muted-foreground">
+                        Usa una imagen tuya como escena y hornea el texto encima, sin gastar IA.
+                        Ideal para releases fijos: reutiliza la misma imagen y cambia solo las
+                        cifras.
+                      </p>
+                      <label
+                        className={cn(
+                          'flex cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed border-border/70 px-2 py-2 text-[10px] hover:bg-muted',
+                          s.status === 'generating' && 'pointer-events-none opacity-50',
+                        )}
+                      >
+                        <Upload className="h-3 w-3" />
+                        Subir imagen
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            handleMountUpload(s.slide_number, e.target.files?.[0]);
+                            e.target.value = '';
+                          }}
+                        />
+                      </label>
+
+                      {scenes.data && scenes.data.length > 0 && (
+                        <div className="space-y-1">
+                          <p className="text-[9px] text-muted-foreground">Reusar escena guardada</p>
+                          <div className="flex gap-1 overflow-x-auto pb-1">
+                            {scenes.data.map((sc) => (
+                              <button
+                                key={sc.path}
+                                type="button"
+                                onClick={() => handleMountReuse(s.slide_number, sc.url)}
+                                disabled={s.status === 'generating'}
+                                title="Reusar esta escena"
+                                className="relative h-12 w-12 shrink-0 overflow-hidden rounded border border-border/60 hover:border-primary disabled:opacity-50"
+                              >
+                                <img
+                                  src={sc.url}
+                                  alt="Escena guardada"
+                                  className="h-full w-full object-cover"
+                                />
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </details>
                 </div>
               ))}
             </div>

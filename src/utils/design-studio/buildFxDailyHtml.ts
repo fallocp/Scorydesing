@@ -151,9 +151,10 @@ body{margin:0;overflow:hidden;background:#ffffff;}
 .top-title{font-family:'Montserrat',sans-serif;font-weight:700;font-size:31px;line-height:1;color:var(--navy-title);letter-spacing:-0.5px;text-transform:uppercase;}
 .top-title-line{width:60px;height:3px;background:var(--coral);border-radius:999px;}
 .meta{display:flex;align-items:center;gap:18px;margin-top:4px;}
-.meta-date,.meta-pair{font-size:16px;font-weight:500;color:var(--navy-title);letter-spacing:0.2px;}
+.meta-date,.meta-pair{font-weight:500;color:var(--navy-title);letter-spacing:0.2px;}
+.meta-date{font-size:30px;font-weight:700;letter-spacing:0.4px;}
+.meta-pair{font-size:16px;color:${BLUE};}
 .meta-divider{width:1px;height:34px;background:rgba(8,27,87,0.18);}
-.meta-pair{color:${BLUE};}
 .hero-region{position:relative;min-height:1010px;margin-top:-6px;}
 .hero-photo{position:absolute;top:-64px;right:-64px;width:1040px;height:1120px;object-fit:cover;z-index:0;-webkit-mask-image:radial-gradient(135% 118% at 100% 0%,#000 56%,rgba(0,0,0,0) 100%);mask-image:radial-gradient(135% 118% at 100% 0%,#000 56%,rgba(0,0,0,0) 100%);}
 .hero-copy{position:relative;z-index:2;max-width:820px;padding-top:26px;}

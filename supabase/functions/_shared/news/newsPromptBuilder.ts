@@ -47,8 +47,19 @@ export function buildSlideVisual(
 
   // Señal de banderas atada al texto: solo cuando la nota nombra países. Sutil y
   // fotográfica, nunca bandera gigante de fondo (el negative sigue prohibiendo eso).
+  // Los lugares cubren tanto escenas de logística como de escritorio/oficina/
+  // institución (ej. una nota de empleo/NPF de EE.UU. sobre un desk), para que el
+  // guiño encaje aunque no haya camión ni cruce aduanal. Cuando la nota gira en
+  // torno a UN país claro (dato oficial/institución), el guiño deja de ser opcional.
+  const flagPlacements =
+    'a small flag standing on the desk, a flag on a pole softly blurred in the background outside a window, a flag on a building facade or lobby, a small flag pin or patch on a folder or report, a flag decal on a truck or container, a license plate, or small flags at a checkpoint';
+  const singleCountry = resolution.geography.length === 1;
   const countryCue = resolution.geography.length
-    ? `\nCountry cues: the story involves ${geography}. You MAY add small, realistic, PHOTOGRAPHIC national flag cues that fit the scene — a flag decal on a truck or container, a license plate, or small flags at a checkpoint. Keep them subtle and secondary. Never a giant flag and never a flag-filled background.`
+    ? `\nCountry cues: the story involves ${geography}. ${
+        singleCountry
+          ? 'This story clearly centers on one country, so DO include a small'
+          : 'You MAY add small,'
+      } realistic, PHOTOGRAPHIC national flag cue that fits the scene — e.g. ${flagPlacements}. Keep it subtle and secondary, matching the real scene. Never a giant flag and never a flag-filled background.`
     : '';
 
   const isMixed = resolution.story_type === 'mixed';

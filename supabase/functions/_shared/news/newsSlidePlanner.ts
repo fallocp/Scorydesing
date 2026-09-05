@@ -16,8 +16,12 @@
 import type { OpenAIMessage } from '../callOpenAI.ts';
 import {
   NEWS_DEFAULT_SLIDES,
+  NEWS_FLASH_DEFAULT_SLIDES,
+  NEWS_FLASH_MAX_SLIDES,
+  NEWS_FLASH_MIN_SLIDES,
   NEWS_MAX_SLIDES,
   NEWS_MIN_SLIDES,
+  type NewsEditionType,
   type NewsNormalizedEdition,
   type NewsNormalizedSlide,
   type NewsSlidePlan,
@@ -37,6 +41,7 @@ export function buildNormalizeMessages(rawInput: string): OpenAIMessage[] {
 
 REGLAS ESTRICTAS:
 - No inventes datos, cifras, fuentes ni URLs. Si un campo no está en el texto, déjalo como cadena vacía o array vacío.
+- La atribución de fuente va SOLO en el campo "source". NO la incluyas en "subcopy" ni en "headline": frases como "reportado por X", "según X", "informó X", "de acuerdo con X" o "Fuente: X" se muestran aparte. Extrae el nombre de la fuente al array "source" y elimínala del subcopy (elimina también conectores que queden colgando, ej. "El movimiento fue reportado por Investing.com" → se quita del subcopy y "Investing.com" pasa a "source").
 - No conviertas la noticia en problema-solución-CTA. El contenido de la nota ya es el guion.
 - Separa cada noticia en su propio slide.
 - key_data es el dato principal citado (ej: "$16.9083", "4.36%"). secondary_data es un delta si existe (ej: "-0.04 pp").
@@ -104,7 +109,7 @@ export function coerceNormalizedEdition(data: unknown): NewsNormalizedEdition | 
 
   return {
     date: toStr(obj.date),
-    edition: toStr(obj.edition) === 'special' ? 'special' : 'daily',
+    edition: toStr(obj.edition) === 'flash' ? 'flash' : 'daily',
     slides,
     executive_commentary: toStr(obj.executive_commentary),
   };
@@ -115,8 +120,10 @@ export function coerceNormalizedEdition(data: unknown): NewsNormalizedEdition | 
 // ---------------------------------------------------------------------------
 
 export interface SelectAndPlanOptions {
-  /** 5–8, default 7 (incluye el Xending View si hay comentario). */
+  /** Objetivo de piezas. Diaria: 5–8 (default 7). Flash: 1–3 (default 1). */
   targetSlides?: number;
+  /** Cadencia. En `flash` el mínimo baja a 1 y el cierre es opcional. */
+  editionType?: NewsEditionType;
 }
 
 /**
@@ -127,6 +134,10 @@ export interface SelectAndPlanOptions {
  * es el caso cuando viene de Morning Brief). El recorte deja hueco para el
  * Xending View cuando hay comentario ejecutivo.
  *
+ * Modo `flash` (nota suelta): el rango es 1–3 y NO se fuerza el mínimo de 5 ni el
+ * cierre Xending View. Solo se agrega el cierre si hay comentario Y el objetivo
+ * deja espacio para al menos una nota + el cierre (target ≥ 2).
+ *
  * NO reordena por "importancia" con el modelo en v1: sin señal de ranking en el
  * input, inventar un orden sería justo lo que la sección 8 prohíbe. Si más
  * adelante el input trae ranking, se enchufa aquí.
@@ -135,13 +146,23 @@ export function selectAndPlan(
   edition: NewsNormalizedEdition,
   options: SelectAndPlanOptions = {},
 ): NewsSlidePlan[] {
+  const isFlash = options.editionType === 'flash';
+  const minSlides = isFlash ? NEWS_FLASH_MIN_SLIDES : NEWS_MIN_SLIDES;
+  const maxSlides = isFlash ? NEWS_FLASH_MAX_SLIDES : NEWS_MAX_SLIDES;
+  const defaultSlides = isFlash ? NEWS_FLASH_DEFAULT_SLIDES : NEWS_DEFAULT_SLIDES;
+
   const hasWrap = edition.executive_commentary.trim().length > 0;
-  const target = clampTarget(options.targetSlides ?? NEWS_DEFAULT_SLIDES);
+  const target = clampTarget(options.targetSlides ?? defaultSlides, minSlides, maxSlides);
+
+  // En flash el cierre solo cabe si el objetivo deja lugar a una nota + wrap.
+  const includeWrap = hasWrap && (!isFlash || target >= 2);
 
   // Presupuesto de notas: si cerramos con Xending View, una posición es suya.
-  const noteBudget = hasWrap ? target - 1 : target;
+  const noteBudget = includeWrap ? target - 1 : target;
+  // Piso de notas para respetar el mínimo de la cadencia (nunca menos de 1).
+  const minNotes = Math.max(minSlides - (includeWrap ? 1 : 0), 1);
 
-  const notes = edition.slides.slice(0, Math.max(noteBudget, NEWS_MIN_SLIDES - (hasWrap ? 1 : 0)));
+  const notes = edition.slides.slice(0, Math.max(noteBudget, minNotes));
 
   const plan: NewsSlidePlan[] = notes.map((s, i) => ({
     slide_number: i + 1,
@@ -155,7 +176,7 @@ export function selectAndPlan(
     is_executive_wrap: false,
   }));
 
-  if (hasWrap) {
+  if (includeWrap) {
     plan.push({
       slide_number: plan.length + 1,
       headline: 'Xending View',
@@ -172,9 +193,9 @@ export function selectAndPlan(
   return plan;
 }
 
-function clampTarget(n: number): number {
-  if (!Number.isFinite(n)) return NEWS_DEFAULT_SLIDES;
-  return Math.min(NEWS_MAX_SLIDES, Math.max(NEWS_MIN_SLIDES, Math.round(n)));
+function clampTarget(n: number, min: number, max: number): number {
+  if (!Number.isFinite(n)) return min;
+  return Math.min(max, Math.max(min, Math.round(n)));
 }
 
 // ---------------------------------------------------------------------------

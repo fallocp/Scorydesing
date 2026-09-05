@@ -77,6 +77,29 @@ Do not use dark 3D pedestals.
 Do not generate the Xending logo or wordmark.`,
 };
 
+/** Banco central / política monetaria: Fed / FOMC, Banxico, BCE. */
+export const archetypeCentralBank: NewsArchetype = {
+  id: 'central_bank',
+  label: 'Banco central / Tasas',
+  defaultEngine: 'editorial_photography_plus_data',
+  defaultLayout: 'L2',
+  prompt: `Create a premium Xending News editorial PHOTOGRAPH about a central bank monetary-policy or interest-rate decision (Federal Reserve / FOMC, Banco de México / Banxico, European Central Bank).
+
+Show the INSTITUTION, never a person. Choose ONE hyper-realistic scene that fits the specific central bank, and VARY the choice between slides so several monetary-policy notes are NOT identical:
+(a) the neoclassical stone facade of a central-bank headquarters with credible columns, pediment and modest flags, shot as real architectural photography (Federal Reserve Eccles-style for the Fed; a stately historic institutional building for Banxico);
+(b) an empty institutional press-conference room or podium/lectern, formal and premium, with no speaker present;
+(c) a formal boardroom or council chamber where a rate decision is announced, empty of recognizable faces;
+(d) a clean printed monetary-policy statement or rate-decision report on a bright desk, with a subtle policy-rate step chart.
+
+Layer only a subtle Xending data accent tied to the decision: a small policy-rate dial/gauge or a thin turquoise step line for a hold or a hike, restrained coral for a cut or dovish pressure — plus a small rate label. Keep accents to 2–3 elements.
+
+DSLR editorial look, bright high-key daylight, clean pale stone and whites, shallow depth of field, generous negative space. Keep a clear text-safe area on the left; the scene lives on the right.
+
+This is a CENTRAL-BANK story: do NOT show the U.S. Treasury building, a generic commercial bank branch, a trading floor, a port or shipping containers. Never depict a recognizable real official's face or likeness.
+
+Do not generate text or the Xending logo.`,
+};
+
 /** Sección 43 — comercio / aranceles / T-MEC / mapa. */
 export const archetypeTradeMap: NewsArchetype = {
   id: 'trade_map',
@@ -127,6 +150,32 @@ This is an ENERGY story: do NOT show a Treasury or government building, a bank, 
 Avoid cartoon 3D, toy-like objects, neon, clutter, generic stock and fake dashboards.
 
 Do not generate text or logos.`,
+};
+
+/** Equities / bolsa / Wall Street / índices bursátiles (S&P 500, Nasdaq, Dow). */
+export const archetypeEquities: NewsArchetype = {
+  id: 'equities',
+  label: 'Equities / Bolsa',
+  defaultEngine: 'editorial_photography_plus_data',
+  defaultLayout: 'L1',
+  prompt: `Create a premium Xending News editorial PHOTOGRAPH about the stock market, equities or a stock index (Wall Street, S&P 500, Nasdaq, Dow Jones).
+
+Shoot ONE hyper-realistic Wall-Street / equity-market scene, choosing whichever best fits the specific story. VARY the choice between slides so several equity notes are NOT identical:
+(a) a stock-exchange trading floor with trading posts and large overhead market display boards showing green/red tickers;
+(b) the neoclassical columned facade of a stock exchange building (NYSE-style), with broad steps, tall columns, a pediment and modest flags, shot as real architectural photography;
+(c) a financial-district tower wrapped in a large curved LED market-ticker screen (Nasdaq MarketSite / Times Square style), under daylight;
+(d) a canyon of financial-district skyscrapers under soft daylight with a subtle ticker ribbon;
+(e) a clean printed equity-market report or a market screen on a bright desk showing a subtle index chart.
+
+Recognizable real stock-exchange landmarks, exchange signage, market ticker boards and LED ticker ribbons ARE welcome and intended for this equities scene — they are the real environment, not Xending branding. The generic "no readable signage" rule does NOT apply to these ambient market displays: exchange names, index tickers and price figures on the boards may appear. Only keep the declared TEXT-SAFE AREA clean and free of text so the headline and data can be composited afterwards.
+
+Tie the accent color to the story's direction: restrained CORAL (#FF7A4A) for a decline, sell-off or pressure; turquoise (#2ED4C7) for a rally, gains or a neutral data accent. Keep it to a thin ticker/chart line or the green/red glow of the boards — never neon, never clutter.
+
+DSLR editorial look, bright high-key daylight or clean interior light, real materials (glass, steel, stone, LED screens), shallow depth of field, generous negative space. Keep a clear text-safe area on the left; the scene lives on the right.
+
+This is an EQUITIES story: do NOT show a Treasury or government building, a yield curve, bond reports, a port or shipping containers.
+
+Do not generate the Xending logo or wordmark.`,
 };
 
 /**
@@ -246,8 +295,10 @@ Do not generate text or logos.`,
 export const NEWS_ARCHETYPES: Record<NewsArchetypeId, NewsArchetype> = {
   fx: archetypeFx,
   bonds: archetypeBonds,
+  central_bank: archetypeCentralBank,
   trade_map: archetypeTradeMap,
   energy: archetypeEnergy,
+  equities: archetypeEquities,
   mixed_macro: archetypeMixedMacro,
   executive_wrap: archetypeExecutiveWrap,
   fallback_institutional: archetypeFallbackInstitutional,

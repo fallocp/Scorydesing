@@ -22,8 +22,13 @@
 /** Cómo llegó el contenido crudo. El adapter (sección 10) lo detecta. */
 export type NewsInputFormat = 'markdown' | 'json' | 'paste' | 'morning_brief';
 
-/** Cadencia de la edición. Un `special` puede tener portada y dirección propia. */
-export type NewsEditionType = 'daily' | 'special';
+/**
+ * Cadencia de la edición.
+ *  - `daily`: set editorial completo de 5–8 piezas (el flujo original).
+ *  - `flash`: nota suelta urgente/especial, 1–3 piezas. No fuerza el mínimo de 5
+ *    ni el cierre Xending View; reutiliza el mismo resolver, arquetipos y estilo.
+ */
+export type NewsEditionType = 'daily' | 'flash';
 
 // ---------------------------------------------------------------------------
 // Dimensiones semánticas (secciones 16, 17, 18)
@@ -135,8 +140,10 @@ export type NewsTextSafeArea =
 export type NewsArchetypeId =
   | 'fx'
   | 'bonds'
+  | 'central_bank'
   | 'trade_map'
   | 'energy'
+  | 'equities'
   | 'mixed_macro'
   | 'executive_wrap'
   | 'fallback_institutional'
@@ -294,6 +301,14 @@ export interface GenerateNewsVisualsResponse {
 export const NEWS_MIN_SLIDES = 5;
 export const NEWS_MAX_SLIDES = 8;
 export const NEWS_DEFAULT_SLIDES = 7;
+
+/**
+ * Rango de la edición `flash` (nota suelta urgente/especial). No comparte el
+ * mínimo de 5 de la edición diaria: una flash puede ser una sola pieza.
+ */
+export const NEWS_FLASH_MIN_SLIDES = 1;
+export const NEWS_FLASH_MAX_SLIDES = 3;
+export const NEWS_FLASH_DEFAULT_SLIDES = 1;
 
 /**
  * Bajo este umbral de confianza el resolver no adivina con un arquetipo: cae al

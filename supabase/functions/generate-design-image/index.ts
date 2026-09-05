@@ -114,6 +114,12 @@ interface GenerateImageRequest {
   // Explicit per-request snapshot used by Design Studio A/B options. When set,
   // it bypasses DB/global prompt selection so the result is reproducible.
   masterPromptVersion?: 'v1' | 'v2';
+  // Photography recipe (A/B). 'default' keeps the current master photo section;
+  // 'editorial_v2' swaps ONLY the photography block for a Xending-News-style
+  // hyper-realistic editorial recipe (direct description + prevalidated scenes).
+  // Falls back to the PHOTO_STYLE env secret, then 'default'. Infografía y
+  // mapa/rutas no cambian.
+  photoStyle?: 'default' | 'editorial_v2';
   corridorMode?: 'auto' | 'geographic_corridor' | 'operational_route' | 'global_network' | 'bidirectional_corridor';
   corridorFlowType?: 'auto' | 'payment' | 'goods' | 'bidirectional';
   corridorOrigin?: string;
@@ -851,6 +857,61 @@ const MASTER_IMAGE_PROMPT_FALLBACK = MASTER_IMAGE_PROMPT_VERSION === 'v1'
 const DEFAULT_MASTER_IMAGE_BACKGROUND_STYLE = MASTER_IMAGE_PROMPT_VERSION === 'v1'
   ? 'navy'
   : 'white';
+
+/**
+ * Fotografía editorial v2 (A/B, opt-in). Reemplaza SOLO la sección de fotografía
+ * del master por una receta derivada de Xending News, que es la que produce las
+ * fotos que se ven mejor: descripción directa de la imagen final (no meta-prompt
+ * diluido), escenas reales prevalidadas, blanco dominante high-key y datos como
+ * acento fino. Infografía y mapa/rutas quedan intactos.
+ *
+ * Se mantiene como sección `### SALIDA fotografia` para no romper el contrato del
+ * master (el modelo sigue escribiendo `fotografia.prompt_final` en inglés).
+ */
+const PHOTO_EDITORIAL_V2_BLOCK = `### SALIDA fotografia — EDITORIAL v2 (estilo Xending News)
+Produce fotografía editorial financiera de alta gama: una imagen hiperrealista tipo toma DSLR para una revista de negocios premium. NUNCA icono plano, cartoon ni render 3D plástico o de juguete.
+
+Elige UNA escena real y creíble que represente el imageIntent, y VARÍA la elección entre piezas para que el set no sea idéntico:
+- mesa de trading o desk de treasury con pantallas reales y gráficos suaves fuera de foco;
+- edificio o sede institucional con arquitectura creíble y materiales reales (piedra, vidrio, acero);
+- puerto de contenedores, terminal logística, grúas, buque o almacén limpio;
+- planta/maquinaria industrial, componentes metálicos o mercancía sobre superficie limpia;
+- distrito financiero o ventanal de oficina contemporánea;
+- o UN objeto premium real fotografiado (globo de vidrio transparente, componente de metal, reporte impreso) con materiales, luz y profundidad reales.
+
+Look blanco dominante high-key: luz natural o softbox suave, blancos limpios, sombras de contacto delicadas, profundidad de campo corta. Encuadre FULL-BLEED que llena todo el cuadro: la escena cubre la imagen completa (el copy se monta después con un velo, así que NO dejes media imagen vacía ni un lado vacío reservado para texto). Conservar los colores y texturas reales del lugar (cartón, madera, acero, concreto, cielo, agua, contenedores, mobiliario); no convertir la escena en un set blanco artificial ni sobreexponer a blanco clínico. En navy, exposición fotográfica natural: el tono oscuro solo en wardrobe, sombras o ambiente existente, nunca un fondo navy artificial.
+
+Gráficos y etiquetas SOLO como acento de datos fino sobre la foto, nunca el sujeto: una línea fina turquesa (#2ED4C7) de ruta/precio, una etiqueta o micro-chart discreto, coral (#FF7A4A) solo para riesgo/presión/caída. Máximo 2–3 acentos. Un objeto real fotografiado SÍ puede ser el sujeto (eso no es iconografía).
+
+PERSONAS — política estricta: por defecto sin rostro. Si una persona ayuda, secundaria y anónima (de espaldas, over-the-shoulder, encuadre por debajo de ojos/nariz, manos o fuera de foco), jamás retrato frontal, mirada a cámara, grupos posando, piel encerada ni rasgos AI.
+
+Composición editorial variable guiada por el concepto (plano general ambiental, plano medio de trabajo, over-the-shoulder, detalle de manos/documentos/dispositivo, sujeto lateral), que ocupa todo el encuadre con capas de primer plano, plano medio y fondo y un único foco narrativo. La escena cubre el cuadro completo; el texto se compone encima con velo, nunca en un espacio vacío reservado.
+
+Acabado: fotografía hiperrealista editorial B2B, rango dinámico realista, contraste moderado, color grading neutro o levemente cálido, materiales reales (acero, concreto, vidrio, papel, agua, pantallas) con micro-detalle creíble. Evitar: look de icono plano, cartoon o 3D plástico, objetos flotantes tipo app, juguete, estilo fintech oscuro, neón, saturación, clutter, stock genérico, dashboards falsos, manos deformes, logos legibles y look de render AI genérico.`;
+
+// Fotografía editorial v2 es el DEFAULT de comercial: sale más blanca/premium y
+// el resto de la pieza queda igual. Para apagarla (volver a la sección de foto
+// original del master) basta el secret:
+//   supabase secrets set PHOTO_STYLE=default   (reactivar: PHOTO_STYLE=editorial_v2)
+// El campo por request `photoStyle` siempre gana sobre este default.
+const PHOTO_STYLE_DEFAULT: 'default' | 'editorial_v2' =
+  Deno.env.get('PHOTO_STYLE') === 'default' ? 'default' : 'editorial_v2';
+
+/**
+ * Cambia SOLO la sección de fotografía del master por el bloque editorial v2.
+ * Localiza `### SALIDA fotografia` y corta hasta `### SALIDA infografia`. Si algún
+ * marcador no existe (ej. V1 o un prompt de DB con otra estructura), devuelve el
+ * template sin tocar: no-op seguro, nunca rompe la generación.
+ */
+function applyPhotoStyle(template: string, photoStyle: 'default' | 'editorial_v2'): string {
+  if (photoStyle !== 'editorial_v2') return template;
+  const startMarker = '### SALIDA fotografia';
+  const endMarker = '### SALIDA infografia';
+  const start = template.indexOf(startMarker);
+  const end = template.indexOf(endMarker);
+  if (start === -1 || end === -1 || end <= start) return template;
+  return `${template.slice(0, start)}${PHOTO_EDITORIAL_V2_BLOCK}\n\n${template.slice(end)}`;
+}
 // During the V2 evaluation, code is the deterministic source of truth so an
 // unknown/stale DB row cannot silently override the selected version. Existing
 // DB rows remain untouched and can be re-enabled after approval:
@@ -1998,11 +2059,12 @@ async function handleMasterImagePath(
   const databasePrompt = shouldUseDatabasePrompt
     ? await fetchMasterPromptByType(supabase, business_id!, 'image')
     : null;
-  const promptTemplate = databasePrompt ?? selectedCodePrompt;
+  const selectedPhotoStyle = requestBody.photoStyle ?? PHOTO_STYLE_DEFAULT;
+  const promptTemplate = applyPhotoStyle(databasePrompt ?? selectedCodePrompt, selectedPhotoStyle);
   const promptSource = databasePrompt
     ? 'database'
     : `code-${selectedMasterPromptVersion}${hasExplicitPromptVersion ? '-request' : ''}`;
-  console.log(`Master image prompt source: ${promptSource}`);
+  console.log(`Master image prompt source: ${promptSource} · photoStyle: ${selectedPhotoStyle}`);
 
   // 6. Assemble interpolation variables — Image Prompt receives imageIntent
   //    (semantic concept from Content Prompt) + copy context for coherence
@@ -2182,6 +2244,7 @@ async function handleMasterImagePath(
       promptMeta: {
         source: promptSource,
         version: selectedMasterPromptVersion,
+        photoStyle: selectedPhotoStyle,
         backgroundStyle: effectiveBackgroundStyle,
         // Optional because a single-variant call (see promptVariant) legitimately
         // has no mapa_rutas: reaching into it unconditionally crashed the whole

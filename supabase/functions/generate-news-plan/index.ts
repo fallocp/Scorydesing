@@ -34,7 +34,6 @@ import {
   selectAndPlan,
 } from '../_shared/news/newsSlidePlanner.ts';
 import {
-  NEWS_DEFAULT_SLIDES,
   type GenerateNewsPlanRequest,
   type GenerateNewsPlanResponse,
   type NewsNormalizedEdition,
@@ -161,14 +160,17 @@ serve(async (req) => {
       );
     }
 
-    // El tipo de edición del body manda sobre el detectado (permite forzar special).
+    // El tipo de edición del body manda sobre el detectado (permite forzar flash).
     if (body.edition_type) {
       normalized.edition = body.edition_type;
     }
 
     // --- Editorial selector + slide planner -------------------------------
+    // La cadencia manda el rango: diaria 5–8, flash 1–3. El default lo elige el
+    // planner según editionType, por eso no forzamos aquí NEWS_DEFAULT_SLIDES.
     const slidePlan = selectAndPlan(normalized, {
-      targetSlides: body.target_slides ?? NEWS_DEFAULT_SLIDES,
+      targetSlides: body.target_slides,
+      editionType: normalized.edition,
     });
 
     const response: GenerateNewsPlanResponse = {

@@ -231,7 +231,7 @@ function splitSources(value: string): string[] {
 
 function normalizeEditionType(value: unknown): NewsEditionType {
   const v = str(value).toLowerCase();
-  return v === 'special' ? 'special' : 'daily';
+  return v === 'flash' ? 'flash' : 'daily';
 }
 
 /**

@@ -47,11 +47,16 @@ export interface NewsSlideRuntime extends NewsSlideVisual {
   imageBase64?: string;
   /**
    * base64 de la ESCENA sin texto, en memoria. Permite re-hornear el texto sin
-   * volver a llamar a la IA de imagen. No se persiste (pesa); tras recargar,
-   * editar texto exige regenerar la imagen.
+   * volver a llamar a la IA de imagen.
    */
   sceneBase64?: string;
-  /** URL pública tras guardar en Storage. */
+  /**
+   * URL pública de la ESCENA sin texto en Storage (subida o montada). A
+   * diferencia de sceneBase64, SÍ se persiste: con ella se re-hornea el texto
+   * tras recargar y se reutiliza la misma escena en otra edición sin regenerar.
+   */
+  sceneUrl?: string;
+  /** URL pública de la pieza COMPUESTA (con texto) tras guardar en Storage. */
   imageUrl?: string;
   mockupId?: string;
   error?: string;
@@ -70,11 +75,38 @@ export type NewsSlideTextPatch = Partial<
 const NEWS_IMAGE_SIZE = `${CAROUSEL_DIMENSIONS.width}x${CAROUSEL_DIMENSIONS.height}`;
 const NEWS_PLATFORM = 'instagram-post';
 
-/** Fecha de la edición (o de hoy), formateada "22 AGO 2026". */
-function formatEditionDate(raw?: string | null): string {
-  const d = raw ? new Date(raw) : new Date();
-  const safe = Number.isNaN(d.getTime()) ? new Date() : d;
-  return safe
+/** Bucket y carpeta donde se guardan las escenas reusables (imágenes sin texto). */
+const NEWS_IMAGE_BUCKET = 'design-images';
+const NEWS_SCENE_FOLDER = 'news-scenes';
+
+/** Convierte un data URL o base64 crudo a base64 sin el prefijo `data:`. */
+function toRawBase64(input: string): string {
+  return input.includes(',') ? input.split(',')[1] ?? '' : input;
+}
+
+/** Descarga una imagen pública y la devuelve como base64 (sin prefijo). */
+async function fetchImageAsBase64(url: string): Promise<string> {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`No se pudo leer la escena (${res.status})`);
+  const blob = await res.blob();
+  const dataUrl: string = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error('No se pudo leer la imagen'));
+    reader.readAsDataURL(blob);
+  });
+  return toRawBase64(dataUrl);
+}
+
+/**
+ * Fecha del día de publicación, formateada "3 SEPT 2026".
+ *
+ * Siempre es HOY, no la fecha parseada del contenido: el Morning Brief trae la
+ * fecha de la jornada que reporta (a veces de días atrás), y el sello de la
+ * pieza debe reflejar cuándo se publica, no la data de la nota.
+ */
+function formatEditionDate(): string {
+  return new Date()
     .toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })
     .toUpperCase();
 }
@@ -152,7 +184,7 @@ export function useNewsEdition() {
         dataLabel: plan?.data_label ?? '',
         delta: plan?.secondary_data ?? '',
         source: (plan?.source ?? []).join(' · '),
-        dateLabel: formatEditionDate(normalizedRef.current?.date),
+        dateLabel: formatEditionDate(),
         slideNumber,
         totalSlides: slidesRef.current.length,
         textSafeArea: slide.text_safe_area,
@@ -181,6 +213,85 @@ export function useNewsEdition() {
       return { composedBase64, imageUrl: saved.imageUrl, mockupId: saved.mockupId };
     },
     [saveMockup],
+  );
+
+  /**
+   * Sube una ESCENA sin texto al bucket (carpeta news-scenes) y devuelve su URL
+   * pública. Persiste la imagen provista para poder re-hornear el texto tras
+   * recargar y reusar la misma escena en el próximo release sin regenerarla.
+   */
+  const uploadScene = useCallback(
+    async (base64: string): Promise<string> => {
+      if (!activeBusinessId) throw new Error('No hay negocio activo');
+      const byteChars = atob(base64);
+      const bytes = new Uint8Array(byteChars.length);
+      for (let i = 0; i < byteChars.length; i++) bytes[i] = byteChars.charCodeAt(i);
+      const blob = new Blob([bytes], { type: 'image/png' });
+
+      const path = `${activeBusinessId}/${NEWS_SCENE_FOLDER}/${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2, 8)}.png`;
+      const { error: uploadError } = await supabase.storage
+        .from(NEWS_IMAGE_BUCKET)
+        .upload(path, blob, { contentType: 'image/png', upsert: false });
+      if (uploadError) throw new Error(`No se pudo subir la escena: ${uploadError.message}`);
+
+      const { data } = supabase.storage.from(NEWS_IMAGE_BUCKET).getPublicUrl(path);
+      return data.publicUrl;
+    },
+    [activeBusinessId],
+  );
+
+  /**
+   * Monta una imagen provista como ESCENA de un slide y hornea el texto encima,
+   * sin llamar a la IA. Dos orígenes:
+   *  - `dataUrl`: imagen recién subida por el usuario (se persiste en Storage).
+   *  - `url`: una escena guardada que se reutiliza (ya vive en Storage).
+   *
+   * Es el flujo "cambiar la imagen y solo montar texto": ideal para releases
+   * recurrentes (Fed/Banxico) donde el visual es fijo y solo cambian las cifras.
+   * El slide debe existir (resolver dirección visual primero), porque el texto se
+   * compone según su text_safe_area y arquetipo.
+   */
+  const mountSceneImage = useCallback(
+    async (slideNumber: number, source: { dataUrl?: string; url?: string }): Promise<boolean> => {
+      const slide = slidesRef.current.find((s) => s.slide_number === slideNumber);
+      if (!slide) return false;
+
+      patchSlide(slideNumber, { status: 'generating', error: undefined });
+      try {
+        let sceneBase64: string;
+        let sceneUrl: string;
+        if (source.dataUrl) {
+          sceneBase64 = toRawBase64(source.dataUrl);
+          if (!sceneBase64) throw new Error('Imagen inválida');
+          sceneUrl = await uploadScene(sceneBase64);
+        } else if (source.url) {
+          sceneBase64 = await fetchImageAsBase64(source.url);
+          sceneUrl = source.url; // ya está persistida
+        } else {
+          throw new Error('No se proporcionó imagen');
+        }
+
+        patchSlide(slideNumber, { sceneBase64, sceneUrl });
+        const composed = await composeAndSave(slideNumber, sceneBase64);
+        patchSlide(slideNumber, {
+          status: 'done',
+          imageBase64: composed.composedBase64,
+          imageUrl: composed.imageUrl,
+          mockupId: composed.mockupId,
+          error: undefined,
+        });
+        return true;
+      } catch (err) {
+        patchSlide(slideNumber, {
+          status: 'error',
+          error: err instanceof Error ? err.message : 'Error montando la imagen',
+        });
+        return false;
+      }
+    },
+    [uploadScene, composeAndSave, patchSlide],
   );
 
   // --- Paso 1: plan -------------------------------------------------------
@@ -343,16 +454,27 @@ export function useNewsEdition() {
     async (slideNumber: number): Promise<boolean> => {
       const slide = slidesRef.current.find((s) => s.slide_number === slideNumber);
       if (!slide) return false;
-      if (!slide.sceneBase64) {
-        patchSlide(slideNumber, {
-          error: 'Para aplicar el texto sin regenerar, la escena debe estar en memoria. Regenera la imagen.',
-        });
-        return false;
-      }
 
       patchSlide(slideNumber, { status: 'generating', error: undefined });
       try {
-        const composed = await composeAndSave(slideNumber, slide.sceneBase64);
+        // Escena en memoria (recién generada/montada) o, si no, la escena
+        // persistida en Storage (tras recargar o al reusar una imagen). Solo si
+        // no hay ninguna se pide regenerar.
+        let sceneBase64 = slide.sceneBase64;
+        if (!sceneBase64 && slide.sceneUrl) {
+          sceneBase64 = await fetchImageAsBase64(slide.sceneUrl);
+          patchSlide(slideNumber, { sceneBase64 });
+        }
+        if (!sceneBase64) {
+          patchSlide(slideNumber, {
+            status: 'error',
+            error:
+              'No hay escena disponible para re-hornear el texto. Regenera la imagen o monta una.',
+          });
+          return false;
+        }
+
+        const composed = await composeAndSave(slideNumber, sceneBase64);
         patchSlide(slideNumber, {
           status: 'done',
           imageBase64: composed.composedBase64,
@@ -406,6 +528,7 @@ export function useNewsEdition() {
         status: s.status,
         imageUrl: s.imageUrl,
         mockupId: s.mockupId,
+        sceneUrl: s.sceneUrl,
       }));
 
       const title = `Xending News · ${new Date().toLocaleDateString('es-MX', {
@@ -456,6 +579,7 @@ export function useNewsEdition() {
             status: (st?.status as NewsSlideRuntime['status']) ?? (st?.imageUrl ? 'done' : 'idle'),
             imageUrl: st?.imageUrl,
             mockupId: st?.mockupId,
+            sceneUrl: st?.sceneUrl,
           };
         });
         applySlides(runtime);
@@ -506,6 +630,7 @@ export function useNewsEdition() {
     updateSlideText,
     updateSlidePrompt,
     recomposeSlide,
+    mountSceneImage,
     saveEdition,
     loadEdition,
     reset,

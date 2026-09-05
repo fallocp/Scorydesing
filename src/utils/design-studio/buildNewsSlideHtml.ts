@@ -19,6 +19,11 @@ const CORAL = '#FF7A4A';
 const INK = '#3A4450';
 const MUTED = '#6B7683';
 
+// Orbe de marca Xending (solo el ícono). Mismo asset firmado del bucket Brand
+// que usa buildFxDailyHtml; va junto al wordmark "XENDING NEWS" en la cabecera.
+const XENDING_LOGO_URL =
+  'https://gdfhytvjnzdovjfovqfv.supabase.co/storage/v1/object/sign/Brand/Xending%20bola%20logoabril26.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV8zNDdhNjgwZi1hZGU3LTQ3OGYtYjdkNy1kMGY5YzJjMDc4NDEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJCcmFuZC9YZW5kaW5nIGJvbGEgbG9nb2FicmlsMjYucG5nIiwiaWF0IjoxNzc3MTU1Nzg2LCJleHAiOjE4MDg2OTE3ODZ9.8ZrGD1_TGdtzJn5lSP3X3pvlqvFV-mfgwxLySRQUO3U';
+
 export interface NewsSlideHtmlInput {
   /** URL pública o data URL de la escena generada. */
   imageUrl: string;
@@ -105,6 +110,10 @@ export function buildNewsSlideHtml(input: NewsSlideHtmlInput): string {
   // Métricas proporcionales al lienzo.
   const headlineFont = Math.round(width * 0.062);
   const eyebrowFont = Math.max(11, Math.round(width * 0.016));
+  // Lockup de marca: orbe + "XENDING" arriba, "NEWS" (con acento) abajo.
+  const logoSize = Math.round(width * 0.05);
+  const brandFont = Math.max(13, Math.round(width * 0.02));
+  const newsFont = Math.max(10, Math.round(width * 0.014));
   const subFont = Math.max(12, Math.round(width * 0.02));
   const dataFont = Math.round(width * 0.055);
   const labelFont = Math.max(11, Math.round(width * 0.017));
@@ -123,7 +132,6 @@ export function buildNewsSlideHtml(input: NewsSlideHtmlInput): string {
     ? `right:${pad}px;left:auto;align-items:flex-end;text-align:right;`
     : `left:${pad}px;right:auto;align-items:flex-start;text-align:left;`;
 
-  const wordmark = 'XENDING NEWS';
   const num = `${String(slideNumber).padStart(2, '0')} / ${String(totalSlides).padStart(2, '0')}`;
 
   const eyebrowLabel = isExecutiveWrap ? 'XENDING VIEW' : eyebrow;
@@ -181,10 +189,16 @@ export function buildNewsSlideHtml(input: NewsSlideHtmlInput): string {
     <img class="news-photo" src="${imageUrl}" alt="Escena" />
     <div class="news-scrim"></div>
     <div class="news-layer">
-      <!-- Cabecera -->
-      <div style="position:absolute;top:${pad}px;left:${pad}px;display:flex;align-items:center;gap:${Math.round(width * 0.012)}px;">
-        <span style="font-family:'Poppins',sans-serif;font-weight:700;font-size:${eyebrowFont}px;letter-spacing:0.14em;color:${NAVY};">${wordmark}</span>
-        <span style="width:${Math.round(width * 0.05)}px;height:2px;background:${TURQUOISE};display:inline-block;"></span>
+      <!-- Cabecera: orbe de marca + lockup "XENDING" / "NEWS" -->
+      <div style="position:absolute;top:${pad}px;left:${pad}px;display:flex;align-items:center;gap:${Math.round(width * 0.014)}px;">
+        <img src="${XENDING_LOGO_URL}" alt="Xending" style="width:${logoSize}px;height:${logoSize}px;object-fit:contain;display:block;" />
+        <div style="display:flex;flex-direction:column;line-height:1;">
+          <span style="font-family:'Poppins',sans-serif;font-weight:700;font-size:${brandFont}px;letter-spacing:0.12em;color:${NAVY};">XENDING</span>
+          <span style="display:flex;align-items:center;gap:${Math.round(width * 0.01)}px;margin-top:${Math.round(height * 0.007)}px;">
+            <span style="width:${Math.round(width * 0.035)}px;height:2px;background:${TURQUOISE};display:inline-block;"></span>
+            <span style="font-family:'Poppins',sans-serif;font-weight:600;font-size:${newsFont}px;letter-spacing:0.26em;color:${TURQUOISE};">NEWS</span>
+          </span>
+        </div>
       </div>
       <div style="position:absolute;top:${pad}px;right:${pad}px;font-family:'Poppins',sans-serif;font-weight:500;font-size:${metaFont}px;letter-spacing:0.06em;color:${MUTED};">
         ${escapeHtml(dateLabel)}&nbsp;&nbsp;&nbsp;${num}

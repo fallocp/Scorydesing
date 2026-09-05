@@ -19,6 +19,11 @@ export interface SavedMockup {
   status: string;
   created_at: string;
   /**
+   * When this mockup was marked as published/uploaded to social media.
+   * null => not uploaded yet. A value => uploaded on that date.
+   */
+  uploaded_at?: string | null;
+  /**
    * Carousel grouping. Optional because the list query does not fetch these —
    * see the comment on the query. Present when a caller selects them explicitly.
    */
@@ -171,6 +176,46 @@ export function useSaveMockup() {
 }
 
 /**
+ * Mark (or unmark) a mockup as uploaded/published.
+ *
+ * Writes `uploaded_at`: the current timestamp when marking, null when clearing.
+ * A single column doubles as the flag and the date, so the grid shows both the
+ * checkmark and the day it went out.
+ *
+ * Own-mockups only: the UPDATE policy on design_mockups is
+ * `created_by = auth.uid()`, so toggling someone else's row affects zero rows.
+ * We ask Postgres which rows it touched and surface that as an error instead of
+ * a silent no-op — same guard the delete path uses.
+ */
+export function useToggleMockupUploaded() {
+  const { activeBusinessId } = useActiveBusiness();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (params: { id: string; uploaded: boolean }) => {
+      const { data, error } = await mockupsTable()
+        .update({ uploaded_at: params.uploaded ? new Date().toISOString() : null })
+        .eq('id', params.id)
+        .select('id, uploaded_at');
+
+      if (error) throw new Error(`No se pudo actualizar: ${error.message}`);
+
+      const rows = (data ?? []) as { id: string; uploaded_at: string | null }[];
+      if (rows.length === 0) {
+        throw new Error(
+          'No se actualizó nada. Solo puedes marcar los mockups que tú generaste.',
+        );
+      }
+
+      return rows[0];
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['design-mockups', activeBusinessId] });
+    },
+  });
+}
+
+/**
  * Fetch saved mockups for the active business, most recent first.
  */
 export function useSavedMockups() {
@@ -183,12 +228,13 @@ export function useSavedMockups() {
       // that does not exist makes Postgres reject the whole query, which would
       // blank the entire grid on any environment where the carousel migration
       // has not run yet. Nothing in this grid reads them today.
+      // `uploaded_at` IS named because the "subido" checkmark depends on it, so
+      // its migration (20260901_add_mockup_uploaded_at) has to run before deploy.
       const { data, error } = await mockupsTable()
-        .select('id, image_url, platform, selections, prompt_used, status, created_at')
+        .select('id, image_url, platform, selections, prompt_used, status, created_at, uploaded_at')
         .eq('business_id', activeBusinessId!)
         .eq('status', 'saved')
-        .order('created_at', { ascending: false })
-        .limit(50);
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
       return (data ?? []) as SavedMockup[];

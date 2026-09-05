@@ -28,6 +28,55 @@ export interface PersistedNewsSlideState {
   status: 'idle' | 'generating' | 'done' | 'error';
   imageUrl?: string;
   mockupId?: string;
+  /**
+   * URL pública de la ESCENA sin texto (subida o generada) en Storage. Persiste
+   * la escena para poder re-hornear el texto tras recargar y para reusarla en
+   * otra edición sin volver a generarla. Distinta de `imageUrl`, que es la pieza
+   * compuesta (con texto).
+   */
+  sceneUrl?: string;
+}
+
+/** Una escena reusable (imagen sin texto) guardada en Storage. */
+export interface NewsScene {
+  name: string;
+  path: string;
+  url: string;
+}
+
+/** Carpeta dentro del bucket donde viven las escenas reusables de News. */
+const NEWS_SCENE_FOLDER = 'news-scenes';
+const NEWS_IMAGE_BUCKET = 'design-images';
+
+/**
+ * Lista las escenas reusables (imágenes sin texto) del negocio activo, más
+ * recientes primero. Son las que el usuario subió o montó para una pieza Flash
+ * (ej. la fachada de la Fed), listas para reusar en el próximo release sin
+ * regenerar. Solo escenas, nunca las piezas compuestas con texto.
+ */
+export function useNewsScenes() {
+  const { activeBusinessId } = useActiveBusiness();
+
+  return useQuery({
+    queryKey: ['news-scenes', activeBusinessId],
+    enabled: !!activeBusinessId,
+    staleTime: 30_000,
+    queryFn: async (): Promise<NewsScene[]> => {
+      const folder = `${activeBusinessId}/${NEWS_SCENE_FOLDER}`;
+      const { data, error } = await supabase.storage
+        .from(NEWS_IMAGE_BUCKET)
+        .list(folder, { limit: 100, sortBy: { column: 'created_at', order: 'desc' } });
+      if (error) throw new Error(error.message);
+
+      return (data ?? [])
+        .filter((f) => f.name && !f.name.startsWith('.'))
+        .map((f) => {
+          const path = `${folder}/${f.name}`;
+          const { data: urlData } = supabase.storage.from(NEWS_IMAGE_BUCKET).getPublicUrl(path);
+          return { name: f.name, path, url: urlData.publicUrl };
+        });
+    },
+  });
 }
 
 /** Fila completa de `news_editions`. */
