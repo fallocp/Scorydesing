@@ -28,7 +28,6 @@ export type BranchKitSlug = (typeof BRANCH_KIT_SLUGS)[number];
 const ALIASES: Record<string, BranchKitSlug> = {
   velocidad: "velocidad",
   "velocidad-mismo-dia": "velocidad",
-  "velocidad-same-day": "velocidad",
   "costos-ahorro": "costos-ahorro",
   costos: "costos-ahorro",
   ahorro: "costos-ahorro",
@@ -42,10 +41,42 @@ const ALIASES: Record<string, BranchKitSlug> = {
   forwards: "coberturas",
   "cuenta-multidivisa": "cuenta-multidivisa",
   multidivisa: "cuenta-multidivisa",
-  "cuenta-multidivisa-usa": "cuenta-multidivisa",
   "multi-divisa": "cuenta-multidivisa",
-  multicurrency: "cuenta-multidivisa",
 };
+
+/*
+ * De aquí salieron dos alias, y no por limpieza: eran una fuga entre mercados.
+ *
+ * `"cuenta-multidivisa-usa": "cuenta-multidivisa"` y `"velocidad-same-day":
+ * "velocidad"` mapeaban un nombre de rama de Xending USA sobre el kit de Xending
+ * México. Ese kit es el de otro comprador (empresa mexicana, base MXN, par
+ * USD/MXN) y su scene kit es el repertorio visual de esa rama, así que una pieza
+ * de USA habría salido con la capa editorial y la utilería del mercado
+ * equivocado — sin error, sin aviso.
+ *
+ * `multicurrency` también salió de ALIASES, pero sigue vivo en la coincidencia
+ * laxa de abajo, así que un slug `multicurrency` a secas todavía resuelve al kit
+ * de México. Se deja a propósito: es un nombre libre plausible para la rama
+ * mexicana y el guard de mercado ya cubre el caso peligroso, que es el slug con
+ * sufijo. Si el nombre en inglés empieza a usarse para USA sin sufijo, sale del
+ * regex también.
+ */
+
+/**
+ * Sufijos de mercado.
+ *
+ * Un slug que lleva sufijo de mercado NO puede resolverse por coincidencia laxa:
+ * o hay un kit registrado exactamente para él, o no hay kit. La alternativa es lo
+ * que pasaba antes — `costos-ahorro-usa` cae en `/costo|ahorro/` y recibe el kit
+ * de México — y ese fallo es silencioso, que es lo que lo hace grave.
+ *
+ * Cuando exista un mercado más, se agrega su sufijo aquí.
+ */
+const MARKET_SUFFIXES = ["usa"] as const;
+
+function hasMarketSuffix(key: string): boolean {
+  return MARKET_SUFFIXES.some((s) => key === s || key.endsWith(`-${s}`));
+}
 
 /** Minúsculas, sin acentos, espacios y guiones bajos como guiones. */
 export function normalizeBranchKey(input: string): string {
@@ -63,6 +94,20 @@ export function resolveKitSlug(input: string): BranchKitSlug | null {
 
   if ((BRANCH_KIT_SLUGS as readonly string[]).includes(key)) return key as BranchKitSlug;
   if (ALIASES[key]) return ALIASES[key];
+
+  /*
+   * Corte antes de la coincidencia laxa.
+   *
+   * Los regex de abajo existen para que un NOMBRE libre de rama de México resuelva
+   * ("Ahorro / Costos Ocultos" → costos-ahorro). Aplicados a un slug de otro mercado
+   * hacen lo contrario de lo que se quiere: `velocidad-usa` cae en `/velocidad/` y
+   * `costos-ahorro-usa` en `/costo|ahorro/`, y ambos reciben el kit de México.
+   *
+   * Devolver `null` aquí es lo correcto y es lo que hace visible el problema:
+   * `getCopyKit` lanza con la lista de kits disponibles y `generate-carousel-plan`
+   * responde 400, en vez de generar una pieza con la capa editorial de otro país.
+   */
+  if (hasMarketSuffix(key)) return null;
 
   // Coincidencia laxa, para que "Ahorro / Costos Ocultos" resuelva.
   // Multidivisa va primero: sus términos no chocan con las otras ramas.
