@@ -433,6 +433,100 @@ export function useNewsEdition() {
   );
 
   /**
+   * Reescribe el plan y los visuales con la secuencia de slide_number dada, y
+   * los renumera 1..n. Base común de mover y eliminar: `slide_number` es la
+   * identidad que cruza plan ↔ visual ↔ imagen, así que ambos arrays se
+   * reordenan juntos (si solo se moviera uno, el headline quedaría emparejado
+   * con la dirección visual equivocada).
+   *
+   * Devuelve el mapa número viejo → número nuevo.
+   */
+  const resequence = useCallback(
+    (order: number[]): Map<number, number> => {
+      const newNumberOf = new Map(order.map((n, i) => [n, i + 1]));
+
+      const planByNumber = new Map(slidePlanRef.current.map((p) => [p.slide_number, p]));
+      applySlidePlan(
+        order.flatMap((n) => {
+          const p = planByNumber.get(n);
+          return p ? [{ ...p, slide_number: newNumberOf.get(n)! }] : [];
+        }),
+      );
+
+      if (slidesRef.current.length > 0) {
+        const runtimeByNumber = new Map(slidesRef.current.map((s) => [s.slide_number, s]));
+        applySlides(
+          order.flatMap((n) => {
+            const s = runtimeByNumber.get(n);
+            return s ? [{ ...s, slide_number: newNumberOf.get(n)! }] : [];
+          }),
+        );
+      }
+
+      return newNumberOf;
+    },
+    [applySlidePlan, applySlides],
+  );
+
+  /** true si esa pieza ya tiene imagen compuesta (y por tanto contador impreso). */
+  const hasImage = useCallback((slides: NewsSlideRuntime[], slideNumber: number): boolean => {
+    const rt = slides.find((s) => s.slide_number === slideNumber);
+    return Boolean(rt && (rt.imageUrl || rt.imageBase64));
+  }, []);
+
+  /**
+   * Mueve un slide una posición arriba (-1) o abajo (+1) dentro del plan.
+   *
+   * Devuelve los slide_number (ya renumerados) de las piezas que cambiaron de
+   * posición y tienen imagen: su contador "03 / 07" está horneado en el PNG, así
+   * que hay que re-hornear el texto (recomposeSlide) para que coincida.
+   */
+  const moveSlide = useCallback(
+    (slideNumber: number, direction: -1 | 1): number[] => {
+      const plan = slidePlanRef.current;
+      const from = plan.findIndex((p) => p.slide_number === slideNumber);
+      const to = from + direction;
+      if (from < 0 || to < 0 || to >= plan.length) return [];
+
+      // Secuencia objetivo de slide_number, con las dos posiciones cambiadas.
+      const order = plan.map((p) => p.slide_number);
+      [order[from], order[to]] = [order[to], order[from]];
+
+      const before = slidesRef.current;
+      const newNumberOf = resequence(order);
+
+      // Solo los dos que se movieron, y solo si ya tienen pieza generada.
+      return [order[from], order[to]]
+        .filter((n) => hasImage(before, n))
+        .map((n) => newNumberOf.get(n)!);
+    },
+    [resequence, hasImage],
+  );
+
+  /**
+   * Elimina un slide de la edición: lo saca del plan, de los visuales y renumera
+   * lo que queda. No borra el PNG ya guardado en la galería (design_mockups),
+   * solo deja de formar parte de esta edición.
+   *
+   * Devuelve los slide_number (ya renumerados) de TODAS las piezas con imagen:
+   * al quitar una, el total impreso cambia ("/ 07" → "/ 06") y el contador de
+   * cada pieza queda desfasado, así que todas necesitan re-hornear el texto.
+   */
+  const removeSlide = useCallback(
+    (slideNumber: number): number[] => {
+      const plan = slidePlanRef.current;
+      if (!plan.some((p) => p.slide_number === slideNumber)) return [];
+
+      const order = plan.map((p) => p.slide_number).filter((n) => n !== slideNumber);
+      const before = slidesRef.current;
+      const newNumberOf = resequence(order);
+
+      return order.filter((n) => hasImage(before, n)).map((n) => newNumberOf.get(n)!);
+    },
+    [resequence, hasImage],
+  );
+
+  /**
    * Edita el prompt de imagen de un slide. La siguiente "Regenerar" lo usa
    * verbatim (generateSlide lee slide.image_prompt), así el usuario puede
    * cambiar el sujeto a mano —p. ej. pedir el edificio de la institución en vez
@@ -628,6 +722,8 @@ export function useNewsEdition() {
     generateSlide,
     generateAll,
     updateSlideText,
+    moveSlide,
+    removeSlide,
     updateSlidePrompt,
     recomposeSlide,
     mountSceneImage,

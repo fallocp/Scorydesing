@@ -14,6 +14,8 @@ import { useMemo, useState } from 'react';
 import {
   AlertCircle,
   Check,
+  ChevronDown,
+  ChevronUp,
   Copy,
   Download,
   FilePlus2,
@@ -98,6 +100,44 @@ export function NewsPanel() {
       });
     } else {
       toast({ title: 'Texto actualizado' });
+    }
+  };
+
+  // Mueve un slide arriba/abajo en el plan. Si las piezas movidas ya tienen
+  // imagen, re-hornea su texto: el contador "03 / 07" va impreso en el PNG.
+  const handleMoveSlide = async (slideNumber: number, direction: -1 | 1) => {
+    const toRecompose = news.moveSlide(slideNumber, direction);
+    if (toRecompose.length === 0) return;
+    // En serie: el render de PNG pasa por un solo servidor de renderizado.
+    let failed = false;
+    for (const n of toRecompose) {
+      if (!(await news.recomposeSlide(n))) failed = true;
+    }
+    if (failed) {
+      toast({
+        title: 'Orden cambiado, pero falta actualizar piezas',
+        description: 'Regenera las imágenes marcadas: su numeración quedó desfasada.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Elimina un slide de la edición. Al cambiar el total, el contador impreso
+  // ("03 / 07") de las piezas ya generadas queda desfasado, así que se re-hornea
+  // su texto en serie (barato: no vuelve a llamar a la IA de imagen).
+  const handleRemoveSlide = async (slideNumber: number) => {
+    const toRecompose = news.removeSlide(slideNumber);
+    toast({ title: `Slide ${slideNumber} eliminado` });
+    let failed = 0;
+    for (const n of toRecompose) {
+      if (!(await news.recomposeSlide(n))) failed += 1;
+    }
+    if (failed > 0) {
+      toast({
+        title: 'Falta actualizar la numeración',
+        description: `${failed} pieza(s) sin escena en memoria: regenera su imagen para corregir el contador.`,
+        variant: 'destructive',
+      });
     }
   };
 
@@ -395,26 +435,56 @@ export function NewsPanel() {
             </div>
 
             <p className="text-[11px] text-muted-foreground">
-              Puedes editar el titular, el dato y la fuente de cada slide antes de resolver la
-              dirección visual.
+              Puedes editar el titular, el dato y la fuente de cada slide, y ordenarlos con las
+              flechas, antes de resolver la dirección visual.
             </p>
 
             <ol className="space-y-2">
-              {news.slidePlan.map((s) => (
+              {news.slidePlan.map((s, i) => (
                 <li
                   key={s.slide_number}
                   className="rounded-md border border-border/60 px-3 py-2 text-sm"
                 >
                   <div className="flex items-center gap-2">
+                    <div className="flex shrink-0 flex-col">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-4 w-5"
+                        aria-label={`Subir slide ${s.slide_number}`}
+                        disabled={i === 0 || news.isResolving}
+                        onClick={() => handleMoveSlide(s.slide_number, -1)}
+                      >
+                        <ChevronUp className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-4 w-5"
+                        aria-label={`Bajar slide ${s.slide_number}`}
+                        disabled={i === news.slidePlan.length - 1 || news.isResolving}
+                        onClick={() => handleMoveSlide(s.slide_number, 1)}
+                      >
+                        <ChevronDown className="h-3 w-3" />
+                      </Button>
+                    </div>
                     <Badge variant="outline" className="shrink-0">
                       {s.slide_number}
                     </Badge>
                     <span className="font-medium">{s.headline}</span>
-                    {s.is_executive_wrap && (
-                      <Badge variant="secondary" className="ml-auto shrink-0">
-                        Xending View
-                      </Badge>
-                    )}
+                    <div className="ml-auto flex shrink-0 items-center gap-1">
+                      {s.is_executive_wrap && <Badge variant="secondary">Xending View</Badge>}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                        aria-label={`Eliminar slide ${s.slide_number}`}
+                        disabled={news.isResolving}
+                        onClick={() => handleRemoveSlide(s.slide_number)}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
                   </div>
                   {(s.key_data || s.source.length > 0) && (
                     <p className="mt-1 text-xs text-muted-foreground">
@@ -609,6 +679,16 @@ export function NewsPanel() {
                     <span className="text-[10px] text-muted-foreground">
                       {s.visual_engine} · {s.layout_family} · conf {s.visual_confidence.toFixed(2)}
                     </span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="ml-auto h-6 w-6 shrink-0 text-muted-foreground hover:text-destructive"
+                      aria-label={`Eliminar slide ${s.slide_number}`}
+                      disabled={news.isGeneratingAll || s.status === 'generating'}
+                      onClick={() => handleRemoveSlide(s.slide_number)}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
                   </div>
 
                   {/* Idea del slide: headline + dato que este visual representa */}
