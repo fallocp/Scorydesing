@@ -6,6 +6,7 @@ import { interpolateTemplate } from "../_shared/interpolateTemplate.ts";
 import { validateContentResponse, validateContentResponseAuto } from "../_shared/validateResponse.ts";
 import { mapPiecesToIdeas } from "../_shared/mapPiecesToIdeas.ts";
 import { buildBranchContextBlock, getBranchContextDebugInfo } from "../_shared/buildBranchContextBlock.ts";
+import { resolveKitSlug } from "../_shared/branchSlug.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -79,11 +80,19 @@ interface DynamicContext {
   strategicConfig: StrategicConfig | null;
   // deno-lint-ignore no-explicit-any
   promptKit: Record<string, any> | null;
+  /**
+   * ¿La rama tiene copy kit?
+   *
+   * Es la única pregunta que decide si el contexto legacy de
+   * `commercial_branches` entra al prompt. Con kit, la verdad editorial de la
+   * rama es el kit y las dos columnas quedan fuera; sin kit son el único
+   * contexto que hay y se conservan.
+   */
+  hasCopyKit: boolean;
   verticalKeywords: string[];
   verticalVisualContext: string | null;
   momentTriggerType: string | null;
   momentDescription: string | null;
-  ctaBank: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -113,10 +122,11 @@ async function fetchDynamicContext(
   let branchName: string | null = null;
   // deno-lint-ignore no-explicit-any
   let promptKit: Record<string, any> | null = null;
+  let hasCopyKit = false;
   if (params.branch_id) {
     const { data: branch } = await supabase
       .from('commercial_branches')
-      .select('name, strategic_config, prompt_kit')
+      .select('name, slug, strategic_config, prompt_kit')
       .eq('id', params.branch_id)
       .eq('business_id', params.business_id)
       .single();
@@ -128,6 +138,17 @@ async function fetchDynamicContext(
       promptKit = branch.prompt_kit as Record<string, unknown>;
     }
     branchName = branch?.name ?? null;
+
+    /*
+     * Se pregunta por el kit sin cargarlo: `resolveKitSlug` vive en `branchSlug.ts`,
+     * que no depende del cliente de Supabase. Aquí no hace falta el kit, hace falta
+     * saber si existe.
+     *
+     * Hoy resuelven kit las cuatro ramas con slug canónico (velocidad, costos-ahorro,
+     * coberturas, cuenta-multidivisa). `control-operativo-pagos` y `banco-vs-xending`
+     * no resuelven ninguno y conservan su contexto legacy.
+     */
+    hasCopyKit = resolveKitSlug(branch?.slug ?? branch?.name ?? '') !== null;
   }
 
   // 3. Vertical keywords + visual_context (when vertical_id provided)
@@ -164,8 +185,16 @@ async function fetchDynamicContext(
     }
   }
 
-  // 5. CTA bank from business channels
-  const ctaBank = businessCtx.channels.map((ch) => ch.name);
+  /*
+   * Aquí se armaba `ctaBank` con `businessCtx.channels.map(ch => ch.name)`, y de ahí
+   * salía el último escalón de los CTAs de referencia. Los `channels` son "Instagram
+   * Story", "Instagram Post", "Facebook", "LinkedIn", "WhatsApp", "Email": destinos de
+   * publicación, no llamados a la acción. Se inyectaban bajo el encabezado "CTAs
+   * RECOMENDADOS (usa estos o variaciones cercanas)".
+   *
+   * Los CTAs ahora los resuelve `ctaListFor`, desde `prompt_kit.cta_recomendados` o
+   * ninguno.
+   */
 
   return {
     masterPrompt: businessCtx.masterPrompt,
@@ -174,11 +203,11 @@ async function fetchDynamicContext(
     branchName,
     strategicConfig,
     promptKit,
+    hasCopyKit,
     verticalKeywords,
     verticalVisualContext,
     momentTriggerType,
     momentDescription,
-    ctaBank,
   };
 }
 
@@ -212,7 +241,7 @@ function buildComplianceBlock(rules: DynamicContext['complianceRules']): string 
  * Build a strategic context block from the branch's strategic_config.
  */
 function buildStrategicBlock(sc: StrategicConfig): string {
-  const lines: string[] = ['\nESTRATEGIA COMERCIAL:'];
+  const lines: string[] = [];
   if (sc.objetivo) lines.push(`- Objetivo: ${sc.objetivo}`);
   if (sc.audiencia) lines.push(`- Audiencia: ${sc.audiencia}`);
   if (sc.insight) lines.push(`- Insight: ${sc.insight}`);
@@ -225,7 +254,99 @@ function buildStrategicBlock(sc: StrategicConfig): string {
     lines.push(`- Claims PROHIBIDOS: ${sc.claims_prohibidos.join(', ')}`);
   }
   if (sc.guia_visual) lines.push(`- Guía visual: ${sc.guia_visual}`);
-  return lines.join('\n');
+
+  // Sin contenido no se emite el encabezado. Las ramas sembradas con
+  // `strategic_config = '{}'` producían "ESTRATEGIA COMERCIAL:" y nada debajo.
+  if (lines.length === 0) return '';
+  return ['\nESTRATEGIA COMERCIAL:', ...lines].join('\n');
+}
+
+/**
+ * El bloque estratégico, respetando la misma precedencia que `buildBranchContextBlock`.
+ *
+ * Si la rama tiene `prompt_kit`, ESE es su contexto de rama y `strategic_config` no
+ * se suma. Es la regla que `buildBranchContextBlock` ya aplicaba, y que este archivo
+ * rompía por su cuenta: llamaba a `buildStrategicBlock` sin condición, así que el
+ * mismo system prompt recibía las dos capas.
+ *
+ * Importa porque las dos no dicen lo mismo. En velocidad, `strategic_config` trae
+ * `dolor: "Tu banco tarda 3-5 días en enviar un pago"` y `claims_permitidos:
+ * ["Pagos en minutos", "Más rápido que tu banco"]`, mientras el copy kit de esa rama
+ * tiene "Tu banco tarda días." en `comparative_rule.not_allowed`, "más rápido que un
+ * banco" en `discouraged`, e "instantáneo"/"inmediato" en `banned_phrases`. Y su
+ * `guia_visual` pide "Fondo oscuro navy... iconografía de relojes y flechas", contra
+ * el fondo claro vigente y contra los `bannedProps` del scene kit, que prohíben
+ * cronómetros, cohetes, rayos y estelas.
+ *
+ * No es dato viejo: es dato en contra.
+ */
+function strategicBlockFor(ctx: DynamicContext): string {
+  if (ctx.hasCopyKit) return '';
+  if (ctx.promptKit && Object.keys(ctx.promptKit).length > 0) return '';
+  return ctx.strategicConfig ? buildStrategicBlock(ctx.strategicConfig) : '';
+}
+
+/**
+ * El contexto de rama legacy, o nada si la rama tiene copy kit.
+ *
+ * `prompt_kit` es la otra mitad del problema, y la que quedaba viva: mientras
+ * `strategic_config` estaba tapado por la precedencia de `buildBranchContextBlock`,
+ * `prompt_kit` SÍ se inyectaba completo vía `buildFromPromptKit` — con sus propios
+ * `claims_permitidos`, `dolores_especificos`, `visual_language` y
+ * `restricciones_de_rama`. En la rama de costos le pide al agente revelar "los costos
+ * ocultos que los bancos tradicionales esconden", frase que el copy kit lista primero
+ * en `banned_phrases` (ver CAROUSEL_PROMPT_STACK_AS_IS.md §15.5).
+ *
+ * Con kit no se sustituye por el bloque del kit, se omite. Y es deliberado:
+ * `buildBranchContextFromKit` está escrito para el agente de CARRUSEL —su prosa habla
+ * de "los cinco slides" y del "SET completo"— así que meterlo aquí le hablaría al
+ * agente equivocado. El bloque editorial para una tanda de copys es el de
+ * `buildCopyPromptV2`, y quien lo usa es `generate-copy-v2`.
+ *
+ * Consecuencia asumida: en una rama con kit este agente queda con menos contexto de
+ * rama. Es mejor resultado que inyectarle reglas que su propio kit prohíbe. La ruta
+ * correcta para copy con contexto de rama es `generate-copy-v2`.
+ */
+// deno-lint-ignore no-explicit-any
+function promptKitFor(ctx: DynamicContext): Record<string, any> | null {
+  return ctx.hasCopyKit ? null : ctx.promptKit;
+}
+
+/**
+ * Los CTAs de referencia de la rama.
+ *
+ * Aquí había una cadena de tres escalones que terminaba en `ctx.ctaBank`, y ese
+ * último escalón es un error: se arma con `businessCtx.channels.map(ch => ch.name)`,
+ * o sea "Instagram Story", "Facebook", "LinkedIn". Nombres de canal inyectados bajo
+ * el encabezado "CTAs RECOMENDADOS (usa estos o variaciones cercanas)". Estaba
+ * tapado por los escalones de arriba, no arreglado.
+ *
+ * Ahora: los CTAs de la rama si existen, y si no, nada. Un bloque de CTAs ausente
+ * deja que el modelo escriba el cierre desde el copy, que es mejor resultado que
+ * pedirle variaciones cercanas a "Instagram Story".
+ *
+ * `strategic_config.ctas` sale de la cadena por lo mismo que el resto de esa columna:
+ * son los CTAs del seed de 2026-05 ("Descubre cuánto pierdes con tu banco",
+ * "Calcula tu ahorro ahora"), que el copy kit somete a `comparative_rule` y en varios
+ * casos desaprueba.
+ */
+function ctaListFor(ctx: DynamicContext): string[] {
+  const fromKit = promptKitFor(ctx)?.cta_recomendados;
+  if (Array.isArray(fromKit) && fromKit.length > 0) return fromKit as string[];
+  return [];
+}
+
+/**
+ * Un valor de `strategic_config` que solo se usa cuando la rama NO tiene `prompt_kit`.
+ *
+ * Misma precedencia que `strategicBlockFor`, aplicada a las variables de plantilla
+ * sueltas. Existe para que la regla se lea una vez en cada punto de uso en lugar de
+ * repetir el `if` cinco veces.
+ */
+function legacyOnly<T>(ctx: DynamicContext, value: T | undefined): T | undefined {
+  if (ctx.hasCopyKit) return undefined;
+  if (ctx.promptKit && Object.keys(ctx.promptKit).length > 0) return undefined;
+  return value;
 }
 
 /**
@@ -255,28 +376,40 @@ function buildMomentBlock(triggerType: string | null, description: string | null
 // ---------------------------------------------------------------------------
 
 function buildDynamicImageSystemPrompt(ctx: DynamicContext, angle?: string): string {
-  const strategicBlock = ctx.strategicConfig ? buildStrategicBlock(ctx.strategicConfig) : '';
+  const strategicBlock = strategicBlockFor(ctx);
   const verticalBlock = buildVerticalBlock(ctx.verticalKeywords, ctx.verticalVisualContext);
   const momentBlock = buildMomentBlock(ctx.momentTriggerType, ctx.momentDescription);
   const complianceBlock = buildComplianceBlock(ctx.complianceRules);
 
-  // Build visual context from prompt_kit if available
+  /*
+   * Contexto visual desde `prompt_kit`, y filtrado por `promptKitFor` como todo lo
+   * demás.
+   *
+   * Esta era la puerta visual, y la más cara de las tres: `visual_language` de la rama
+   * de velocidad pide relojes, flechas y fondo navy, contra el fondo claro vigente y
+   * contra los `bannedProps` del scene kit, que prohíben cronómetros, cohetes, rayos y
+   * estelas. Iba bajo el encabezado "LENGUAJE VISUAL RECOMENDADO (usa estos conceptos
+   * como guía)", o sea presentado como la guía de marca.
+   *
+   * Con kit, la dirección visual la ponen el master image prompt y el scene kit.
+   */
+  const visualKit = promptKitFor(ctx);
   let visualBlock = '';
-  if (ctx.promptKit) {
+  if (visualKit) {
     const parts: string[] = ['\nCONTEXTO VISUAL DE LA RAMA:'];
-    if (ctx.promptKit.branch_name) {
-      parts.push(`Rama comercial: ${ctx.promptKit.branch_name}`);
+    if (visualKit.branch_name) {
+      parts.push(`Rama comercial: ${visualKit.branch_name}`);
     }
-    if (ctx.promptKit.visual_language && Array.isArray(ctx.promptKit.visual_language)) {
+    if (visualKit.visual_language && Array.isArray(visualKit.visual_language)) {
       parts.push(`\nLENGUAJE VISUAL RECOMENDADO (usa estos conceptos como guía):`);
-      parts.push(ctx.promptKit.visual_language.map((v: string) => `- ${v}`).join('\n'));
+      parts.push(visualKit.visual_language.map((v: string) => `- ${v}`).join('\n'));
     }
-    if (ctx.promptKit.restricciones_de_rama && Array.isArray(ctx.promptKit.restricciones_de_rama)) {
+    if (visualKit.restricciones_de_rama && Array.isArray(visualKit.restricciones_de_rama)) {
       parts.push(`\nRESTRICCIONES VISUALES:`);
-      parts.push(ctx.promptKit.restricciones_de_rama.map((r: string) => `- ${r}`).join('\n'));
+      parts.push(visualKit.restricciones_de_rama.map((r: string) => `- ${r}`).join('\n'));
     }
-    if (ctx.promptKit.primary_problem) {
-      parts.push(`\nPROBLEMA PRINCIPAL (la imagen debe reflejar este contexto):\n${ctx.promptKit.primary_problem}`);
+    if (visualKit.primary_problem) {
+      parts.push(`\nPROBLEMA PRINCIPAL (la imagen debe reflejar este contexto):\n${visualKit.primary_problem}`);
     }
     visualBlock = parts.join('\n');
   }
@@ -302,15 +435,12 @@ Ejemplo: ["Descripción 1", "Descripción 2", ...]`;
 }
 
 function buildDynamicCopySystemPrompt(ctx: DynamicContext): string {
-  const strategicBlock = ctx.strategicConfig ? buildStrategicBlock(ctx.strategicConfig) : '';
+  const strategicBlock = strategicBlockFor(ctx);
   const verticalBlock = buildVerticalBlock(ctx.verticalKeywords, ctx.verticalVisualContext);
   const momentBlock = buildMomentBlock(ctx.momentTriggerType, ctx.momentDescription);
   const complianceBlock = buildComplianceBlock(ctx.complianceRules);
 
-  // Use CTA bank from DB (business_channels) or from strategic_config
-  const ctaList = ctx.strategicConfig?.ctas && ctx.strategicConfig.ctas.length > 0
-    ? ctx.strategicConfig.ctas
-    : ctx.ctaBank;
+  const ctaList = ctaListFor(ctx);
 
   const ctaBlock = ctaList.length > 0
     ? `\nCTAs RECOMENDADOS (usa estos o variaciones cercanas):\n${ctaList.map((c) => `- "${c}"`).join('\n')}`
@@ -326,15 +456,12 @@ Ejemplo: [{"headline": "...", "subcopy": "...", "cta": "..."}, ...]`;
 }
 
 function buildDynamicPunchlineSystemPrompt(ctx: DynamicContext): string {
-  const strategicBlock = ctx.strategicConfig ? buildStrategicBlock(ctx.strategicConfig) : '';
+  const strategicBlock = strategicBlockFor(ctx);
   const verticalBlock = buildVerticalBlock(ctx.verticalKeywords, ctx.verticalVisualContext);
   const momentBlock = buildMomentBlock(ctx.momentTriggerType, ctx.momentDescription);
   const complianceBlock = buildComplianceBlock(ctx.complianceRules);
 
-  // Use CTAs from strategic_config as punchline reference
-  const punchlineRef = ctx.strategicConfig?.ctas && ctx.strategicConfig.ctas.length > 0
-    ? ctx.strategicConfig.ctas
-    : ctx.ctaBank;
+  const punchlineRef = ctaListFor(ctx);
 
   const refBlock = punchlineRef.length > 0
     ? `\nEJEMPLOS DE ESTILO (usa como referencia, NO copies):\n${punchlineRef.map((p) => `- "${p}"`).join('\n')}`
@@ -1176,8 +1303,18 @@ serve(async (req) => {
         moment_id,
       });
 
-      // Extract branch objetivo for user prompt enrichment
-      const branchObjective = ctx.strategicConfig?.objetivo ?? undefined;
+      /*
+       * El objetivo de la rama, con la misma compuerta que el resto de la columna.
+       *
+       * Se filtra AQUÍ y no en cada uso porque las tres rutas lo consumen —imagen,
+       * copy y punchline— y solo la de copy lo estaba pasando por `legacyOnly`. Las
+       * otras dos lo inyectaban crudo bajo el encabezado "OBJETIVO DE LA RAMA", así
+       * que en una rama con kit seguía entrando el objetivo del seed de 2026-05.
+       *
+       * Con kit queda `undefined`, y los tres `buildXUserPrompt` ya manejan ese caso:
+       * caen a `body.branchPrompt` si el caller lo mandó, o omiten la línea.
+       */
+      const branchObjective = legacyOnly(ctx, ctx.strategicConfig?.objetivo ?? undefined);
 
       // Brand label for user prompt
       const brandLabel = ctx.brandName;
@@ -1187,9 +1324,15 @@ serve(async (req) => {
         userPrompt = buildImageUserPrompt(body, brandLabel, branchObjective);
       } else if (type === 'copy') {
         // --- Build branch context block (prompt_kit or strategic_config fallback) ---
+        /*
+         * Las DOS columnas se pasan filtradas, y el orden importa: si solo se anulara
+         * `prompt_kit`, `buildBranchContextBlock` caería a `buildFromStrategicConfig` y
+         * el contexto legacy volvería a entrar por la otra puerta. Con kit no entra
+         * ninguna, y la función emite su bloque mínimo.
+         */
         const branchContextBlock = buildBranchContextBlock(
-          ctx.promptKit,
-          ctx.strategicConfig,
+          promptKitFor(ctx),
+          ctx.hasCopyKit ? null : ctx.strategicConfig,
           ctx.branchName ?? 'General',
         );
 
@@ -1287,27 +1430,60 @@ serve(async (req) => {
           productLine: body.productLine,
           campaignCategory: body.campaignCategory,
           commercialBranch: ctx.branchName ?? undefined,
-          branchObjective: branchObjective,
-          mainInsight: ctx.strategicConfig?.insight,
-          businessPain: ctx.strategicConfig?.dolor,
-          promise: ctx.strategicConfig?.promesa,
+          /*
+           * Estas cinco salen de `strategic_config` SOLO cuando la rama no tiene
+           * `prompt_kit`, por la misma precedencia de `strategicBlockFor`.
+           *
+           * Con kit presente quedan en undefined a propósito, y no se pierde nada: el
+           * bloque de contexto de rama que produce `buildFromPromptKit` ya trae los
+           * equivalentes (### Posicionamiento, ### Problema principal, ### Promesa
+           * estratégica, ### Audiencia, ### Dolores específicos). Rellenarlas además
+           * desde la otra columna metía las dos versiones en el mismo prompt, y en
+           * velocidad la versión vieja de `dolor` es "Tu banco tarda 3-5 días en
+           * enviar un pago" — la frase que el kit lista en
+           * `comparative_rule.not_allowed`.
+           */
+          branchObjective: legacyOnly(ctx, branchObjective),
+          mainInsight: legacyOnly(ctx, ctx.strategicConfig?.insight),
+          businessPain: legacyOnly(ctx, ctx.strategicConfig?.dolor),
+          promise: legacyOnly(ctx, ctx.strategicConfig?.promesa),
           industryVertical: ctx.verticalKeywords.length > 0 ? ctx.verticalKeywords.join(', ') : undefined,
           marketMoment: ctx.momentDescription ?? ctx.momentTriggerType ?? undefined,
-          audience: ctx.strategicConfig?.audiencia,
+          audience: legacyOnly(ctx, ctx.strategicConfig?.audiencia),
           angle: body.angle,
           channel: body.channel,
           format: body.format,
           quantity: body.quantity != null ? String(body.quantity) : undefined,
-          proofPoints: ctx.strategicConfig?.claims_permitidos,
+          /*
+           * El material editorial POSITIVO ya no sale de `strategic_config`.
+           *
+           * Esas claves vienen del seed de 2026-05 y están en contra del copy kit de
+           * la rama, no desactualizadas respecto a él. En velocidad,
+           * `claims_permitidos` trae "Pagos en minutos" y "Más rápido que tu banco",
+           * mientras el kit tiene "instantáneo" e "inmediato" en `banned_phrases`,
+           * "Tu banco tarda días." en `comparative_rule.not_allowed` y "más rápido
+           * que un banco" en `discouraged`. Inyectarlas como `proofPoints` le entrega
+           * al modelo, como prueba autorizada, justo lo que el kit prohíbe.
+           *
+           * `strategic_config` alcanzaba este prompt por CUATRO puertas distintas, no
+           * una: estas variables de plantilla, `buildStrategicBlock` en los tres
+           * system prompts dinámicos, el fallback de `ctas`, y
+           * `buildFromStrategicConfig`. Solo la última estaba tapada por
+           * `prompt_kit`; las otras tres se sumaban encima. Cerrar una sola no
+           * cambiaba el resultado.
+           *
+           * El material positivo sigue llegando desde `prompt_kit` vía
+           * `buildFromPromptKit` (### Beneficios específicos permitidos, ### Claims
+           * permitidos). Lo que se quita es el duplicado que contradice.
+           *
+           * `avoidClaims` se conserva: una lista de prohibiciones solo suma, y no
+           * puede autorizar nada.
+           */
           avoidClaims: ctx.strategicConfig?.claims_prohibidos,
           tone: body.tone,
-          defaultCTAs: ctx.promptKit?.cta_recomendados && ctx.promptKit.cta_recomendados.length > 0
-            ? ctx.promptKit.cta_recomendados
-            : (ctx.strategicConfig?.ctas && ctx.strategicConfig.ctas.length > 0
-              ? ctx.strategicConfig.ctas
-              : ctx.ctaBank),
-          footerSuggestions: body.footerSuggestions ?? ctx.strategicConfig?.footers,
-          visualGuidelines: body.visualGuidelines ?? ctx.strategicConfig?.guia_visual,
+          defaultCTAs: ctaListFor(ctx),
+          footerSuggestions: body.footerSuggestions,
+          visualGuidelines: body.visualGuidelines,
           // Pipeline V2 fields — narrative angle support
           narrativeAngle: body.narrativeAngle,
           funnelStage: body.funnelStage,
@@ -1315,17 +1491,25 @@ serve(async (req) => {
           previousIdeas: allPreviousIdeas.length > 0
             ? allPreviousIdeas.map((h) => `- "${h}"`).join('\n')
             : 'Ninguna. Genera con libertad estratégica.',
-          // Real business differentiators from strategic_config (if available)
-          diferenciadores: ctx.strategicConfig?.diferenciadores_vs_banco,
+          /*
+           * `diferenciadores_vs_banco` sale por lo mismo: es material comparativo
+           * contra la banca guardado en el seed, y el kit somete cualquier comparativa
+           * a `comparative_rule`, que tiene una lista de `discouraged` y otra de
+           * `not_allowed`. Una lista de diferenciadores sin esa regla es permiso para
+           * comparar libremente.
+           */
+          diferenciadores: legacyOnly(ctx, ctx.strategicConfig?.diferenciadores_vs_banco),
         };
 
         const interpolatedPrompt = interpolateTemplate(promptTemplate, templateVariables);
 
         // --- Debug logging (when debug_prompt_context is active) ---
         if (body.debug_prompt_context) {
+          // Mismo filtro que arriba: el debug tiene que reportar lo que REALMENTE
+          // llegó al prompt, no lo que trae la fila.
           const debugInfo = getBranchContextDebugInfo(
-            ctx.promptKit,
-            ctx.strategicConfig,
+            promptKitFor(ctx),
+            ctx.hasCopyKit ? null : ctx.strategicConfig,
             ctx.branchName ?? 'General',
             branchContextBlock,
           );

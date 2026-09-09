@@ -4,16 +4,12 @@ import { AuthGate } from "./components/AuthGate";
 import { useInitActiveBusiness } from "./hooks/useInitActiveBusiness";
 import ScoryDesignPage from "./pages/XendingDesignPage";
 import OnboardingPage from "./pages/OnboardingPage";
-import CampaignWizardPage from "./pages/CampaignWizardPage";
 import ContentLibraryPage from "./pages/ContentLibraryPage";
 import ContentCalendarPage from "./pages/ContentCalendarPage";
 import AssetLibraryPage from "./pages/AssetLibraryPage";
-import StockGeneratorPage from "./pages/StockGeneratorPage";
 import BrandPalettePage from "./pages/BrandPalettePage";
 import BusinessAdminPage from "./pages/BusinessAdminPage";
-import BulletinPage from "./pages/BulletinPage";
 import PresentationsPage from "./pages/PresentationsPage";
-import ComplianceWizardPage from "./pages/ComplianceWizardPage";
 import DesignStudioPage from "./pages/DesignStudioPage";
 
 function App() {
@@ -37,22 +33,44 @@ function AuthenticatedApp() {
     <Routes>
       <Route path="/" element={<ScoryDesignPage />} />
       <Route path="/onboarding" element={<OnboardingPage />} />
-      <Route path="/campaign" element={<CampaignWizardPage />} />
-      <Route path="/xending-design/campaign" element={<CampaignWizardPage />} />
       <Route path="/content-library" element={<ContentLibraryPage />} />
       <Route path="/content-calendar" element={<ContentCalendarPage />} />
       <Route path="/xending-design/calendar" element={<ContentCalendarPage />} />
       <Route path="/assets" element={<AssetLibraryPage />} />
-      <Route path="/stock-generator" element={<StockGeneratorPage />} />
       <Route path="/brand-palette" element={<BrandPalettePage />} />
       <Route path="/admin" element={<BusinessAdminPage />} />
       <Route path="/admin/business" element={<BusinessAdminPage />} />
-      <Route path="/bulletin" element={<BulletinPage />} />
       <Route path="/presentations" element={<PresentationsPage />} />
-      <Route path="/compliance" element={<ComplianceWizardPage />} />
       <Route path="/design-studio" element={<DesignStudioPage />} />
-      <Route path="/xending-design/pipeline" element={<CampaignWizardPage />} />
       <Route path="/library" element={<ContentLibraryPage />} />
+      {/*
+        Aquí vivían `/campaign`, `/xending-design/campaign` y
+        `/xending-design/pipeline`, las tres apuntando a `CampaignWizardPage`:
+        el "Asistente de Campaña" (StrategyPlanner → CopyWorkstation →
+        PipelineProgressPanel), la generación anterior a Design Studio.
+
+        Se desrutearon junto con sus cinco entradas de UI: la tarjeta "Nueva
+        Campaña" y el botón "Continuar diseño" del Home, el botón "Crear Piezas"
+        de `IdeasPanel`, el "Guardar y editar" de Boletín Express y el "Continuar
+        pipeline" de `ContentLibraryTable`.
+
+        La generación vive en Design Studio (`/design-studio`): imágenes,
+        carruseles, guiones, News y el kit FX, sobre copy kits y compliance.
+
+        El código de las páginas y componentes sigue en el repo a propósito: esto
+        es el paso reversible antes del borrado. Con las rutas fuera,
+        `generate-ideas` queda sin llamador, y con él las compuertas de
+        `resolveKitSlug` y el contexto legacy de `prompt_kit`/`strategic_config`.
+
+        También salieron `/bulletin` (BulletinPage), `/stock-generator`
+        (StockGeneratorPage) y `/compliance` (ComplianceWizardPage), con sus tarjetas
+        del Home: herramientas fuera de uso. Nadie más navegaba a esas tres rutas,
+        así que no quedaron botones muertos.
+
+        Las reglas de compliance no se perdieron: se editan en el Admin Panel →
+        tab Compliance (`ComplianceRulesEditor`), sobre la misma columna
+        `business_tenants.compliance_rules` que ya consumía el backend.
+      */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

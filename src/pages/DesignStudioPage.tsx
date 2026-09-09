@@ -13,7 +13,7 @@
  * Requirements: 1.1, 1.2, 2.1, 13.1, 13.2, 13.3, 13.4, 13.5
  */
 
-import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Loader2, Sparkles, Save, Newspaper, TrendingUp } from 'lucide-react';
 
@@ -53,9 +53,7 @@ import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useBusinessConfig } from '@/hooks/useBusinessConfig';
 import { useAuth } from '@/hooks/useAuth';
 import { useDesignStudioBranches, extractIngredients } from '@/hooks/useDesignStudioBranches';
-import { useGenerateIdeas } from '@/hooks/useGenerateIdeas';
-import { useAllIndustryVerticals } from '@/hooks/useIndustryVerticals';
-import { useCopyBank, useSaveBankCopies, useUpdateBankMeta, useUpdateBankCopy, type CopyBankItem } from '@/hooks/useDesignCopyBank';
+import { useCopyBank, useUpdateBankMeta, useUpdateBankCopy, type CopyBankItem } from '@/hooks/useDesignCopyBank';
 import { useDeleteGeneratedIdea } from '@/hooks/useGeneratedIdeas';
 import {
   useCopyBankV2,
@@ -142,28 +140,28 @@ export default function DesignStudioPage() {
     error: savedMockupsError,
   } = useSavedMockups();
   const { data: branches = [], isLoading: isLoadingBranches } = useDesignStudioBranches();
-  const generateIdeas = useGenerateIdeas();
-  // All industry verticals (for the "Auto (variar)" round-robin).
-  const { data: allVerticals = [] } = useAllIndustryVerticals();
-  // Cursor for cycling industries when industryAuto is on.
-  const industryCycleRef = useRef(0);
 
-  // --- Copy bank (Stage A persistence) ---
+  // --- Copy bank v1 (generated_ideas) — solo lectura ---
+  // Aquí vivía el generador de tandas de 4, que llamaba a `generate-ideas`. Se
+  // retiró: era el último consumidor vivo de `commercial_branches.prompt_kit` y
+  // `strategic_config`, el contexto de rama anterior a los copy kits, así que
+  // producía copy contra las reglas editoriales viejas — en costos, contra frases
+  // que el kit prohíbe explícitamente. Ver docs/architecture/PROMPT_LAYERS_MAP.md §5.
+  //
+  // El banco v1 se conserva en modo lectura para las sesiones que ya tienen filas.
+  // La fuente de copy es el banco v2 (`copy_bank_items`), que resuelve su contexto
+  // con `getCopyKit`.
   const selectedBranch = branches.find(b => b.slug === store.selections.commercialBranchSlug) ?? null;
   const selectedBranchId = selectedBranch?.id ?? null;
   const copyBank = useCopyBank(selectedBranchId);
-  const saveBankCopies = useSaveBankCopies();
   const updateBankMeta = useUpdateBankMeta();
   const updateBankCopy = useUpdateBankCopy();
   const deleteIdea = useDeleteGeneratedIdea();
   const [isGeneratingImagePrompt, setIsGeneratingImagePrompt] = useState(false);
-  // Free-text guidance that steers the copy generation (Stage A feedback loop).
-  const [copyGuidance, setCopyGuidance] = useState('');
 
   // --- Copy bank v2 (copy_bank_items) ---
-  // The primary source: 180 pre-approved copies seeded at rollout, plus whatever
-  // generate-copy-v2 proposes later. The v1 bank below stays for existing
-  // sessions and for the 4-at-a-time generator.
+  // La fuente de copy: los copys aprobados sembrados al rollout, más lo que
+  // proponga `generate-copy-v2`.
   const bankV2 = useCopyBankV2();
   const markCopyUsed = useMarkCopyUsed();
   const reviewCopy = useReviewCopyBankItem();
@@ -177,12 +175,6 @@ export default function DesignStudioPage() {
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [selectedSavedId, setSelectedSavedId] = useState<string | null>(null);
-  const [isGeneratingCopy, setIsGeneratingCopy] = useState(false);
-
-  // Accumulates headlines generated this session so they can be sent as
-  // `previousIdeas` to generate-ideas — gives immediate variety even before
-  // anything is persisted to content_library.
-  const previousHeadlinesRef = useRef<string[]>([]);
 
   // --- Carousel subject -----------------------------------------------------
   // The carousel reads the v1 CopyBankItem shape. For a v2 row we adapt it, and
@@ -332,142 +324,26 @@ export default function DesignStudioPage() {
   // Handlers
   // ---------------------------------------------------------------------------
 
-  // STAGE A — generate a batch of 4 copy candidates and save them ALL to the
-  // bank. No image prompt / no visual choices here: those belong to Stage B,
-  // applied per selected piece.
-  const handleGenerateCopy = useCallback(async () => {
-    if (!activeBusinessId || !selectedBranch) return;
-
-    setIsGeneratingCopy(true);
-
-    try {
-      const { selections } = store;
-
-      // Resolve the industry vertical: fixed selection, auto (round-robin across
-      // all verticals for max variety), or none. With Auto, each batch of 4 uses
-      // ONE industry; clicking "Generar 4 más" advances to the next → the bank
-      // fills across industries (and the industry filter chips appear).
-      let resolvedVerticalId: string | undefined = selections.industryVerticalId ?? undefined;
-      let resolvedVerticalName: string | null = selections.industryVerticalName ?? null;
-      if (selections.industryAuto && allVerticals.length > 0) {
-        const v = allVerticals[industryCycleRef.current % allVerticals.length];
-        industryCycleRef.current += 1;
-        resolvedVerticalId = v.id;
-        resolvedVerticalName = v.name;
-      }
-
-      // Feedback loop: build a combined instruction from the angle technique,
-      // the user's free-text guidance, and the liked/disliked examples so each
-      // new batch converges toward what the user likes.
-      const likedItems = copyBank.items.filter((it) => it.meta.rating === 'liked');
-      const dislikedItems = copyBank.items.filter((it) => it.meta.rating === 'disliked');
-
-      const instructionParts: string[] = [];
-      if (selections.narrativePromptInstruction) {
-        instructionParts.push(selections.narrativePromptInstruction);
-      }
-      if (copyGuidance.trim()) {
-        instructionParts.push(`INSTRUCCIÓN DEL USUARIO (prioritaria, respétala): ${copyGuidance.trim()}`);
-      }
-      if (likedItems.length > 0) {
-        const examples = likedItems
-          .slice(-5)
-          .map((it) => `- "${it.row.headline}"${it.row.subcopy ? ` / ${it.row.subcopy}` : ''}`)
-          .join('\n');
-        instructionParts.push(
-          `IMITA EL TONO, RITMO Y ESTILO DE ESTOS EJEMPLOS QUE SÍ FUNCIONAN (no los copies literal, escribe nuevos en su misma línea):\n${examples}`,
-        );
-      }
-      if (dislikedItems.length > 0) {
-        const bad = dislikedItems.slice(-5).map((it) => `- "${it.row.headline}"`).join('\n');
-        instructionParts.push(
-          `EVITA EL ESTILO DE ESTOS EJEMPLOS (no repitas su tono ni su enfoque):\n${bad}`,
-        );
-      }
-      const combinedInstruction = instructionParts.length > 0
-        ? instructionParts.join('\n\n')
-        : undefined;
-
-      // Avoid repeats: session headlines + disliked headlines.
-      const avoidHeadlines = Array.from(new Set([
-        ...previousHeadlinesRef.current,
-        ...dislikedItems.map((it) => it.row.headline),
-      ]));
-
-      const copyResponse = await generateIdeas.mutateAsync({
-        type: 'copy',
-        brand: (activeBusiness?.slug === 'xending-capital' ? 'xending_capital' : 'xending') as any,
-        business_id: activeBusinessId,
-        branch_id: selectedBranch.id,
-        vertical_id: resolvedVerticalId,
-        angle: selections.narrativeAngleSlug ?? undefined,
-        narrativeAngle: selections.narrativeAngleName ?? undefined,
-        narrativeAngleId: selections.narrativeAngleId ?? undefined,
-        funnelStage: selections.funnelStage ?? undefined,
-        promptInstruction: combinedInstruction,
-        previousIdeas: avoidHeadlines.length > 0 ? avoidHeadlines : undefined,
-        quantity: 4,
-      });
-
-      // Use the 'square' overlay (social, punchy) as the bank copy. Platform is
-      // chosen later in Stage B; the square variant reads well as a default.
-      // deno-lint-ignore no-explicit-any
-      const mappedIdeas = (copyResponse as any).mapped as any[] | undefined;
-      const source: unknown[] = Array.isArray(mappedIdeas) && mappedIdeas.length > 0
-        ? mappedIdeas
-        : (copyResponse.ideas ?? []);
-
-      const parsedIdeas = source.map((idea) => {
-        // deno-lint-ignore no-explicit-any
-        const o = idea as any;
-        const ov = o?.overlays?.square;
-        if (ov?.headline) {
-          return { headline: ov.headline || '', body: ov.subcopy || '', cta: ov.cta || '' };
-        }
-        if (o && typeof o === 'object' && ('headline' in o)) {
-          return { headline: o.headline || '', body: o.subcopy || o.body || '', cta: o.cta || '' };
-        }
-        return { headline: String(idea), body: '', cta: '' };
-      }).filter((i) => i.headline.trim());
-
-      if (parsedIdeas.length === 0) {
-        toast({ title: 'No se generaron copys', description: 'Reintenta.', variant: 'destructive' });
-        return;
-      }
-
-      // Persist the whole batch to the bank.
-      await saveBankCopies.mutateAsync({
-        branchId: selectedBranch.id,
-        copies: parsedIdeas.map((i) => ({
-          headline: i.headline,
-          subcopy: i.body,
-          cta: i.cta,
-          angleName: selections.narrativeAngleName ?? null,
-          industryName: resolvedVerticalName,
-          verticalId: resolvedVerticalId ?? null,
-        })),
-      });
-
-      // Anti-repetition: remember all headlines from this batch.
-      const allHeadlines = parsedIdeas.map((i) => i.headline.trim()).filter(Boolean);
-      if (allHeadlines.length > 0) {
-        previousHeadlinesRef.current = [
-          ...previousHeadlinesRef.current,
-          ...allHeadlines,
-        ].slice(-40);
-      }
-
-      toast({
-        title: `${parsedIdeas.length} copys al banco`,
-        description: 'Palomea uno abajo para elegir imagen y plataforma.',
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Error generando copy';
-      toast({ title: 'Error', description: message, variant: 'destructive' });
-    } finally {
-      setIsGeneratingCopy(false);
-    }
-  }, [activeBusinessId, selectedBranch, store.selections, allVerticals, generateIdeas, saveBankCopies, activeBusiness, toast, copyBank.items, copyGuidance]);
+  /*
+   * Aquí vivía `handleGenerateCopy`: la Etapa A generaba tandas de 4 candidatos con
+   * `generate-ideas` y las guardaba en el banco v1.
+   *
+   * Se retiró porque era el último consumidor vivo del contexto de rama anterior a
+   * los copy kits. `generate-ideas` resuelve su contexto con `buildBranchContextBlock`,
+   * que lee `commercial_branches.prompt_kit` y `strategic_config` y no consulta el
+   * copy kit — así que este botón generaba contra las reglas editoriales viejas. En
+   * la rama de costos, contra frases que el kit prohíbe explícitamente.
+   *
+   * `generate-carousel-script` ya había hecho esa migración; esta ruta no. En vez de
+   * migrarla se retira: la fuente de copy es el banco v2 (`copy_bank_items`), que sí
+   * resuelve su contexto con `getCopyKit`.
+   *
+   * Con esto también se van la caja de "Guía de copy" y las calificaciones 👍/👎, que
+   * solo alimentaban este generador. El banco v1 queda en modo lectura para las
+   * sesiones que ya tienen filas.
+   *
+   * Ver docs/architecture/PROMPT_LAYERS_MAP.md §5.
+   */
 
   // Select a bank candidate as the active piece. Prompts created before the
   // current runtime/style revision are intentionally not hydrated: the user
@@ -540,8 +416,11 @@ export default function DesignStudioPage() {
     );
   }, [reviewCopy, toast]);
 
-  // Rate a bank copy (toggle). 'liked' steers new batches to imitate it;
-  // 'disliked' avoids it. Persisted in piece_v2 meta.
+  // Rate a bank copy (toggle). Persisted in piece_v2 meta.
+  //
+  // La calificación ya no alimenta nada: dirigía las tandas del generador de 4, que
+  // se retiró. Se conserva como anotación del banco v1 para las sesiones que ya lo
+  // tienen; si el banco v1 se retira, esto se va con él.
   const handleRateCandidate = useCallback((item: CopyBankItem, rating: 'liked' | 'disliked') => {
     const nextRating = item.meta.rating === rating ? undefined : rating;
     updateBankMeta.mutate({
@@ -1210,7 +1089,7 @@ export default function DesignStudioPage() {
                   <StageHeader
                     number={1}
                     title="Copy"
-                    subtitle="Elige ángulo e industria, genera y palomea uno del banco"
+                    subtitle="Elige ángulo e industria y palomea uno del banco"
                   />
 
                   <div className="rounded-lg border border-border/50 bg-muted/30 p-4">
@@ -1227,51 +1106,13 @@ export default function DesignStudioPage() {
                     />
                   </div>
 
-                  {/* Guidance box — steers the whole batch. Combined with the
-                      👍/👎 ratings on the cards to converge the copy. */}
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                      Guía de copy (opcional)
-                    </Label>
-                    <Textarea
-                      placeholder={'Dirige el tono/enfoque de las próximas. Ej: "Más profesional y sobrio, sin dramatizar." · "No uses \'reasigna la mercancía\'." · "Enfócate en el spread de tipo de cambio."'}
-                      value={copyGuidance}
-                      onChange={(e) => setCopyGuidance(e.target.value)}
-                      disabled={isAnyLoading || isGeneratingCopy}
-                      rows={2}
-                      className="text-sm resize-none"
-                    />
-                    {(copyBank.items.some((i) => i.meta.rating === 'liked') ||
-                      copyBank.items.some((i) => i.meta.rating === 'disliked')) && (
-                      <p className="text-[11px] text-muted-foreground">
-                        Usando {copyBank.items.filter((i) => i.meta.rating === 'liked').length} 👍 como referencia
-                        y evitando {copyBank.items.filter((i) => i.meta.rating === 'disliked').length} 👎.
-                      </p>
-                    )}
-                  </div>
+                  {/* Banco v2: los copys aprobados + lo que proponga el agente.
+                      Es la fuente de copy — palomea uno y pasas a la Etapa B sin
+                      llamar al modelo de copy.
 
-                  <Button
-                    type="button"
-                    onClick={handleGenerateCopy}
-                    disabled={isAnyLoading || isGeneratingCopy}
-                    className="w-full"
-                  >
-                    {isGeneratingCopy ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Generando 4 copys...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="h-4 w-4 mr-2" />
-                        {copyBank.items.length > 0 ? 'Generar 4 más' : 'Generar 4 copys'}
-                      </>
-                    )}
-                  </Button>
-
-                  {/* Banco v2: los 180 copys aprobados + lo que proponga el
-                      agente. Es la fuente primaria — palomea uno y pasas a la
-                      Etapa B sin llamar al modelo de copy. */}
+                      Arriba de aquí estaban la caja de "Guía de copy" y el botón
+                      "Generar 4 copys". Se retiraron con `handleGenerateCopy`: ver
+                      la nota en la sección de handlers. */}
                   <div className="border-t border-border pt-5">
                     <CopyBankV2Panel
                       rows={bankV2.rows}

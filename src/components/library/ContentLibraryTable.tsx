@@ -8,7 +8,7 @@
  */
 
 import { useNavigate } from 'react-router-dom';
-import { Play, CalendarPlus } from 'lucide-react';
+import { CalendarPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -167,24 +167,14 @@ export function ContentLibraryTable({ pieces, isLoading }: ContentLibraryTablePr
               {/* Actions */}
               <TableCell className="text-right">
                 <div className="flex items-center justify-end gap-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-xs"
-                    onClick={() => {
-                      const stepMap: Record<string, number> = {
-                        approved: 3,
-                        image_selected: 4,
-                        channels_adapted: 5,
-                        generated: 2,
-                      };
-                      const step = stepMap[piece.status] ?? 2;
-                      navigate(`/xending-design/pipeline?resumeFrom=${piece.id}&step=${step}`);
-                    }}
-                  >
-                    <Play className="h-3 w-3 mr-1" />
-                    Continuar pipeline
-                  </Button>
+                  {/*
+                    Aquí estaba "Continuar pipeline", que mapeaba `piece.status` a un
+                    paso y abría `/xending-design/pipeline?resumeFrom=…`. Esa ruta se
+                    desruteó con el Asistente de Campaña, así que el botón caía en el
+                    catch-all y rebotaba al Home. Ver la nota en `App.tsx`.
+
+                    "Calendario" se queda: `/xending-design/calendar` sigue ruteado.
+                  */}
                   <Button
                     variant="ghost"
                     size="sm"

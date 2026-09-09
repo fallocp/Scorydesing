@@ -2084,7 +2084,18 @@ async function handleMasterImagePath(
     funnelStage: requestBody.funnelStage,
     format: aspectRatio,
     brandColors,
-    visualStyle: requestBody.visualStyle ?? (strategicConfig?.guia_visual as string) ?? undefined,
+    /*
+     * Solo lo que pida el caller. Aquí había un fallback a
+     * `strategic_config.guia_visual`, que en la rama de velocidad dice "Fondo oscuro
+     * navy con acentos brillantes... iconografía de relojes y flechas" — dirección
+     * de un seed de 2026-05 que contradice al sistema visual vigente
+     * (`white-xending-v2`, fondo claro) y al scene kit de la rama, cuyos
+     * `bannedProps` prohíben explícitamente cronómetros, cohetes, rayos y estelas.
+     *
+     * Sin caller que lo mande, la dirección visual la ponen el master prompt y el
+     * scene kit, que es donde debe vivir.
+     */
+    visualStyle: requestBody.visualStyle ?? undefined,
     visualRestrictions: businessCtx.complianceRules.forbidden_terms.length > 0
       ? businessCtx.complianceRules.forbidden_terms.join(', ')
       : undefined,

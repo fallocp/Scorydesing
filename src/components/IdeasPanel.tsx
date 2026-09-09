@@ -2,8 +2,11 @@
  * IdeasPanel — Displays generated copy ideas/proposals.
  *
  * Toggle approve on each idea (local state + DB sync).
- * "Crear Piezas" button appears when ≥1 idea is selected.
  * Supports persisted ideas from Supabase with status badges and delete.
+ *
+ * Panel de lectura: ver, seleccionar, copiar y borrar. El botón "Crear Piezas",
+ * que era la salida hacia el Asistente de Campaña, se retiró con el desruteo
+ * del flujo viejo — ver la nota en `App.tsx`.
  */
 
 import { useState, useEffect } from 'react';
@@ -26,7 +29,6 @@ export interface CopyIdea {
 interface IdeasPanelProps {
   persistedIdeas: GeneratedIdeaRow[];
   onToggleStatus: (id: string, newStatus: 'approved' | 'generated') => void;
-  onProceed: (approvedIdeas: GeneratedIdeaRow[]) => void;
   onDelete: (id: string) => void;
   onClear: () => void;
 }
@@ -76,7 +78,6 @@ function formatDate(iso: string): string {
 export function IdeasPanel({
   persistedIdeas,
   onToggleStatus,
-  onProceed,
   onDelete,
   onClear,
 }: IdeasPanelProps) {
@@ -115,12 +116,6 @@ export function IdeasPanel({
 
     // Sync to DB in background
     onToggleStatus(idea.id, newStatus);
-  };
-
-  const handleProceed = () => {
-    const approved = persistedIdeas.filter((i) => selectedIds.has(i.id));
-    if (approved.length === 0) return;
-    onProceed(approved);
   };
 
   const handleCopyText = (idea: GeneratedIdeaRow) => {
@@ -375,20 +370,20 @@ export function IdeasPanel({
         })}
       </div>
 
-      {/* Sticky bottom action bar */}
+      {/*
+        Aquí estaba la barra inferior con "Crear Piezas con N ideas →", que
+        llamaba a `onProceed` y llevaba al Asistente de Campaña. El Asistente se
+        desruteó, así que el botón no tenía a dónde ir.
+
+        La selección se queda: sigue marcando `approved` en `generated_ideas`,
+        que es lectura de otras pantallas. Lo que se fue es la salida hacia el
+        flujo viejo. Ver la nota en `App.tsx`.
+      */}
       {selectedCount > 0 && (
-        <div className="sticky bottom-0 z-10 bg-background/95 backdrop-blur-sm border-t border-border rounded-lg p-4 flex items-center justify-between shadow-lg">
+        <div className="sticky bottom-0 z-10 bg-background/95 backdrop-blur-sm border-t border-border rounded-lg p-4 shadow-lg">
           <span className="text-sm font-medium text-foreground">
             {selectedCount} idea{selectedCount > 1 ? 's' : ''} seleccionada{selectedCount > 1 ? 's' : ''}
           </span>
-          <Button
-            onClick={handleProceed}
-            size="lg"
-            className="bg-[#FF7A4A] hover:bg-[#E85A2C] text-white font-semibold"
-          >
-            <Sparkles className="h-4 w-4 mr-2" />
-            Crear Piezas con {selectedCount} idea{selectedCount > 1 ? 's' : ''} →
-          </Button>
         </div>
       )}
     </div>

@@ -2,10 +2,16 @@
  * PieceCopyEditor — Editable copy fields + image type/prompt for Design Studio.
  *
  * Shows when contentMode === 'branch' and allows the user to:
- * - Generate copy automatically from the branch (calls generate-ideas)
  * - Edit specific copy (headline, body, CTA, punchline)
  * - Select image type (Foto, Infografía, Inf Rutas y Mapas)
  * - Edit the image prompt
+ * - Disparar la acción del contenedor vía `onGenerateCopy`
+ *
+ * `onGenerateCopy` es un prop sin opinión: este componente solo lo invoca. Aquí
+ * decía "calls generate-ideas", y era falso — en DesignStudioPage está conectado a
+ * `handleGenerateImagePrompt`, que llama a `generate-design-image`. El nombre del
+ * prop viene de cuando la Etapa A y la B eran un solo botón; el label real lo pone
+ * el contenedor con `generateButtonLabel`.
  *
  * These fields are optional — if empty, the branch ingredients are used as fallback.
  */

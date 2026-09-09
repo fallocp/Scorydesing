@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft, Download, Loader2, Eye, RefreshCw, Newspaper, ArrowRight,
+  ArrowLeft, Download, Loader2, Eye, RefreshCw, Newspaper,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,9 +20,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { BULLETIN_TEMPLATES, getBulletinTemplateById } from '@/constants/bulletinTemplates';
 import { fillTemplate } from '@/constants/designTemplates';
 import { renderHtmlToPng } from '@/utils/xendingDesign/canvasRenderer';
-import { useSavedBranches } from '@/hooks/useSavedBranches';
 import { cn } from '@/lib/utils';
-import type { StrategyBranch } from '@/types/xendingDesign';
 
 const DISCLAIMERS: Record<string, string> = {
   xending: 'Disponible solo para clientes en Estados Unidos. No válido en México.',
@@ -69,17 +67,12 @@ export default function BulletinPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const selectedBrand = useDesignStore((s) => s.selectedBrand);
-  const setCampaign = useDesignStore((s) => s.setCampaign);
-  const setBranches = useDesignStore((s) => s.setBranches);
-
-  const { saveBranch } = useSavedBranches(selectedBrand);
 
   const [form, setForm] = useState<BulletinForm>(INITIAL_FORM);
   const [selectedTemplate, setSelectedTemplate] = useState('bulletin-dark');
   const [renderedPng, setRenderedPng] = useState<string | null>(null);
   const [currentHtml, setCurrentHtml] = useState<string | null>(null);
   const [isRendering, setIsRendering] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
 
   const updateField = (field: keyof BulletinForm, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -135,74 +128,15 @@ export default function BulletinPage() {
     }
   };
 
-  /**
-   * Save as a branch (same as campaign branches) and navigate to CopyWorkstation.
-   * This gives the user the full editing experience: versions, visual editor, HTML, etc.
+  /*
+   * Aquí vivía `handleSaveAndEdit`: guardaba el boletín como rama con
+   * `saveBranch`, sembraba `design_campaigns` vía `setCampaign` y `setBranches`, y
+   * navegaba a `/xending-design/campaign?step=2` para editarlo en CopyWorkstation.
+   *
+   * Se fue con el desruteo del Asistente de Campaña, y con él los únicos usos de
+   * `useSavedBranches` y `setCampaign`/`setBranches` en esta pantalla. Boletín
+   * Express conserva lo suyo: render y descarga. Ver la nota en `App.tsx`.
    */
-  const handleSaveAndEdit = async () => {
-    if (!selectedBrand || !form.headline.trim()) return;
-
-    setIsSaving(true);
-
-    try {
-      const branchId = crypto.randomUUID();
-
-      const branch: StrategyBranch = {
-        id: branchId,
-        name: `Boletín: ${form.headline.slice(0, 50)}`,
-        category: form.category,
-        description: form.body,
-        targetAudience: 'General',
-        keyMessage: form.headline,
-        copyIdeas: [{
-          headline: form.headline,
-          subcopy: form.body,
-          cta: form.source || form.category,
-        }],
-        // Store bulletin metadata as first imageDescription (JSON encoded)
-        imageDescriptions: [JSON.stringify({
-          bulletinData: true,
-          dataValue: form.dataValue,
-          dataLabel: form.dataLabel,
-          source: form.source,
-          category: form.category,
-          templateId: selectedTemplate,
-        })],
-        approved: true,
-      };
-
-      // Save using the same hook that the campaign system uses (handles user_id + RLS)
-      const saved = await saveBranch.mutateAsync({ branch, brand: selectedBrand });
-
-      // Set store so CopyWorkstation loads correctly
-      setCampaign({
-        id: saved.id,
-        userId: '',
-        brand: selectedBrand,
-        name: branch.name,
-        brief: branch.description,
-        contentType: 'breaking-news',
-        status: 'in_progress',
-        partner: 'none',
-        createdAt: saved.createdAt,
-        updatedAt: saved.createdAt,
-      });
-
-      setBranches([branch]);
-
-      toast({ title: 'Boletín guardado como rama' });
-      navigate(`/xending-design/campaign?step=2&branchId=${saved.id}`);
-    } catch (err) {
-      console.error('Error guardando boletín:', err);
-      toast({
-        title: 'Error al guardar',
-        description: err instanceof Error ? err.message : 'Error desconocido',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsSaving(false);
-    }
-  };
 
   const handleDownload = () => {
     if (!renderedPng) return;
@@ -400,25 +334,18 @@ export default function BulletinPage() {
               <div className="rounded-lg overflow-hidden shadow-lg border" style={{ maxHeight: '640px' }}>
                 <img src={renderedPng} alt="Boletín preview" className="w-full h-auto" />
               </div>
-              <div className="flex gap-2">
-                <Button onClick={handleDownload} className="flex-1" variant="outline">
-                  <Download className="h-4 w-4 mr-2" /> Descargar PNG
-                </Button>
-                <Button
-                  onClick={handleSaveAndEdit}
-                  disabled={isSaving}
-                  className="flex-1"
-                >
-                  {isSaving ? (
-                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Guardando…</>
-                  ) : (
-                    <><ArrowRight className="h-4 w-4 mr-2" /> Guardar y editar</>
-                  )}
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground text-center">
-                "Guardar y editar" crea una rama y abre el editor completo con versiones, editor visual y HTML
-              </p>
+              {/*
+                Junto a "Descargar PNG" estaba "Guardar y editar": guardaba el
+                boletín como rama y abría el paso 2 del Asistente de Campaña para
+                editarlo con versiones, editor visual y HTML.
+
+                Se retiró con el desruteo del flujo viejo — era la única entrada al
+                Asistente que no salía del Home. Boletín Express conserva lo suyo:
+                render y descarga. Ver la nota en `App.tsx`.
+              */}
+              <Button onClick={handleDownload} className="w-full" variant="outline">
+                <Download className="h-4 w-4 mr-2" /> Descargar PNG
+              </Button>
             </div>
           )}
         </div>
