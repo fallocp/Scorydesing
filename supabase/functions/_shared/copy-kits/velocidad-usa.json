@@ -1,0 +1,521 @@
+{
+  "kit_version": "velocidad-usa-v1",
+  "branch_slug": "velocidad-usa",
+  "branch_name": "Velocidad / mismo día",
+  "source": "docs/02_xending_usa_velocidad_mismo_dia_master_v2.md (xending-usa-master-v2.0). Capa común §1–§17 y conocimiento de rama §18–§22. Banco de 37 copys activos: 35 aprobados ES, 2 pendientes, 0 aprobados EN-US. Subfamilia única en el banco: VELOCIDAD_Y_TIEMPO 37.",
+
+  "editorial_objective": "Mostrar que el tiempo importa PORQUE hay una compra, refacción, productor, proyecto o fecha concreta que necesita que el pago avance. No vender 'rápido' en abstracto, y no convertir el banco en treinta variaciones de 'está listo; paga hoy'. Cada pieza nombra la situación que hace que el día importe.",
+
+  "client_should_think": [
+    "El pago de esta compra no tiene que sumarle días al proyecto.",
+    "Puedo enviar hoy el saldo que el fabricante está esperando.",
+    "La refacción que detiene la máquina se puede pagar hoy.",
+    "Vale la pena preguntar si este pago alcanza a salir hoy.",
+    "Xending entiende los tiempos reales de una compra, no solo la transferencia."
+  ],
+
+  "positioning_must_communicate": [
+    "el pago puede enviarse o procesarse el mismo día, según el corredor y el horario",
+    "menos días entre la decisión de pagar y el pago hecho",
+    "la compra, la producción o el proyecto siguen avanzando",
+    "el tiempo se explica por una situación concreta, no por una promesa genérica"
+  ],
+
+  "positioning_must_not_be": [
+    "una promesa de instantaneidad o de 24/7",
+    "una garantía de que el proveedor recibe hoy",
+    "publicidad de logística: Xending no controla embarques, aduanas ni producción",
+    "una dramatización sobre mercancía detenida por culpa del cliente",
+    "una comparación no sustentada contra plazos bancarios",
+    "un tutorial que le dice al cliente que se organice mejor"
+  ],
+
+  "audience": {
+    "roles": ["dueño", "responsable de compras", "cuentas por pagar", "tesorero", "controller", "CFO"],
+    "company_profile": [
+      "empresa de Estados Unidos",
+      "foco comercial en Texas y California",
+      "compra a proveedores nacionales y de otros países",
+      "base presupuestal en USD"
+    ],
+    "seeks": ["que el pago no sea el paso que retrasa la compra", "saber si el pago de hoy alcanza a salir hoy"]
+  },
+
+  "allowed_situations": [
+    "un pedido terminado con saldo pendiente antes del embarque",
+    "una refacción identificada que espera pago para la reparación",
+    "una fecha de producción que necesita componentes",
+    "una apertura con equipo pendiente de instalación",
+    "una reposición por demanda ya vendida",
+    "una temporada con calendario comercial",
+    "un pago que vence hoy",
+    "un anticipo con fecha acordada para iniciar la compra",
+    "equipo y capacitación programados antes de la instalación",
+    "un proveedor lejano al que se le paga desde Estados Unidos"
+  ],
+
+  "situation_framing_rule": "La situación es TENSIÓN, no amenaza ni culpa. Prohibido afirmar que el pago es la única causa de un retraso, que la mercancía está detenida por culpa del cliente o que el proveedor le dará el pedido a otro comprador. Y el §20 es explícito: el pago NO garantiza fabricación, embarque, inventario, apertura ni reparación. Que una mercancía sea perecedera no demuestra que el pago deba condicionarse siempre antes del envío; el acuerdo de pago pertenece al escenario.",
+
+  "tone": {
+    "yes": ["empresarial", "directo", "concreto", "sobrio", "tranquilo", "orientado a la operación"],
+    "no": ["alarmista", "exagerado", "bancario tradicional", "publicitario", "clase de logística", "culpa al cliente"],
+    "tension": "moderada",
+    "hedging": "Condicional obligatorio en todo lo temporal: 'puede enviarse', 'puede procesarse', 'no debería retrasar'. Nunca afirmación absoluta de tiempo ni de recepción."
+  },
+
+  "angles": {
+    "pedido_terminado": {
+      "label": "Pedido terminado",
+      "premise": "El pedido está fabricado y falta liquidar el saldo pactado antes del embarque.",
+      "note": "Objetos: molde, arnés, gabinete. Es el ángulo más fácil de sobreusar: el §22 pide no concentrar más de aproximadamente un tercio de una tanda de 15 aquí."
+    },
+    "refaccion": {
+      "label": "Refacción",
+      "premise": "Una pieza identificada espera el pago para que avance la reparación.",
+      "note": "Objetos: válvula, rodamiento, compresor."
+    },
+    "fecha_produccion": {
+      "label": "Fecha de producción",
+      "premise": "La producción tiene fecha y requiere componentes que aún no se pagan.",
+      "note": "Objetos: chips, sensores."
+    },
+    "apertura": {
+      "label": "Apertura",
+      "premise": "Un negocio abre y el equipo debe comprarse antes del inicio.",
+      "note": "Objetos: horno, luminarias, refrigeración."
+    },
+    "reposicion": {
+      "label": "Reposición",
+      "premise": "Lo vendido hay que reponerlo con una compra nueva para atender la demanda.",
+      "note": "Objetos: balatas, fresas, sandía."
+    },
+    "temporada": {
+      "label": "Temporada",
+      "premise": "El calendario comercial fija cuándo hace falta el inventario.",
+      "note": "Objetos: mango, cítricos, produce."
+    },
+    "pago_venciendo_hoy": {
+      "label": "Pago venciendo hoy",
+      "premise": "Hay un compromiso con el proveedor que vence hoy.",
+      "note": "El ángulo que más rápido cae en duplicar 'hoy' en los tres campos. El §21 lo prohíbe si no aporta información nueva."
+    },
+    "anticipo": {
+      "label": "Anticipo",
+      "premise": "Una fecha acordada para el anticipo abre el inicio de la compra o la fabricación.",
+      "note": "Objetos: molde, carcasas."
+    },
+    "equipo_y_capacitacion": {
+      "label": "Equipo y capacitación",
+      "premise": "La instalación o la capacitación están programadas y el saldo del equipo sigue pendiente.",
+      "note": "Objeto: torno CNC."
+    },
+    "distancia": {
+      "label": "Distancia del proveedor",
+      "premise": "El proveedor está en otro país o en otro estado y el pago sale desde Estados Unidos.",
+      "note": "Destinos presentes en el banco: China, México, Europa. También cubre el proveedor doméstico con cliente en otro estado."
+    }
+  },
+
+  "angle_quota_note": "Los diez ángulos son el repertorio temporal del §20 y son el eje de `angle_tag`. Sin cuota fija: el §22 solo pone un techo —no más de un tercio en `pedido_terminado`— y pide variar mantenimiento, reposición, producción, instalación, temporada y pago del día. El campo `Ángulo` de la ficha es texto libre y va en `angle_label`.",
+
+  "angle_rotation_note": "Agotar los ángulos disponibles antes de repetir uno. El §22 advierte además que no todas las escenas deben volverse 'proveedor esperando'. El volumen actual menor de esta rama no es un hueco que haya que rellenar automáticamente: el usuario movió piezas fuera a propósito.",
+
+  "subfamilies": {
+    "VELOCIDAD_Y_TIEMPO": "Los 37 registros del banco. Única subfamilia de esta rama."
+  },
+
+  "subfamilies_note": "Con un solo valor, la subfamilia no aporta eje. Va a `copy_bank_items.formula` por consistencia con las otras ramas, y el eje real de `angle_tag` son los diez ángulos del §20.",
+
+  "corridors": {
+    "general": {
+      "label": "Sin destino específico",
+      "objective": "La mayoría del banco: la situación y el objeto cargan la pieza y el país no aparece. 33 de 37 registros no declaran país ni moneda, y eso es deliberado, no un dato faltante.",
+      "allowed_claims": [
+        "el pago puede enviarse o procesarse el mismo día según el corredor y el horario aplicables",
+        "menos días entre la decisión y el pago hecho",
+        "la compra o el proyecto siguen avanzando"
+      ],
+      "hard_limit": "Sin país declarado NO se puede afirmar acreditación el mismo día ni nombrar una moneda. Si la pieza necesita moneda, necesita también el escenario que la justifique.",
+      "vocabulary": ["pedido", "fabricante", "proveedor", "saldo", "anticipo", "refacción", "embarque", "producción", "instalación", "temporada", "pago"],
+      "cta": ["Cotiza tu próximo pago", "Paga hoy con Xending", "Paga a tu proveedor", "Paga a tu proveedor hoy", "Pregúntale a Xending", "Cotiza con Xending", "Mejora tus pagos", "Simplifica tus pagos con Xending", "Realiza tus pagos con Xending", "Compara tu próximo pago", "Paga más ágil.", "Paga ágil sin contratiempos.", "Asegura tus pedidos."],
+      "cta_note": "Los últimos dos son textos YA APROBADOS con lectura acotada, según el §21. 'Paga ágil sin contratiempos.' no habilita garantías universales de ausencia de demoras, y 'Asegura tus pedidos.' es invitación comercial, no prueba de que Xending asegure stock ni entrega. Se conservan como CTA; no se extienden a un apoyo nuevo.",
+      "cta_banned": ["Activa tu pago", "Conoce la ruta", "Organiza tu envío", "Prepara tu transferencia", "Planea tu pago", "Revisa tus horarios"]
+    },
+    "domestico_usa": {
+      "label": "Proveedor en Estados Unidos",
+      "objective": "El proveedor es doméstico y la urgencia sigue existiendo: un cliente en otro estado, un distribuidor, un taller.",
+      "allowed_claims": ["preparar y enviar el pago al proveedor nacional el mismo día según el horario aplicable"],
+      "vocabulary": ["proveedor", "distribuidor", "taller", "estado", "pedido", "pago"],
+      "cta": ["Paga a tu proveedor", "Paga hoy con Xending", "Cotiza tu próximo pago"],
+      "cta_banned": ["Paga internacionalmente", "Conoce la ruta"]
+    },
+    "internacional": {
+      "label": "Proveedor en otro país",
+      "objective": "China, Europa y México son los destinos presentes. El pago sale desde Estados Unidos y la distancia es parte de la razón por la que el tiempo importa.",
+      "allowed_claims": [
+        "la transferencia al fabricante puede enviarse el mismo día desde Estados Unidos",
+        "pagar en la moneda acordada para ese pedido"
+      ],
+      "hard_limit": "La moneda sale del acuerdo con el proveedor, no de su país. Para México, el usuario pidió hablar de 'pagos' o precisar el pago en pesos cuando la factura lo permita, sin imponer USD. CNY y CNH no son intercambiables.",
+      "vocabulary": ["fabricante", "China", "México", "Europa", "Alemania", "Italia", "Taiwán", "embarque", "saldo", "transferencia internacional"],
+      "cta": ["Cotiza tu pago internacional", "Cotiza tu pago a China", "Cotiza tu próximo pago", "Paga hoy con Xending", "Paga ágil a tu proveedor"],
+      "cta_banned": ["Conoce Xending Asia", "Cotiza tu ruta", "Conoce la ruta"]
+    }
+  },
+
+  "corridor_quota": {
+    "general": 78,
+    "domestico_usa": 10,
+    "internacional": 12
+  },
+
+  "corridor_quota_note": "Medido sobre el banco: 33 de 37 registros sin país. Esta rama NO es un eje de corredores, es un eje de situaciones. Forzar país en las piezas nuevas rompe el patrón del banco aprobado.",
+
+  "industries": {
+    "produce": { "angles": ["temporada", "reposicion", "anticipo", "distancia"] },
+    "automotriz": { "angles": ["pedido_terminado", "reposicion", "refaccion", "fecha_produccion"] },
+    "equipamiento_comercial": { "angles": ["apertura", "equipo_y_capacitacion", "pedido_terminado"] },
+    "maquinaria": { "angles": ["pedido_terminado", "anticipo", "equipo_y_capacitacion"] },
+    "electronica": { "angles": ["fecha_produccion", "reposicion"] },
+    "solar_electrico": { "angles": ["apertura", "equipo_y_capacitacion", "pedido_terminado"] },
+    "insumos_industriales": { "angles": ["refaccion", "reposicion"] },
+    "medico_laboratorio": { "angles": ["pedido_terminado", "equipo_y_capacitacion"] }
+  },
+
+  "verticalization": {
+    "rule": "Una pieza vertical nombra en el TITULAR el objeto: el molde, la válvula, las luminarias, los chips, el aguacate. La ficha interna no salva un titular genérico, y un solo objeto preciso basta.",
+    "products_by_industry": {
+      "produce": ["aguacate", "fresas", "berries", "pimientos", "cítricos", "lechuga", "sandía", "mango", "pepino", "cajas", "charolas"],
+      "automotriz": ["arneses", "sensores", "balatas", "discos de freno", "rodamientos", "pistones", "radiadores", "amortiguadores", "baterías de arranque", "moldes"],
+      "equipamiento_comercial": ["hornos", "refrigeración", "lavavajillas", "luminarias", "gabinetes", "terminales de venta"],
+      "maquinaria": ["torno CNC", "centro CNC", "robot", "molde", "herramental", "compresor", "bomba", "caja reductora"],
+      "electronica": ["tarjetas PCB", "chips", "pantallas", "conectores", "fuentes de poder"],
+      "solar_electrico": ["inversores", "baterías de almacenamiento", "transformadores", "tableros", "cable"],
+      "insumos_industriales": ["mangueras", "juntas", "sellos", "filtros", "válvulas", "rodamientos"],
+      "medico_laboratorio": ["analizadores", "monitores", "bombas de infusión", "reactivos"]
+    },
+    "example": {
+      "headline": "Una válvula pequeña puede detener una operación grande.",
+      "subline": "El pago de esa refacción puede enviarse hoy, mientras mantenimiento prepara el reemplazo.",
+      "cta": "Paga a tu proveedor"
+    },
+    "guard": "Los objetos son material de escenario. No prueban que un proveedor facture en una moneda determinada, y no autorizan inventar proveedores, clientes ni órdenes reales.",
+    "default_share_pct": 85
+  },
+
+  "element_roles": {
+    "headline": "Presenta la situación y el objeto: qué está listo, qué falta, qué tiene fecha.",
+    "subline": "Dice qué puede hacer Xending con ese pago, en condicional.",
+    "cta": "Cierra con la acción. No repite 'hoy' si el titular y el apoyo ya lo dijeron.",
+    "correct_example": {
+      "headline": "El molde está terminado. Falta liquidar el saldo antes del embarque.",
+      "subline": "La transferencia al fabricante puede enviarse el mismo día.",
+      "cta": "Cotiza tu próximo pago"
+    },
+    "incorrect_example": {
+      "headline": "Paga hoy tu pago internacional con Xending.",
+      "subline": "Con Xending tus pagos internacionales salen hoy mismo, garantizado.",
+      "cta": "Paga hoy",
+      "why": "No hay situación ni objeto, 'hoy' aparece tres veces sin aportar nada, y 'garantizado' está prohibido. Además promete resultado, no capacidad."
+    }
+  },
+
+  "formulas_allowed": [
+    "[Objeto] está terminado. Falta [liquidar / pagar] [saldo] antes de [embarque / envío]",
+    "[Objeto pequeño] puede [detener] [operación grande]",
+    "[Objeto] debe llegar antes de [fecha / apertura]",
+    "Tu próxima [producción / temporada] ya tiene fecha. Falta pagar [objeto]",
+    "[Objeto] se fabricó en [lugar]. El pago no debería retrasar [embarque]",
+    "[Situación] ya está programada. Falta pagar a [proveedor]",
+    "[Producto perecedero] debe llegar [fresco]. El tiempo también cuenta al comprarlo",
+    "[A] no debería [tardar / esperar] por [B]"
+  ],
+
+  "banned_openings": [
+    "Con Xending",
+    "Tu proveedor",
+    "No esperes",
+    "Paga hoy"
+  ],
+
+  "banned_openings_note": "El §4 prohíbe anteponer 'Con Xending' a todos los renglones. 'Tu proveedor' y 'Paga hoy' como arranque saturan la rama entera, que ya vive de la urgencia. Cambiar el arranque, no la fórmula.",
+
+  "banned_phrases": [
+    "ejecución",
+    "orquestación",
+    "flujo operacional",
+    "payment run",
+    "project run",
+    "cutoff",
+    "pagos elegibles",
+    "ventana operativa",
+    "ventana de salida",
+    "ventana de pago",
+    "condición vigente",
+    "obligación futura",
+    "fragmentar tesorería",
+    "el pago vive dentro de una operación",
+    "instantáneo",
+    "inmediato",
+    "24/7",
+    "siempre el mismo día",
+    "todos los destinos",
+    "sin ningún retraso",
+    "sin retrasos",
+    "recibe hoy",
+    "recibe el mismo día",
+    "en tiempo real",
+    "liberar el pago",
+    "si el pago entra",
+    "por tu culpa",
+    "elegirá a otro",
+    "garantizado",
+    "sin riesgo",
+    "seamlessly",
+    "unlock",
+    "empower",
+    "revolutionize",
+    "financial journey",
+    "vendor"
+  ],
+
+  "banned_phrases_note": "Las primeras catorce son las muletillas del §5. Las siguientes son las prohibiciones temporales del §19: 24/7, instantáneo, todos los destinos y siempre. 'recibe hoy' y 'recibe el mismo día' están prohibidas porque convierten envío en acreditación, que es la confusión central de esta rama. 'sin retrasos' cubre también 'sin contratiempos' cuando se usa como promesa: ojo, el CTA aprobado 'Paga ágil sin contratiempos.' se conserva como texto ya aprobado y no habilita la garantía en un apoyo nuevo.",
+
+  "language_style": {
+    "locale": "es-US",
+    "note": "Español de trabajo, escenario estadounidense. Nombra el objeto y la situación, no una abstracción temporal. El pago es un pago, no algo que se 'libera' como mercancía.",
+    "internal_terms_never_publish": [
+      "SAME_DAY_PROCESSING",
+      "SAME_DAY_SENT",
+      "SAME_DAY_SETTLEMENT",
+      "SAME_DAY_BENEFICIARY_CREDIT",
+      "ventana operativa",
+      "cutoff",
+      "rail",
+      "pagos elegibles",
+      "condición vigente"
+    ],
+    "preferred_rewrites": {
+      "liberar el pago": "enviar el pago",
+      "ventana operativa": "horario aplicable",
+      "cutoff": "horario límite",
+      "si el pago entra": "si el pago se envía a tiempo",
+      "condición vigente": "el pedido sigue en pie",
+      "ejecución del pago": "el pago"
+    }
+  },
+
+  "claim_semantics": {
+    "allowed": ["procesar", "enviar", "preparar", "cotizar"],
+    "rule": "SAME_DAY_PROCESSING, SAME_DAY_SENT, SAME_DAY_SETTLEMENT y SAME_DAY_BENEFICIARY_CREDIT NO son equivalentes. El banco usa predominantemente ENVÍO o PROCESAMIENTO. Nunca convertir 'puede enviarse hoy' en 'el fabricante recibe hoy'. Un cargo ACH para obtener fondos tampoco confirma disponibilidad inmediata para enviar.",
+    "source_of_truth": "La ficha operativa vigente, que debe conservar corredor, moneda, semántica, horario aplicable, zona horaria, días hábiles y estado de aprobación. Esos datos van en la validación, no como disclaimer dentro del apoyo."
+  },
+
+  "numbers_policy": {
+    "allowed": ["la capacidad de mismo día, confirmada por el usuario como ventaja de USA, en forma condicional y sobre envío o procesamiento"],
+    "requires": ["corredor", "moneda", "semántica del claim", "horario aplicable", "zona horaria", "días hábiles"],
+    "banned": [
+      "horas límite exactas que no vengan de la matriz operativa vigente",
+      "plazos de acreditación al beneficiario",
+      "porcentajes de reducción de tiempo",
+      "comparaciones contra '5–7 días' o 'una semana' de bancos",
+      "24/7"
+    ],
+    "principle": "En esta rama un número no es un recurso creativo: es una afirmación operativa. El §8 prohíbe comparar contra plazos bancarios sin evidencia específica, y el §19 exige distinguir qué se hace el mismo día."
+  },
+
+  "hard_business_rules": [
+    "Xending es una plataforma de pagos para empresas. No es un banco, prestamista, compañía logística, broker especulativo ni una app de remesas.",
+    "La capacidad de mismo día se comunica sobre ENVÍO o PROCESAMIENTO, en condicional, y según corredor y horario aplicables.",
+    "No convertir 'puede enviarse hoy' en 'el fabricante recibe hoy'. Enviar no es acreditar.",
+    "No afirmar 24/7, instantáneo, todos los destinos ni siempre.",
+    "Un cargo ACH para obtener fondos no confirma disponibilidad inmediata para enviar.",
+    "El pago NO garantiza fabricación, embarque, inventario, apertura ni reparación.",
+    "Que una mercancía sea perecedera no demuestra que el pago deba condicionarse antes del envío. El acuerdo de pago pertenece al escenario.",
+    "No afirmar que Xending controla embarques, aduanas, producción, inventario ni la prioridad que asigna el proveedor.",
+    "La moneda de la factura sale de la compra o del brief, no del país del proveedor.",
+    "Para México, hablar de 'pagos' o precisar el pago en pesos cuando la factura o el acuerdo lo permitan, sin imponer USD.",
+    "No usar horas límite exactas que no vengan de una matriz operativa vigente.",
+    "'Paga ágil sin contratiempos.' se conserva como CTA ya aprobado y no habilita garantías universales de ausencia de demoras.",
+    "'Asegura tus pedidos.' es una invitación comercial y no prueba que Xending asegure stock ni entrega.",
+    "No cerrar mecánicamente todos los anuncios con 'Cotiza tu pago internacional'.",
+    "No duplicar 'hoy' en titular, apoyo y CTA sin aportar información nueva.",
+    "El copy público no lleva 'sujeto al rail y cutoff aplicable' ni disclaimers redactados libremente. El disclaimer se monta en la capa de publicación.",
+    "'Pregúntame' solo si la pieza tiene una voz personal identificada. Para voz de marca, 'Pregúntale a Xending'."
+  ],
+
+  "capability_rule": {
+    "required_elements": [
+      "una situación operativa concreta con su objeto",
+      "la razón por la que el tiempo importa en esa situación",
+      "una capacidad concreta de Xending, en condicional"
+    ],
+    "valid_capabilities": [
+      "enviar o procesar el pago el mismo día según corredor y horario",
+      "pagar al fabricante desde Estados Unidos",
+      "pagar en la moneda acordada para ese pedido",
+      "cotizar la operación",
+      "consultar si el pago alcanza a salir hoy"
+    ],
+    "weak_examples": [
+      "El molde está listo. Organiza tu transferencia.",
+      "Tu producción tiene fecha. Revisa tus horarios de pago.",
+      "La refacción es urgente. Prepara el pago con tiempo."
+    ],
+    "correct_examples": [
+      "El molde está terminado. La transferencia al fabricante puede enviarse el mismo día.",
+      "Una válvula pequeña puede detener una operación grande. El pago de esa refacción puede enviarse hoy.",
+      "Las luminarias deben llegar antes de abrir. Xending te ayuda a pagar al fabricante con la agilidad que necesita el proyecto."
+    ],
+    "note": "No basta identificar la urgencia ni asignarle una tarea al cliente. La regla es SITUACIÓN CON OBJETO → RAZÓN DEL TIEMPO → CAPACIDAD CONCRETA DE XENDING."
+  },
+
+  "comparative_rule": {
+    "allowed": [
+      "El pago puede enviarse el mismo día según el corredor y el horario aplicables.",
+      "Xending es una alternativa ágil para el siguiente pago.",
+      "El pago no debería sumarle días a la compra."
+    ],
+    "requires_review": ["más rápido que un banco", "otros tardan de 5 a 7 días", "la ruta más rápida", "menos intermediarios"],
+    "not_allowed": [
+      "Xending siempre es más rápido.",
+      "Tu banco tarda una semana.",
+      "El fabricante recibe el mismo día, garantizado.",
+      "Con Xending nunca hay demoras."
+    ],
+    "principle": "La agilidad se comunica como capacidad propia y en condicional. La superioridad frente a terceros hay que demostrarla con corredor, periodo y evidencia."
+  },
+
+  "cta_selection_rule": [
+    "Si la situación es un saldo o un pedido terminado: 'Cotiza tu próximo pago'.",
+    "Si hay un objeto urgente y un proveedor identificado: 'Paga a tu proveedor' o 'Paga a tu proveedor hoy'.",
+    "Si el destino es internacional y declarado: 'Cotiza tu pago internacional' o 'Cotiza tu pago a China'.",
+    "Si no puede prometerse el tiempo: 'Pregúntale a Xending' o 'Cotiza con Xending'.",
+    "Si el titular y el apoyo ya dijeron 'hoy', el CTA no lo repite.",
+    "El CTA puede repetirse entre piezas. Lo que no debe repetirse es la misma historia."
+  ],
+
+  "cta_banned": [
+    "Activa tu pago",
+    "Inicia tu operación",
+    "Conoce la ruta",
+    "Cotiza tu ruta",
+    "Organiza tu envío",
+    "Prepara tu transferencia",
+    "Planea tu pago",
+    "Revisa tus horarios",
+    "Conoce Xending Asia"
+  ],
+
+  "scope": [
+    "tiempos operativos de un pago",
+    "envío o procesamiento el mismo día en corredores y horarios confirmados",
+    "menos días entre la decisión de pagar y el pago hecho",
+    "el ritmo de una compra, producción, embarque, apertura, temporada o reparación",
+    "reposición, mantenimiento y anticipos",
+    "la distancia del proveedor como razón del tiempo"
+  ],
+
+  "branch_core_criterion": {
+    "must_not_feel": "Xending me está diciendo que me organice mejor, o me está vendiendo 'rápido' sin decirme qué situación resuelve.",
+    "must_feel": "El pago de esta compra concreta puede salir hoy y la operación sigue avanzando.",
+    "sells_capabilities": [
+      "enviar o procesar el pago el mismo día según corredor y horario",
+      "pagar al fabricante desde Estados Unidos",
+      "cotizar y consultar si alcanza a salir hoy"
+    ],
+    "never": [
+      "prometer que el proveedor recibe hoy",
+      "prometer 24/7 o instantaneidad",
+      "garantizar que el embarque sale o que la línea arranca",
+      "culpar al cliente por un retraso"
+    ]
+  },
+
+  "batch_policy": {
+    "variety_note": "El §22: en tandas de 15, no concentrar más de aproximadamente un tercio en `pedido_terminado`, y no convertir todas las escenas en 'proveedor esperando'. Variar mantenimiento, reposición, producción, instalación, temporada y pago del día. Son guías para lo nuevo: los aprobados no se recortan retroactivamente.",
+    "anti_repetition": [
+      "No más de dos piezas consecutivas con el mismo razonamiento principal.",
+      "Ninguna fórmula más de tres o cuatro veces en una tanda de 15–30.",
+      "Que una apertura no domine más de una quinta parte de la tanda.",
+      "Comparar similitud semántica, no solo palabras.",
+      "No cerrar mecánicamente con el mismo CTA."
+    ]
+  },
+
+  "gold_examples": [
+    {
+      "headline": "El molde está terminado. Falta liquidar el saldo antes del embarque.",
+      "subcopy": "La transferencia al fabricante puede enviarse el mismo día.",
+      "cta": "Cotiza tu próximo pago",
+      "angleLabel": "Fabricación terminada / saldo antes del embarque",
+      "angleTag": "pedido_terminado",
+      "subfamily": "VELOCIDAD_Y_TIEMPO",
+      "corridor": "general",
+      "industry": "maquinaria",
+      "legacyId": "VEL-01",
+      "needsLegalNote": false
+    },
+    {
+      "headline": "Una válvula pequeña puede detener una operación grande.",
+      "subcopy": "El pago de esa refacción puede enviarse hoy, mientras mantenimiento prepara el reemplazo.",
+      "cta": "Paga a tu proveedor",
+      "angleLabel": "Mantenimiento / reposición crítica",
+      "angleTag": "refaccion",
+      "subfamily": "VELOCIDAD_Y_TIEMPO",
+      "corridor": "general",
+      "industry": "insumos_industriales",
+      "legacyId": "VEL-03",
+      "needsLegalNote": false
+    },
+    {
+      "headline": "Las luminarias deben llegar antes de abrir el restaurante.",
+      "subcopy": "Xending te ayuda a pagar al fabricante con la agilidad que necesita el proyecto.",
+      "cta": "Paga hoy con Xending",
+      "angleLabel": "Fecha de apertura / instalación",
+      "angleTag": "apertura",
+      "subfamily": "VELOCIDAD_Y_TIEMPO",
+      "corridor": "general",
+      "industry": "equipamiento_comercial",
+      "legacyId": "VEL-02",
+      "needsLegalNote": false
+    },
+    {
+      "headline": "El aguacate debe llegar fresco. El tiempo también cuenta al comprarlo.",
+      "subcopy": "Una alternativa ágil para pagar al productor en México, en la moneda acordada para ese pedido.",
+      "cta": "Paga hoy con Xending",
+      "angleLabel": "Frescura / tiempos de compra",
+      "angleTag": "temporada",
+      "subfamily": "VELOCIDAD_Y_TIEMPO",
+      "corridor": "internacional",
+      "industry": "produce",
+      "legacyId": "VEL-06",
+      "needsLegalNote": false
+    }
+  ],
+
+  "gold_examples_note": "Solo copys con Estado ES APROBADO, citados con su legacy_id. Nótese el patrón del banco: el apoyo dice 'puede enviarse', nunca 'recibe'. VEL-06 muestra la corrección del usuario para México: 'en la moneda acordada para ese pedido', sin imponer USD.",
+
+  "rejected_examples": [
+    { "text": "Tu pago llega el mismo día, garantizado.", "reason": "garantía absoluta y confunde envío con acreditación; el §19 lo prohíbe" },
+    { "text": "El fabricante recibe hoy tu transferencia.", "reason": "convierte SAME_DAY_SENT en SAME_DAY_BENEFICIARY_CREDIT" },
+    { "text": "Pagos internacionales 24/7, a cualquier destino.", "reason": "24/7 y todos los destinos están prohibidos por el §19" },
+    { "text": "El contenedor está detenido porque no has pagado.", "reason": "culpa al cliente y afirma que el pago es la única causa del retraso" },
+    { "text": "Paga hoy y asegura que tu pedido salga hoy.", "reason": "el pago no garantiza embarque; el §20 lo prohíbe expresamente" },
+    { "text": "Tu banco tarda de 5 a 7 días. Xending, un día.", "reason": "comparación bancaria numérica sin evidencia" },
+    { "text": "El molde está listo. Prepara tu transferencia.", "reason": "asigna la tarea al cliente y Xending no aparece como capacidad" },
+    { "text": "Paga hoy tu pago de hoy, hoy mismo.", "reason": "duplica 'hoy' sin aportar información; el §21 lo prohíbe" }
+  ],
+
+  "final_test": [
+    { "question": "¿Se nombra una situación concreta con su objeto, o solo se dice 'rápido'?", "on_fail": "Elegir una situación del §20 y su objeto." },
+    { "question": "¿El apoyo dice enviar o procesar, en vez de recibir o acreditar?", "on_fail": "Reescribir a envío o procesamiento, en condicional.", "automatable": true },
+    { "question": "¿Está en condicional todo lo temporal?", "on_fail": "Cambiar a 'puede enviarse', 'puede procesarse'." },
+    { "question": "¿'Hoy' aparece en los tres campos sin aportar nada?", "on_fail": "Quitarlo de uno, normalmente del CTA.", "automatable": true },
+    { "question": "¿Se afirma que el pago garantiza fabricación, embarque, inventario o reparación?", "on_fail": "Reescribir: el pago avanza la compra, no garantiza el resultado." },
+    { "question": "¿Hay una hora límite exacta?", "on_fail": "Quitarla salvo que venga de la matriz operativa vigente.", "automatable": true },
+    { "question": "¿Se le echa la culpa al cliente?", "on_fail": "Reencuadrar como tensión: qué está listo y qué falta." }
+  ],
+
+  "closing_principle": "Esta rama vende que el pago no sea el paso que retrasa la compra. La diferencia entre una pieza buena y treinta variaciones de 'está listo; paga hoy' es que la buena nombra POR QUÉ importa el día en esa operación concreta. Y todo lo temporal se dice sobre el envío, en condicional: enviar no es acreditar."
+}

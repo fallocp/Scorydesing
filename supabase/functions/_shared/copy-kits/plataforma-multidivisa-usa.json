@@ -73,26 +73,65 @@
   },
 
   "angles": {
-    "PLATAFORMA_Y_DESTINOS": {
-      "label": "Plataforma y destinos",
-      "premise": "La compra se paga desde la plataforma, y sumar un destino no obliga a rehacer la banca ni a abrir otro portal. Cubre el trabajo manual que se evita al preparar el pago: formatos, correos, instrucciones por teléfono.",
-      "note": "Es la subfamilia mayoritaria del banco: 28 de 48 registros. El apoyo debe decir QUÉ trabajo se evita, no repetir 'desde una misma plataforma'."
+    "compra_otro_pais": {
+      "label": "Compra en otro país sin rehacer la banca",
+      "premise": "Sumar un proveedor de otro país no obliga a abrir otra cuenta bancaria ni a mover toda la relación con el banco."
     },
-    "MONEDAS_Y_SALDOS": {
-      "label": "Monedas y saldos",
-      "premise": "La factura se paga en la moneda que pide, y un saldo en otra moneda puede mantenerse para una compra posterior. Cubre la cuenta multidivisa y el uso del saldo.",
-      "note": "20 de 48 registros. Mantener un saldo y hacer una transferencia con conversión son funciones DISTINTAS: no fusionarlas en una sola promesa."
+    "nacional_e_internacional": {
+      "label": "Nacional e internacional en el mismo trabajo",
+      "premise": "Los pagos domésticos y los internacionales pertenecen al mismo trabajo de compras y viven en el mismo lugar.",
+      "note": "El §18 es explícito: domésticos e internacionales ya no son ramas independientes. El destino aporta contexto, no una promesa distinta."
+    },
+    "moneda_de_la_factura": {
+      "label": "La moneda que pide la factura",
+      "premise": "La transferencia se hace con la moneda que la factura realmente pide, no con la que se supone por el país del proveedor.",
+      "note": "Hay piezas aprobadas de proveedores en China facturadas en USD. La moneda sale del acuerdo, nunca del país."
+    },
+    "monedas_por_proveedor": {
+      "label": "Monedas disponibles para distintos proveedores",
+      "premise": "Distintos proveedores piden distintas monedas y la cuenta las mantiene disponibles."
+    },
+    "saldo_para_despues": {
+      "label": "Moneda de hoy, compra de después",
+      "premise": "Una moneda comprada hoy queda como saldo y se usa en una compra posterior.",
+      "note": "Mantener saldo y transferir con conversión son funciones DISTINTAS. No fusionarlas, y no convertirlo en un argumento de cobertura: eso es otra rama."
+    },
+    "cuenta_sin_costo": {
+      "label": "Cuenta sin costo de apertura ni mantenimiento",
+      "premise": "Abrir y mantener la cuenta no cuesta.",
+      "note": "NO equivale a conversiones, wires ni operaciones gratis."
+    },
+    "apertura_48h": {
+      "label": "Apertura en hasta 48 horas",
+      "premise": "La cuenta puede quedar abierta en hasta 48 horas.",
+      "note": "Es el plazo de la CUENTA. No del alta de beneficiarios, no de una aprobación universal, no de que el primer pago se acredite en ese plazo."
+    },
+    "papeleo_evitado": {
+      "label": "Papeleo e instrucciones que se evitan",
+      "premise": "Preparar el pago en la plataforma sustituye los formatos y las instrucciones por correo o teléfono.",
+      "note": "Este es el dolor real de este comprador, confirmado por el usuario en INT-02. NO es 'sin salir de la oficina' ni 'sin ir al banco': nunca van al banco."
+    },
+    "mas_paises_sin_mas_portales": {
+      "label": "Más países sin más portales",
+      "premise": "Ampliar los países de compra no obliga a sumar otro portal por cada destino."
+    },
+    "proveedor_anticipo_reposicion": {
+      "label": "Proveedor, anticipo o reposición concreta",
+      "premise": "Un proveedor, un anticipo, un saldo o una reposición concretos muestran para qué sirve el producto.",
+      "note": "Es el ángulo más vertical: pide objeto industrial reconocible en el titular."
     }
   },
 
-  "angle_quota": {
-    "PLATAFORMA_Y_DESTINOS": 58,
-    "MONEDAS_Y_SALDOS": 42
+  "angle_quota_note": "Los diez ángulos son los usos que el §19 del MD declara para esta rama, y son el eje de `angle_tag`. Sin cuota fija: el §22 pide variedad entre al menos cuatro usos distintos en una tanda de 15, no una distribución exacta. El campo `Ángulo` de la ficha es texto libre y va en `angle_label`.",
+
+  "angle_rotation_note": "Rotar entre los diez. Agotar los disponibles antes de repetir uno. El §22 pide además no repetir precio, apertura y rapidez en cada anuncio: elegir un beneficio y demostrarlo.",
+
+  "subfamilies": {
+    "PLATAFORMA_Y_DESTINOS": "28 de 48 registros del banco. Agrupa los ángulos de plataforma, destinos y papeleo.",
+    "MONEDAS_Y_SALDOS": "20 de 48 registros. Agrupa los ángulos de moneda, saldo y cuenta multidivisa."
   },
 
-  "angle_quota_note": "Porcentaje objetivo, medido sobre la distribución real del banco aprobado (28 y 20 registros). Las dos subfamilias son el eje de `angle_tag` para esta rama; el campo `Ángulo` de la ficha es descripción libre y va en `angle_label`, no en `angle_tag`.",
-
-  "angle_rotation_note": "Dentro de cada subfamilia rotar entre los diez usos del §19: compra en otro país sin rehacer la banca; pago nacional e internacional en el mismo trabajo; la moneda que pide la factura; monedas disponibles para distintos proveedores; moneda comprada hoy y saldo usado después; cuenta sin costo; apertura en hasta 48 horas; papeleo e instrucciones que se evitan; ampliar países sin sumar portales; proveedor, anticipo o reposición concreta. No repetir uso antes de agotar los disponibles.",
+  "subfamilies_note": "Eje CONTROLADO y más grueso que los ángulos, tomado del campo `Subfamilia actual` de la ficha. Va a `copy_bank_items.formula`, no a `angle_tag`: con dos valores no serviría para la matemática de cuotas de `analyzeCopyBank`.",
 
   "corridors": {
     "domestico_usa": {
@@ -104,7 +143,7 @@
         "menos instrucciones manuales por pago"
       ],
       "vocabulary": ["proveedor", "factura", "pedido", "pago", "cuenta", "anticipo", "saldo", "compras"],
-      "cta": ["Simplifica tus pagos", "Paga a tu proveedor", "Paga a tus proveedores", "Ahorra tiempo al pagar", "Reduce el trabajo manual"],
+      "cta": ["Simplifica tus pagos", "Paga a tu proveedor", "Paga a tus proveedores", "Ahorra tiempo al pagar", "Reduce el trabajo manual", "Cotiza tu próximo pago"],
       "cta_banned": ["Paga internacionalmente", "Conoce la ruta", "Activa tu pago", "Organiza tus pagos"]
     },
     "asia": {
@@ -117,7 +156,7 @@
       ],
       "hard_limit": "CNY y CNH no son intercambiables en fichas de producto. No afirmar presencia física de Xending en Asia ni usar el nombre 'Xending Asia'. La moneda sale del acuerdo con el proveedor, no de su país: hay piezas aprobadas de China facturadas en USD.",
       "vocabulary": ["fabricante", "China", "Japón", "pedido", "embarque", "factura", "dólares", "yenes", "yuanes"],
-      "cta": ["Ahorra tiempo al pagar", "Paga a tu proveedor", "Simplifica tus pagos", "Reduce el trabajo manual", "Cotiza tu pago internacional"],
+      "cta": ["Ahorra tiempo al pagar", "Paga a tu proveedor", "Simplifica tus pagos", "Reduce el trabajo manual", "Cotiza tu pago internacional", "Simplifica tus pagos internacionales"],
       "cta_banned": ["Conoce Xending Asia", "Conoce la ruta", "Prepara tu transferencia", "Planea tu pago"]
     },
     "europa": {
@@ -168,7 +207,7 @@
       ],
       "hard_limit": "Cuenta sin mantenimiento NO equivale a conversiones o transferencias gratis. La apertura en 48 horas es de la CUENTA: no del alta de beneficiarios, no de una aprobación universal, no de que el primer pago se acredite en ese plazo.",
       "vocabulary": ["cuenta", "apertura", "sin costo", "sin fee mensual", "banco", "compras"],
-      "cta": ["Abre tu cuenta multidivisa", "Reduce tus costos", "Pregúntale a Xending", "Cotiza con Xending"],
+      "cta": ["Abre tu cuenta multidivisa", "Reduce tus costos", "Pregúntale a Xending", "Cotiza con Xending", "Compara tus costos"],
       "cta_banned": ["Cambia de banco", "Cierra tu cuenta bancaria", "Abre tu cuenta gratis para siempre"]
     }
   },
@@ -484,7 +523,8 @@
       "subcopy": "La transferencia al fabricante puede enviarse el mismo día desde Xending.",
       "cta": "Ahorra tiempo al pagar",
       "angleLabel": "China: papeleo y tiempo del pago",
-      "angleTag": "PLATAFORMA_Y_DESTINOS",
+      "angleTag": "papeleo_evitado",
+      "subfamily": "PLATAFORMA_Y_DESTINOS",
       "corridor": "asia",
       "industry": "general_b2b",
       "legacyId": "INT-01",
@@ -495,7 +535,8 @@
       "subcopy": "Prepara la transferencia en la plataforma, sin mandar instrucciones por correo o teléfono.",
       "cta": "Reduce el trabajo manual",
       "angleLabel": "Radiadores: instrucciones por correo o teléfono",
-      "angleTag": "PLATAFORMA_Y_DESTINOS",
+      "angleTag": "papeleo_evitado",
+      "subfamily": "PLATAFORMA_Y_DESTINOS",
       "corridor": "asia",
       "industry": "automotriz",
       "legacyId": "INT-02",
