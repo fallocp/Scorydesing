@@ -1,0 +1,530 @@
+{
+  "kit_version": "plataforma-multidivisa-usa-v1",
+  "branch_slug": "plataforma-multidivisa-usa",
+  "branch_name": "Plataforma de pagos y cuenta multidivisa",
+  "source": "docs/01_xending_usa_plataforma_multidivisa_master_v2.md (xending-usa-master-v2.0). Capa común §1–§17 y conocimiento de rama §18–§22. Banco de 47 copys activos: 43 aprobados ES, 4 pendientes, 0 aprobados EN-US. Subfamilias medidas sobre el banco: PLATAFORMA_Y_DESTINOS 28, MONEDAS_Y_SALDOS 20.",
+
+  "editorial_objective": "Mostrar que una compra —nacional o internacional— se paga y sus monedas se manejan desde una misma plataforma, y qué trabajo concreto se evita al hacerlo. La pieza debe nombrar QUÉ simplifica en esa compra: preparar el pago sin correos ni formatos, sumar un proveedor de otro país, usar un saldo en euros, reunir pagos nacionales e internacionales, o abrir una cuenta sin costo. No convertir todos los apoyos en 'desde una misma plataforma'.",
+
+  "client_should_think": [
+    "Pagar esta compra no tiene que costarme una tarde de formatos y correos.",
+    "Puedo sumar un proveedor de otro país sin abrir otra cuenta bancaria.",
+    "Puedo pagar la factura en la moneda que realmente pide.",
+    "Mis pagos nacionales y los internacionales pueden vivir en el mismo lugar.",
+    "Puedo tener saldo en la moneda que voy a necesitar después.",
+    "No tengo que mover toda mi relación bancaria para usar esto."
+  ],
+
+  "positioning_must_communicate": [
+    "pagos nacionales e internacionales en el mismo trabajo de compras",
+    "cuenta multidivisa para mantener y usar distintas monedas",
+    "la factura se paga en la moneda que pide",
+    "menos papeleo e instrucciones manuales al preparar el pago",
+    "sumar países de compra sin sumar un portal por destino",
+    "cuenta sin costo de apertura ni mantenimiento",
+    "apertura en hasta 48 horas",
+    "alternativa a la banca habitual, sin sustituirla por completo"
+  ],
+
+  "positioning_must_not_be": [
+    "un banco, una licencia bancaria o una cuenta en cada país",
+    "una promesa de que cualquier país y cualquier giro están disponibles",
+    "un tutorial de tesorería",
+    "una comparación no sustentada contra bancos",
+    "publicidad de logística: Xending no controla embarques, aduanas ni producción",
+    "la historia de 'sin salir de la oficina'"
+  ],
+
+  "audience": {
+    "roles": ["dueño", "responsable de compras", "cuentas por pagar", "tesorero", "controller", "CFO"],
+    "company_profile": [
+      "empresa de Estados Unidos",
+      "foco comercial en Texas y California",
+      "compra a proveedores nacionales y de otros países",
+      "base presupuestal en USD"
+    ],
+    "seeks": [
+      "pagar la compra sin repetir trabajo manual",
+      "manejar la moneda que pide la factura",
+      "no multiplicar cuentas ni portales por destino"
+    ]
+  },
+
+  "allowed_situations": [
+    "un pedido ya colocado que hay que pagar",
+    "un proveedor nuevo en otro país",
+    "una factura en una moneda distinta al presupuesto",
+    "un anticipo y un saldo de la misma compra",
+    "una reposición que se repite con el mismo proveedor",
+    "pagos nacionales e internacionales en la misma semana de compras",
+    "instrucciones de pago que hoy se mandan por correo o teléfono",
+    "formatos que se llenan a mano para cada transferencia",
+    "un saldo en otra moneda que se usa en una compra posterior",
+    "la apertura de la cuenta como paso previo a la primera compra"
+  ],
+
+  "situation_framing_rule": "La situación es TENSIÓN, no amenaza ni culpa. El dolor de este comprador es el papeleo y las instrucciones manuales, no una visita física al banco: el usuario corrigió expresamente esa historia y no debe volver en español ni en EN-US. Prohibido afirmar que la mercancía está detenida por culpa del cliente o que el proveedor le dará el pedido a otro. Reencuadre correcto: 'Los radiadores ya están pedidos. Pagarlos no debería exigir más papeleo' en vez de 'si no pagas hoy pierdes el pedido'.",
+
+  "tone": {
+    "yes": ["empresarial", "directo", "concreto", "sobrio", "tranquilo", "de compras y no de finanzas"],
+    "no": ["alarmista", "bancario tradicional", "publicitario", "clase de tesorería", "abstracto", "instrucción al cliente"],
+    "tension": "moderada",
+    "hedging": "Condicional para cualquier tiempo o disponibilidad: 'puede enviarse', 'puede mantenerse'. Nunca absoluto sobre países, giros o acreditación."
+  },
+
+  "angles": {
+    "PLATAFORMA_Y_DESTINOS": {
+      "label": "Plataforma y destinos",
+      "premise": "La compra se paga desde la plataforma, y sumar un destino no obliga a rehacer la banca ni a abrir otro portal. Cubre el trabajo manual que se evita al preparar el pago: formatos, correos, instrucciones por teléfono.",
+      "note": "Es la subfamilia mayoritaria del banco: 28 de 48 registros. El apoyo debe decir QUÉ trabajo se evita, no repetir 'desde una misma plataforma'."
+    },
+    "MONEDAS_Y_SALDOS": {
+      "label": "Monedas y saldos",
+      "premise": "La factura se paga en la moneda que pide, y un saldo en otra moneda puede mantenerse para una compra posterior. Cubre la cuenta multidivisa y el uso del saldo.",
+      "note": "20 de 48 registros. Mantener un saldo y hacer una transferencia con conversión son funciones DISTINTAS: no fusionarlas en una sola promesa."
+    }
+  },
+
+  "angle_quota": {
+    "PLATAFORMA_Y_DESTINOS": 58,
+    "MONEDAS_Y_SALDOS": 42
+  },
+
+  "angle_quota_note": "Porcentaje objetivo, medido sobre la distribución real del banco aprobado (28 y 20 registros). Las dos subfamilias son el eje de `angle_tag` para esta rama; el campo `Ángulo` de la ficha es descripción libre y va en `angle_label`, no en `angle_tag`.",
+
+  "angle_rotation_note": "Dentro de cada subfamilia rotar entre los diez usos del §19: compra en otro país sin rehacer la banca; pago nacional e internacional en el mismo trabajo; la moneda que pide la factura; monedas disponibles para distintos proveedores; moneda comprada hoy y saldo usado después; cuenta sin costo; apertura en hasta 48 horas; papeleo e instrucciones que se evitan; ampliar países sin sumar portales; proveedor, anticipo o reposición concreta. No repetir uso antes de agotar los disponibles.",
+
+  "corridors": {
+    "domestico_usa": {
+      "label": "Proveedores en Estados Unidos",
+      "objective": "Mostrar que los pagos nacionales viven en el mismo lugar que los internacionales. Domésticos e internacionales ya no son ramas separadas: el destino aporta contexto, no una promesa distinta.",
+      "allowed_claims": [
+        "preparar pagos a proveedores de Estados Unidos",
+        "pagos nacionales e internacionales desde la misma plataforma",
+        "menos instrucciones manuales por pago"
+      ],
+      "vocabulary": ["proveedor", "factura", "pedido", "pago", "cuenta", "anticipo", "saldo", "compras"],
+      "cta": ["Simplifica tus pagos", "Paga a tu proveedor", "Paga a tus proveedores", "Ahorra tiempo al pagar", "Reduce el trabajo manual"],
+      "cta_banned": ["Paga internacionalmente", "Conoce la ruta", "Activa tu pago", "Organiza tus pagos"]
+    },
+    "asia": {
+      "label": "China, Japón y Asia",
+      "objective": "Pagar al fabricante asiático sin convertirlo en días de formatos y correos. Es el corredor con más presencia del banco después del doméstico.",
+      "allowed_claims": [
+        "preparar la transferencia al fabricante desde la plataforma",
+        "pagar en la moneda acordada con el proveedor",
+        "mantener saldo en la moneda de compras futuras"
+      ],
+      "hard_limit": "CNY y CNH no son intercambiables en fichas de producto. No afirmar presencia física de Xending en Asia ni usar el nombre 'Xending Asia'. La moneda sale del acuerdo con el proveedor, no de su país: hay piezas aprobadas de China facturadas en USD.",
+      "vocabulary": ["fabricante", "China", "Japón", "pedido", "embarque", "factura", "dólares", "yenes", "yuanes"],
+      "cta": ["Ahorra tiempo al pagar", "Paga a tu proveedor", "Simplifica tus pagos", "Reduce el trabajo manual", "Cotiza tu pago internacional"],
+      "cta_banned": ["Conoce Xending Asia", "Conoce la ruta", "Prepara tu transferencia", "Planea tu pago"]
+    },
+    "europa": {
+      "label": "Europa",
+      "objective": "Pagar en euros o mantener saldo en euros sin abrir una cuenta europea. Alemania, Italia y España son los destinos presentes en el banco.",
+      "allowed_claims": [
+        "pagar la factura en euros",
+        "mantener y usar un saldo en euros",
+        "sumar un proveedor europeo sin abrir otra cuenta bancaria"
+      ],
+      "hard_limit": "PROHIBIDO argumentar que para pagar en Europa hace falta abrir una cuenta europea o en euros. Mantener saldo en otra moneda y hacer una transferencia con conversión son funciones diferentes y no se fusionan.",
+      "vocabulary": ["euros", "Alemania", "Italia", "España", "proveedor europeo", "factura", "saldo"],
+      "cta": ["Administra tus monedas", "Abre tu cuenta multidivisa", "Simplifica tus pagos", "Paga a tu proveedor"],
+      "cta_banned": ["Abre tu cuenta en euros", "Conoce la ruta", "Activa tu saldo"]
+    },
+    "mexico": {
+      "label": "México",
+      "objective": "Pagar a un proveedor mexicano, con preferencia comercial por el pago en pesos cuando la factura o el acuerdo lo permitan.",
+      "allowed_claims": [
+        "preparar el pago al proveedor en México",
+        "pagar en pesos cuando la factura o el acuerdo lo permitan"
+      ],
+      "hard_limit": "El usuario pidió no promover USD→USD a México por defecto. Hablar de 'pagos' o precisar el pago en MXN cuando aplique. NO convertir silenciosamente a pesos una factura real en USD, y esta preferencia no autoriza inventar exposición cambiaria.",
+      "vocabulary": ["proveedor", "pesos", "México", "factura", "pago", "pedido"],
+      "cta": ["Paga a tu proveedor", "Simplifica tus pagos", "Ahorra tiempo al pagar"],
+      "cta_banned": ["Conoce la ruta", "Cambia tus dólares"]
+    },
+    "multi_moneda": {
+      "label": "Varias monedas a la vez",
+      "objective": "El punto de la pieza es tener más de una moneda disponible para distintos proveedores, no un destino en particular. Es el uso más propio de la cuenta multidivisa.",
+      "allowed_claims": [
+        "mantener y utilizar distintas monedas para compras",
+        "pagar a proveedores de varios países desde una cuenta",
+        "usar después un saldo comprado hoy"
+      ],
+      "hard_limit": "No enumerar el portafolio completo ni prometer 'todas las monedas'. No inferir un número de monedas: el §8 lo prohíbe expresamente.",
+      "vocabulary": ["monedas", "saldo", "proveedores", "cuenta multidivisa", "dólares", "euros", "yenes"],
+      "cta": ["Administra tus monedas", "Abre tu cuenta multidivisa", "Simplifica tus pagos"],
+      "cta_banned": ["Conoce todas nuestras monedas", "Activa tus divisas"]
+    },
+    "institucional": {
+      "label": "Institucional — la cuenta y la plataforma",
+      "objective": "Hablar de la cuenta en sí: apertura sin costo, sin mantenimiento, en hasta 48 horas, y como alternativa a la banca habitual sin trasladar toda la relación.",
+      "allowed_claims": [
+        "apertura y mantenimiento sin costo",
+        "apertura en hasta 48 horas",
+        "usar Xending sin trasladar toda la relación bancaria"
+      ],
+      "hard_limit": "Cuenta sin mantenimiento NO equivale a conversiones o transferencias gratis. La apertura en 48 horas es de la CUENTA: no del alta de beneficiarios, no de una aprobación universal, no de que el primer pago se acredite en ese plazo.",
+      "vocabulary": ["cuenta", "apertura", "sin costo", "sin fee mensual", "banco", "compras"],
+      "cta": ["Abre tu cuenta multidivisa", "Reduce tus costos", "Pregúntale a Xending", "Cotiza con Xending"],
+      "cta_banned": ["Cambia de banco", "Cierra tu cuenta bancaria", "Abre tu cuenta gratis para siempre"]
+    }
+  },
+
+  "corridor_quota": {
+    "domestico_usa": 20,
+    "asia": 22,
+    "europa": 22,
+    "mexico": 14,
+    "multi_moneda": 14,
+    "institucional": 8
+  },
+
+  "corridor_quota_note": "Medido sobre los países del banco aprobado: China 6 más combinaciones, Europa (Alemania, Italia, España) unas 12, Japón 7, México 8, Estados Unidos 7, y varias piezas multi-país. El §22 pide que China y Europa estén presentes cuando el pedido incluya diversidad de países, sin imponer moneda por país.",
+
+  "industries": {
+    "automotriz": { "angles": ["pedido ya colocado", "reposición de pieza", "anticipo y saldo", "proveedor nuevo de otro país"] },
+    "produce": { "angles": ["temporada de compra", "empaque y charolas", "proveedor de otro país", "pago recurrente al mismo productor"] },
+    "equipamiento_comercial": { "angles": ["apertura o remodelación", "pedido por lote", "equipo importado con anticipo"] },
+    "electronica": { "angles": ["componentes de Asia", "reposición de inventario", "varios proveedores por proyecto"] },
+    "solar_electrico": { "angles": ["equipo para obra", "pedido con anticipo", "proveedor europeo o asiático"] },
+    "manufactura": { "angles": ["insumo de producción", "herramental", "proveedor nuevo"] },
+    "industrial": { "angles": ["consumible recurrente", "refacción", "compra por volumen"] },
+    "general_b2b": { "angles": ["la cuenta y su apertura", "pagos nacionales e internacionales juntos", "monedas disponibles", "trabajo manual que se evita"] }
+  },
+
+  "verticalization": {
+    "rule": "Una pieza vertical nombra en el TITULAR un objeto o una operación industrial reconocible. La ficha interna no salva un titular genérico. Un solo objeto preciso basta: evitar listas de tres o cuatro productos para aparentar conocimiento del sector.",
+    "products_by_industry": {
+      "automotriz": ["arneses", "sensores", "balatas", "discos de freno", "rodamientos", "pistones", "radiadores", "módulos", "amortiguadores", "rótulas", "baterías de arranque", "moldes"],
+      "produce": ["aguacate", "fresas", "berries", "pimientos", "cítricos", "lechuga", "sandía", "mango", "pepino", "cajas", "charolas", "envases"],
+      "equipamiento_comercial": ["hornos", "refrigeración", "lavavajillas", "sillas", "mesas", "luminarias", "gabinetes", "lavadoras industriales", "terminales de venta"],
+      "electronica": ["tarjetas PCB", "chips", "pantallas", "conectores", "fuentes de poder", "módulos de cámara", "arneses de cable"],
+      "solar_electrico": ["inversores", "baterías de almacenamiento", "transformadores", "tableros", "interruptores", "cable", "cargadores de autos eléctricos"],
+      "manufactura": ["torno CNC", "centro CNC", "robot", "molde", "herramental", "compresor", "bomba", "caja reductora", "gabinete de control"],
+      "industrial": ["resina", "polímeros", "mangueras", "juntas", "sellos", "abrasivos", "filtros", "válvulas", "tornillería"]
+    },
+    "example": {
+      "headline": "Los radiadores ya están pedidos en China. Pagarlos no debería exigir más papeleo.",
+      "subline": "Prepara la transferencia en la plataforma, sin mandar instrucciones por correo o teléfono.",
+      "cta": "Reduce el trabajo manual"
+    },
+    "guard": "Estos productos son material de escenario. NO son evidencia de que un proveedor facture en una moneda determinada. No inventar proveedores reales, clientes, órdenes ni contratos.",
+    "default_share_pct": 55
+  },
+
+  "element_roles": {
+    "headline": "Presenta la compra, el contraste o la tensión. No contiene toda la solución, la marca y el cierre a la vez.",
+    "subline": "Añade la capacidad concreta que resuelve esa misma situación. No parafrasea el titular.",
+    "cta": "Propone la acción o el beneficio. No es una tercera forma de decir lo mismo.",
+    "correct_example": {
+      "headline": "Pagar a China no debería convertirse en días de formatos y correos.",
+      "subline": "La transferencia al fabricante puede enviarse el mismo día desde Xending.",
+      "cta": "Ahorra tiempo al pagar"
+    },
+    "incorrect_example": {
+      "headline": "Simplifica tus pagos internacionales con Xending.",
+      "subline": "Con Xending simplificas tus pagos internacionales desde una misma plataforma.",
+      "cta": "Simplifica tus pagos",
+      "why": "Los tres campos dicen lo mismo, no hay compra ni objeto, y la marca aparece tres veces. Falla la prueba de no redundancia del §4."
+    }
+  },
+
+  "formulas_allowed": [
+    "[Objeto] ya está pedido en [país]. Pagarlo no debería [trabajo manual]",
+    "Pagar a [país / proveedor] no debería convertirse en [trabajo manual]",
+    "[Objeto] se paga en [moneda]. [Capacidad]",
+    "Un proveedor más en [país] no tiene que significar [otra cuenta / otro portal]",
+    "[A] nacional y [B] internacional, en el mismo [trabajo / lugar]",
+    "La factura llega en [moneda]. [Capacidad]",
+    "[Saldo / moneda] de hoy, para la compra de [momento posterior]",
+    "Menos [trabajo manual]. Más [tiempo en lo que importa]"
+  ],
+
+  "banned_openings": [
+    "Con Xending",
+    "Desde una misma plataforma",
+    "Simplifica",
+    "Tu proveedor"
+  ],
+
+  "banned_openings_note": "Arranques saturados. 'Con Xending' no debe anteponerse a todos los renglones (§4) y 'desde una misma plataforma' es el apoyo por default que el §18 prohíbe expresamente. Cambiar el arranque, no la fórmula.",
+
+  "banned_phrases": [
+    "ejecución",
+    "orquestación",
+    "flujo operacional",
+    "payment run",
+    "project run",
+    "cutoff",
+    "pagos elegibles",
+    "ventana operativa",
+    "ventana de salida",
+    "ventana de pago",
+    "condición vigente",
+    "obligación futura",
+    "fragmentar tesorería",
+    "el pago vive dentro de una operación",
+    "sin salir de la oficina",
+    "sin ir al banco",
+    "una cuenta en cada país",
+    "todas las monedas",
+    "cualquier país",
+    "riel universal",
+    "cuenta bancaria en cada país",
+    "conversión gratuita",
+    "wires gratis",
+    "transferencias gratis",
+    "rendimiento del saldo",
+    "garantizado",
+    "sin riesgo",
+    "seamlessly",
+    "unlock",
+    "empower",
+    "revolutionize",
+    "financial journey",
+    "vendor"
+  ],
+
+  "banned_phrases_note": "Las primeras catorce son las muletillas del §5, comunes a las cinco ramas. 'sin salir de la oficina' y 'sin ir al banco' son la historia que el usuario corrigió expresamente en INT-02: el dolor es el papeleo y las instrucciones manuales, no una visita física. Las siguientes son los 'No inferir' de la tabla de producto del §18. 'vendor' y 'vendors' están prohibidos por el §5 en EN-US: usar supplier.",
+
+  "language_style": {
+    "locale": "es-US",
+    "note": "Español de trabajo para aprobar la idea, pero el escenario es estadounidense: la base presupuestal es USD y no se convierte a pesos porque la referencia de estilo sea mexicana. Nombra el objeto concreto —pedido, proveedor, factura, saldo, cuenta— en vez de una abstracción.",
+    "internal_terms_never_publish": [
+      "condición vigente",
+      "ventana operativa",
+      "ventana de salida",
+      "pagos elegibles",
+      "flujo operacional",
+      "obligación futura",
+      "rail",
+      "cutoff"
+    ],
+    "preferred_rewrites": {
+      "ejecución del pago": "el pago",
+      "orquestación de pagos": "preparar los pagos",
+      "ventana operativa": "horario aplicable",
+      "cutoff": "horario límite",
+      "pagos elegibles": "los pagos que aplican",
+      "flujo operacional": "el trabajo de compras",
+      "fragmentar tesorería": "repartir el dinero en varias cuentas",
+      "gratis": "sin costo"
+    }
+  },
+
+  "numbers_policy": {
+    "allowed": [
+      "apertura de cuenta en hasta 48 horas",
+      "apertura y mantenimiento sin costo"
+    ],
+    "requires": [
+      "ficha operativa vigente para cualquier plazo, tarifa o condición",
+      "validación de destino y moneda",
+      "validación de la semántica del claim"
+    ],
+    "banned": [
+      "número de monedas disponibles",
+      "número de países disponibles",
+      "porcentajes de ahorro",
+      "tarifas y diferenciales",
+      "el 3–5% como tarifa bancaria general",
+      "comparaciones contra 'una semana', '5–7 días' o '48 horas de demora' de bancos",
+      "plazos de acreditación al beneficiario"
+    ],
+    "principle": "En esta rama las dos únicas cifras confirmadas son las 48 horas de apertura y el costo cero de la cuenta. Todo lo demás es afirmación operativa y necesita ficha. El §8 prohíbe expresamente publicar el 3–5% mencionado como tarifa general."
+  },
+
+  "hard_business_rules": [
+    "Xending es una plataforma de pagos para empresas. No es un banco, prestamista, compañía logística, broker especulativo ni una aplicación de remesas personales.",
+    "No atribuir licencias, seguro de depósitos, rendimiento de saldos ni presencia física en países sin ficha vigente.",
+    "La cuenta multidivisa permite mantener y utilizar distintas monedas. NO es una cuenta bancaria en cada país ni una licencia bancaria.",
+    "Cuenta sin costo de apertura y mantenimiento NO equivale a conversión gratuita, wires gratis ni todas las operaciones sin tarifa.",
+    "La apertura en hasta 48 horas es de la CUENTA. No del alta de beneficiarios, no de una aprobación universal, no de que el primer pago se acredite en ese plazo.",
+    "Pagos nacionales e internacionales significa preparar pagos a proveedores de Estados Unidos y de otros países. NO significa todos los países, cualquier giro, riel universal ni recepción inmediata.",
+    "Usar Xending no obliga al cliente a cerrar cuentas ni a abrir una cuenta europea para enviar euros.",
+    "Mantener un saldo en otra moneda y hacer una transferencia con conversión son funciones DIFERENTES.",
+    "La moneda de la factura sale de la compra o del brief, nunca del país del proveedor.",
+    "No inferir moneda, dirección de conversión, plazo de pago ni necesidad de cobertura a partir del país.",
+    "Distinguir preparar, enviar, procesar, liquidar y acreditar. No son sinónimos, y no se cambia enviar por recibir para hacer más atractiva una pieza.",
+    "Una carga de pagos no equivale a una sola transferencia: si son varios pagos, no se presentan como uno.",
+    "Aprobar una compra no equivale a autorizar un pago.",
+    "El copy público no lleva disclaimers redactados libremente. El disclaimer se monta en la capa de publicación; sus controles siguen en los metadatos.",
+    "'Gratis' aparece en textos ya aprobados y se conserva. En piezas nuevas preferir 'sin costo' y 'sin fee mensual'. No borrar una aprobación por preferencia estilística."
+  ],
+
+  "capability_rule": {
+    "required_elements": [
+      "una compra o un momento de pago concreto",
+      "el trabajo o el costo que hoy implica",
+      "una capacidad concreta de Xending"
+    ],
+    "valid_capabilities": [
+      "preparar el pago desde la plataforma",
+      "pagar a proveedores de Estados Unidos y de otros países",
+      "mantener y utilizar distintas monedas",
+      "pagar la factura en la moneda acordada",
+      "usar después un saldo mantenido hoy",
+      "abrir la cuenta sin costo, en hasta 48 horas",
+      "cotizar la operación"
+    ],
+    "weak_examples": [
+      "Pagar a tu proveedor internacional es complicado. Organiza mejor tus pagos.",
+      "Cada país pide algo distinto. Prepara tu transferencia con tiempo.",
+      "Tienes proveedores en tres países. Revisa tus cuentas."
+    ],
+    "correct_examples": [
+      "Los radiadores ya están pedidos en China. Prepara la transferencia en la plataforma, sin mandar instrucciones por correo o teléfono.",
+      "La factura del proveedor italiano llega en euros. Puedes mantener el saldo y usarlo en la siguiente compra.",
+      "Un proveedor más en Alemania no tiene que significar otra cuenta bancaria. La cuenta multidivisa maneja la moneda que pide la factura."
+    ],
+    "note": "No basta con identificar el problema o asignarle una tarea al cliente. Xending tiene que aparecer como capacidad. La regla es COMPRA CONCRETA → TRABAJO O COSTO ACTUAL → CAPACIDAD CONCRETA DE XENDING."
+  },
+
+  "comparative_rule": {
+    "allowed": [
+      "Pagar esta compra puede tomar menos trabajo manual.",
+      "Los pagos nacionales y los internacionales pueden vivir en el mismo lugar.",
+      "La cuenta se abre sin costo de apertura ni mantenimiento.",
+      "Puedes sumar un proveedor de otro país sin abrir otra cuenta bancaria."
+    ],
+    "requires_review": [
+      "más rápido que tu banco",
+      "más barato que tu banco",
+      "sin los tiempos de la banca tradicional",
+      "menos intermediarios"
+    ],
+    "not_allowed": [
+      "Todos los bancos cobran lo mismo.",
+      "Tu banco tarda una semana.",
+      "Los bancos esconden costos ocultos.",
+      "Con Xending nunca hay papeleo.",
+      "Cualquier moneda, cualquier país."
+    ],
+    "principle": "La simplificación se comunica como capacidad propia. La superioridad frente a terceros hay que demostrarla, y el §8 prohíbe afirmar que todos los bancos cobran lo mismo o comparar contra plazos bancarios sin evidencia específica."
+  },
+
+  "claim_semantics": {
+    "allowed": [
+      "preparar y enviar el pago",
+      "mantener y utilizar monedas",
+      "abrir la cuenta",
+      "cotizar"
+    ],
+    "rule": "No transformar enviar en recibir, ni procesar en liquidar, para hacer más atractiva una pieza. Si la verdad operativa es que Xending envía el pago, no afirmar que el proveedor lo recibe en un plazo determinado.",
+    "source_of_truth": "La ficha operativa vigente. Las capacidades declaradas por el usuario son base editorial, no una auditoría independiente."
+  },
+
+  "cta_selection_rule": [
+    "Si el eje es el trabajo manual que se evita: 'Ahorra tiempo al pagar' o 'Reduce el trabajo manual'.",
+    "Si el eje son las monedas o el saldo: 'Administra tus monedas' — solo si el apoyo explica saldos, no si el titular presenta una transferencia.",
+    "Si el eje es la cuenta en sí: 'Abre tu cuenta multidivisa'.",
+    "Si el eje es la cuenta sin mantenimiento: 'Reduce tus costos' cierra bien, y no implica que toda transferencia sea gratuita.",
+    "Si el eje es el pago a un proveedor concreto: 'Paga a tu proveedor' o 'Paga a tus proveedores'.",
+    "Si es institucional o no puede prometerse un dato: 'Pregúntale a Xending' o 'Cotiza con Xending'.",
+    "El CTA puede repetirse entre piezas. Lo que no debe repetirse es la misma historia en todos los titulares."
+  ],
+
+  "cta_banned": [
+    "Activa tu cuenta",
+    "Inicia tu pago",
+    "Conoce la ruta",
+    "Cotiza tu ruta",
+    "Organiza tus pagos",
+    "Prepara tu transferencia",
+    "Planea tu pago",
+    "Cambia de banco",
+    "Conoce Xending Asia"
+  ],
+
+  "scope": [
+    "pagos a proveedores nacionales e internacionales",
+    "la cuenta multidivisa: mantener y usar monedas",
+    "la moneda que pide la factura",
+    "el trabajo manual de preparar un pago",
+    "sumar países de compra sin sumar portales",
+    "apertura de la cuenta, su costo y su plazo",
+    "anticipos, saldos y reposiciones de una compra",
+    "Xending como alternativa a la banca habitual, sin sustituirla"
+  ],
+
+  "branch_core_criterion": {
+    "must_not_feel": "Xending me está diciendo que me organice mejor, o me está vendiendo 'una misma plataforma' sin decirme qué me quita de encima.",
+    "must_feel": "Puedo pagar esta compra y manejar su moneda sin repetir trabajo manual ni abrir otra cuenta.",
+    "sells_capabilities": [
+      "pagar a proveedores de Estados Unidos y de otros países",
+      "mantener y utilizar distintas monedas",
+      "preparar el pago sin formatos ni instrucciones por correo",
+      "abrir la cuenta sin costo, en hasta 48 horas"
+    ],
+    "never": [
+      "prometer una cuenta bancaria en cada país",
+      "prometer todas las monedas o cualquier país",
+      "presentar la cuenta sin mantenimiento como operaciones gratis",
+      "recuperar la historia de 'sin salir de la oficina'"
+    ]
+  },
+
+  "batch_policy": {
+    "variety_note": "El §22 pide, en una tanda de 15, variedad entre al menos cuatro usos distintos de la plataforma. China y Europa deben estar presentes cuando el pedido incluya diversidad de países, sin imponer moneda por país. Produce y automotriz pueden tener más presencia por estrategia comercial, pero no todas las historias al mismo embarque.",
+    "anti_repetition": [
+      "No más de dos piezas consecutivas con el mismo razonamiento principal.",
+      "Ninguna fórmula más de tres o cuatro veces en una tanda de 15–30.",
+      "Que una apertura como 'Tu…', 'El…' o 'Cada…' no domine más de una quinta parte de la tanda.",
+      "Comparar similitud semántica, no solo palabras: 'una plataforma' y 'un mismo lugar' son la misma promesa.",
+      "No repetir precios, apertura y rapidez en cada anuncio: elegir un beneficio y demostrarlo."
+    ]
+  },
+
+  "gold_examples": [
+    {
+      "headline": "Pagar a China no debería convertirse en días de formatos y correos.",
+      "subcopy": "La transferencia al fabricante puede enviarse el mismo día desde Xending.",
+      "cta": "Ahorra tiempo al pagar",
+      "angleLabel": "China: papeleo y tiempo del pago",
+      "angleTag": "PLATAFORMA_Y_DESTINOS",
+      "corridor": "asia",
+      "industry": "general_b2b",
+      "legacyId": "INT-01",
+      "needsLegalNote": false
+    },
+    {
+      "headline": "Los radiadores ya están pedidos en China. Pagarlos no debería exigir más papeleo.",
+      "subcopy": "Prepara la transferencia en la plataforma, sin mandar instrucciones por correo o teléfono.",
+      "cta": "Reduce el trabajo manual",
+      "angleLabel": "Radiadores: instrucciones por correo o teléfono",
+      "angleTag": "PLATAFORMA_Y_DESTINOS",
+      "corridor": "asia",
+      "industry": "automotriz",
+      "legacyId": "INT-02",
+      "needsLegalNote": false
+    }
+  ],
+
+  "gold_examples_note": "Solo copys con Estado ES APROBADO del banco de esta rama, citados con su legacy_id para poder auditarlos contra el MD. NO inventar gold examples: el §11 dice que únicamente los APROBADO ES son referencia editorial, y `validateCopyV2` valida estos ejemplos contra `banned_phrases` con la regla `gold_banned`.",
+
+  "rejected_examples": [
+    { "text": "Paga a tu proveedor en China sin tener que ir al banco.", "reason": "el usuario corrigió esta historia en INT-02: estos compradores nunca van al banco, el dolor es el papeleo y las instrucciones manuales" },
+    { "text": "Una cuenta en cada país, sin abrir un banco en cada país.", "reason": "promete cuenta bancaria por país, que el §18 lista como 'no inferir'" },
+    { "text": "Abre tu cuenta gratis y paga sin comisiones.", "reason": "convierte cuenta sin mantenimiento en operaciones gratis" },
+    { "text": "Maneja todas las monedas del mundo desde un solo lugar.", "reason": "'todas las monedas' y un número de monedas están prohibidos por el §8" },
+    { "text": "Para pagar en Europa necesitas una cuenta en euros. Xending te la da.", "reason": "el §6 prohíbe expresamente este argumento" },
+    { "text": "Tu banco tarda una semana en enviar un pago internacional.", "reason": "comparación bancaria numérica sin evidencia, prohibida por el §8" },
+    { "text": "Simplifica tus pagos internacionales desde una misma plataforma con Xending.", "reason": "los tres campos dirían lo mismo; 'desde una misma plataforma' como apoyo por default está prohibido por el §18" },
+    { "text": "Organiza tus pagos y prepara tus transferencias con tiempo.", "reason": "asigna tarea al cliente sin que Xending aparezca como capacidad" }
+  ],
+
+  "final_test": [
+    { "question": "¿Se entiende qué compra y qué pago están en juego sin abrir la ficha?", "on_fail": "Nombrar el objeto o la operación en el titular." },
+    { "question": "¿El producto y el pago son cosas distintas en el texto?", "on_fail": "Separarlos: no se libera el pago como si fuera mercancía." },
+    { "question": "¿El apoyo aporta información nueva, o parafrasea el titular?", "on_fail": "Reescribir el apoyo con la capacidad concreta.", "automatable": true },
+    { "question": "¿El CTA cierra con un beneficio distinto al del titular?", "on_fail": "Elegir otro CTA de la lista del corredor." },
+    { "question": "¿Alguna moneda se infirió del país del proveedor?", "on_fail": "Quitar la moneda o tomarla del acuerdo de compra." },
+    { "question": "¿Hay alguna cifra que no sean las 48 horas de apertura o el costo cero de la cuenta?", "on_fail": "Quitarla o marcar la pieza para validación de producto.", "automatable": true },
+    { "question": "¿La cuenta sin mantenimiento se presentó como operaciones gratis?", "on_fail": "Reescribir: sin costo de apertura y mantenimiento, no de conversiones." }
+  ],
+
+  "closing_principle": "Esta rama vende que la compra se paga y su moneda se maneja en un mismo lugar, con menos trabajo manual. La prueba de una buena pieza es que el lector pueda nombrar QUÉ se le quita de encima. Si el apoyo solo dice 'desde una misma plataforma', la pieza todavía no está escrita."
+}
