@@ -42,32 +42,12 @@ export function IndustrySelector({ value, onChange }: IndustrySelectorProps) {
     );
   }
 
-  const autoSelected = value === 'auto';
-
   return (
     <div className="space-y-2">
       <label className="text-sm font-semibold text-foreground">
         Industria <span className="text-xs text-muted-foreground font-normal">(opcional)</span>
       </label>
       <div className="flex flex-wrap gap-2" role="listbox" aria-label="Industrias">
-        {/* Auto: cycle industries for maximum variety */}
-        <Badge
-          role="option"
-          aria-selected={autoSelected}
-          tabIndex={0}
-          title="Varía la industria en cada generación para máxima variedad"
-          variant={autoSelected ? 'default' : 'outline'}
-          className={cn(
-            'cursor-pointer px-3 py-1.5 text-xs transition-all select-none',
-            autoSelected
-              ? 'bg-[#2ED4C7] text-[#0F1419] border-[#2ED4C7] hover:bg-[#2ED4C7]/90'
-              : 'hover:bg-muted',
-          )}
-          onClick={() => onChange(autoSelected ? null : 'auto')}
-        >
-          ✨ Auto (variar)
-        </Badge>
-
         {verticals.map((v) => {
           const isSelected = value === v.id;
           return (
