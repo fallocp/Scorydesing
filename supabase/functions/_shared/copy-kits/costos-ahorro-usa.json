@@ -1,0 +1,544 @@
+{
+  "kit_version": "costos-ahorro-usa-v1",
+  "branch_slug": "costos-ahorro-usa",
+  "branch_name": "Costos y ahorro",
+  "source": "docs/03_xending_usa_costos_ahorro_master_v2.md (xending-usa-master-v2.0). Capa común §1–§17 y conocimiento de rama §18–§23. Banco de 70 copys activos: 70 aprobados ES, 0 pendientes, 0 aprobados EN-US. Subfamilias del banco, 15 cada una: ACH_FEES, BENEFICIARIOS, CONVERSION_Y_COSTO, CUENTAS_PLATAFORMA_ACCESOS, WIRE_FEES.",
+
+  "editorial_objective": "Mostrar CUÁNTO CUESTA PAGAR: comisión de envío, ACH, administración de beneficiarios, cuentas, plataforma, accesos y conversión. El beneficio es cuidar o reducir costo, margen o utilidad. No acusar al banco y no prometer una tarifa universal.",
+
+  "client_should_think": [
+    "Pagar tiene un costo y puedo verlo por separado del importe del proveedor.",
+    "Vale la pena comparar antes de pagar este pedido.",
+    "Una comisión pequeña que se repite sí cambia mi costo del mes.",
+    "Puedo comparar sin mudar toda mi banca.",
+    "Mantener registrados a mis proveedores no tiene que costarme una mensualidad."
+  ],
+
+  "positioning_must_communicate": [
+    "el costo de pagar es distinto del importe que cobra el proveedor",
+    "tarifas competitivas",
+    "cuenta sin costo de apertura ni mantenimiento",
+    "mantener beneficiarios registrados no genera un cargo mensual por registro",
+    "conviene una segunda cotización antes de pagar",
+    "el tipo de cambio también es parte del costo de la compra"
+  ],
+
+  "positioning_must_not_be": [
+    "una acusación al banco",
+    "una promesa de tarifa universal o de ahorro garantizado",
+    "un benchmark numérico contra bancos",
+    "la historia de que todas las tarifas son ocultas o fraudulentas",
+    "una demostración con el proveedor recibiendo menos dinero",
+    "un tutorial que solo dice revisa, calcula o analiza"
+  ],
+
+  "audience": {
+    "roles": ["dueño", "responsable de compras", "cuentas por pagar", "controller", "CFO", "tesorero"],
+    "company_profile": [
+      "empresa de Estados Unidos",
+      "foco comercial en Texas y California",
+      "paga a proveedores nacionales y de otros países",
+      "base presupuestal en USD"
+    ],
+    "seeks": ["saber cuánto le cuesta pagar", "cuidar margen y utilidad", "comparar sin cambiar de banco"]
+  },
+
+  "allowed_situations": [
+    "una segunda cotización antes de pagar",
+    "costos por unidad de un pedido grande",
+    "el costo del pedido completo",
+    "volumen que repite una diferencia pequeña",
+    "una temporada de compras",
+    "repetición semanal o mensual del mismo pago",
+    "varias etapas de pago de una misma compra",
+    "cuentas que se mantienen sin uso diario",
+    "beneficiarios que permanecen registrados",
+    "costos que aparecen antes de transferir",
+    "una conversión para comprar equipo",
+    "comparar sin mudar toda la banca"
+  ],
+
+  "situation_framing_rule": "El costo se muestra, no se denuncia. El foco es el costo del EMISOR y las capacidades de Xending, nunca controlar cargos de terceros. Prohibido representar el costo como dinero que desaparece del monto del beneficiario, y prohibido presentar todas las tarifas como ocultas o fraudulentas. Que un banco cobre por beneficiarios, usuarios o plataforma tiene que corresponder a un producto bancario real: no se generaliza.",
+
+  "tone": {
+    "yes": ["empresarial", "directo", "concreto", "sobrio", "analítico sin ser académico"],
+    "no": ["acusatorio", "alarmista", "publicitario", "clase de finanzas", "conspirativo sobre los bancos"],
+    "tension": "moderada",
+    "hedging": "Condicional en todo efecto económico: 'puede influir', 'puede hacer diferencia'. Nunca 'ahorras', 'siempre es más barato' ni un porcentaje."
+  },
+
+  "angles": {
+    "wire": {
+      "label": "Comisión por transferencia",
+      "premise": "La comisión de enviar un wire, y el efecto de repetirla.",
+      "note": "Separar el IMPORTE del proveedor del COSTO DE ENVIAR. Son dos cosas y la pieza no las mezcla."
+    },
+    "ach_salida": {
+      "label": "ACH de salida",
+      "premise": "La tarifa de los pagos domésticos.",
+      "note": "Separar el pago individual de la carga de instrucciones. Si la historia es el archivo o el lote, la rama es Masivos."
+    },
+    "beneficiarios": {
+      "label": "Beneficiarios",
+      "premise": "Lo que cuesta mantener registrados a los proveedores.",
+      "note": "Separar REGISTRAR de ENVIARLES DINERO. El beneficio confirmado es que mantener beneficiarios no genera cargo mensual por registro."
+    },
+    "cuenta_y_saldos": {
+      "label": "Cuenta y saldos",
+      "premise": "El costo fijo de mantener una cuenta, y el de mantener una por moneda.",
+      "note": "Separar cuenta sin costo de tarifa de pagos y conversión. La cuenta sin mantenimiento NO implica operaciones gratis."
+    },
+    "plataforma_accesos": {
+      "label": "Plataforma y accesos",
+      "premise": "La mensualidad o el cargo por acceso cuando el servicio lo cobra.",
+      "note": "Separar el cargo FIJO del TRANSACCIONAL. No introducir margen ficticio en una pieza que solo habla de acceso al portal."
+    },
+    "tipo_de_cambio": {
+      "label": "Tipo de cambio",
+      "premise": "Lo que cuesta convertir dólares a otra moneda para pagar la factura.",
+      "note": "Separar COTIZACIÓN CAMBIARIA de COMISIÓN DE TRANSFERENCIA. Tipo de cambio actual es de esta rama; un forward para un pago posterior es Coberturas, aunque ambos digan FX."
+    },
+    "volumen_y_recurrencia": {
+      "label": "Volumen y recurrencia",
+      "premise": "El efecto de repetir una diferencia pequeña muchas veces.",
+      "note": "Separar la diferencia ILUSTRATIVA del ahorro ATRIBUIDO a Xending. El §22 avisa: no hacer quince variaciones de 'una comisión pequeña se acumula'."
+    },
+    "costo_completo": {
+      "label": "Costo completo",
+      "premise": "Sumar los componentes que sí aplican a esa compra concreta.",
+      "note": "No inventar costos que no existen para ese caso."
+    }
+  },
+
+  "angle_quota_note": "Los ocho ángulos son las subfamilias conceptuales del §19 y son el eje de `angle_tag`. El banco las agrupa en cinco al guardarlas —CUENTAS_PLATAFORMA_ACCESOS junta cuenta y plataforma; CONVERSION_Y_COSTO junta tipo de cambio, volumen y costo completo— así que el eje de generación es más fino que el de almacenamiento. El §22 pide alternar estructura del costo, comparación, compra concreta, recurrencia, costo fijo y costo por pago.",
+
+  "angle_rotation_note": "Agotar los ocho antes de repetir. `volumen_y_recurrencia` es el que más fácil se sobreusa: el §22 lo dice explícito.",
+
+  "subfamilies": {
+    "WIRE_FEES": "15 registros. Prefijo WIRE-. Cubre el ángulo wire.",
+    "ACH_FEES": "15 registros. Prefijo ACHF-. Cubre ach_salida.",
+    "BENEFICIARIOS": "15 registros. Prefijo BEN-. Cubre beneficiarios.",
+    "CUENTAS_PLATAFORMA_ACCESOS": "15 registros. Prefijo FIJO-. Junta cuenta_y_saldos y plataforma_accesos.",
+    "CONVERSION_Y_COSTO": "15 registros. Prefijo FX-. Junta tipo_de_cambio, volumen_y_recurrencia y costo_completo."
+  },
+
+  "subfamilies_note": "Eje controlado del campo `Subfamilia actual`, cinco valores de 15 registros cada uno. Va a `copy_bank_items.formula`. NO existe la subfamilia 'Instant / Same-Day Payment Fees': el usuario la excluyó expresamente, porque la rapidez se vende como ventaja y no como una historia de pagar extra para que el dinero vaya rápido.",
+
+  "corridors": {
+    "domestico_usa": {
+      "label": "Pagos domésticos en Estados Unidos",
+      "objective": "El costo de pagar dentro de Estados Unidos: ACH, wire doméstico, la tarifa que se repite cada semana.",
+      "allowed_claims": ["tarifas competitivas", "una tarifa competitiva puede hacer diferencia cuando la compra se repite"],
+      "hard_limit": "No publicar una tarifa concreta: no hay tabla de tarifas de Xending por país, riel ni volumen. No inventar montos ni porcentajes.",
+      "vocabulary": ["ACH", "comisión", "tarifa", "pago doméstico", "proveedor", "costo mensual", "temporada"],
+      "cta": ["Reduce tus costos", "Cuida tus costos", "Cotiza tus pagos domésticos", "Compara el costo real", "Compara antes de pagar"],
+      "cta_banned": ["Ahorra garantizado", "Calcula tu ahorro", "Deja de pagar comisiones"]
+    },
+    "internacional_general": {
+      "label": "Pagos al extranjero, sin destino específico",
+      "objective": "El costo de enviar al exterior cuando la pieza no nombra un país. Es el bloque más grande del banco junto con el doméstico.",
+      "allowed_claims": ["la comisión de cada transferencia puede influir en lo que gastas al mes", "tarifas competitivas", "conviene una segunda cotización"],
+      "hard_limit": "Prohibido el 3–5% como afirmación general, prohibido cualquier benchmark numérico contra bancos y prohibida toda promesa de ahorro.",
+      "vocabulary": ["wire", "comisión", "transferencia", "proveedor", "costo de enviar", "importe", "costo del mes"],
+      "cta": ["Reduce tus costos", "Cotiza el costo completo", "Compara el costo completo", "Compara el costo real", "Pide una segunda cotización", "Cotiza tu próximo pago", "Cuida tu utilidad", "Cotiza costo y velocidad"],
+      "cta_note": "'Cotiza costo y velocidad' es la única del banco que cruza a Velocidad. Existe aprobada y se conserva; no autoriza convertir la rama en promesas de tiempo.",
+      "cta_banned": ["Ahorra hasta 70%", "Calcula tu ahorro", "Descubre cuánto pierdes con tu banco"]
+    },
+    "europa": {
+      "label": "Europa",
+      "objective": "Convertir a euros y el costo de mantener saldo o cuenta en esa moneda. Alemania e Italia son los destinos del banco.",
+      "allowed_claims": ["la cuenta multidivisa permite mantener distintas monedas sin comisión de cuenta", "comparar cuántos dólares necesitas para pagar en euros"],
+      "hard_limit": "Cuenta sin comisión de cuenta NO es conversión sin costo. Y no argumentar que hace falta abrir una cuenta europea.",
+      "vocabulary": ["euros", "conversión", "tipo de cambio", "Alemania", "Italia", "cuenta", "mantenimiento"],
+      "cta": ["Reduce tus costos", "Compara tu tipo de cambio", "Cotiza el costo completo", "Abre tu cuenta multidivisa"],
+      "cta_banned": ["Cambia sin costo", "Tipo de cambio sin comisión"]
+    },
+    "asia": {
+      "label": "China y Japón",
+      "objective": "El costo de convertir a yenes o yuanes para pagar un pedido, normalmente con escala por pieza o por volumen.",
+      "allowed_claims": ["comparar cuántos dólares necesitas para liquidar el pedido en la moneda de la factura", "el tipo de cambio se refleja en el costo por pieza"],
+      "hard_limit": "CNY y CNH no son intercambiables. No publicar tasas spot ni forward: el §22 prohíbe incorporar cifras de mercado al banco.",
+      "vocabulary": ["yenes", "yuanes", "tipo de cambio", "conversión", "costo por pieza", "pedido", "volumen"],
+      "cta": ["Reduce tus costos", "Compara tu tipo de cambio", "Cuida tu margen", "Cuida tu utilidad", "Pide una segunda cotización"],
+      "cta_banned": ["Asegura el mejor tipo de cambio", "Cambia al mejor precio"]
+    },
+    "mexico": {
+      "label": "México",
+      "objective": "El costo de pagar a un proveedor mexicano, con preferencia por el pago en pesos cuando la factura o el acuerdo lo permitan.",
+      "allowed_claims": ["comparar el costo de pagar en la moneda del acuerdo"],
+      "hard_limit": "No promover USD→USD a México por defecto. No convertir silenciosamente a pesos una factura real en USD, y esta preferencia no autoriza inventar exposición cambiaria.",
+      "vocabulary": ["pesos", "México", "proveedor", "costo", "conversión"],
+      "cta": ["Reduce tus costos", "Compara el costo real", "Cuida tu margen"],
+      "cta_banned": ["Cambia sin costo"]
+    }
+  },
+
+  "corridor_quota": {
+    "domestico_usa": 30,
+    "internacional_general": 34,
+    "europa": 14,
+    "asia": 12,
+    "mexico": 10
+  },
+
+  "corridor_quota_note": "Medido sobre el banco: Estados Unidos 21, Estados Unidos/extranjero 17, Europa 6, China 4, Japón 4, México 4. Monedas: USD 52, EUR 8, JPY 4, CNY 3. Esta rama es predominantemente USD y doméstica.",
+
+  "industries": {
+    "general_b2b": { "angles": ["wire", "beneficiarios", "cuenta_y_saldos", "plataforma_accesos", "volumen_y_recurrencia", "costo_completo"] },
+    "automotriz": { "angles": ["tipo_de_cambio", "volumen_y_recurrencia", "costo_completo", "wire"] },
+    "produce": { "angles": ["ach_salida", "volumen_y_recurrencia", "wire"] },
+    "equipamiento_comercial": { "angles": ["costo_completo", "tipo_de_cambio", "cuenta_y_saldos"] },
+    "electronica": { "angles": ["tipo_de_cambio", "volumen_y_recurrencia"] },
+    "industrial": { "angles": ["wire", "volumen_y_recurrencia", "ach_salida"] },
+    "manufactura": { "angles": ["costo_completo", "tipo_de_cambio"] },
+    "solar_electrico": { "angles": ["costo_completo", "tipo_de_cambio"] }
+  },
+
+  "verticalization": {
+    "rule": "En un copy de costos fijos puramente general NO se fuerza una industria: el §7 lo dice explícito, y por eso 36 de los 70 registros son General B2B. Cuando la pieza sí es vertical, el objeto va en el titular.",
+    "products_by_industry": {
+      "automotriz": ["rodamientos", "balatas", "discos de freno", "arneses", "sensores", "radiadores", "pistones"],
+      "produce": ["cajas", "charolas", "envases", "aguacate", "fresas", "cítricos", "pepino"],
+      "equipamiento_comercial": ["hornos", "refrigeración", "luminarias", "gabinetes", "terminales de venta"],
+      "electronica": ["pantallas", "tarjetas PCB", "chips", "conectores"],
+      "industrial": ["resina", "polímeros", "abrasivos", "filtros", "válvulas", "tornillería"],
+      "manufactura": ["torno CNC", "molde", "herramental", "compresor"],
+      "solar_electrico": ["inversores", "baterías de almacenamiento", "transformadores", "tableros"]
+    },
+    "example": {
+      "headline": "Rodamientos por cientos. El tipo de cambio también se refleja en el costo por pieza.",
+      "subline": "Una segunda cotización permite comparar cuántos dólares necesitas para liquidar el pedido en yenes.",
+      "cta": "Reduce tus costos"
+    },
+    "guard": "Los objetos son material de escenario y no prueban la moneda de un proveedor. No inventar proveedores, clientes ni contratos.",
+    "default_share_pct": 48
+  },
+
+  "element_roles": {
+    "headline": "Presenta el costo o el contraste: qué se paga y por qué se nota.",
+    "subline": "Explica una capacidad o una alternativa real de Xending. NO puede ser solo 'revisa', 'calcula' o 'analiza'.",
+    "cta": "Cierra con el efecto financiero: costo, margen o utilidad.",
+    "correct_example": {
+      "headline": "Agregar un proveedor no debería agregar una mensualidad bancaria.",
+      "subline": "En Xending, mantener beneficiarios no genera un cargo mensual por cada registro.",
+      "cta": "Reduce tus costos"
+    },
+    "incorrect_example": {
+      "headline": "Los bancos cobran de 3 a 5% en cada transferencia.",
+      "subline": "Calcula cuánto estás perdiendo y ahorra con Xending.",
+      "cta": "Calcula tu ahorro",
+      "why": "Publica el 3–5% como afirmación general, que el §20 prohíbe; el apoyo solo manda a calcular sin ofrecer capacidad; y promete ahorro."
+    }
+  },
+
+  "formulas_allowed": [
+    "Un fee por [X] parece pequeño. [Cantidad] ya hacen la diferencia",
+    "Agregar [un proveedor] no debería agregar [un cargo]",
+    "[Objeto] por cientos. El tipo de cambio también se refleja en [el costo por pieza]",
+    "Pagas [objeto] por [riel] cada [periodo]. Cada comisión entra al costo mensual",
+    "Una cuenta en [moneda] y otra en [moneda]. ¿También dos [cargos]?",
+    "[Importe del proveedor] es una cosa. [Costo de enviarlo] es otra",
+    "Antes de pagar [pedido], vale comparar [componente del costo]",
+    "[Costo fijo] no depende de [cuántos pagos hagas]"
+  ],
+
+  "banned_openings": [
+    "Con Xending",
+    "Tu banco",
+    "Los bancos",
+    "Ahorra",
+    "Calcula"
+  ],
+
+  "banned_openings_note": "'Tu banco' y 'Los bancos' como arranque empujan a la acusación, que el §18 prohíbe. 'Ahorra' y 'Calcula' de apertura convierten la pieza en promesa o en tarea. Cambiar el arranque, no la fórmula.",
+
+  "banned_phrases": [
+    "ejecución",
+    "orquestación",
+    "flujo operacional",
+    "payment run",
+    "project run",
+    "cutoff",
+    "pagos elegibles",
+    "ventana operativa",
+    "ventana de salida",
+    "condición vigente",
+    "obligación futura",
+    "fragmentar tesorería",
+    "el pago vive dentro de una operación",
+    "costos ocultos",
+    "comisiones ocultas",
+    "tarifas ocultas",
+    "cargos ocultos",
+    "siempre más barato",
+    "sin comisiones",
+    "transferencia sin comisión",
+    "sin ningún costo",
+    "los bancos cobran",
+    "todos los bancos",
+    "3-5%",
+    "3 a 5%",
+    "te está robando",
+    "estás perdiendo",
+    "gratis para siempre",
+    "garantizado",
+    "sin riesgo",
+    "seamlessly",
+    "unlock",
+    "empower",
+    "revolutionize",
+    "financial journey",
+    "vendor"
+  ],
+
+  "banned_phrases_note": "Las primeras trece son las muletillas del §5. 'costos ocultos' y sus variantes están prohibidas porque el §20 prohíbe presentar todas las tarifas como ocultas o fraudulentas, y porque es exactamente la frase con la que el kit de México se contradijo. 'transferencia sin comisión' fue rechazada expresamente por el usuario como apertura de FX-04 y no se reintroduce. '3-5%' y '3 a 5%' están prohibidas por el §20: el usuario mencionó ese rango pero pidió no expresarlo como afirmación general.",
+
+  "language_style": {
+    "locale": "es-US",
+    "note": "Español de trabajo, escenario estadounidense. Nombrar el componente del costo con precisión: comisión de transferencia, tarifa de ACH, cargo por registro, comisión de cuenta, tipo de cambio. No decir 'fees' en general cuando se puede decir cuál.",
+    "internal_terms_never_publish": ["pagos elegibles", "ventana operativa", "rail", "cutoff", "condición vigente", "flujo operacional"],
+    "preferred_rewrites": {
+      "costos ocultos": "el costo de pagar",
+      "comisiones ocultas": "las comisiones que aplican",
+      "sin comisiones": "sin comisión de cuenta",
+      "ahorro garantizado": "puede hacer diferencia",
+      "ejecución del pago": "el pago",
+      "gratis": "sin costo"
+    }
+  },
+
+  "claim_semantics": {
+    "allowed": ["tarifas competitivas", "cuenta sin costo de apertura ni mantenimiento", "sin cuota mensual por mantener cada beneficiario"],
+    "rule": "Estas tres capacidades las confirmó el usuario y pueden comunicarse. Lo que NO existe aquí es una tabla de tarifas de Xending por país, riel o volumen: no inventar montos ni porcentajes. La cuenta sin mantenimiento no equivale a pagos ni conversiones sin costo.",
+    "source_of_truth": "La ficha comercial vigente es el control para publicar cualquiera de las tres."
+  },
+
+  "numbers_policy": {
+    "allowed": ["escenarios numéricos SOLO con datos externos al copy y con fuente"],
+    "requires": ["fuente del dato", "periodo", "corredor cuando aplique", "validación comercial"],
+    "banned": [
+      "tasas spot y forward",
+      "porcentajes de ahorro",
+      "cobros inventados",
+      "el 3–5% como tarifa bancaria general",
+      "tarifas de Xending por país, riel o volumen",
+      "comparaciones numéricas contra bancos"
+    ],
+    "principle": "La aritmética de un escenario no prueba desempeño comercial. El §22 es explícito: el banco no incorpora tasas spot, forward, porcentaje de ahorro ni cobro inventado."
+  },
+
+  "hard_business_rules": [
+    "Xending es una plataforma de pagos para empresas. No es un banco ni un broker.",
+    "El foco es el costo del EMISOR y las capacidades de Xending, no controlar cargos de terceros.",
+    "No representar el costo como dinero que desaparece del monto del beneficiario.",
+    "No presentar todas las tarifas como ocultas o fraudulentas.",
+    "No afirmar que todos los bancos cobran lo mismo.",
+    "No publicar 'los bancos cobran 3–5%'. El usuario mencionó ese rango pero pidió no expresarlo como afirmación general, ni como benchmark, comparación numérica o promesa de ahorro.",
+    "Que un banco cobre por beneficiarios, usuarios o plataforma debe corresponder a un producto bancario real. No generalizar.",
+    "No hay tabla de tarifas de Xending por país, riel ni volumen. No inventar montos ni porcentajes.",
+    "La cuenta sin mantenimiento es un beneficio permitido. NO equivale a transferencias ni conversiones sin costo.",
+    "'Transferencia sin comisión' fue rechazada como premisa. No reintroducirla en piezas nuevas.",
+    "Ese rechazo NO elimina la diferencia conceptual entre tipo de cambio y comisión: siguen siendo dos cosas distintas y hay que separarlas.",
+    "Tipo de cambio actual es de esta rama cuando el argumento es el costo de comprar o convertir. El forward para un pago posterior es Coberturas, aunque ambos digan FX.",
+    "No usar 'Instant / Same-Day Payment Fees' como subfamilia: el usuario la excluyó. La rapidez es ventaja, no una historia de pagar extra por prisa.",
+    "El apoyo no puede ser solo 'revisa', 'calcula' o 'analiza'. Debe explicar una capacidad o una alternativa real, aunque el CTA invite a comparar.",
+    "'Reduce tus costos' es el cierre preferido, y el apoyo no debe convertirlo en garantía de que Xending siempre es más barato.",
+    "El CTA puede hablar de utilidad o margen solo si el titular plantea volumen, precio de venta o costo de compra. No introducir margen ficticio en una pieza de acceso al portal.",
+    "El copy público no lleva disclaimers redactados libremente. Se montan en la capa de publicación.",
+    "Los cinco rechazos de esta revisión (FX-04, ACHF-05, ACHF-06, ACHF-14, BEN-05) no traen motivo salvo FX-04. No inventar por qué se rechazaron ni convertir el rechazo de una frase en prohibición de toda la capacidad."
+  ],
+
+  "capability_rule": {
+    "required_elements": [
+      "un componente de costo concreto y nombrado",
+      "la situación de compra donde ese costo aparece",
+      "una capacidad o alternativa real de Xending"
+    ],
+    "valid_capabilities": [
+      "tarifas competitivas",
+      "cuenta sin costo de apertura ni mantenimiento",
+      "mantener beneficiarios sin cargo mensual por registro",
+      "mantener distintas monedas sin comisión de cuenta",
+      "dar una segunda cotización para comparar",
+      "cotizar el costo completo de la compra"
+    ],
+    "weak_examples": [
+      "Las comisiones se acumulan. Calcula cuánto pagas al año.",
+      "Tu costo de pagar es más alto de lo que crees. Analízalo.",
+      "Revisa tus estados de cuenta y descubre los cargos."
+    ],
+    "correct_examples": [
+      "Un fee por wire parece pequeño. La comisión de cada transferencia puede influir en lo que gastas al mes para pagar a tus proveedores.",
+      "Agregar un proveedor no debería agregar una mensualidad bancaria. En Xending, mantener beneficiarios no genera un cargo mensual por cada registro.",
+      "Una cuenta en euros y otra en yenes. La cuenta multidivisa de Xending permite mantener distintas monedas sin comisión de cuenta."
+    ],
+    "note": "La regla es COMPONENTE DE COSTO → SITUACIÓN DE COMPRA → CAPACIDAD REAL. Un copy que solo manda a calcular no cumple."
+  },
+
+  "comparative_rule": {
+    "allowed": [
+      "La comisión de cada transferencia puede influir en lo que gastas al mes.",
+      "Una tarifa competitiva puede hacer diferencia cuando la compra se repite.",
+      "Una segunda cotización permite comparar.",
+      "Puedes comparar sin mudar toda tu banca."
+    ],
+    "requires_review": ["más barato que tu banco", "tarifas más bajas del mercado", "el mejor tipo de cambio"],
+    "not_allowed": [
+      "Los bancos cobran de 3 a 5%.",
+      "Todos los bancos cobran lo mismo.",
+      "Xending siempre es más barato.",
+      "Ahorra hasta 70% en tus transferencias.",
+      "Tu banco te está robando."
+    ],
+    "principle": "El costo propio se comunica; la superioridad frente a terceros se demuestra. Y la comparación se invita, no se resuelve con una cifra inventada."
+  },
+
+  "cta_selection_rule": [
+    "'Reduce tus costos' es el cierre preferido de la rama: 41 de las 70 piezas aprobadas lo usan.",
+    "Si el titular plantea volumen, precio de venta o costo de compra: 'Cuida tu margen' o 'Cuida tu utilidad'.",
+    "Si la pieza suma componentes: 'Cotiza el costo completo' o 'Compara el costo completo'.",
+    "Si invita a contrastar antes de pagar: 'Compara antes de pagar', 'Compara el costo real' o 'Pide una segunda cotización'.",
+    "Si el eje es la conversión: 'Compara tu tipo de cambio'.",
+    "Si el eje son pagos domésticos: 'Cotiza tus pagos domésticos'.",
+    "No usar margen o utilidad en una pieza que solo habla de acceso al portal."
+  ],
+
+  "cta_banned": [
+    "Calcula tu ahorro",
+    "Ahorra garantizado",
+    "Ahorra hasta 70%",
+    "Descubre cuánto pierdes con tu banco",
+    "Deja de pagar comisiones",
+    "Compara tu costo real vs tu banco",
+    "Asegura el mejor tipo de cambio",
+    "Revisa tus estados de cuenta"
+  ],
+
+  "scope": [
+    "comisión de envío y de wire",
+    "tarifa de ACH de salida",
+    "costo de administrar beneficiarios",
+    "costo fijo de cuentas y saldos",
+    "mensualidad de plataforma y accesos",
+    "costo de convertir a otra moneda",
+    "efecto del volumen y la recurrencia",
+    "suma del costo completo de una compra",
+    "margen y utilidad como efecto del costo de pagar"
+  ],
+
+  "branch_core_criterion": {
+    "must_not_feel": "Xending está acusando a mi banco, o me está mandando a calcular sin ofrecerme nada.",
+    "must_feel": "Ahora veo qué me cuesta pagar, y hay una alternativa concreta que puedo comparar.",
+    "sells_capabilities": [
+      "tarifas competitivas",
+      "cuenta sin costo de apertura ni mantenimiento",
+      "beneficiarios sin cargo mensual por registro",
+      "segunda cotización para comparar"
+    ],
+    "never": [
+      "publicar el 3–5% como tarifa bancaria general",
+      "prometer un porcentaje de ahorro",
+      "presentar las tarifas como fraude",
+      "mostrar al proveedor recibiendo menos dinero"
+    ]
+  },
+
+  "batch_policy": {
+    "variety_note": "El §22: no producir quince variaciones de 'una comisión pequeña se acumula'. Alternar estructura del costo, comparación, compra concreta, recurrencia, costo fijo y costo por pago.",
+    "anti_repetition": [
+      "No más de dos piezas consecutivas con el mismo componente de costo.",
+      "Ninguna fórmula más de tres o cuatro veces en una tanda de 15–30.",
+      "'Reduce tus costos' domina el banco aprobado; en tandas nuevas repartir con los otros CTA de efecto financiero.",
+      "Comparar similitud semántica, no solo palabras.",
+      "No forzar industria en una pieza de costo fijo puramente general."
+    ]
+  },
+
+  "gold_examples": [
+    {
+      "headline": "Un fee por wire parece pequeño. Cientos de wires ya hacen la diferencia.",
+      "subcopy": "La comisión de cada transferencia puede influir en lo que gastas al mes para pagar a tus proveedores.",
+      "cta": "Reduce tus costos",
+      "angleLabel": "Acumulación aprobada",
+      "angleTag": "wire",
+      "subfamily": "WIRE_FEES",
+      "corridor": "internacional_general",
+      "industry": "general_b2b",
+      "legacyId": "WIRE-01",
+      "needsLegalNote": false
+    },
+    {
+      "headline": "Pagas cajas para fruta por ACH cada semana. Cada comisión entra al costo mensual.",
+      "subcopy": "Una tarifa competitiva puede hacer diferencia cuando la compra se repite durante toda la temporada.",
+      "cta": "Reduce tus costos",
+      "angleLabel": "Frecuencia semanal",
+      "angleTag": "ach_salida",
+      "subfamily": "ACH_FEES",
+      "corridor": "domestico_usa",
+      "industry": "produce",
+      "legacyId": "ACHF-01",
+      "needsLegalNote": false
+    },
+    {
+      "headline": "Agregar un proveedor no debería agregar una mensualidad bancaria.",
+      "subcopy": "En Xending, mantener beneficiarios no genera un cargo mensual por cada registro.",
+      "cta": "Reduce tus costos",
+      "angleLabel": "Alta de proveedor y mensualidad",
+      "angleTag": "beneficiarios",
+      "subfamily": "BENEFICIARIOS",
+      "corridor": "internacional_general",
+      "industry": "general_b2b",
+      "legacyId": "BEN-01",
+      "needsLegalNote": false
+    },
+    {
+      "headline": "Una cuenta en euros y otra en yenes. ¿También dos comisiones de mantenimiento?",
+      "subcopy": "La cuenta multidivisa de Xending permite mantener distintas monedas sin comisión de cuenta.",
+      "cta": "Reduce tus costos",
+      "angleLabel": "Cuenta por moneda",
+      "angleTag": "cuenta_y_saldos",
+      "subfamily": "CUENTAS_PLATAFORMA_ACCESOS",
+      "corridor": "europa",
+      "industry": "general_b2b",
+      "legacyId": "FIJO-01",
+      "needsLegalNote": false
+    },
+    {
+      "headline": "Rodamientos por cientos. El tipo de cambio también se refleja en el costo por pieza.",
+      "subcopy": "Una segunda cotización permite comparar cuántos dólares necesitas para liquidar el pedido en yenes.",
+      "cta": "Reduce tus costos",
+      "angleLabel": "Escala por pieza",
+      "angleTag": "tipo_de_cambio",
+      "subfamily": "CONVERSION_Y_COSTO",
+      "corridor": "asia",
+      "industry": "automotriz",
+      "legacyId": "FX-01",
+      "needsLegalNote": false
+    }
+  ],
+
+  "gold_examples_note": "Uno por subfamilia, todos con Estado ES APROBADO y citados con su legacy_id. Nótese que los cinco cierran con 'Reduce tus costos': es el patrón real del banco, no una falta de variedad de estos ejemplos.",
+
+  "rejected_examples": [
+    { "text": "Los bancos cobran de 3 a 5% en cada transferencia internacional.", "reason": "el §20 prohíbe expresamente publicar ese rango como afirmación general" },
+    { "text": "Transferencia sin comisión a cualquier destino.", "reason": "premisa rechazada por el usuario en FX-04, no se reintroduce" },
+    { "text": "Ahorra hasta 70% frente a los costos ocultos de tu banco.", "reason": "porcentaje de ahorro inventado y presenta las tarifas como ocultas" },
+    { "text": "Tu proveedor recibió menos de lo que le enviaste.", "reason": "el §20 prohíbe demostrar el costo con el beneficiario recibiendo menos" },
+    { "text": "Cada comisión se acumula. Calcula cuánto pagas al año.", "reason": "el apoyo solo manda a calcular, sin capacidad ni alternativa" },
+    { "text": "Abre tu cuenta gratis y paga sin comisiones.", "reason": "convierte cuenta sin mantenimiento en operaciones gratis" },
+    { "text": "Con el mejor tipo de cambio del mercado, cuida tu margen.", "reason": "superlativo no demostrable y confunde cotización con comisión" },
+    { "text": "Tu banco te está robando en cada wire.", "reason": "acusatorio; el §18 prohíbe acusar al banco" }
+  ],
+
+  "final_test": [
+    { "question": "¿El componente de costo está nombrado con precisión, o se dice 'fees' en general?", "on_fail": "Nombrar cuál: comisión de transferencia, tarifa de ACH, cargo por registro, comisión de cuenta o tipo de cambio." },
+    { "question": "¿Se separa el importe del proveedor del costo de enviarlo?", "on_fail": "Separarlos: son dos cosas." },
+    { "question": "¿Se separa el tipo de cambio de la comisión?", "on_fail": "Separarlos; el rechazo de FX-04 no borró esa distinción." },
+    { "question": "¿El apoyo ofrece una capacidad, o solo manda a revisar y calcular?", "on_fail": "Reescribir con una capacidad o alternativa real.", "automatable": true },
+    { "question": "¿Hay algún porcentaje, tarifa o tasa?", "on_fail": "Quitarlo salvo que traiga fuente externa.", "automatable": true },
+    { "question": "¿La pieza acusa al banco o presenta las tarifas como fraude?", "on_fail": "Reencuadrar al costo propio del emisor." },
+    { "question": "¿El CTA habla de margen o utilidad en una pieza que solo trata de acceso al portal?", "on_fail": "Cambiar a 'Reduce tus costos'." }
+  ],
+
+  "closing_principle": "Esta rama vende que el costo de pagar se puede ver y comparar. La línea que no se cruza es la acusación: el costo se muestra por el lado del emisor, con el componente nombrado, y la comparación se invita sin resolverla con una cifra que nadie puede sostener."
+}

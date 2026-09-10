@@ -1,0 +1,600 @@
+{
+  "kit_version": "coberturas-usa-v1",
+  "branch_slug": "coberturas-usa",
+  "branch_name": "Coberturas, forwards y opciones",
+  "source": "docs/05_xending_usa_coberturas_forwards_opciones_master_v2.md (xending-usa-master-v2.0). Capa común §1–§17 y conocimiento de rama §18–§25. Banco de 45 copys: 15 aprobados ES (FWD-01–FWD-15), 30 propuestas, 0 aprobados EN-US. Subfamilias: COBERTURA_FORWARD 15, FORWARD 15, VANILLA_COMPRADA 7, ESTRUCTURA_SIN_PRIMA_INICIAL 4, TARF 3, COLLAR_SIN_PRIMA_INICIAL 1.",
+
+  "editorial_objective": "Cuidar costos futuros, presupuesto, margen o utilidad cuando la empresa estadounidense necesita comprar otra moneda para pagar DESPUÉS. El presupuesto base es USD y la compra debe precisar EUR, CNY, JPY o MXN. Esta rama vende PREVISIBILIDAD y decisiones contractuales, no ganarle al mercado.",
+
+  "client_should_think": [
+    "Ya vendí o ya coticé en dólares, y voy a pagar en otra moneda después.",
+    "Puedo definir hoy el tipo de cambio de ese saldo pendiente.",
+    "El margen que calculé puede cuidarse antes de pagar.",
+    "Conviene preguntar qué instrumento aplica a esta compra.",
+    "Esto es un contrato con condiciones, no una apuesta."
+  ],
+
+  "positioning_must_communicate": [
+    "un forward define hoy el tipo de cambio de un intercambio futuro, conforme al contrato",
+    "la cobertura administra un riesgo cambiario del negocio",
+    "el margen o el presupuesto se cuidan ANTES de pagar",
+    "hay fechas e importes concretos: el instrumento se cotiza para un saldo pendiente"
+  ],
+
+  "positioning_must_not_be": [
+    "una promesa de ahorro o de ganarle al mercado",
+    "una cobertura gratis o sin riesgo",
+    "el spot de hoy disfrazado de forward",
+    "una recomendación de inversión",
+    "un producto contratable al instante",
+    "riesgo cambiario inventado sobre una compra USD→USD"
+  ],
+
+  "audience": {
+    "roles": ["dueño", "CFO", "controller", "tesorero", "responsable de compras"],
+    "company_profile": [
+      "empresa de Estados Unidos",
+      "foco comercial en Texas y California",
+      "presupuesto y precio de venta en USD",
+      "paga a proveedores en EUR, CNY, JPY o MXN con plazo"
+    ],
+    "seeks": ["que el tipo de cambio no le mueva el margen ya calculado", "previsibilidad de un costo futuro"]
+  },
+
+  "allowed_situations": [
+    "un precio de venta ya fijado en dólares y una compra futura en otra moneda",
+    "un margen comprometido con un cliente",
+    "un presupuesto de inversión o CAPEX",
+    "una factura con plazo de 30, 60 o 90 días como escenario",
+    "un anticipo ya pagado y un saldo pendiente",
+    "varias entregas con vencimientos distintos",
+    "compras por etapas de un mismo proyecto",
+    "un catálogo con precios fijos por temporada",
+    "una inversión previa a producir",
+    "una reposición con costo por unidad",
+    "una cotización comercial aún no confirmada",
+    "un pago pendiente cuya fecha o monto todavía no es firme"
+  ],
+
+  "situation_framing_rule": "La exposición tiene que EXISTIR en el escenario. El §18 y el §6 son explícitos: no inventar riesgo cambiario en USD→USD, y una compra o venta en dólares no genera por sí misma la exposición que se usa para vender un forward. Un pago incierto puede servir para hablar de una opción comprada, pero NO se convierte automáticamente una venta no confirmada en un forward obligatorio. Toda situación es editorial, nunca testimonio de un cliente real.",
+
+  "tone": {
+    "yes": ["empresarial", "sobrio", "preciso", "de presupuesto y margen", "contractual sin ser legalista"],
+    "no": ["especulativo", "de trading", "alarmista sobre el mercado", "publicitario", "de asesoría financiera"],
+    "tension": "moderada",
+    "hedging": "Condicional obligatorio: 'puede definir', 'puede ayudar a cuidar', 'permite pactar'. Nunca 'garantiza', 'asegura' ni 'te ahorra'."
+  },
+
+  "angles": {
+    "precio_de_venta_fijo": {
+      "label": "Precio de venta fijo",
+      "premise": "El precio al cliente ya está fijado en dólares y la compra se pagará en otra moneda después."
+    },
+    "margen_comprometido": {
+      "label": "Margen comprometido",
+      "premise": "Hay un margen ya calculado o prometido que el tipo de cambio puede mover antes de pagar."
+    },
+    "presupuesto_inversion": {
+      "label": "Presupuesto de inversión",
+      "premise": "Una compra de equipo o CAPEX con presupuesto en dólares y pago futuro en otra moneda."
+    },
+    "factura_con_plazo": {
+      "label": "Factura con plazo",
+      "premise": "La factura vence en 30, 60 o 90 días y se paga en otra moneda.",
+      "note": "El plazo es ESCENARIO, no el plazo universal del producto. El §23 lo dice explícito."
+    },
+    "anticipo_y_saldo": {
+      "label": "Anticipo y saldo",
+      "premise": "El anticipo ya se pagó y queda un saldo pendiente en otra moneda."
+    },
+    "varias_entregas": {
+      "label": "Varias entregas o etapas",
+      "premise": "El proyecto se paga por etapas y cada saldo tiene su propia fecha.",
+      "note": "Se cotiza un instrumento por importe y vencimiento pendiente, no uno solo para todo."
+    },
+    "catalogo_y_temporada": {
+      "label": "Catálogo y temporada",
+      "premise": "Un catálogo con precios fijos o una temporada con calendario comercial."
+    },
+    "costo_por_unidad": {
+      "label": "Costo por unidad y reposición",
+      "premise": "El costo por pieza de una reposición depende de la moneda en que se paga."
+    },
+    "cotizacion_no_confirmada": {
+      "label": "Cotización no confirmada",
+      "premise": "La venta o la compra todavía no es firme y hace falta flexibilidad.",
+      "note": "SOLO para opciones compradas. Es el ángulo que justifica la prima. No convertirlo en forward."
+    },
+    "flexibilidad_con_prima": {
+      "label": "Flexibilidad con prima",
+      "premise": "El derecho a usar un tipo de cambio sin obligación de ejercerlo, y su prima como parte del presupuesto.",
+      "note": "SOLO opciones compradas. La prima SIEMPRE se nombra: la flexibilidad cuesta."
+    },
+    "prima_frente_a_compromisos": {
+      "label": "Prima inicial frente a compromisos",
+      "premise": "Una estructura puede no cobrar prima al inicio y a cambio generar compromisos.",
+      "note": "SOLO estructuras. Obliga a decir qué se compra, qué se vende y qué compromiso surge."
+    },
+    "calendario_y_montos": {
+      "label": "Calendario y montos de la estructura",
+      "premise": "Fechas, montos y condiciones de terminación de una estructura con calendario.",
+      "note": "SOLO TARF y estructuras con calendario. Obliga a mencionar que puede terminar y dejar compras futuras sin cobertura."
+    }
+  },
+
+  "angle_quota_note": "Los doce ángulos son los del §23, separados por grupo de instrumento. Los ocho primeros son de forwards y son los únicos con banco aprobado. Los cuatro últimos pertenecen a opciones, estructuras y TARF, que son PROPUESTAS y no publicables: ver `instrument_gating`.",
+
+  "angle_rotation_note": "Para forwards, rotar entre los ocho primeros. El §25 recuerda la base de estilo: producto concreto arriba, apoyo corto que explica una herramienta, CTA de margen, utilidad o presupuesto.",
+
+  "subfamilies": {
+    "COBERTURA_FORWARD": "15 registros, FWD-01–FWD-15. Los únicos APROBADOS ES de la rama. Instrumento COBERTURA_O_FORWARD.",
+    "FORWARD": "15 registros, FWD-16–FWD-30. Propuestas nuevas.",
+    "VANILLA_COMPRADA": "7 registros, OPC-01–OPC-07. Opción comprada simple, propuestas.",
+    "ESTRUCTURA_SIN_PRIMA_INICIAL": "4 registros, parte de OPC-08–OPC-12. Propuestas.",
+    "COLLAR_SIN_PRIMA_INICIAL": "1 registro. Propuesta.",
+    "TARF": "3 registros, OPC-13–OPC-15. Propuestas para revisión técnica."
+  },
+
+  "subfamilies_note": "Va a `copy_bank_items.formula`. Aquí la subfamilia es el INSTRUMENTO, y por eso importa más que en las otras ramas: determina qué se puede afirmar. Solo COBERTURA_FORWARD tiene copys aprobados.",
+
+  "instrument_gating": {
+    "publishable": ["COBERTURA_FORWARD", "FORWARD"],
+    "blocked": ["VANILLA_COMPRADA", "ESTRUCTURA_SIN_PRIMA_INICIAL", "COLLAR_SIN_PRIMA_INICIAL", "TARF"],
+    "rule": "Ninguna propuesta de opciones acredita disponibilidad, autorización ni términos de Xending USA. El comentario del usuario autoriza DESARROLLAR CONTENIDO, no publicarlo: no aporta ficha de contraparte, elegibilidad ni contrato. El subbanco de opciones queda bloqueado para publicación automática.",
+    "missing_product_data": [
+      "proveedor o contraparte y entidad que ofrece el producto a ese cliente",
+      "elegibilidad del cliente en Estados Unidos y documentos requeridos",
+      "instrumento exacto: vanilla comprada, rango/collar, otra combinación o TARF específico",
+      "monedas, modalidad de entrega o liquidación, montos y plazos permitidos",
+      "prima, prima neta y otros costos, sin sustituirlos por 'gratis'",
+      "derecho de ejercicio frente a obligación de intercambio",
+      "nivel de protección, participación favorable y límites",
+      "para TARF: objetivo, forma de acumulación, fechas, montos máximos o condicionados, apalancamiento, terminación y efecto en facturas pendientes",
+      "condiciones de cancelación, garantías o ajustes",
+      "wording comercial y tratamiento legal aprobados para la pieza"
+    ],
+    "note": "Los diez puntos son del §22 y hay que completarlos ANTES de publicar o de permitir generación comercial afirmativa de opciones o TARF. No inventarlos ni copiarlos de la ficha de Convera, Westpac u otro proveedor. OPC-13–OPC-15 no se usan como semillas publicables sin ficha aprobada de la estructura concreta."
+  },
+
+  "instrument_semantics": {
+    "cobertura": {
+      "can_say": "Objetivo de administrar un riesgo cambiario del negocio.",
+      "must_block": "Usarla como sinónimo exclusivo de forward."
+    },
+    "forward": {
+      "can_say": "Pactar hoy un tipo de cambio para un intercambio futuro, conforme al contrato.",
+      "must_block": "Ahorro garantizado, cancelar gratis, el tipo de cambio spot de hoy, o acceso completo a cualquier mejora posterior."
+    },
+    "opcion_vanilla_comprada": {
+      "can_say": "Derecho contractual a usar un tipo de cambio, con prima, sin obligación de ejercicio del comprador.",
+      "must_block": "Presentarla gratis, omitir que la flexibilidad cuesta, o extender ese derecho a las estructuras vendidas."
+    },
+    "estructura_sin_prima_inicial": {
+      "can_say": "Combinación que puede compensar primas y generar compromisos.",
+      "must_block": "'No cuesta nada', 'sin riesgo', 'sin obligaciones', o protección idéntica a una opción comprada."
+    },
+    "tarf": {
+      "can_say": "Estructura con fechas, montos y condición de terminación.",
+      "must_block": "'Tasa que el cliente quiera', cobertura de todo el calendario garantizada, u opción simple sin compromiso."
+    },
+    "note": "Cuadro del §19. Es control técnico externo (fuentes X1–X5), NO una ampliación de la ficha comercial de Xending. El texto público sigue siendo empresarial; los términos contractuales viven en la ficha."
+  },
+
+  "zero_cost_language": {
+    "use": ["sin prima inicial", "prima neta inicial cero"],
+    "only_when": "el contrato lo soporte",
+    "does_not_mean": [
+      "ausencia de costos económicos o de salida",
+      "ausencia de márgenes",
+      "ausencia de garantías",
+      "ausencia de riesgos"
+    ],
+    "rule": "Las estructuras pueden compensar una prima con otra posición, limitar la participación favorable o imponer intercambios. Hay que identificar exactamente qué se compra, qué se vende y qué compromiso surge. 'No pagar una prima al inicio' NO autoriza omitir esos compromisos.",
+    "do_not_mix_with": "Cuenta gratis, ausencia de mantenimiento de beneficiarios o comisión por transferir. Esos son beneficios de otras ramas."
+  },
+
+  "corridors": {
+    "europa_eur": {
+      "label": "Euros",
+      "objective": "El corredor mayoritario: 22 de 45 registros. Equipo y maquinaria de Alemania e Italia con saldo en euros a plazo.",
+      "allowed_claims": ["un forward puede definir hoy el tipo de cambio del saldo pendiente en euros"],
+      "hard_limit": "No presentar el forward como el spot de hoy. El plazo del escenario no es el plazo del producto.",
+      "vocabulary": ["euros", "Alemania", "Italia", "saldo", "anticipo", "presupuesto", "margen", "90 días", "equipo"],
+      "cta": ["Planea tus costos", "Planea hoy tus costos futuros", "Protege tu presupuesto", "Protege tus costos", "Define hoy tu tipo de cambio", "Define hoy. Paga después.", "Cotiza un forward", "Protege tu margen"],
+      "cta_banned": ["Asegura el mejor euro", "Reduce tus costos", "Gana con el tipo de cambio"]
+    },
+    "china_cny": {
+      "label": "Yuanes",
+      "objective": "11 registros. Componentes, baterías y equipo de China con pago futuro en yuanes.",
+      "allowed_claims": ["una cobertura puede ayudar a cuidar el margen antes de pagar al fabricante"],
+      "hard_limit": "CNY y CNH no son intercambiables en fichas de producto. No publicar tasas ni porcentajes.",
+      "vocabulary": ["yuanes", "China", "fabricante", "margen", "instalación", "60 días", "componentes"],
+      "cta": ["Protege tu margen", "Cuida tu margen", "Planea tus costos", "Protege tus costos", "Planea hoy tus costos futuros", "Define hoy tu tipo de cambio", "Cotiza un forward"],
+      "cta_banned": ["Asegura el mejor yuan", "Reduce tus costos"]
+    },
+    "japon_jpy": {
+      "label": "Yenes",
+      "objective": "11 registros. Autopartes, electrónica y equipo de Japón con cobro futuro en yenes.",
+      "allowed_claims": ["un forward permite pactar el tipo de cambio antes de liquidar ese pedido"],
+      "hard_limit": "La venta ya cerrada es lo que crea la exposición. Sin venta ni compra comprometida, no hay exposición que cubrir.",
+      "vocabulary": ["yenes", "Japón", "sensores", "trimestre", "utilidad", "pedido", "proveedor"],
+      "cta": ["Cuida tu utilidad", "Protege tu margen", "Planea tus costos", "Define hoy tu tipo de cambio", "Cotiza un forward"],
+      "cta_banned": ["Asegura el mejor yen", "Reduce tus costos"]
+    },
+    "mexico_mxn": {
+      "label": "Pesos",
+      "objective": "1 registro. Compra a proveedor mexicano con pago futuro en pesos.",
+      "allowed_claims": ["pactar hoy el tipo de cambio del pago en pesos, cuando la factura o el acuerdo lo establezcan"],
+      "hard_limit": "La preferencia por el pago en pesos NO autoriza inventar exposición cambiaria. Si la factura es en dólares, no hay par que cubrir.",
+      "vocabulary": ["pesos", "México", "proveedor", "saldo", "presupuesto"],
+      "cta": ["Planea tus costos", "Protege tu presupuesto", "Cotiza un forward"],
+      "cta_banned": ["Reduce tus costos", "Asegura el mejor peso"]
+    }
+  },
+
+  "corridor_quota": {
+    "europa_eur": 48,
+    "china_cny": 24,
+    "japon_jpy": 24,
+    "mexico_mxn": 4
+  },
+
+  "corridor_quota_note": "Medido sobre el banco: EUR 22, CNY 11, JPY 11, MXN 1. Es la única rama donde el corredor ES el par de monedas, porque una cobertura existe por un par. Y es la única sin ningún registro en USD, lo cual es correcto: USD→USD no genera exposición.",
+
+  "industries": {
+    "automotriz": { "angles": ["precio_de_venta_fijo", "margen_comprometido", "costo_por_unidad", "factura_con_plazo"] },
+    "electronica": { "angles": ["margen_comprometido", "catalogo_y_temporada", "costo_por_unidad"] },
+    "solar_electrico": { "angles": ["margen_comprometido", "varias_entregas", "presupuesto_inversion"] },
+    "manufactura": { "angles": ["presupuesto_inversion", "anticipo_y_saldo", "varias_entregas"] },
+    "maquinaria": { "angles": ["presupuesto_inversion", "anticipo_y_saldo", "factura_con_plazo"] },
+    "equipamiento_comercial": { "angles": ["anticipo_y_saldo", "presupuesto_inversion", "catalogo_y_temporada"] },
+    "medico_laboratorio": { "angles": ["presupuesto_inversion", "factura_con_plazo"] },
+    "produce": { "angles": ["catalogo_y_temporada", "costo_por_unidad"] }
+  },
+
+  "verticalization": {
+    "rule": "El objeto va en el titular y la moneda del pago futuro también: el torno en euros, las baterías en yuanes, los sensores en yenes. Sin objeto y sin par, la pieza es financiera genérica.",
+    "products_by_industry": {
+      "automotriz": ["sensores", "balatas", "rodamientos", "arneses", "moldes", "amortiguadores"],
+      "electronica": ["tarjetas PCB", "pantallas", "chips", "conectores", "módulos de cámara"],
+      "solar_electrico": ["baterías de almacenamiento", "inversores", "transformadores", "tableros"],
+      "manufactura": ["torno CNC", "centro CNC", "robot", "molde", "herramental", "compresor"],
+      "maquinaria": ["torno CNC", "caja reductora", "bomba", "gabinete de control"],
+      "equipamiento_comercial": ["lavavajillas", "hornos", "refrigeración", "luminarias"],
+      "medico_laboratorio": ["analizadores", "monitores", "bombas de infusión"],
+      "produce": ["envases", "charolas", "equipo de empaque"]
+    },
+    "example": {
+      "headline": "El torno se paga en euros dentro de 90 días. Tu presupuesto está en dólares.",
+      "subline": "Un forward puede definir hoy el tipo de cambio del saldo pendiente.",
+      "cta": "Planea tus costos"
+    },
+    "guard": "El §25 advierte: la adaptación cambia el lado económico a la empresa estadounidense y NO convierte el banco de exportadores mexicanos en ventas exportadoras USA. Aquí el comprador paga en moneda extranjera, no cobra en ella.",
+    "default_share_pct": 95
+  },
+
+  "element_roles": {
+    "headline": "Presenta el objeto, la moneda del pago futuro y el lado en dólares. Los dos lados del par tienen que verse.",
+    "subline": "Explica la herramienta en condicional, sobre el importe pendiente.",
+    "cta": "Cierra con presupuesto, margen o utilidad. Nunca con reducción de costos.",
+    "correct_example": {
+      "headline": "Ya vendiste los sensores. El proveedor cobrará en yenes el próximo trimestre.",
+      "subline": "Un forward permite pactar el tipo de cambio antes de liquidar ese pedido.",
+      "cta": "Cuida tu utilidad"
+    },
+    "incorrect_example": {
+      "headline": "Asegura el mejor tipo de cambio para tu próxima importación.",
+      "subline": "Con nuestro forward garantizas tu utilidad y ahorras si el dólar sube.",
+      "cta": "Reduce tus costos",
+      "why": "Cuatro prohibiciones del §24: superlativo de mercado, 'garantizas tu utilidad', promesa de ahorro direccional, y 'Reduce tus costos' como desempeño del derivado. Además no hay objeto ni par."
+    }
+  },
+
+  "formulas_allowed": [
+    "[Objeto] se paga en [moneda] dentro de [plazo]. Tu presupuesto está en dólares",
+    "Cotizaste [X] en dólares. [Objeto] se pagará en [moneda] dentro de [plazo]",
+    "Ya vendiste [objeto]. El proveedor cobrará en [moneda] [cuándo]",
+    "Ya pagaste el anticipo de [objeto]. Falta el saldo en [moneda] dentro de [plazo]",
+    "[Objeto] se paga por etapas. Cada saldo en [moneda] tiene una fecha distinta",
+    "[Precio de venta] ya está fijo. [Costo en otra moneda] todavía no",
+    "El presupuesto de [proyecto] está en dólares. [Objeto] no"
+  ],
+
+  "banned_openings": [
+    "Con Xending",
+    "Protege",
+    "Asegura",
+    "El dólar"
+  ],
+
+  "banned_openings_note": "'Asegura' de apertura empuja al claim de garantía. 'El dólar' abre en comentario de mercado, que no es lo que vende la rama. Cambiar el arranque, no la fórmula.",
+
+  "banned_phrases": [
+    "ejecución",
+    "orquestación",
+    "flujo operacional",
+    "payment run",
+    "project run",
+    "cutoff",
+    "pagos elegibles",
+    "ventana operativa",
+    "ventana de salida",
+    "condición vigente",
+    "obligación futura",
+    "fragmentar tesorería",
+    "el pago vive dentro de una operación",
+    "garantiza tu utilidad",
+    "ahorro seguro",
+    "dólar barato",
+    "riesgo cero",
+    "cobertura gratis",
+    "gana si sube y si baja",
+    "sin riesgo",
+    "sin obligaciones",
+    "no cuesta nada",
+    "cancelar gratis",
+    "spot de hoy",
+    "protect your costs",
+    "lock today's spot rate",
+    "tasa que quieras",
+    "el mejor tipo de cambio",
+    "elimina el riesgo",
+    "reduce tus costos",
+    "garantizado",
+    "seamlessly",
+    "unlock",
+    "empower",
+    "revolutionize",
+    "financial journey",
+    "vendor"
+  ],
+
+  "banned_phrases_note": "Las primeras trece son las muletillas del §5. Las siguientes son la lista literal del §24 más los 'Error que debe bloquearse' del §19, y las dos cadenas inglesas que el §5 prohíbe expresamente. 'reduce tus costos' está prohibida en esta rama —aunque sea el CTA estrella de Costos— porque el §24 dice que no se usa como promesa de desempeño del derivado. OJO con lo que NO está prohibido: 'Protege tus costos' es CTA aprobado en español, lo lista el §24 y lo usan FWD-06 y FWD-09. El §5 prohíbe TRADUCIRLO como 'Protect your costs', así que la prohibición va sobre la cadena inglesa y no sobre la española.",
+
+  "language_style": {
+    "locale": "es-US",
+    "note": "Empresarial, no de trading. Nombrar el objeto, el par de monedas y la fecha. Los términos contractuales viven en la ficha, no en el anuncio.",
+    "en_us_note": "Protect your margins / bottom line / budget; Plan your future costs; Get a forward quote; Lock in your exchange rate; Ask about hedging. PROHIBIDAS: 'protect your costs' y 'lock today's spot rate' — pactar hoy una tasa futura no es contratar el spot de hoy.",
+    "internal_terms_never_publish": [
+      "COBERTURA_O_FORWARD",
+      "VANILLA_COMPRADA",
+      "TARF",
+      "prima neta",
+      "apalancamiento",
+      "pagos elegibles",
+      "obligación futura"
+    ],
+    "preferred_rewrites": {
+      "protege tus costos": "planea tus costos",
+      "reduce tus costos": "cuida tu margen",
+      "ahorro garantizado": "previsibilidad del costo",
+      "elimina el riesgo": "administra el riesgo",
+      "cobertura gratis": "sin prima inicial",
+      "no cuesta nada": "sin prima inicial",
+      "obligación futura": "el compromiso del contrato"
+    }
+  },
+
+  "claim_semantics": {
+    "allowed": ["definir hoy el tipo de cambio de un intercambio futuro", "administrar un riesgo cambiario", "cotizar un forward para un importe y vencimiento pendientes"],
+    "rule": "Pactar hoy una tasa futura NO es contratar el spot de hoy, y no da acceso a cualquier mejora posterior del mercado. Cubrir no equivale a ahorro garantizado. Y la exposición tiene que existir: USD→USD no la genera.",
+    "source_of_truth": "La ficha del instrumento concreto. El cuadro del §19 es control técnico externo con fuentes X1–X5, no ficha comercial de Xending. Esas fuentes describen productos de terceros, incluso de otras jurisdicciones, y no prueban que el mismo contrato esté disponible para una empresa de Texas o California a través de Xending."
+  },
+
+  "numbers_policy": {
+    "allowed": ["plazos de escenario: 30, 60 o 90 días, identificados como escenario"],
+    "requires": ["que el plazo sea del escenario y no del producto", "ficha del instrumento para cualquier término contractual"],
+    "banned": [
+      "tasas spot",
+      "tasas forward",
+      "primas y porcentajes de prima",
+      "porcentajes de desempeño o de ahorro",
+      "niveles de protección numéricos",
+      "tablas de resultados de las fuentes técnicas"
+    ],
+    "principle": "El §25 es explícito: no copiar tablas de resultados, tasas ni estructuras de las fuentes a los copys. Las propuestas no contienen cotizaciones ni porcentajes de desempeño."
+  },
+
+  "hard_business_rules": [
+    "Xending es una plataforma de pagos para empresas. No es un banco, un broker especulativo ni un asesor de inversiones.",
+    "Esta rama vende previsibilidad y decisiones contractuales, NO ganarle al mercado.",
+    "La exposición cambiaria tiene que existir en el escenario. No inventar riesgo en USD→USD.",
+    "Un forward pacta hoy una tasa futura conforme al contrato. NO es el spot de hoy, NO es cancelable gratis, NO da ahorro garantizado y NO da acceso completo a cualquier mejora posterior.",
+    "Una cobertura no es sinónimo exclusivo de forward.",
+    "Una opción vanilla comprada es un DERECHO con prima, sin obligación de ejercicio. No presentarla gratis, no omitir que la flexibilidad cuesta, y no extender ese derecho a las estructuras vendidas.",
+    "Una estructura sin prima inicial puede compensar primas y GENERAR COMPROMISOS. Prohibido 'no cuesta nada', 'sin riesgo', 'sin obligaciones' y presentarla con protección idéntica a una opción comprada.",
+    "Un TARF tiene fechas, montos y condición de terminación. No es 'la tasa que el cliente quiera', no cubre todo el calendario garantizado y no es una opción simple sin compromiso. Puede terminar y dejar compras futuras sin cobertura.",
+    "'Sin prima inicial' y 'prima neta inicial cero' son el lenguaje correcto cuando el contrato lo soporta. NO equivalen a ausencia de costos económicos, de salida, márgenes, garantías ni riesgos.",
+    "No mezclar 'sin prima inicial' con cuenta gratis, beneficiarios sin mantenimiento ni comisión por transferir: son de otras ramas.",
+    "Ninguna propuesta de opciones o TARF acredita disponibilidad, autorización ni términos de Xending USA. El subbanco queda bloqueado para publicación automática.",
+    "OPC-13–OPC-15 no se usan como semillas publicables sin ficha aprobada de la estructura concreta.",
+    "No generar variantes 'sin prima' que oculten que la estructura puede terminar o ampliar montos.",
+    "No inventar los datos de producto del §22 ni copiarlos de la ficha de Convera, Westpac u otro proveedor.",
+    "El tipo de cambio actual pertenece a Costos cuando el argumento es el costo de comprar o convertir. El forward para un pago posterior es de esta rama, aunque ambos digan FX.",
+    "No usar 'Reduce tus costos' como promesa de desempeño del derivado.",
+    "Un pago incierto puede servir para hablar de una opción comprada. NO convertir una venta no confirmada en un forward obligatorio.",
+    "Toda situación es editorial. No es testimonio de un cliente real.",
+    "El copy público no lleva disclaimers redactados libremente. Se montan en la capa de publicación."
+  ],
+
+  "capability_rule": {
+    "required_elements": [
+      "un objeto y una compra futura con fecha",
+      "el par de monedas: el lado en dólares y el lado en la moneda del pago",
+      "el instrumento en condicional, sobre el importe pendiente"
+    ],
+    "valid_capabilities": [
+      "definir hoy el tipo de cambio del saldo pendiente",
+      "pactar el tipo de cambio antes de liquidar un pedido",
+      "cotizar un forward para un importe y vencimiento",
+      "cotizar forwards para varios importes y vencimientos de un proyecto",
+      "ayudar a cuidar el margen antes de pagar al fabricante"
+    ],
+    "weak_examples": [
+      "El dólar se mueve. Protege tu empresa.",
+      "El tipo de cambio es incierto. Cotiza una cobertura.",
+      "Tu margen está en riesgo. Actúa hoy."
+    ],
+    "correct_examples": [
+      "El torno se paga en euros dentro de 90 días. Un forward puede definir hoy el tipo de cambio del saldo pendiente.",
+      "Cotizaste la instalación en dólares. Una cobertura puede ayudar a cuidar el margen antes de pagar al fabricante en yuanes.",
+      "El transformador se paga por etapas. Los forwards pueden cotizarse para los importes y vencimientos pendientes del proyecto."
+    ],
+    "note": "La regla es OBJETO Y FECHA → PAR DE MONEDAS → INSTRUMENTO EN CONDICIONAL. Un copy que solo dice que el mercado se mueve no cumple: falta la compra concreta."
+  },
+
+  "comparative_rule": {
+    "allowed": [
+      "Un forward puede definir hoy el tipo de cambio del saldo pendiente.",
+      "Una cobertura puede ayudar a cuidar el margen antes de pagar.",
+      "Puedes cotizar un forward para el importe pendiente."
+    ],
+    "requires_review": ["mejor que dejar el pago abierto", "más previsible que esperar el mercado"],
+    "not_allowed": [
+      "Garantiza tu utilidad.",
+      "Ahorro seguro.",
+      "Riesgo cero.",
+      "Cobertura gratis.",
+      "Gana si sube y si baja.",
+      "El mejor tipo de cambio del mercado.",
+      "Elimina el riesgo cambiario."
+    ],
+    "principle": "La previsibilidad se comunica; el desempeño no se promete. Un derivado no se vende por lo que hará el mercado."
+  },
+
+  "cta_selection_rule": [
+    "Costos y presupuesto: 'Planea tus costos', 'Planea hoy tus costos futuros', 'Protege tu presupuesto'.",
+    "Margen y utilidad: 'Protege tu margen', 'Cuida tu margen', 'Cuida tu utilidad'.",
+    "Forward explícito: 'Define hoy tu tipo de cambio', 'Define hoy. Paga después.', 'Cotiza un forward'.",
+    "Opciones y estructuras, que son propuestas: 'Pregunta por tu cobertura', 'Habla con Xending', 'Planea tu cobertura'.",
+    "NUNCA 'Activa tu TARF' ni nada que sugiera contratación instantánea.",
+    "El CTA estrella de la rama de Costos está prohibido aquí: el §24 dice que no se usa como promesa de desempeño del derivado. Ver `cta_banned`.",
+    "'Protege tus costos' SÍ es CTA aprobado en español (§24, y lo usan FWD-06 y FWD-09). Lo que está prohibido es su traducción al inglés: ver `language_style.en_us_note`."
+  ],
+
+  "cta_banned": [
+    "Reduce tus costos",
+    "Activa tu TARF",
+    "Contrata tu forward ahora",
+    "Asegura el mejor tipo de cambio",
+    "Gana con el tipo de cambio",
+    "Elimina tu riesgo",
+    "Cobertura sin costo",
+    "Calcula tu ahorro"
+  ],
+
+  "scope": [
+    "cuidar costo futuro, presupuesto, margen o utilidad",
+    "pactar hoy el tipo de cambio de un pago posterior",
+    "forwards por importe y vencimiento",
+    "opciones compradas y su prima, como contenido no publicable",
+    "estructuras sin prima inicial y sus compromisos, como contenido no publicable",
+    "TARF y su condición de terminación, como contenido no publicable",
+    "la exposición que nace de una venta o compra ya comprometida"
+  ],
+
+  "branch_core_criterion": {
+    "must_not_feel": "Xending me está prometiendo que voy a ganar con el tipo de cambio, o que la cobertura no cuesta nada.",
+    "must_feel": "Tengo un pago futuro en otra moneda y puedo definir hoy su tipo de cambio, con condiciones claras.",
+    "sells_capabilities": [
+      "definir hoy el tipo de cambio de un pago futuro",
+      "cotizar un forward por importe y vencimiento",
+      "administrar un riesgo cambiario del negocio"
+    ],
+    "never": [
+      "prometer ahorro, utilidad garantizada o riesgo cero",
+      "presentar una estructura como gratis o sin obligaciones",
+      "presentar un TARF como la tasa que el cliente quiera",
+      "inventar exposición en una operación USD→USD",
+      "publicar opciones o TARF sin ficha aprobada"
+    ]
+  },
+
+  "batch_policy": {
+    "variety_note": "El §23 da los ángulos por grupo de instrumento. Para forwards rotar los ocho; no hacer quince variaciones de 'anticipo y saldo'. Y el §21 avisa: no generar infinitas variantes 'sin prima' ocultando que la estructura puede terminar o ampliar montos.",
+    "anti_repetition": [
+      "No más de dos piezas consecutivas con el mismo ángulo.",
+      "Variar el par de monedas: EUR domina el banco, pero CNY y JPY tienen 11 registros cada uno.",
+      "Variar el plazo del escenario y no repetir siempre 90 días.",
+      "Ninguna fórmula más de tres o cuatro veces en una tanda de 15–30.",
+      "Comparar similitud semántica, no solo palabras."
+    ]
+  },
+
+  "gold_examples": [
+    {
+      "headline": "El torno se paga en euros dentro de 90 días. Tu presupuesto está en dólares.",
+      "subcopy": "Un forward puede definir hoy el tipo de cambio del saldo pendiente.",
+      "cta": "Planea tus costos",
+      "angleLabel": "Presupuesto de inversión",
+      "angleTag": "presupuesto_inversion",
+      "subfamily": "COBERTURA_FORWARD",
+      "corridor": "europa_eur",
+      "industry": "manufactura",
+      "legacyId": "FWD-01",
+      "needsLegalNote": false
+    },
+    {
+      "headline": "Cotizaste la instalación en dólares. Las baterías se pagarán en yuanes dentro de 60 días.",
+      "subcopy": "Una cobertura puede ayudar a cuidar el margen antes de pagar al fabricante.",
+      "cta": "Protege tu margen",
+      "angleLabel": "Margen de instalación",
+      "angleTag": "margen_comprometido",
+      "subfamily": "COBERTURA_FORWARD",
+      "corridor": "china_cny",
+      "industry": "solar_electrico",
+      "legacyId": "FWD-02",
+      "needsLegalNote": false
+    },
+    {
+      "headline": "Ya vendiste los sensores. El proveedor cobrará en yenes el próximo trimestre.",
+      "subcopy": "Un forward permite pactar el tipo de cambio antes de liquidar ese pedido.",
+      "cta": "Cuida tu utilidad",
+      "angleLabel": "Venta cerrada",
+      "angleTag": "precio_de_venta_fijo",
+      "subfamily": "COBERTURA_FORWARD",
+      "corridor": "japon_jpy",
+      "industry": "automotriz",
+      "legacyId": "FWD-03",
+      "needsLegalNote": false
+    },
+    {
+      "headline": "El transformador se paga por etapas. Cada saldo en euros tiene una fecha distinta.",
+      "subcopy": "Los forwards pueden cotizarse para los importes y vencimientos pendientes del proyecto.",
+      "cta": "Define hoy. Paga después.",
+      "angleLabel": "Varios pagos de equipo",
+      "angleTag": "varias_entregas",
+      "subfamily": "COBERTURA_FORWARD",
+      "corridor": "europa_eur",
+      "industry": "solar_electrico",
+      "legacyId": "FWD-05",
+      "needsLegalNote": false
+    }
+  ],
+
+  "gold_examples_note": "Los cuatro son de COBERTURA_FORWARD, la única subfamilia con Estado ES APROBADO. No hay gold examples de opciones, estructuras ni TARF a propósito: esas 15 piezas son propuestas y el §18 las bloquea para publicación. Nótese el patrón: los dos lados del par siempre visibles, y el instrumento siempre en condicional.",
+
+  "rejected_examples": [
+    { "text": "Con un forward garantizas tu utilidad en cada importación.", "reason": "'garantiza tu utilidad' está en la lista literal de prohibidas del §24" },
+    { "text": "Cobertura sin costo: protégete sin pagar prima.", "reason": "'cobertura gratis' prohibida; sin prima inicial no es sin costo" },
+    { "text": "Define hoy el spot de hoy para tu pago a 90 días.", "reason": "el §19 y el §5 lo prohíben: pactar una tasa futura no es contratar el spot de hoy" },
+    { "text": "Un TARF te da la tasa que quieras durante todo el año.", "reason": "el §19 y el §21 lo prohíben: el nivel está ligado a fechas y montos, y puede terminar" },
+    { "text": "Estructura sin prima inicial, sin riesgo y sin obligaciones.", "reason": "las tres frases están prohibidas; una estructura genera compromisos" },
+    { "text": "Compras en dólares a tu proveedor de Texas. Protege tu margen con un forward.", "reason": "inventa exposición en USD→USD, que el §6 y el §18 prohíben" },
+    { "text": "Gana si el euro sube y protégete si baja.", "reason": "'gana si sube y si baja' prohibida por el §24" },
+    { "text": "El dólar está barato. Aprovecha y cubre tu próxima compra.", "reason": "'dólar barato' prohibida y convierte la pieza en comentario de mercado" }
+  ],
+
+  "final_test": [
+    { "question": "¿Existe la exposición, o se inventó sobre una operación en dólares?", "on_fail": "Cambiar el escenario a una compra real en EUR, CNY, JPY o MXN.", "automatable": true },
+    { "question": "¿Se ven los dos lados del par?", "on_fail": "Añadir el lado en dólares: presupuesto, precio de venta o cotización." },
+    { "question": "¿El instrumento está en condicional?", "on_fail": "Cambiar a 'puede definir', 'permite pactar'." },
+    { "question": "¿Se promete ahorro, utilidad o riesgo cero?", "on_fail": "Reescribir a previsibilidad del costo.", "automatable": true },
+    { "question": "Si es opción o estructura, ¿se nombra la prima o el compromiso?", "on_fail": "Nombrarlo: la flexibilidad cuesta y la estructura compromete." },
+    { "question": "Si es TARF, ¿se dice que puede terminar?", "on_fail": "Añadirlo, o no publicar la pieza." },
+    { "question": "¿La pieza es de opciones, estructura o TARF?", "on_fail": "Marcarla como no publicable y exigir la ficha del §22.", "automatable": true },
+    { "question": "¿El CTA es 'Reduce tus costos' o 'Protege tus costos'?", "on_fail": "Cambiar a un CTA de presupuesto, margen o utilidad." }
+  ],
+
+  "closing_principle": "Esta rama vende previsibilidad sobre un pago futuro en otra moneda, no desempeño de mercado. Dos líneas no se cruzan nunca: la exposición tiene que existir —USD→USD no la crea— y todo lo que no sea forward aprobado es propuesta sin ficha, así que se escribe pero no se publica."
+}

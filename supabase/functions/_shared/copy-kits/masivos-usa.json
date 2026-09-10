@@ -1,0 +1,527 @@
+{
+  "kit_version": "masivos-usa-v1",
+  "branch_slug": "masivos-usa",
+  "branch_name": "Pagos masivos y automatización",
+  "source": "docs/04_xending_usa_masivos_automatizacion_master_v2.md (xending-usa-master-v2.0). Capa común §1–§17 y conocimiento de rama §18–§23. Banco de 64 copys activos: 59 aprobados ES, 5 pendientes, 0 aprobados EN-US. Subfamilias del banco: CARGA_MASIVA 19, ERP 16, CARGO_AUTOMATICO_ACH 15, RECURRENCIA 15. Sin equivalente en México: se escribe desde cero.",
+
+  "editorial_objective": "Reducir el TRABAJO necesario para preparar pagos y para aportar los fondos a Xending. La rama reúne cuatro capacidades distintas —carga masiva, ciclo recurrente, integración ERP y cargo automático por ACH— bajo un mismo beneficio operativo. Son distintas y no se presentan como equivalentes.",
+
+  "client_should_think": [
+    "No tengo que preparar veinte transferencias una por una.",
+    "Los datos que ya registré en mi sistema pueden servir para pagar.",
+    "Los pagos del periodo pueden prepararse juntos.",
+    "No necesito hacer otra transferencia aparte para fondear a Xending.",
+    "Esto me quita trabajo manual, no control."
+  ],
+
+  "positioning_must_communicate": [
+    "una carga reúne las instrucciones de varios pagos, revisables",
+    "los pagos del periodo se preparan juntos con sus importes actuales",
+    "la integración con QuickBooks, NetSuite o SAP aprovecha datos ya registrados",
+    "el cargo por ACH obtiene los fondos desde la cuenta que el cliente autoriza",
+    "menos trabajo manual, sin quitar la revisión"
+  ],
+
+  "positioning_must_not_be": [
+    "una promesa de automatización total sin intervención humana",
+    "una sola transferencia con una sola comisión",
+    "un débito sin autorización",
+    "una API genérica garantizada",
+    "conciliación o seguimiento automáticos",
+    "'carga y olvídate'"
+  ],
+
+  "audience": {
+    "roles": ["cuentas por pagar", "controller", "tesorero", "responsable de compras", "CFO"],
+    "company_profile": [
+      "empresa de Estados Unidos",
+      "foco comercial en Texas y California",
+      "paga a varios proveedores de forma repetida",
+      "usa QuickBooks, NetSuite o SAP",
+      "base presupuestal en USD"
+    ],
+    "seeks": ["dejar de capturar los mismos datos dos veces", "preparar los pagos del periodo juntos", "no hacer una transferencia extra para fondear"]
+  },
+
+  "allowed_situations": [
+    "muchos proveedores con importes distintos en el mismo periodo",
+    "facturas semanales o mensuales del mismo grupo de proveedores",
+    "más proveedores en temporada",
+    "facturas ya registradas en el ERP que habría que recapturar para pagar",
+    "un anticipo y un saldo que sí corresponde pagar juntos",
+    "la transferencia extra que hoy se hace para fondear a Xending",
+    "pagos nacionales e internacionales en la misma carga",
+    "una reposición con varias piezas y varios proveedores"
+  ],
+
+  "situation_framing_rule": "El beneficio es quitar TRABAJO, no quitar control. Ninguna pieza sugiere que la revisión desaparece ni que el sistema paga solo. Y el §19 lo dice sin ambigüedad: la aprobación de una factura, la autorización de la compra, la autorización bancaria y la ejecución del pago son estados DIFERENTES. No inventar un salto entre ellos.",
+
+  "tone": {
+    "yes": ["empresarial", "operativo", "concreto", "sobrio", "de cuentas por pagar"],
+    "no": ["publicitario", "futurista", "de automatización mágica", "clase de sistemas", "alarmista"],
+    "tension": "baja a moderada",
+    "hedging": "Condicional en la capacidad: 'pueden reunirse', 'puede prepararse'. Nunca 'se paga solo' ni 'sin que hagas nada'."
+  },
+
+  "angles": {
+    "carga_masiva": {
+      "label": "Carga masiva",
+      "premise": "Reunir las instrucciones de varios pagos en un archivo o carga revisable, en vez de preparar cada transferencia por separado.",
+      "note": "NO autoriza decir una sola transferencia, una sola comisión, acreditación simultánea ni volumen ilimitado. Lo que sale de una carga son PAGOS, varios."
+    },
+    "recurrencia": {
+      "label": "Ciclo recurrente",
+      "premise": "Los pagos del periodo se preparan juntos, con los importes actuales de ese periodo.",
+      "note": "NO autoriza decir pago programado y automático, ni mismo importe permanente, ni que no haya que revisar cada ciclo. Cada ciclo se revisa."
+    },
+    "erp": {
+      "label": "Integración ERP",
+      "premise": "QuickBooks, NetSuite y SAP: los datos ya registrados sirven para preparar los pagos, sin volver a escribirlos.",
+      "note": "NO autoriza decir que aprueba compras solo, que concilia de vuelta automáticamente, que elimina toda revisión, ni compatibilidad con todos los módulos y versiones. Nombrar facturas o datos registrados del objeto, nunca 'los motores están aprobados'."
+    },
+    "cargo_automatico_ach": {
+      "label": "Cargo automático ACH",
+      "premise": "Los fondos se cobran desde la cuenta bancaria que el cliente autoriza, para atender sus pagos con Xending. Así no hace falta preparar aparte una transferencia manual de fondeo.",
+      "note": "NO autoriza decir que cobra cuentas por cobrar de los clientes del cliente, que ofrece crédito, que da saldo inmediato ni que existe un débito sin autorización. Ver §20: tiene historia propia y tres siglas que no se confunden."
+    }
+  },
+
+  "angle_quota": {
+    "carga_masiva": 30,
+    "erp": 25,
+    "cargo_automatico_ach": 23,
+    "recurrencia": 22
+  },
+
+  "angle_quota_note": "Medido sobre el banco: CARGA_MASIVA 19, ERP 16, CARGO_AUTOMATICO_ACH 15, RECURRENCIA 15. Aquí los cuatro ángulos SÍ coinciden con las cuatro subfamilias, porque el §19 los define como los cuatro mecanismos de la rama. Es la única de las cinco ramas donde los dos ejes son el mismo.",
+
+  "angle_rotation_note": "Rotar entre los cuatro. Es la rama con más riesgo de fusionarlos: el §19 los llama 'cuatro mecanismos que nunca deben confundirse'. Una pieza trata UNO. Si menciona un segundo, no lo presenta como el mismo.",
+
+  "subfamilies": {
+    "CARGA_MASIVA": "19 registros. Prefijo MAS-. Coincide con el ángulo carga_masiva.",
+    "ERP": "16 registros. Prefijo ERP-. Coincide con el ángulo erp.",
+    "CARGO_AUTOMATICO_ACH": "15 registros. Prefijo ACHA-. Coincide con el ángulo cargo_automatico_ach.",
+    "RECURRENCIA": "15 registros. Prefijo REC-. Coincide con el ángulo recurrencia."
+  },
+
+  "subfamilies_note": "Va a `copy_bank_items.formula`. Coincide con `angle_tag` en esta rama y solo en esta. REC-15 se retiró del banco activo sin motivo escrito: el §23 advierte que eso NO elimina la subfamilia de recurrencia.",
+
+  "corridors": {
+    "domestico_usa": {
+      "label": "Proveedores en Estados Unidos",
+      "objective": "Varios proveedores nacionales en la misma carga o el mismo ciclo. Es también el corredor natural del cargo ACH, que es doméstico por definición.",
+      "allowed_claims": [
+        "reunir en una carga los pagos a proveedores nacionales",
+        "cobrar los fondos por ACH desde la cuenta autorizada"
+      ],
+      "hard_limit": "El cargo ACH obtiene fondos DEL CLIENTE para Xending. No es el pago al proveedor ni el precio de un pago doméstico.",
+      "vocabulary": ["una carga", "varios pagos", "cada importe", "facturas del mes", "cuenta autorizada", "cargo desde tu cuenta", "proveedores"],
+      "cta": ["Ahorra tiempo al pagar", "Reduce el trabajo manual", "Simplifica tus pagos", "Paga con cargo automático"],
+      "cta_banned": ["Automatiza tus pagos", "Carga y olvídate", "Activa el débito"]
+    },
+    "mexico_estados_unidos": {
+      "label": "México y Estados Unidos",
+      "objective": "El corredor más presente del banco: proveedores mexicanos y estadounidenses en la misma carga o el mismo ciclo semanal. Produce vive aquí.",
+      "allowed_claims": [
+        "reunir pagos a proveedores de los dos países en una carga",
+        "preparar juntos los pagos del periodo"
+      ],
+      "hard_limit": "No promover USD→USD a México por defecto; el pago en pesos tiene preferencia comercial cuando la factura o el acuerdo lo permitan. No convertir silenciosamente una factura en USD.",
+      "vocabulary": ["productores", "proveedores", "facturas semanales", "temporada", "una carga", "pesos", "dólares"],
+      "cta": ["Ahorra tiempo al pagar", "Reduce el trabajo manual", "Simplifica tus pagos"],
+      "cta_banned": ["Automatiza tus pagos", "Carga y olvídate"]
+    },
+    "internacional_general": {
+      "label": "Proveedores en el extranjero",
+      "objective": "Pagos nacionales e internacionales en la misma carga, sin nombrar un país. Aquí es donde el cargo ACH y la conversión son pasos distintos.",
+      "allowed_claims": [
+        "reunir pagos nacionales e internacionales en una carga",
+        "el cargo ACH y la conversión son pasos distintos del mismo trabajo"
+      ],
+      "hard_limit": "Si el pago final es en euros o yenes, NO afirmar que el ACH se cobra en moneda extranjera, ni que autoriza cualquier movimiento futuro, ni que todos los pagos del lote se cargan como un único débito.",
+      "vocabulary": ["una carga", "varios pagos", "proveedores", "importes", "conversión", "cuenta autorizada"],
+      "cta": ["Simplifica tus pagos internacionales", "Ahorra tiempo al pagar", "Reduce el trabajo manual", "Cotiza tu próximo pago"],
+      "cta_banned": ["Una sola transferencia", "Un solo cargo", "Automatiza todo"]
+    },
+    "erp_integracion": {
+      "label": "Integración con el sistema",
+      "objective": "La pieza gira sobre QuickBooks, NetSuite o SAP y los datos ya registrados. El país es secundario.",
+      "allowed_claims": [
+        "la integración utiliza la información registrada para preparar las transferencias",
+        "sin volver a escribir los datos"
+      ],
+      "hard_limit": "La API está FUERA del catálogo comercial confirmado. No convertir las integraciones actuales en una API genérica garantizada, y no inferir seguimiento ni conciliación de una integración.",
+      "vocabulary": ["QuickBooks", "NetSuite", "SAP", "la información registrada", "facturas registradas", "sin volver a escribir los datos", "integración"],
+      "cta": ["Ahorra tiempo al pagar", "Reduce el trabajo manual", "Conecta tu ERP", "Habla con Xending", "Pregúntale a Xending"],
+      "cta_banned": ["Tu ERP ya pagó", "Conciliación automática", "Integra y olvídate"]
+    }
+  },
+
+  "corridor_quota": {
+    "domestico_usa": 24,
+    "mexico_estados_unidos": 38,
+    "internacional_general": 18,
+    "erp_integracion": 20
+  },
+
+  "corridor_quota_note": "Medido sobre el banco: México/Estados Unidos 17 más México 9, Estados Unidos 6, Estados Unidos/extranjero 6. USD domina con 47 registros. Es la rama más transfronteriza México–Estados Unidos de las cinco.",
+
+  "industries": {
+    "produce": { "angles": ["recurrencia", "carga_masiva", "cargo_automatico_ach", "erp"] },
+    "automotriz": { "angles": ["carga_masiva", "erp", "recurrencia"] },
+    "general_b2b": { "angles": ["cargo_automatico_ach", "carga_masiva", "erp"] },
+    "industrial": { "angles": ["recurrencia", "carga_masiva"] },
+    "manufactura": { "angles": ["carga_masiva", "erp"] },
+    "equipamiento_comercial": { "angles": ["carga_masiva", "erp"] },
+    "electronica": { "angles": ["erp", "carga_masiva"] },
+    "solar_electrico": { "angles": ["carga_masiva", "recurrencia"] }
+  },
+
+  "verticalization": {
+    "rule": "El objeto va en el titular cuando la pieza sea vertical. Para ERP, nombrar las FACTURAS o los DATOS REGISTRADOS del objeto, nunca decir que el objeto está aprobado: 'los motores están aprobados' es el error que el §22 señala.",
+    "products_by_industry": {
+      "produce": ["berries", "fresas", "aguacate", "cítricos", "pepino", "envases", "cajas", "charolas"],
+      "automotriz": ["sensores", "balatas", "frenos", "sellos", "arneses", "rodamientos", "amortiguadores"],
+      "manufactura": ["torno CNC", "molde", "herramental", "compresor"],
+      "equipamiento_comercial": ["hornos", "refrigeración", "luminarias", "mobiliario"],
+      "electronica": ["tarjetas PCB", "conectores", "pantallas"],
+      "industrial": ["resina", "mangueras", "filtros", "válvulas", "tornillería"],
+      "solar_electrico": ["inversores", "tableros", "cable", "transformadores"]
+    },
+    "industry_cases": {
+      "produce": "Facturas semanales de berries; más productores en temporada; compras de envases y cajas; proveedores mexicanos y estadounidenses; cargos ACH para aportar fondos.",
+      "automotriz": "Facturas de sensores, balatas, frenos, sellos o arneses; pagos de una reposición; piezas registradas en un ERP; proveedores con importes distintos.",
+      "maquinaria_y_proyectos": "Anticipo y saldo de equipos distintos, agrupando SOLO los pagos que corresponde realizar juntos. No inventar que una carga permite cambiar fechas contractuales."
+    },
+    "example": {
+      "headline": "Comprar berries a más productores no debería multiplicar las transferencias que preparas una por una.",
+      "subline": "Una carga reúne los importes y las referencias de los pagos que necesitas enviar.",
+      "cta": "Ahorra tiempo al pagar"
+    },
+    "guard": "Los objetos son material de escenario. No inventar proveedores, clientes, órdenes ni contratos reales.",
+    "default_share_pct": 82
+  },
+
+  "element_roles": {
+    "headline": "Presenta el trabajo repetido: cuántos proveedores, cuántas facturas, qué se captura dos veces, qué transferencia extra hay que hacer.",
+    "subline": "Dice qué hace el mecanismo, con su límite implícito. Los pagos siguen siendo varios y la revisión sigue existiendo.",
+    "cta": "Cierra con tiempo o trabajo.",
+    "correct_example": {
+      "headline": "Ya registraste las facturas de cajas para fruta en QuickBooks. No copies los mismos datos para pagar.",
+      "subline": "La integración utiliza esa información para preparar las transferencias a tus proveedores.",
+      "cta": "Ahorra tiempo al pagar"
+    },
+    "incorrect_example": {
+      "headline": "Automatiza tus pagos: carga tu archivo y olvídate.",
+      "subline": "Una sola transferencia, una sola comisión, y tu ERP concilia solo.",
+      "cta": "Automatiza tus pagos",
+      "why": "Cuatro prohibiciones del §19 y §21 en tres campos: 'carga y olvídate', una sola transferencia, una sola comisión y conciliación automática. Además quita la revisión, que es lo que la rama nunca promete."
+    }
+  },
+
+  "formulas_allowed": [
+    "[Comprar objeto] a más [proveedores] no debería multiplicar [las transferencias que preparas una por una]",
+    "[Objeto] llega cada [periodo]. También las facturas de [proveedores]",
+    "Ya registraste [las facturas de objeto] en [sistema]. No copies los mismos datos para pagar",
+    "Pagar a tu proveedor no debería exigirte [otra transferencia a Xending]",
+    "[N] facturas del mes, [N] capturas manuales. Solo una de las dos es necesaria",
+    "Tus datos ya están en [sistema]. [Capacidad]",
+    "[Varios proveedores] con [importes distintos]. [Capacidad]"
+  ],
+
+  "banned_openings": [
+    "Con Xending",
+    "Automatiza",
+    "Olvídate",
+    "Simplifica"
+  ],
+
+  "banned_openings_note": "'Automatiza' y 'Olvídate' de apertura prometen exactamente lo que el §21 prohíbe. Cambiar el arranque, no la fórmula.",
+
+  "banned_phrases": [
+    "ejecución",
+    "orquestación",
+    "flujo operacional",
+    "project run",
+    "cutoff",
+    "pagos elegibles",
+    "ventana operativa",
+    "ventana de salida",
+    "condición vigente",
+    "obligación futura",
+    "fragmentar tesorería",
+    "el pago vive dentro de una operación",
+    "ejecutar proveedores",
+    "tu erp ya pagó",
+    "carga y olvídate",
+    "autorización automática",
+    "cero errores",
+    "el proceso nunca vuelve a empezar",
+    "conciliación automática",
+    "una sola transferencia",
+    "una sola comisión",
+    "un único débito",
+    "acreditación simultánea",
+    "volumen ilimitado",
+    "pago programado y automático",
+    "sin que hagas nada",
+    "se paga solo",
+    "sin intervención",
+    "débito sin autorización",
+    "api garantizada",
+    "garantizado",
+    "sin riesgo",
+    "seamlessly",
+    "unlock",
+    "empower",
+    "revolutionize",
+    "financial journey",
+    "vendor"
+  ],
+
+  "banned_phrases_note": "Las primeras doce son las muletillas del §5. OJO: 'payment run' NO está prohibida aquí, a diferencia de las otras cuatro ramas, porque el §21 la declara válida en EN-US junto con 'bulk upload' cuando ayudan al lector. Las siguientes salen del 'Evitar' del §21 y de la columna 'Qué no autoriza a decir' del §19. 'una sola transferencia' y 'una sola comisión' son la confusión más peligrosa de la rama: una carga produce VARIOS pagos.",
+
+  "language_style": {
+    "locale": "es-US",
+    "note": "El §21 da el vocabulario exacto. Decir: 'una carga', 'varios pagos', 'cada importe', 'la información registrada', 'sin volver a escribir los datos', 'facturas del mes', 'cargo desde tu cuenta autorizada'.",
+    "en_us_note": "'bulk upload' y 'payment run' son válidos si ayudan al lector. 'Run multiple suppliers' NO es natural: se procesan sus pagos, no las empresas. Y 'supplier', nunca 'vendor'.",
+    "internal_terms_never_publish": [
+      "ACH_FEE",
+      "ACH_SUPPLIER_PAYMENT",
+      "ACH_AUTO_DEBIT_FUNDING",
+      "pagos elegibles",
+      "ventana operativa",
+      "rail",
+      "cutoff"
+    ],
+    "preferred_rewrites": {
+      "ejecutar proveedores": "preparar sus pagos",
+      "ejecución del pago": "el pago",
+      "orquestación de pagos": "preparar los pagos",
+      "carga y olvídate": "una carga reúne los pagos",
+      "autorización automática": "la cuenta que autorizas",
+      "reconciliación automática": "los datos registrados",
+      "una sola transferencia": "varios pagos en una carga"
+    }
+  },
+
+  "claim_semantics": {
+    "allowed": ["preparar", "reunir", "aprovechar datos registrados", "cobrar fondos desde la cuenta autorizada"],
+    "rule": "Las tres siglas de ACH no se confunden: `ACH_FEE` es el precio de un pago doméstico y pertenece a Costos; `ACH_SUPPLIER_PAYMENT` es la transferencia doméstica al beneficiario; `ACH_AUTO_DEBIT_FUNDING` es obtener fondos del cliente para Xending y es esta rama. Y aprobar factura, autorizar compra, autorizar banco y ejecutar pago son cuatro estados distintos.",
+    "source_of_truth": "Lo confirmado por el usuario en la tabla del §19. La API queda fuera del catálogo comercial confirmado."
+  },
+
+  "numbers_policy": {
+    "allowed": ["cantidades de escenario, ilustrativas, de facturas o proveedores"],
+    "requires": ["que la cantidad sea del escenario y no un límite del producto"],
+    "banned": [
+      "límites de volumen de una carga",
+      "número de módulos o versiones de ERP compatibles",
+      "porcentajes de reducción de tiempo o de errores",
+      "tarifas por carga o por pago",
+      "plazos de acreditación"
+    ],
+    "principle": "Una cantidad de facturas es escenario. Un límite de la carga es afirmación de producto y no existe ficha que lo sostenga. 'Volumen ilimitado' está prohibido por el §19."
+  },
+
+  "hard_business_rules": [
+    "Xending es una plataforma de pagos para empresas. No es un banco ni un prestamista.",
+    "Los cuatro mecanismos son distintos y nunca se presentan como equivalentes.",
+    "Carga masiva reúne instrucciones de varios pagos en un archivo revisable. NO es una sola transferencia, una sola comisión, acreditación simultánea ni volumen ilimitado.",
+    "Ciclo recurrente prepara juntos los pagos del periodo con sus importes actuales. NO es pago programado y automático, ni mismo importe permanente, ni que no haya que revisar cada ciclo.",
+    "La integración ERP cubre QuickBooks, NetSuite y SAP para aprovechar datos y preparar pagos. NO aprueba compras sola, NO concilia de vuelta automáticamente, NO elimina la revisión y NO es compatible con todos los módulos y versiones.",
+    "El cargo automático ACH cobra fondos desde la cuenta autorizada del cliente para atender sus pagos con Xending. NO cobra cuentas por cobrar de sus clientes, NO ofrece crédito, NO da saldo inmediato y NO existe débito sin autorización.",
+    "Aprobar una factura, autorizar la compra, autorizar al banco y ejecutar el pago son estados diferentes. No inventar un salto entre ellos.",
+    "Si el pago final es en euros o yenes, el cargo ACH y la conversión son pasos distintos. No afirmar que el ACH se cobra en moneda extranjera.",
+    "No afirmar que la autorización del cargo habilita cualquier movimiento futuro.",
+    "No afirmar que todos los pagos del lote se cargan como un único débito.",
+    "Lo que sale de una carga son PAGOS. No la tornillería ni la maquinaria. Y no se libera el pago como si fuera mercancía.",
+    "Se agrupan instrucciones de pago. No se 'ejecutan proveedores'.",
+    "Se aprueban facturas, compras o pagos, según el caso. No se 'aprueban frenos' en un ERP.",
+    "Agrupar solo los pagos que corresponde realizar juntos. Una carga no permite cambiar fechas contractuales.",
+    "La API está fuera del catálogo comercial confirmado. Puede ser una petición técnica futura, pero las integraciones ERP actuales no son una API genérica garantizada.",
+    "Seguimiento y conciliación no se infieren de una integración.",
+    "'Conecta tu ERP' sirve en una pieza de integración, pero no sustituye automáticamente al beneficio de ahorrar tiempo.",
+    "REC-15 se retiró sin motivo escrito. Eso no elimina la subfamilia de recurrencia ni autoriza inventar la razón.",
+    "Los cinco VEL reubicados aquí (VEL-32, VEL-34, VEL-38, VEL-39, VEL-45) conservan su ID y siguen POR REVISAR: el traslado no los convierte en aprobados.",
+    "El copy público no lleva disclaimers redactados libremente."
+  ],
+
+  "capability_rule": {
+    "required_elements": [
+      "el trabajo repetido, con su cantidad o su frecuencia",
+      "el mecanismo concreto que lo reduce, UNO de los cuatro",
+      "el límite implícito: siguen siendo varios pagos y sigue habiendo revisión"
+    ],
+    "valid_capabilities": [
+      "reunir las instrucciones de varios pagos en una carga revisable",
+      "preparar juntos los pagos del periodo con sus importes actuales",
+      "usar los datos registrados en QuickBooks, NetSuite o SAP para preparar las transferencias",
+      "cobrar los fondos por ACH desde la cuenta bancaria que el cliente autoriza"
+    ],
+    "weak_examples": [
+      "Pagar a muchos proveedores es tedioso. Organiza mejor tu proceso.",
+      "Tienes veinte facturas al mes. Automatiza tus pagos.",
+      "Tu ERP ya tiene los datos. Deja que él se encargue."
+    ],
+    "correct_examples": [
+      "Comprar berries a más productores no debería multiplicar las transferencias que preparas una por una. Una carga reúne los importes y las referencias de los pagos que necesitas enviar.",
+      "Ya registraste las facturas de cajas para fruta en QuickBooks. La integración utiliza esa información para preparar las transferencias a tus proveedores.",
+      "Pagar a tu proveedor no debería exigirte otra transferencia a Xending. El importe se cobra automáticamente por ACH desde la cuenta bancaria que autorizas."
+    ],
+    "note": "La regla es TRABAJO REPETIDO → MECANISMO CONCRETO → LÍMITE IMPLÍCITO. Y para el cargo ACH, el §20 da la fórmula narrativa completa: pago al proveedor preparado → dinero que el cliente necesita aportar → cargo autorizado por ACH → menos trabajo manual."
+  },
+
+  "comparative_rule": {
+    "allowed": [
+      "Una carga reúne los pagos que hoy preparas uno por uno.",
+      "Los datos registrados sirven para pagar, sin volver a escribirlos.",
+      "El fondeo puede cobrarse desde tu cuenta autorizada, en vez de con otra transferencia manual."
+    ],
+    "requires_review": ["reduce el trabajo a la mitad", "más rápido que tu sistema actual", "compatible con tu ERP"],
+    "not_allowed": [
+      "Cero errores.",
+      "El proceso nunca vuelve a empezar.",
+      "Tu ERP ya pagó.",
+      "Una sola transferencia para todos tus proveedores.",
+      "Automatización total sin intervención."
+    ],
+    "principle": "El ahorro de trabajo se comunica describiendo qué deja de hacerse a mano. Cualquier cuantificación necesita ficha, y la ausencia de errores no se promete nunca."
+  },
+
+  "cta_selection_rule": [
+    "'Reduce el trabajo manual' y 'Ahorra tiempo al pagar' son los dos centrales: 19 y 18 piezas del banco.",
+    "Si el eje es el cargo ACH: 'Paga con cargo automático'.",
+    "Si el eje es la integración: 'Conecta tu ERP', y recordar que no sustituye al beneficio de ahorrar tiempo.",
+    "Si la pieza necesita explicar el mecanismo: 'Pregúntale a Xending' o 'Habla con Xending'.",
+    "Si la carga mezcla nacionales e internacionales: 'Simplifica tus pagos internacionales'.",
+    "El CTA puede repetirse. Lo que no debe repetirse es la misma historia."
+  ],
+
+  "cta_banned": [
+    "Automatiza tus pagos",
+    "Carga y olvídate",
+    "Activa el débito",
+    "Tu ERP ya pagó",
+    "Conciliación automática",
+    "Integra y olvídate",
+    "Una sola transferencia",
+    "Paga sin errores",
+    "Olvídate de los pagos"
+  ],
+
+  "scope": [
+    "carga masiva de instrucciones de pago",
+    "ciclo recurrente de pagos del periodo",
+    "integración con QuickBooks, NetSuite y SAP",
+    "cargo automático por ACH para fondear",
+    "trabajo manual de capturar y preparar",
+    "varios proveedores con importes distintos",
+    "facturas del mes o de la semana"
+  ],
+
+  "branch_core_criterion": {
+    "must_not_feel": "Xending me promete que el sistema paga solo y que ya no reviso nada.",
+    "must_feel": "Dejo de capturar y preparar lo mismo dos veces, y sigo teniendo el control de cada importe.",
+    "sells_capabilities": [
+      "reunir varios pagos en una carga revisable",
+      "preparar juntos los pagos del periodo",
+      "aprovechar los datos ya registrados en el ERP",
+      "cobrar el fondeo desde la cuenta autorizada"
+    ],
+    "never": [
+      "prometer una sola transferencia o una sola comisión",
+      "prometer conciliación o seguimiento automáticos",
+      "prometer cero errores",
+      "sugerir un débito sin autorización",
+      "convertir las integraciones en una API garantizada"
+    ]
+  },
+
+  "batch_policy": {
+    "variety_note": "Rotar los cuatro mecanismos y no dejar que carga masiva se coma la tanda por ser el más fácil de contar. Para maquinaria y proyectos, agrupar solo pagos que corresponde realizar juntos.",
+    "anti_repetition": [
+      "No más de dos piezas consecutivas con el mismo mecanismo.",
+      "Ninguna fórmula más de tres o cuatro veces en una tanda de 15–30.",
+      "Que una apertura no domine más de una quinta parte de la tanda.",
+      "Comparar similitud semántica: 'una carga' y 'un archivo' son la misma promesa.",
+      "No cerrar todo con 'Reduce el trabajo manual'."
+    ]
+  },
+
+  "gold_examples": [
+    {
+      "headline": "Comprar berries a más productores no debería multiplicar las transferencias que preparas una por una.",
+      "subcopy": "Una carga reúne los importes y las referencias de los pagos que necesitas enviar.",
+      "cta": "Ahorra tiempo al pagar",
+      "angleLabel": "Número de productores",
+      "angleTag": "carga_masiva",
+      "subfamily": "CARGA_MASIVA",
+      "corridor": "mexico_estados_unidos",
+      "industry": "produce",
+      "legacyId": "MAS-01",
+      "needsLegalNote": false
+    },
+    {
+      "headline": "Las berries llegan cada semana. También las facturas de los productores.",
+      "subcopy": "Los pagos del periodo pueden reunirse en una carga, en lugar de prepararse individualmente.",
+      "cta": "Ahorra tiempo al pagar",
+      "angleLabel": "Ciclo semanal",
+      "angleTag": "recurrencia",
+      "subfamily": "RECURRENCIA",
+      "corridor": "mexico_estados_unidos",
+      "industry": "produce",
+      "legacyId": "REC-01",
+      "needsLegalNote": false
+    },
+    {
+      "headline": "Ya registraste las facturas de cajas para fruta en QuickBooks. No copies los mismos datos para pagar.",
+      "subcopy": "La integración utiliza esa información para preparar las transferencias a tus proveedores.",
+      "cta": "Ahorra tiempo al pagar",
+      "angleLabel": "QuickBooks / factura registrada",
+      "angleTag": "erp",
+      "subfamily": "ERP",
+      "corridor": "erp_integracion",
+      "industry": "produce",
+      "legacyId": "ERP-01",
+      "needsLegalNote": false
+    },
+    {
+      "headline": "Pagar a tu proveedor no debería exigirte otra transferencia a Xending.",
+      "subcopy": "El importe se cobra automáticamente por ACH desde la cuenta bancaria que autorizas.",
+      "cta": "Simplifica tus pagos",
+      "angleLabel": "Transferencia adicional",
+      "angleTag": "cargo_automatico_ach",
+      "subfamily": "CARGO_AUTOMATICO_ACH",
+      "corridor": "domestico_usa",
+      "industry": "general_b2b",
+      "legacyId": "ACHA-01",
+      "needsLegalNote": false
+    }
+  ],
+
+  "gold_examples_note": "Uno por mecanismo, todos APROBADO ES y citados con su legacy_id. ACHA-01 muestra la fórmula narrativa del §20 completa en dos campos, y nótese que dice 'la cuenta bancaria que autorizas': la autorización siempre está explícita.",
+
+  "rejected_examples": [
+    { "text": "Una sola transferencia para pagar a todos tus proveedores.", "reason": "el §19 lo prohíbe: una carga produce varios pagos, no uno" },
+    { "text": "Carga tu archivo y olvídate del resto.", "reason": "'carga y olvídate' está en el Evitar del §21 y quita la revisión" },
+    { "text": "Tu ERP aprueba y paga solo, sin que hagas nada.", "reason": "confunde aprobar factura con ejecutar pago y promete automatización total" },
+    { "text": "Conectamos por API con cualquier sistema, garantizado.", "reason": "la API está fuera del catálogo confirmado y 'garantizado' está prohibido" },
+    { "text": "Conciliación automática de vuelta a tu contabilidad.", "reason": "el §19 dice que ERP no concilia de vuelta automáticamente" },
+    { "text": "Cobramos automáticamente lo que necesites, cuando lo necesites.", "reason": "sugiere autorización abierta para cualquier movimiento futuro" },
+    { "text": "Ejecuta a todos tus proveedores en un clic.", "reason": "'ejecutar proveedores' es el error de sujeto que el §5 y el §21 señalan" },
+    { "text": "Cero errores en la captura de tus pagos.", "reason": "'cero errores' está prohibido por el §21" }
+  ],
+
+  "final_test": [
+    { "question": "¿La pieza trata UN mecanismo, o los mezcla?", "on_fail": "Elegir uno de los cuatro y dejar los demás fuera." },
+    { "question": "¿Queda claro que salen VARIOS pagos, no uno?", "on_fail": "Reescribir: 'los pagos', 'cada importe'.", "automatable": true },
+    { "question": "¿Se promete que desaparece la revisión?", "on_fail": "Reescribir: el mecanismo prepara, la persona revisa." },
+    { "question": "Si hay ACH, ¿está explícita la autorización?", "on_fail": "Añadir 'la cuenta que autorizas'." },
+    { "question": "Si hay ACH y moneda extranjera, ¿se separan el cargo y la conversión?", "on_fail": "Separarlos: son dos pasos." },
+    { "question": "Si hay ERP, ¿se habla de facturas o datos registrados, en vez de decir que el objeto está aprobado?", "on_fail": "Cambiar a 'las facturas de X registradas'." },
+    { "question": "¿Hay algún límite de volumen, número de módulos o porcentaje?", "on_fail": "Quitarlo: no hay ficha que lo sostenga.", "automatable": true }
+  ],
+
+  "closing_principle": "Esta rama vende menos trabajo manual, no menos control. Los cuatro mecanismos se parecen lo suficiente para confundirse y el §19 los llama 'los que nunca deben confundirse' por eso. La prueba de una pieza buena: se entiende cuál de los cuatro es, y sigue quedando claro que los pagos son varios y que alguien los revisa."
+}
