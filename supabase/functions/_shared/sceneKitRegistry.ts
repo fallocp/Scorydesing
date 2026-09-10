@@ -23,7 +23,23 @@ import { cuentaMultidivisaSceneKit } from './scene-kits/cuenta-multidivisa.ts';
 
 export type { SceneKit } from './scene-kits/types.ts';
 
-const SCENE_KITS: Record<BranchKitSlug, SceneKit> = {
+/**
+ * `Partial` y no `Record` completo, a propósito.
+ *
+ * Tener copy kit y tener scene kit son cosas distintas, y desde que existen las
+ * cinco ramas de Xending USA hay ramas con lo primero y sin lo segundo. Un
+ * `Record<BranchKitSlug, SceneKit>` obligaría a escribir los cinco repertorios
+ * visuales en el mismo commit que la capa editorial, y no es lo que conviene:
+ * el copy kit se valida contra el banco aprobado, el scene kit contra el §10 y
+ * el §7 de los MD, y son revisiones separadas.
+ *
+ * Lo que pasa mientras falta: `getSceneKit` devuelve `null` y
+ * `buildSceneRepertoireBlock` devuelve cadena vacía, así que la rama recibe la
+ * parte universal del bloque de escena, que es neutral. NO recibe el repertorio
+ * de otra rama — ese fallo era el de los alias de mercado, y se cerró en
+ * `branchSlug.ts`.
+ */
+const SCENE_KITS: Partial<Record<BranchKitSlug, SceneKit>> = {
   velocidad: velocidadSceneKit,
   'costos-ahorro': costosAhorroSceneKit,
   coberturas: coberturasSceneKit,
@@ -41,7 +57,9 @@ const SCENE_KITS: Record<BranchKitSlug, SceneKit> = {
 export function getSceneKit(branchSlugOrName: string | null | undefined): SceneKit | null {
   if (!branchSlugOrName?.trim()) return null;
   const slug = resolveKitSlug(branchSlugOrName);
-  return slug ? SCENE_KITS[slug] : null;
+  // `?? null` porque SCENE_KITS es Partial: una rama puede resolver slug y no
+  // tener repertorio. Normaliza el undefined a null, que es el contrato.
+  return (slug ? SCENE_KITS[slug] : null) ?? null;
 }
 
 /*

@@ -12,8 +12,28 @@
  * lectura de base y el fallback siguen siendo de `copyKitRegistry`.
  */
 
-/** Los ejes editoriales que tienen kit. */
-export const BRANCH_KIT_SLUGS = ["velocidad", "costos-ahorro", "coberturas", "cuenta-multidivisa"] as const;
+/**
+ * Los ejes editoriales que tienen kit.
+ *
+ * Dos mercados, y los slugs de USA llevan sufijo. El sufijo no es cosmético: la
+ * coincidencia exacta contra esta lista ocurre ANTES del corte de
+ * `hasMarketSuffix`, así que un slug `-usa` registrado aquí resuelve, y
+ * cualquier otro `-usa` que no esté sigue devolviendo `null` en vez de caer en
+ * el regex laxo y recibir el kit de México.
+ */
+export const BRANCH_KIT_SLUGS = [
+  // México
+  "velocidad",
+  "costos-ahorro",
+  "coberturas",
+  "cuenta-multidivisa",
+  // Estados Unidos
+  "plataforma-multidivisa-usa",
+  "velocidad-usa",
+  "costos-ahorro-usa",
+  "masivos-usa",
+  "coberturas-usa",
+] as const;
 
 export type BranchKitSlug = (typeof BRANCH_KIT_SLUGS)[number];
 
@@ -78,6 +98,30 @@ function hasMarketSuffix(key: string): boolean {
   return MARKET_SUFFIXES.some((s) => key === s || key.endsWith(`-${s}`));
 }
 
+/**
+ * Nombres viejos de ramas de Xending USA que NO llevan el sufijo.
+ *
+ * Estos dos estuvieron en `ALIASES` apuntando a kits de México. Se quitaron de
+ * ahí, y quitarlos no cerró el hueco: `velocidad-same-day` no termina en `-usa`,
+ * así que se salta `hasMarketSuffix` y la coincidencia laxa lo atrapa con
+ * `/velocidad/`. Resultado, el kit de México otra vez, sin error y sin aviso.
+ *
+ * Se resuelven a su rama de USA en vez de a `null` porque un carrusel guardado
+ * con el nombre viejo tiene que seguir abriendo con su capa editorial correcta.
+ * `cuenta-multidivisa-usa` va a `plataforma-multidivisa-usa` porque esa es la
+ * rama de USA que cubre la cuenta multidivisa; su nombre completo es "Plataforma
+ * de Pagos y Cuenta Multidivisa".
+ *
+ * Cuando aparezca otro nombre en inglés de una rama USA, va aquí. No en
+ * `ALIASES`, que es solo de México.
+ */
+const USA_LEGACY_NAMES: Record<string, BranchKitSlug> = {
+  "velocidad-same-day": "velocidad-usa",
+  "same-day": "velocidad-usa",
+  "cuenta-multidivisa-usa": "plataforma-multidivisa-usa",
+  "multidivisa-usa": "plataforma-multidivisa-usa",
+};
+
 /** Minúsculas, sin acentos, espacios y guiones bajos como guiones. */
 export function normalizeBranchKey(input: string): string {
   return input
@@ -93,6 +137,13 @@ export function resolveKitSlug(input: string): BranchKitSlug | null {
   const key = normalizeBranchKey(input);
 
   if ((BRANCH_KIT_SLUGS as readonly string[]).includes(key)) return key as BranchKitSlug;
+
+  /*
+   * Los nombres viejos de USA van ANTES de `ALIASES` y antes del regex, porque
+   * son los que el regex resolvería al mercado equivocado.
+   */
+  if (USA_LEGACY_NAMES[key]) return USA_LEGACY_NAMES[key];
+
   if (ALIASES[key]) return ALIASES[key];
 
   /*

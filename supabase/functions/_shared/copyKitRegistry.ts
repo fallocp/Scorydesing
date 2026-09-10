@@ -33,15 +33,37 @@ import costosAhorroKit from "./copy-kits/costos-ahorro.json" with { type: "json"
 import coberturasKit from "./copy-kits/coberturas.json" with { type: "json" };
 import cuentaMultidivisaKit from "./copy-kits/cuenta-multidivisa.json" with { type: "json" };
 
+import plataformaMultidivisaUsaKit from "./copy-kits/plataforma-multidivisa-usa.json" with { type: "json" };
+import velocidadUsaKit from "./copy-kits/velocidad-usa.json" with { type: "json" };
+import costosAhorroUsaKit from "./copy-kits/costos-ahorro-usa.json" with { type: "json" };
+import masivosUsaKit from "./copy-kits/masivos-usa.json" with { type: "json" };
+import coberturasUsaKit from "./copy-kits/coberturas-usa.json" with { type: "json" };
+
 // ---------------------------------------------------------------------------
 // Registry
 // ---------------------------------------------------------------------------
 
+/**
+ * Dos mercados, sin nada compartido en esta capa.
+ *
+ * Los kits de USA no derivan de los de México y no se les cae encima ningún
+ * default: el comprador es otro (empresa estadounidense, base USD), y el kit de
+ * México describe a una empresa mexicana con base MXN. Mezclarlos produce una
+ * pieza con la capa editorial del mercado equivocado, que es el fallo que el
+ * guard de `branchSlug.ts` existe para hacer visible.
+ */
 const KITS: Record<string, CopyKit> = {
+  // México
   velocidad: velocidadKit as unknown as CopyKit,
   "costos-ahorro": costosAhorroKit as unknown as CopyKit,
   coberturas: coberturasKit as unknown as CopyKit,
   "cuenta-multidivisa": cuentaMultidivisaKit as unknown as CopyKit,
+  // Estados Unidos
+  "plataforma-multidivisa-usa": plataformaMultidivisaUsaKit as unknown as CopyKit,
+  "velocidad-usa": velocidadUsaKit as unknown as CopyKit,
+  "costos-ahorro-usa": costosAhorroUsaKit as unknown as CopyKit,
+  "masivos-usa": masivosUsaKit as unknown as CopyKit,
+  "coberturas-usa": coberturasUsaKit as unknown as CopyKit,
 };
 
 export function listCopyKitSlugs(): string[] {
