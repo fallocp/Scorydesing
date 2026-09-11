@@ -21,6 +21,12 @@ import { velocidadSceneKit } from './scene-kits/velocidad.ts';
 import { coberturasSceneKit } from './scene-kits/coberturas.ts';
 import { cuentaMultidivisaSceneKit } from './scene-kits/cuenta-multidivisa.ts';
 
+import { plataformaMultidivisaUsaSceneKit } from './scene-kits/plataforma-multidivisa-usa.ts';
+import { velocidadUsaSceneKit } from './scene-kits/velocidad-usa.ts';
+import { costosAhorroUsaSceneKit } from './scene-kits/costos-ahorro-usa.ts';
+import { masivosUsaSceneKit } from './scene-kits/masivos-usa.ts';
+import { coberturasUsaSceneKit } from './scene-kits/coberturas-usa.ts';
+
 export type { SceneKit } from './scene-kits/types.ts';
 
 /**
@@ -40,10 +46,17 @@ export type { SceneKit } from './scene-kits/types.ts';
  * `branchSlug.ts`.
  */
 const SCENE_KITS: Partial<Record<BranchKitSlug, SceneKit>> = {
+  // México
   velocidad: velocidadSceneKit,
   'costos-ahorro': costosAhorroSceneKit,
   coberturas: coberturasSceneKit,
   'cuenta-multidivisa': cuentaMultidivisaSceneKit,
+  // Estados Unidos
+  'plataforma-multidivisa-usa': plataformaMultidivisaUsaSceneKit,
+  'velocidad-usa': velocidadUsaSceneKit,
+  'costos-ahorro-usa': costosAhorroUsaSceneKit,
+  'masivos-usa': masivosUsaSceneKit,
+  'coberturas-usa': coberturasUsaSceneKit,
 };
 
 /**

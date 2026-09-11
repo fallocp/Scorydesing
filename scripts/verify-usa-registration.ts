@@ -85,17 +85,28 @@ for (const [slug, expected] of usaLegacy) {
   else bad(`"${slug}" resolvió a "${r}", se esperaba "${expected}"`);
 }
 
-// --- 4. Las ramas USA no heredan el scene kit de México -------------------
-console.log('\n4. Scene kit por rama');
+/*
+ * --- 4. Cada rama recibe SU scene kit, no el de otra ----------------------
+ *
+ * Esta comprobación cambió de forma. Cuando los scene kits de USA no existían, la
+ * invariante era que esas ramas devolvieran `null`: recibían el bloque de escena
+ * universal, que es neutral, y lo que se vigilaba era que no heredaran el
+ * repertorio de México.
+ *
+ * Ahora que existen los cinco, `null` sería una regresión y la invariante es más
+ * fuerte: el kit que devuelve cada rama tiene que declarar su propio slug. Eso
+ * cubre el fallo original —una rama de USA con la utilería de México— y además el
+ * caso nuevo de un registro cruzado entre dos ramas de USA.
+ */
+console.log('\n4. Scene kit por rama: cada una recibe el suyo');
 for (const slug of BRANCH_KIT_SLUGS) {
   const sk = getSceneKit(slug);
-  const isUsa = slug.endsWith('-usa');
-  if (isUsa && sk !== null) {
-    bad(`"${slug}" recibió el scene kit "${sk.branchName}". Los mockups se mezclarían.`);
-  } else if (!isUsa && sk === null) {
-    bad(`"${slug}" perdió su scene kit.`);
+  if (!sk) {
+    bad(`"${slug}" no tiene scene kit. Perdería su repertorio visual.`);
+  } else if (sk.branchSlug !== slug) {
+    bad(`"${slug}" recibió el repertorio de "${sk.branchSlug}". Los mockups se mezclarían.`);
   } else {
-    console.log(`  ok  ${slug.padEnd(28)} ${sk ? sk.branchName : 'null (repertorio neutral, pendiente)'}`);
+    console.log(`  ok  ${slug.padEnd(28)} ${sk.branchName.padEnd(48)} figuras: ${sk.figurePolicy.mode}`);
   }
 }
 
