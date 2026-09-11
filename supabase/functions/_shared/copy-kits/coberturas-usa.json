@@ -122,7 +122,18 @@
     }
   },
 
-  "angle_quota_note": "Los doce ángulos son los del §23, separados por grupo de instrumento. Los ocho primeros son de forwards y son los únicos con banco aprobado. Los cuatro últimos pertenecen a opciones, estructuras y TARF, que son PROPUESTAS y no publicables: ver `instrument_gating`.",
+  "angle_tag_source": "subfamilia",
+
+  "angle_quota": {
+    "COBERTURA_FORWARD": 34,
+    "FORWARD": 33,
+    "VANILLA_COMPRADA": 16,
+    "ESTRUCTURA_SIN_PRIMA_INICIAL": 9,
+    "TARF": 6,
+    "COLLAR_SIN_PRIMA_INICIAL": 2
+  },
+
+  "angle_quota_note": "`angle_quota` va sobre las SUBFAMILIAS, que aquí son los INSTRUMENTOS, y por eso importa más que en las otras ramas: el instrumento determina qué se puede afirmar. Refleja la distribución real: 15, 15, 7, 4, 3 y 1. CUIDADO al usarla para generar: las cuatro últimas están bloqueadas para publicación por `instrument_gating`, así que un déficit ahí no es una invitación a producir piezas publicables. Los doce `angles` de abajo son los del §23 y son texto para el prompt; los ocho primeros son de forwards y los cuatro últimos de instrumentos bloqueados.",
 
   "angle_rotation_note": "Para forwards, rotar entre los ocho primeros. El §25 recuerda la base de estilo: producto concreto arriba, apoyo corto que explica una herramienta, CTA de margen, utilidad o presupuesto.",
 
@@ -249,7 +260,9 @@
     "maquinaria": { "angles": ["presupuesto_inversion", "anticipo_y_saldo", "factura_con_plazo"] },
     "equipamiento_comercial": { "angles": ["anticipo_y_saldo", "presupuesto_inversion", "catalogo_y_temporada"] },
     "medico_laboratorio": { "angles": ["presupuesto_inversion", "factura_con_plazo"] },
-    "produce": { "angles": ["catalogo_y_temporada", "costo_por_unidad"] }
+    "produce": { "angles": ["catalogo_y_temporada", "costo_por_unidad"] },
+    "industrial": { "angles": ["costo_por_unidad", "factura_con_plazo", "margen_comprometido"] },
+    "insumos_industriales": { "angles": ["costo_por_unidad", "catalogo_y_temporada"] }
   },
 
   "verticalization": {

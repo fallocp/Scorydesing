@@ -86,14 +86,16 @@
     }
   },
 
+  "angle_tag_source": "subfamilia",
+
   "angle_quota": {
-    "carga_masiva": 30,
-    "erp": 25,
-    "cargo_automatico_ach": 23,
-    "recurrencia": 22
+    "CARGA_MASIVA": 30,
+    "ERP": 25,
+    "CARGO_AUTOMATICO_ACH": 23,
+    "RECURRENCIA": 22
   },
 
-  "angle_quota_note": "Medido sobre el banco: CARGA_MASIVA 19, ERP 16, CARGO_AUTOMATICO_ACH 15, RECURRENCIA 15. Aquí los cuatro ángulos SÍ coinciden con las cuatro subfamilias, porque el §19 los define como los cuatro mecanismos de la rama. Es la única de las cinco ramas donde los dos ejes son el mismo.",
+  "angle_quota_note": "Medido sobre el banco: CARGA_MASIVA 19, ERP 16, CARGO_AUTOMATICO_ACH 15, RECURRENCIA 15. Es la única de las cinco ramas donde los dos ejes dicen lo mismo: el §19 define los cuatro mecanismos como el eje de la rama y el banco los guarda con esos mismos nombres. Las llaves van en mayúsculas porque `angle_quota` es el dominio de `copy_bank_items.angle_tag`, y ahí se guarda la subfamilia tal como viene de la ficha.",
 
   "angle_rotation_note": "Rotar entre los cuatro. Es la rama con más riesgo de fusionarlos: el §19 los llama 'cuatro mecanismos que nunca deben confundirse'. Una pieza trata UNO. Si menciona un segundo, no lo presenta como el mismo.",
 
@@ -174,7 +176,8 @@
     "manufactura": { "angles": ["carga_masiva", "erp"] },
     "equipamiento_comercial": { "angles": ["carga_masiva", "erp"] },
     "electronica": { "angles": ["erp", "carga_masiva"] },
-    "solar_electrico": { "angles": ["carga_masiva", "recurrencia"] }
+    "solar_electrico": { "angles": ["carga_masiva", "recurrencia"] },
+    "insumos_industriales": { "angles": ["recurrencia", "carga_masiva"] }
   },
 
   "verticalization": {

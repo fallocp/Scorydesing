@@ -110,7 +110,17 @@
     }
   },
 
-  "angle_quota_note": "Los ocho ángulos son las subfamilias conceptuales del §19 y son el eje de `angle_tag`. El banco las agrupa en cinco al guardarlas —CUENTAS_PLATAFORMA_ACCESOS junta cuenta y plataforma; CONVERSION_Y_COSTO junta tipo de cambio, volumen y costo completo— así que el eje de generación es más fino que el de almacenamiento. El §22 pide alternar estructura del costo, comparación, compra concreta, recurrencia, costo fijo y costo por pago.",
+  "angle_tag_source": "subfamilia",
+
+  "angle_quota": {
+    "WIRE_FEES": 20,
+    "ACH_FEES": 20,
+    "BENEFICIARIOS": 20,
+    "CUENTAS_PLATAFORMA_ACCESOS": 20,
+    "CONVERSION_Y_COSTO": 20
+  },
+
+  "angle_quota_note": "`angle_quota` va sobre las SUBFAMILIAS porque es el dominio de `copy_bank_items.angle_tag`, y aquí el reparto es perfectamente parejo: 15 registros cada una, de ahí el 20% exacto. Los ocho `angles` de abajo son las subfamilias conceptuales del §19, más finas que las cinco de almacenamiento —CUENTAS_PLATAFORMA_ACCESOS junta cuenta y plataforma; CONVERSION_Y_COSTO junta tipo de cambio, volumen y costo completo— y son texto para el prompt, no eje de cuotas. El §22 pide alternar estructura del costo, comparación, compra concreta, recurrencia, costo fijo y costo por pago.",
 
   "angle_rotation_note": "Agotar los ocho antes de repetir. `volumen_y_recurrencia` es el que más fácil se sobreusa: el §22 lo dice explícito.",
 

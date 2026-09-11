@@ -122,7 +122,14 @@
     }
   },
 
-  "angle_quota_note": "Los diez ángulos son los usos que el §19 del MD declara para esta rama, y son el eje de `angle_tag`. Sin cuota fija: el §22 pide variedad entre al menos cuatro usos distintos en una tanda de 15, no una distribución exacta. El campo `Ángulo` de la ficha es texto libre y va en `angle_label`.",
+  "angle_tag_source": "subfamilia",
+
+  "angle_quota": {
+    "PLATAFORMA_Y_DESTINOS": 58,
+    "MONEDAS_Y_SALDOS": 42
+  },
+
+  "angle_quota_note": "OJO con los dos ejes, que no son el mismo. `angle_quota` es el dominio de `copy_bank_items.angle_tag` y es lo que `assignTargetAngles` recibe en analyzeCopyBank, así que va sobre las SUBFAMILIAS: son vocabulario controlado con cobertura total del banco (28 y 20 registros). Los diez `angles` de abajo son el repertorio del §19 y son texto para el prompt; sus llaves no entran en la matemática de cuotas. El campo `Ángulo` de la ficha es texto libre y va en `angle_label`. Se midió mapear ese texto libre a los diez ángulos y solo cubría el 58%, así que se descartó: cuotas gruesas y ciertas antes que finas e inventadas.",
 
   "angle_rotation_note": "Rotar entre los diez. Agotar los disponibles antes de repetir uno. El §22 pide además no repetir precio, apertura y rapidez en cada anuncio: elegir un beneficio y demostrarlo.",
 

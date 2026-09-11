@@ -116,7 +116,22 @@
     }
   },
 
-  "angle_quota_note": "Los diez ángulos son el repertorio temporal del §20 y son el eje de `angle_tag`. Sin cuota fija: el §22 solo pone un techo —no más de un tercio en `pedido_terminado`— y pide variar mantenimiento, reposición, producción, instalación, temporada y pago del día. El campo `Ángulo` de la ficha es texto libre y va en `angle_label`.",
+  "angle_tag_source": "repertorio",
+
+  "angle_quota": {
+    "pedido_terminado": 14,
+    "anticipo": 14,
+    "refaccion": 12,
+    "temporada": 11,
+    "equipo_y_capacitacion": 11,
+    "apertura": 9,
+    "reposicion": 8,
+    "distancia": 8,
+    "fecha_produccion": 7,
+    "pago_venciendo_hoy": 6
+  },
+
+  "angle_quota_note": "Esta es la ÚNICA rama donde `angle_tag` sale del repertorio fino del §20 y no de la subfamilia, y por dos razones medidas: su subfamilia es una sola (VELOCIDAD_Y_TIEMPO, 37 registros) y no daría ninguna señal, y el texto libre del campo `Ángulo` mapea a los diez ángulos con cobertura de 37 de 37. En las otras cuatro ramas ese mapeo cubría entre 46% y 82%, así que allá la cuota va sobre subfamilias. La cuota de aquí refleja la distribución real y respeta el techo del §22: `pedido_terminado` se queda en 14%, muy debajo del tercio que ese § pone como límite.",
 
   "angle_rotation_note": "Agotar los ángulos disponibles antes de repetir uno. El §22 advierte además que no todas las escenas deben volverse 'proveedor esperando'. El volumen actual menor de esta rama no es un hueco que haya que rellenar automáticamente: el usuario movió piezas fuera a propósito.",
 
