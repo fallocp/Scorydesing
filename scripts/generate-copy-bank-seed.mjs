@@ -32,7 +32,21 @@ import {
 } from './map-copy-bank.mjs';
 
 const BUSINESS_ID = 'a0000000-0000-0000-0000-000000000003';
-const OUT = 'supabase/migrations/seed_20260909_copy_bank_xending_usa.sql';
+
+/*
+ * Un archivo por rama, no uno solo.
+ *
+ * El combinado pesaba 173 KB en 2575 líneas y el editor SQL de Supabase lo corta
+ * al pegarlo. Un corte a media cadena deja el literal abierto y Postgres empieza
+ * a leer el texto del copy como SQL: el síntoma fue
+ * `relation "production" does not exist`, con "production" saliendo de un
+ * headline en inglés.
+ *
+ * Partido por rama, el más grande queda alrededor de 45 KB, que sí se pega. Y
+ * cada uno se puede aplicar y verificar por separado.
+ */
+const OUT_DIR = 'supabase/migrations';
+const OUT_PREFIX = 'seed_20260909_copy_bank_usa';
 
 const MDS = [
   ['docs/01_xending_usa_plataforma_multidivisa_master_v2.md', 'plataforma-multidivisa-usa'],
@@ -158,9 +172,7 @@ const tot = rows.reduce((a, r) => ({ ...a, [r.status]: (a[r.status] ?? 0) + 1 })
 console.log(`  ${'TOTAL'.padEnd(28)} ${JSON.stringify(tot)}  (${rows.length} filas)`);
 
 // --- SQL -------------------------------------------------------------------
-const values = rows
-  .map(
-    (r) => `  (${q(r.branchSlug)}, ${q(r.legacyId)}, ${q(r.corridor)}, ${q(r.industry)},
+const tupleOf = (r) => `  (${q(r.legacyId)}, ${q(r.corridor)}, ${q(r.industry)},
    ${q(r.headline)},
    ${q(r.subcopy)},
    ${q(r.cta)},
@@ -168,26 +180,49 @@ const values = rows
    ${q(r.subcopyEn)},
    ${q(r.ctaEn)},
    ${q(r.angleTag)}, ${q(r.angleLabel)}, ${q(r.formula)}, ${q(r.businessSide)},
-   ${q(r.status)}, ${b(r.needsLegalNote)}, ${q(r.legalNote)}, ${q(r.kitVersion)}, ${q(r.reviewNote)})`,
-  )
-  .join(',\n');
+   ${q(r.status)}, ${b(r.needsLegalNote)}, ${q(r.legalNote)}, ${q(r.kitVersion)}, ${q(r.reviewNote)})`;
 
-const sql = `-- ---------------------------------------------------------------------------
--- Seed: banco de copys de Xending USA
+const FILE_ORDER = [
+  'plataforma-multidivisa-usa',
+  'velocidad-usa',
+  'costos-ahorro-usa',
+  'masivos-usa',
+  'coberturas-usa',
+];
+
+let n = 0;
+for (const branchSlug of FILE_ORDER) {
+  n += 1;
+  const branchRows = rows.filter((r) => r.branchSlug === branchSlug);
+  const c = byBranch[branchSlug];
+  const short = branchSlug.replace(/-usa$/, '').replace(/-/g, '_');
+  const out = `${OUT_DIR}/${OUT_PREFIX}_${n}_${short}.sql`;
+
+  const sql = `-- ---------------------------------------------------------------------------
+-- Seed: banco de copys de Xending USA — rama ${branchSlug}
 -- ---------------------------------------------------------------------------
 -- GENERADO. No editar a mano.
 --   node scripts/generate-copy-bank-seed.mjs
 --
--- Fuente: los cinco MD \`docs/0{1..5}_xending_usa_*_master_v2.md\`, versión
--- xending-usa-master-v2.0. ${rows.length} registros: ${tot.seed ?? 0} aprobados, ${tot.proposed ?? 0} propuestas y
--- ${tot.archived ?? 0} de historial.
+-- ${branchRows.length} registros de esta rama: ${c.seed} aprobados, ${c.proposed} propuestas y ${c.archived} de historial.
+-- Fuente: el MD de la rama, versión xending-usa-master-v2.0.
 --
--- Depende de 20260908_add_copy_bank_en_us_and_legacy_id.sql, que crea
--- \`headline_en\`, \`subcopy_en\`, \`cta_en\` y \`legacy_id\`. El orden se resuelve por
--- nombre: los \`2026*\` corren antes que los \`seed_*\`.
+-- UN ARCHIVO POR RAMA, Y NO UNO SOLO
 --
--- Y depende del tenant: \`seed_20260908_xending_usa_tenant.sql\` crea el
--- business_id y las cinco ramas.
+-- El seed combinado pesaba 173 KB en 2575 líneas, y el editor SQL de Supabase lo
+-- corta al pegarlo. Un corte a media cadena deja el literal abierto y Postgres
+-- empieza a leer el texto del copy como SQL; el síntoma real fue
+-- \`relation "production" does not exist\`, con "production" saliendo de un
+-- headline en inglés. Partido por rama, cada archivo se pega y se verifica solo.
+--
+-- Las cinco ramas son independientes: se pueden aplicar en cualquier orden.
+--
+-- DEPENDENCIAS
+--
+--   20260908_add_copy_bank_en_us_and_legacy_id.sql  crea headline_en, subcopy_en,
+--                                                  cta_en y legacy_id
+--   20260901_add_copy_bank_business_side.sql        crea business_side
+--   seed_20260908_xending_usa_tenant.sql            crea el business_id y las ramas
 --
 -- MAPEO DE ESTADOS (§11 de los MD)
 --
@@ -198,19 +233,15 @@ const sql = `-- ----------------------------------------------------------------
 -- \`seed\` y no \`approved\` a propósito: es el status que marca el lote humano
 -- importado, y \`analyzeCopyBank\` lo cuenta junto con \`approved\`.
 --
--- QUÉ ES angle_tag AQUÍ
+-- angle_tag DE ESTA RAMA: ${ANGLE_TAG_SOURCE[branchSlug]}
 --
 -- El dominio de \`angle_tag\` son las llaves de \`kit.angle_quota\`, que es lo que
--- \`assignTargetAngles\` recibe en analyzeCopyBank. Por rama:
-${Object.entries(ANGLE_TAG_SOURCE)
-  .map(([slug, src]) => `--   ${slug.padEnd(28)} ${src}`)
-  .join('\n')}
---
--- En cuatro ramas es la SUBFAMILIA, que es vocabulario controlado con cobertura
--- total. En velocidad es el repertorio fino del §20, porque su subfamilia es una
--- sola y no daría señal, y porque ahí el texto libre del campo \`Ángulo\` mapea
--- 37 de 37. Se midió el mapeo fino en las otras cuatro y cubría entre 46% y 82%:
--- forzarlo habría metido datos inventados en las cuotas.
+-- recibe \`assignTargetAngles\` en analyzeCopyBank. En cuatro ramas ese eje es la
+-- SUBFAMILIA, vocabulario controlado con cobertura total. En velocidad es el
+-- repertorio fino del §20, porque su subfamilia es una sola y no daría señal, y
+-- porque ahí el texto libre del campo \`Ángulo\` mapea 37 de 37. Ese mapeo fino se
+-- midió en las otras cuatro y cubría entre 46% y 82%: forzarlo habría metido
+-- datos inventados en las cuotas.
 --
 -- El texto libre del campo \`Ángulo\` se conserva íntegro en \`angle_label\`, y la
 -- subfamilia en \`formula\`.
@@ -219,14 +250,13 @@ ${Object.entries(ANGLE_TAG_SOURCE)
 --
 -- Los cinco MD reportan approved_en_us = 0. Las columnas \`*_en\` guardan la
 -- propuesta para que viaje pegada a su pieza; no hay columna de estado porque el
--- estado es el mismo en las ${rows.length} filas. Nada del pipeline lee esas columnas:
--- \`analyzeCopyBank\` selecciona columnas explícitas.
+-- estado es el mismo en todas. Nada del pipeline las lee: \`analyzeCopyBank\`
+-- selecciona columnas explícitas.
 --
 -- IDEMPOTENTE
 --
 -- Inserta sólo los \`legacy_id\` que no existan para este business_id. Correrlo dos
--- veces no duplica nada y NO pisa ediciones hechas en la aplicación. Para
--- recargar desde cero hay que borrar primero: ver el bloque del final.
+-- veces no duplica nada y NO pisa ediciones hechas en la aplicación.
 -- ---------------------------------------------------------------------------
 
 insert into public.copy_bank_items (
@@ -238,16 +268,16 @@ insert into public.copy_bank_items (
   source
 )
 select
-  '${BUSINESS_ID}', v.branch_slug, v.legacy_id, v.corridor, v.industry,
+  '${BUSINESS_ID}', '${branchSlug}', v.legacy_id, v.corridor, v.industry,
   v.headline, v.subcopy, v.cta,
   v.headline_en, v.subcopy_en, v.cta_en,
   v.angle_tag, v.angle_label, v.formula, v.business_side,
   v.status, v.needs_legal_note, v.legal_note, v.kit_version, v.review_note,
   'seed'
 from (values
-${values}
+${branchRows.map(tupleOf).join(',\n')}
 ) as v (
-  branch_slug, legacy_id, corridor, industry,
+  legacy_id, corridor, industry,
   headline, subcopy, cta,
   headline_en, subcopy_en, cta_en,
   angle_tag, angle_label, formula, business_side,
@@ -261,60 +291,39 @@ where not exists (
 
 
 -- ---------------------------------------------------------------------------
--- Verificación
+-- Verificación de esta rama
 -- ---------------------------------------------------------------------------
--- Conteo por rama y estado. Esperado:
+-- Esperado: seed ${c.seed}, proposed ${c.proposed}, archived ${c.archived}. Total ${branchRows.length}.
 --
-${Object.entries(byBranch)
-  .map(([slug, c]) => `--   ${slug.padEnd(28)} seed ${String(c.seed).padStart(3)}  proposed ${String(c.proposed).padStart(2)}  archived ${String(c.archived).padStart(2)}`)
-  .join('\n')}
---
---   select branch_slug, status, count(*)
---   from public.copy_bank_items
+--   select status, count(*) from public.copy_bank_items
 --   where business_id = '${BUSINESS_ID}'
---   group by 1, 2 order by 1, 2;
+--     and branch_slug = '${branchSlug}'
+--   group by 1 order by 1;
 --
--- Total: ${rows.length} filas, ${tot.seed ?? 0} de ellas como seed.
+-- Los angle_tag deben ser las llaves de angle_quota del kit ${branchSlug}:
 --
---   select count(*) from public.copy_bank_items
---   where business_id = '${BUSINESS_ID}';
---
--- Los angle_tag deben coincidir con las llaves de angle_quota de cada kit:
---
---   select branch_slug, angle_tag, count(*)
---   from public.copy_bank_items
+--   select angle_tag, count(*) from public.copy_bank_items
 --   where business_id = '${BUSINESS_ID}'
---   group by 1, 2 order by 1, 3 desc;
+--     and branch_slug = '${branchSlug}'
+--   group by 1 order by 2 desc;
 --
--- Las piezas bloqueadas para publicación, que deben ser los cuatro instrumentos
--- de coberturas y nada más:
---
---   select legacy_id, formula, status
---   from public.copy_bank_items
---   where business_id = '${BUSINESS_ID}' and needs_legal_note
---   order by formula, legacy_id;
---
--- Ninguna fila de México tocada. Debe devolver 0:
---
---   select count(*) from public.copy_bank_items
---   where business_id <> '${BUSINESS_ID}' and legacy_id is not null;
---
--- ---------------------------------------------------------------------------
--- Recarga desde cero
--- ---------------------------------------------------------------------------
--- Destructivo: pierde cualquier edición, cambio de status o marca de uso hecha
--- en la aplicación sobre estas filas.
+-- Rollback de esta rama:
 --
 --   delete from public.copy_bank_items
---   where business_id = '${BUSINESS_ID}' and source = 'seed';
---
--- ---------------------------------------------------------------------------
--- Rollback
--- ---------------------------------------------------------------------------
---   delete from public.copy_bank_items
---   where business_id = '${BUSINESS_ID}';
+--   where business_id = '${BUSINESS_ID}'
+--     and branch_slug = '${branchSlug}';
 -- ---------------------------------------------------------------------------
 `;
 
-writeFileSync(OUT, sql, 'utf8');
-console.log(`\nescrito: ${OUT}  (${sql.length} bytes)`);
+  writeFileSync(out, sql, 'utf8');
+  console.log(`  ${out}  ${String(sql.length).padStart(7)} bytes  ${branchRows.length} filas`);
+}
+
+console.log(`\nVerificación global, después de aplicar los cinco:
+
+  select branch_slug, status, count(*)
+  from public.copy_bank_items
+  where business_id = '${BUSINESS_ID}'
+  group by 1, 2 order by 1, 2;
+
+Esperado ${rows.length} filas: ${tot.seed ?? 0} seed, ${tot.proposed ?? 0} proposed, ${tot.archived ?? 0} archived.`);
