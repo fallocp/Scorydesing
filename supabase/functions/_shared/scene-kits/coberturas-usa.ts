@@ -68,33 +68,33 @@ export const coberturasUsaSceneKit: SceneKit = {
   ],
 
   bannedProps: [
-    'gráficas de tipo de cambio, curvas, velas, flechas de subida o bajada y tickers: el §10 prohíbe dibujar cotizaciones, y una flecha direccional afirma hacia dónde va el mercado',
-    'escudos, candados, paraguas, cascos, redes de seguridad y chalecos: la rama vende previsibilidad contractual, no protección metafórica',
-    'balanzas, dados, ruletas y cualquier objeto de apuesta o de equilibrio de mercado',
-    'tasas, primas, porcentajes y niveles de protección escritos en cualquier superficie: el §25 prohíbe llevar cotizaciones y porcentajes de desempeño al copy',
+    'tasas, primas, porcentajes y niveles de protección escritos en cualquier superficie: el §10 prohíbe dibujar cotizaciones y el §25 prohíbe llevar tasas o porcentajes de desempeño al copy. La gráfica como objeto sí puede existir; lo que no puede es traer un valor legible',
+    'dados, ruletas, fichas de casino y cualquier objeto de apuesta: la rama vende decisiones contractuales, no especulación',
     'relojes, calendarios con el día de hoy marcado y pantallas de ESTADO de la operación: eso es de velocidad, y aquí la fecha que importa es la del vencimiento',
     'pilas de comprobantes acumulados y líneas de comisión resaltadas: eso es de costos y ahorro',
     'archivos de carga, listados largos de pagos e iconos de ERP: eso es de masivos y automatización',
     'archiveros por país y pilas de formatos de pago sin llenar: eso es de plataforma y multidivisa',
   ],
 
+  /*
+   * Gráficas, curvas, flechas de dirección, escudos, candados y paraguas NO están
+   * prohibidos, a diferencia de una versión anterior de este kit.
+   *
+   * Los había baneado razonando que una flecha direccional afirma hacia dónde va el
+   * mercado. Decisión del usuario: no se prohíben. Son el vocabulario visual con el
+   * que esta categoría se entiende, y el control que sí importa es otro y más
+   * preciso: que no aparezca un VALOR legible —una tasa, una prima, un porcentaje,
+   * un nivel de protección— porque eso es lo que el §10 y el §25 prohíben. Una curva
+   * sin números es una forma; una curva con una tasa es una cotización publicada.
+   */
   bannedPropTokens: [
-    'grafica de tipo de cambio',
-    'curva',
-    'vela',
-    'flecha de subida',
-    'flecha de bajada',
-    'ticker',
-    'escudo',
-    'candado',
-    'paraguas',
-    'red de seguridad',
-    'balanza',
-    'dado',
-    'ruleta',
+    'tasa legible',
     'prima',
     'porcentaje',
     'nivel de proteccion',
+    'dado',
+    'ruleta',
+    'ficha de casino',
     'reloj',
     'hora de corte',
     'pila de comprobantes',

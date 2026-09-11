@@ -65,7 +65,7 @@ export const plataformaMultidivisaUsaSceneKit: SceneKit = {
   ],
 
   bannedProps: [
-    'sucursales bancarias, ventanillas, filas y ejecutivos de banco: el usuario corrigió esa historia en INT-02, este comprador nunca va al banco y su dolor es el papeleo',
+    'la escena de EVITAR LA IDA AL BANCO: nadie caminando hacia una sucursal, ni saliendo de la oficina, ni una puerta de banco como el problema. El banco puede aparecer como la alternativa que este comprador ya usa —es la competencia y su relación bancaria es real— pero el dolor de la pieza es el papeleo y las instrucciones manuales, que es la corrección expresa del usuario en INT-02',
     'relojes, calendarios con el día marcado y pantallas de ESTADO de la operación: eso es de velocidad y aquí desvía la historia al tiempo',
     'cotizaciones comparadas, líneas de comisión resaltadas y totales enfrentados: eso es de costos y ahorro',
     'contratos de forward y calendarios de vencimientos futuros: eso es de coberturas',
@@ -74,10 +74,21 @@ export const plataformaMultidivisaUsaSceneKit: SceneKit = {
     'monedas flotando, símbolos de divisa gigantes, mapamundis con líneas y banderas apiladas',
   ],
 
+  /*
+   * `sucursal` y `ejecutivo de banco` NO están en esta lista, a diferencia de una
+   * versión anterior de este kit.
+   *
+   * En Estados Unidos la relación bancaria de la empresa es real y el banco es la
+   * alternativa contra la que Xending compite, así que puede aparecer en cuadro. Lo
+   * que no puede aparecer es la historia de EVITAR LA IDA, que es lo que el usuario
+   * corrigió en INT-02: el dolor es el papeleo, no el trayecto. Eso se vigila con la
+   * entrada en prosa de `bannedProps`, no con un token, porque el problema es la
+   * narrativa y no el objeto.
+   */
   bannedPropTokens: [
-    'sucursal',
-    'ventanilla',
-    'ejecutivo de banco',
+    'saliendo de la oficina',
+    'sin ir al banco',
+    'fila de banco',
     'reloj',
     'hora de corte',
     'cotizaciones comparadas',

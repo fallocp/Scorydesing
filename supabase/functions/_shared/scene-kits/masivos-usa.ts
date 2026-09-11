@@ -65,7 +65,7 @@ export const masivosUsaSceneKit: SceneKit = {
   ],
 
   bannedProps: [
-    'un solo comprobante saliendo de un archivo, o un único sobre representando toda la carga: el §19 prohíbe la idea de una sola transferencia y una sola comisión, y en imagen eso es lo mismo que decirlo',
+    'la carga entera representada por UN solo pago: un único comprobante, un único sobre o una sola flecha saliendo del archivo. De una carga salen varios pagos, cada uno con su proveedor y su importe, y el §19 prohíbe expresamente decir "una sola transferencia" o "una sola comisión". Una escena que muestra uno afirma eso mismo sin escribirlo. Lo que va en cuadro son VARIOS: varios comprobantes, varios renglones, varios sobres',
     'sellos de APROBADO automáticos, checks verdes flotantes y escritorios vacíos sin nadie: el beneficio es quitar trabajo, no quitar control ni revisión',
     'engranajes, robots, brazos mecánicos y flechas circulares de automatización',
     'el objeto de la industria con un check de aprobado: el §22 pide nombrar las facturas o los datos registrados, no decir que el motor está aprobado',
