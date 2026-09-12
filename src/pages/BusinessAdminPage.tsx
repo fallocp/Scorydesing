@@ -100,7 +100,20 @@ function BrandIdentityEditor({ businessId }: { businessId: string }) {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const { error, count } = await supabase
+      /*
+       * `.select()` y la comprobación de filas devueltas no son decoración.
+       *
+       * Antes esto destructuraba `count` sin pedirlo —para que Postgrest lo
+       * devuelva hace falta `{ count: 'exact' }`— así que siempre venía vacío y
+       * nadie lo miraba. El problema es que un UPDATE que no toca ninguna fila NO
+       * es un error para Postgrest: si la política RLS no aplica o el `id` no
+       * existe, la respuesta es 200 con cero filas. Resultado, la UI mostraba
+       * "guardado" y el valor no había cambiado.
+       *
+       * Así se detectó: el logo de Xending USA no se guardaba desde el panel y la
+       * pantalla decía que sí. Aplica a las seis columnas, no sólo al logo.
+       */
+      const { data, error } = await supabase
         .from('business_tenants')
         .update({
           logo_url: logoUrl || null,
@@ -110,9 +123,18 @@ function BrandIdentityEditor({ businessId }: { businessId: string }) {
           fonts: { display: displayFont || 'Montserrat', body: bodyFont || 'Poppins', mono: 'JetBrains Mono' },
           disclaimer: disclaimer || null,
         })
-        .eq('id', businessId);
+        .eq('id', businessId)
+        .select('id, slug');
 
       if (error) throw error;
+
+      if (!data || data.length === 0) {
+        throw new Error(
+          `No se actualizó ninguna fila para el negocio ${businessId}. ` +
+            'O el negocio activo no es el que crees, o tu membresía en él no es owner ni admin: ' +
+            'la política de RLS de business_tenants sólo permite UPDATE con esos dos roles.',
+        );
+      }
 
       // Invalidate queries so Design Studio picks up the change
       await queryClient.invalidateQueries({ queryKey: ['business-config'] });
