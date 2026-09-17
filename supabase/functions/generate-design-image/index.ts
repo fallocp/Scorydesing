@@ -113,7 +113,8 @@ interface GenerateImageRequest {
   backgroundStyle?: 'navy' | 'light_cream' | 'white' | 'white_2';
   // Explicit per-request snapshot used by Design Studio A/B options. When set,
   // it bypasses DB/global prompt selection so the result is reproducible.
-  masterPromptVersion?: 'v1' | 'v2';
+  //   'v3' = "Blanco Xending V3": V2 + capa producto en empaque real de retail.
+  masterPromptVersion?: 'v1' | 'v2' | 'v3';
   // Photography recipe (A/B). 'default' keeps the current master photo section;
   // 'editorial_v2' swaps ONLY the photography block for a Xending-News-style
   // hyper-realistic editorial recipe (direct description + prevalidated scenes).
@@ -286,6 +287,29 @@ interface CarouselPromptSlideInput {
       weight: 'inline' | 'featured' | 'heavy';
       suggestedSurface: string;
     };
+    /**
+     * Único contrato de texto visible: cifras y etiquetas ya asignadas a su superficie
+     * propietaria, cada una una sola vez. Cuando está presente gobierna el prompt final y
+     * reemplaza a los bloques de cifras/documentos/texto ambiental para no duplicar datos.
+     */
+    visibleTextManifest?: {
+      surfaceType: string;
+      surfaces: {
+        id: string;
+        description: string;
+        entries: {
+          id: string;
+          exactText: string;
+          occurrences: number;
+          colorRole?: 'risk' | 'control';
+        }[];
+      }[];
+    };
+    /**
+     * Recurso cálido de "producto en uso", propuesto solo en los cierres. `enabled` decide
+     * si se pide como detalle secundario o se excluye explícitamente para que no lo invente.
+     */
+    productUseCue?: { text: string; enabled: boolean };
     /**
      * Legacy/document adapter. Present only when the chosen surface is document.
      */
@@ -846,6 +870,25 @@ Devuelve SOLO JSON válido. prompt_final y negative_instructions deben escribirs
   }
 }`;
 
+/**
+ * MASTER_IMAGE_PROMPT_V3 — "Blanco Xending V3" (opt-in).
+ * Derivado de V2 para garantizar paridad exacta: mismo sistema visual, misma
+ * gramática de color y las mismas recetas. La ÚNICA diferencia es la CAPA
+ * PRODUCTO en la sección de fotografía: cuando la escena incluye mercancía o
+ * bienes de consumo, se muestran en su empaque real de retail (clamshell,
+ * caja de cartón, huacal, malla) sin repintarlos de blanco. El blanco domina
+ * el fondo y la capa financiera (tarjetas/UI), nunca el producto real.
+ * V2 no se toca y sigue siendo el default.
+ */
+const MASTER_IMAGE_PROMPT_V3 = MASTER_IMAGE_PROMPT_V2
+  .replace('[XENDING_MASTER_IMAGE_V2]', '[XENDING_MASTER_IMAGE_V3]')
+  .replace(
+    'Los acentos teal/coral solo aparecen cuando son plausibles dentro de la escena.',
+    `Los acentos teal/coral solo aparecen cuando son plausibles dentro de la escena.
+
+CAPA PRODUCTO — cuando la escena incluye mercancía o bienes de consumo (berries, frutas, café, abarrotes, aguacate, etc.), la regla es una: el empaque debe ser el MÁS COMÚN para ese producto en un mercado o supermercado, el que cualquiera reconoce al comprarlo — no un contenedor genérico ni una caja blanca lisa. Elige el empaque habitual según el producto: berries y fruta fresca en su clamshell/punnet de plástico TRANSPARENTE (o bandeja con film transparente), dejando ver la fruta a través del plástico; café o granos en su bolsa; y así cada producto en el empaque con el que se vende. El empaque conserva su material y color REALES —plástico transparente que se lee transparente, cartón kraft que se lee kraft, no blanqueado— y NUNCA se pinta de blanco, se vuelve cerámica ni render 3D para combinar con el set. El blanco domina el fondo, la luz y la capa financiera (tarjetas de datos, UI, checks, overlays), NUNCA la mercancía ni su empaque. Etiquetas neutras, sin logos.`,
+  );
+
 // Default to V2. Emergency fallback without a code change:
 //   supabase secrets set MASTER_IMAGE_PROMPT_VERSION=v1
 const MASTER_IMAGE_PROMPT_VERSION = Deno.env.get('MASTER_IMAGE_PROMPT_VERSION') === 'v1'
@@ -1111,6 +1154,24 @@ function briefBlock(slide: CarouselPromptSlideInput): string {
 }
 
 /**
+ * Optional "product in use" cue, only on the closing slides.
+ *
+ * The user toggles it per slide. Enabled = add a warm, clearly secondary detail
+ * (guacamole for avocados, a machine brewing a cup for coffee). Disabled = say so
+ * explicitly, because otherwise the model tends to invent a lifestyle prop on its own.
+ * The cue never carries text or figures and never competes with the product or the
+ * financial surface.
+ */
+function productUseCueBlock(slide: CarouselPromptSlideInput): string {
+  const cue = slide.brief?.productUseCue;
+  if (!cue) return '';
+  if (cue.enabled && cue.text?.trim()) {
+    return `SECONDARY PRODUCT CUE — optional warmth, clearly secondary: include ${cue.text.trim()} as a small, natural "product in use" detail that humanizes the scene. Keep it distinctly secondary: it must not compete with the headline, the main product or the financial surface, it stays smaller and to one side, and it carries NO text, numbers or labels.`;
+  }
+  return 'NO LIFESTYLE PROP: keep the scene to the product and the authorized financial surface only. Do not add prepared food, a serving scene, a drink, a person or any "in use" / lifestyle prop.';
+}
+
+/**
  * The invariant numbers of the whole carousel, restated on every slide that
  * carries figures.
  *
@@ -1129,9 +1190,52 @@ function briefBlock(slide: CarouselPromptSlideInput): string {
  * USD amount identical on every card, and understand that the totals that differ between
  * cards are the peso conversion, never a second USD amount.
  */
+/**
+ * The single authoritative text-and-surface contract for a slide.
+ *
+ * When the upstream flow hands over a `visibleTextManifest`, this is the ONLY place the
+ * prompt states readable figures and labels. Each value is printed once, tied to the one
+ * surface that owns it, so no second surface inherits the fact table — which is the exact
+ * failure that put the same amount on a box, a bag and a sheet at once. It replaces the
+ * canonical/economic/document/environmental blocks entirely for slides that carry it.
+ */
+function visibleManifestBlock(slide: CarouselPromptSlideInput): string {
+  const manifest = slide.brief?.visibleTextManifest;
+  if (!manifest || manifest.surfaces.length === 0) return '';
+
+  const surfaceCount = manifest.surfaces.length;
+  const surfaceBlocks = manifest.surfaces.map((surface) => {
+    const lines = surface.entries
+      .filter((entry) => entry.exactText.trim())
+      .map((entry) => {
+        const colour = entry.colorRole === 'risk'
+          ? ` [coral ${BRAND_COLORS.coral}]`
+          : entry.colorRole === 'control'
+            ? ` [turquoise ${BRAND_COLORS.turquoise}]`
+            : ` [navy ${BRAND_COLORS.navy}]`;
+        const times = entry.occurrences > 1 ? ` (appears ${entry.occurrences} times)` : '';
+        return `    · ${entry.exactText.replace(/\n/g, ' / ')}${colour}${times}`;
+      });
+    return `  SURFACE "${surface.id}" — ${surface.description}. Only this surface carries these values:\n${lines.join('\n')}`;
+  });
+
+  return `AUTHORIZED VISIBLE TEXT — the ONLY readable figures and financial labels in this image. This block is exhaustive and final.
+${surfaceBlocks.join('\n\n')}
+
+RULES:
+- Render each value EXACTLY as written, in Spanish, spelling and digits unchanged. Do not translate, reword, round, recompute, average or invent any figure.
+- Each value belongs to ONE surface and appears only the stated number of times. No other bag, box, tag, document, screen or surface repeats it — every other surface stays blank or abstract (out of focus, cropped, turned away), never filled with placeholder or pseudo-text.
+- There are exactly ${surfaceCount} financial surface${surfaceCount === 1 ? '' : 's'} in this image. Do not add another card, sheet, quote, dashboard, stamp or label beyond ${surfaceCount === 1 ? 'it' : 'them'}.
+- A minus sign (−) is part of the value; keep it. Never turn it into "+−" or drop it.
+- Apply the colour noted in brackets to that value only. The bracket note itself is not text to print.`;
+}
+
 function canonicalFiguresBlock(slide: CarouselPromptSlideInput): string {
   const brief = slide.brief;
   if (!brief) return '';
+  // El manifiesto visible ya declara cada cifra una sola vez y con su superficie: si está
+  // presente, este bloque callaría para no repetir los mismos valores.
+  if (brief.visibleTextManifest && brief.visibleTextManifest.surfaces.length > 0) return '';
   const documents = brief.documents ?? [];
   const facts = brief.economicFacts ?? [];
   if (documents.length === 0 && facts.length === 0) return '';
@@ -1194,6 +1298,7 @@ You are NOT calculating anything. These figures were computed once for the whole
 }
 
 function economicDataBlock(slide: CarouselPromptSlideInput): string {
+  if (slide.brief?.visibleTextManifest && slide.brief.visibleTextManifest.surfaces.length > 0) return '';
   const facts = slide.brief?.economicFacts ?? [];
   const presentation = slide.brief?.figurePresentation;
   if (facts.length === 0 || !presentation) return '';
@@ -1265,6 +1370,7 @@ The FACTS do not prescribe a document. The declared surface governs their physic
  * let a model produce something plausible instead of something correct.
  */
 function documentDataBlock(slide: CarouselPromptSlideInput): string {
+  if (slide.brief?.visibleTextManifest && slide.brief.visibleTextManifest.surfaces.length > 0) return '';
   const documents = slide.brief?.documents ?? [];
   if (documents.length === 0) return '';
 
@@ -1329,6 +1435,39 @@ Every document keeps the SAME fields in the SAME order, so the reader finds the 
  * model is not inventing financial data, and anything outside it stays illegible.
  */
 function environmentalTextBlock(slide: CarouselPromptSlideInput): string {
+  const manifest = slide.brief?.visibleTextManifest;
+  const hasManifest = !!manifest && manifest.surfaces.length > 0;
+
+  /**
+   * With a visible manifest, that block already owns every figure and financial label.
+   * Repeating them here — the old behaviour — is exactly what put a value on more than one
+   * surface. So the manifest wins, and this block is reduced to the non-financial place
+   * labels the headline authorized (e.g. "China"), which the manifest does not carry.
+   */
+  if (hasManifest) {
+    const normalizeManifestText = (text: string) => text.trim().replace(/\s+/g, ' ').toUpperCase();
+    const manifestTexts = new Set(
+      manifest!.surfaces.flatMap((surface) =>
+        surface.entries.flatMap((entry) => [
+          normalizeManifestText(entry.exactText),
+          ...entry.exactText
+            .split(/\r?\n/)
+            .map(normalizeManifestText)
+            .filter(Boolean),
+        ]),
+      ),
+    );
+    const placeLabels = (slide.brief?.environmentalText ?? [])
+      .filter((text) => text?.trim())
+      .filter((text) => !manifestTexts.has(normalizeManifestText(text)));
+    if (placeLabels.length === 0) {
+      return 'TEXT INSIDE OBJECTS: only the AUTHORIZED VISIBLE TEXT above. No other document, screen, tag or label renders legibly — every other surface stays abstract (out of focus, cropped or turned away). No invented words, numbers, filler paragraphs or pseudo-text.';
+    }
+    return `TEXT INSIDE OBJECTS: the AUTHORIZED VISIBLE TEXT above, plus these place labels the headline names, each once:\n${placeLabels
+      .map((t) => `  - ${t}`)
+      .join('\n')}\nNothing else renders legibly. No invented words, numbers, filler paragraphs or pseudo-text.`;
+  }
+
   const labels = (slide.brief?.environmentalText ?? []).filter((t) => t?.trim());
 
   /**
@@ -1705,6 +1844,7 @@ function assembleCarouselSlidePrompt(params: {
     `SCENE FOR THIS SLIDE (this is what you render):\n${sceneBlock.trim()}`,
     layoutRules.length > 0 ? `TEXT LAYOUT:\n${layoutRules.join('\n')}` : '',
     briefBlock(slide),
+    productUseCueBlock(slide),
     placeCue,
     /**
      * The master prompt carries both branches of its `textInImage` rule as plain
@@ -1722,6 +1862,9 @@ function assembleCarouselSlidePrompt(params: {
       : '',
     economicDataBlock(slide),
     documentDataBlock(slide),
+    // El contrato único de texto visible: cifras y etiquetas ya asignadas a su superficie
+    // propietaria. Cuando existe, los tres bloques de arriba se callan solos.
+    visibleManifestBlock(slide),
     `TEXT TO RENDER IN THE IMAGE (exact and authoritative). The quotation marks are NOT part of the copy and must not appear in the image:\n\n${textLines.join('\n\n')}\n\nSpell it exactly as written, in Spanish, without translating it, without rewording it and without adding sentences of your own. Do not render quotation marks around any of it.\n${BRAND_TYPOGRAPHY}\nNo paragraph blocks, no bullet lists.`,
     environmentalTextBlock(slide),
     carouselTextRules(slide),
@@ -1870,7 +2013,11 @@ async function handleMasterImagePath(
   const mode = requestBody.mode ?? 'prompts';
   const selectedMasterPromptVersion = requestBody.masterPromptVersion ?? MASTER_IMAGE_PROMPT_VERSION;
   const selectedCodePrompt = requestBody.masterPromptVersion
-    ? (selectedMasterPromptVersion === 'v1' ? MASTER_IMAGE_PROMPT_V1 : MASTER_IMAGE_PROMPT_V2)
+    ? (selectedMasterPromptVersion === 'v1'
+        ? MASTER_IMAGE_PROMPT_V1
+        : selectedMasterPromptVersion === 'v3'
+          ? MASTER_IMAGE_PROMPT_V3
+          : MASTER_IMAGE_PROMPT_V2)
     : MASTER_IMAGE_PROMPT_FALLBACK;
   const selectedDefaultBackgroundStyle = requestBody.masterPromptVersion
     ? (selectedMasterPromptVersion === 'v1' ? 'navy' : 'white')

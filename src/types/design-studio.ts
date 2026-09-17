@@ -105,7 +105,7 @@ export type ContentMode = 'free' | 'branch' | 'custom';
 export type DesignImageType = 'foto' | 'infografia' | 'financiero';
 
 /** Versioned master prompt selected per piece for reproducible A/B tests. */
-export type MasterImagePromptVersion = 'v1' | 'v2';
+export type MasterImagePromptVersion = 'v1' | 'v2' | 'v3';
 
 /**
  * Revision of the effective image-prompt behavior. Persisted with bank items so
@@ -360,6 +360,32 @@ export interface CarouselSlideCopy {
  * it, and the words allowed to appear inside the objects. Persisted so a
  * regeneration keeps the same intent instead of drifting back to a hero shot.
  */
+export interface CarouselVisibleTextEntry {
+  /** Stable semantic id; repeated facts may have one entry per authorized surface. */
+  id: string;
+  /** Exact readable string. It is emitted once in the compiled prompt. */
+  exactText: string;
+  occurrences: number;
+  colorRole?: CarouselColorRole;
+}
+
+export interface CarouselVisibleTextSurface {
+  /** Unique owner within the slide, e.g. `lot_tag` or `comparison_right`. */
+  id: string;
+  description: string;
+  entries: CarouselVisibleTextEntry[];
+}
+
+/**
+ * Presentation contract for readable text inside photographed objects.
+ * Canonical facts stay in `economicFacts`; this projection decides what may be printed,
+ * where it lives and how many times it appears.
+ */
+export interface CarouselVisibleTextManifest {
+  surfaceType: CarouselFigureSurface;
+  surfaces: CarouselVisibleTextSurface[];
+}
+
 export interface CarouselSlideBrief {
   /** What the image must make evident, in one sentence. */
   visualIntent: string;
@@ -390,6 +416,17 @@ export interface CarouselSlideBrief {
     weight: CarouselFigureWeight;
     suggestedSurface: CarouselFigureSurface;
   };
+  /**
+   * Único contrato de presentación para texto dentro de objetos. Cada cifra aparece aquí
+   * una sola vez por superficie autorizada; el prompt final no vuelve a declararla.
+   */
+  visibleTextManifest?: CarouselVisibleTextManifest;
+  /**
+   * Recurso cálido de "producto en uso" (guacamole, cafetera sirviendo), propuesto por el
+   * guion solo en los cierres (solution/cta). El usuario lo prende o apaga con una casilla;
+   * `enabled` decide si el compilador de imagen lo pide o lo excluye explícitamente.
+   */
+  productUseCue?: { text: string; enabled: boolean };
   /**
    * Adaptador documental legacy. Se conserva para carruseles persistidos y para beats
    * cuya superficie elegida sea realmente `document`.
@@ -704,6 +741,35 @@ export function getCarouselPreset(slug: string): CarouselPreset {
   return (
     CAROUSEL_PRESETS.find((p) => p.slug === slug) ?? CAROUSEL_PRESETS[0]
   );
+}
+
+/**
+ * Presets cuyos roles reconoce `applyScenarioFigureSchema` (el arco de 5 y el de 4).
+ *
+ * Solo en estos el schema designa UNA sola slide comparativa (rol `risk`/`example`) y una
+ * resolución (`solution`). En cronología (`moment…`) o checklist (`signal…`) el schema
+ * hace no-op —no reconoce esos roles—, no hay dueña única de la comparación, y el mismo
+ * par HOY/SIN COBERTURA se renderiza en más de una slide.
+ */
+const ARC_PRESET_SLUGS: readonly string[] = [
+  'tension-shift-risk-solution-cta',
+  'hook-problem-example-solution',
+];
+
+/**
+ * Presets ofrecidos para una rama.
+ *
+ * Coberturas solo se cuenta por el arco: el forward es dos momentos (hoy y pago a N días),
+ * una sola comparación, y el arco es el único formato donde esa garantía está enchufada.
+ * El resto de las ramas conservan el catálogo completo.
+ */
+export function getCarouselPresetsForBranch(
+  branchSlug: string | null | undefined,
+): CarouselPreset[] {
+  if ((branchSlug ?? '').toLowerCase().includes('cobertura')) {
+    return CAROUSEL_PRESETS.filter((p) => ARC_PRESET_SLUGS.includes(p.slug));
+  }
+  return CAROUSEL_PRESETS;
 }
 
 // ---------------------------------------------------------------------------
@@ -1063,8 +1129,12 @@ export function computeCarouselFx(a: CarouselFxAssumptions): CarouselFxMoment[] 
         rate: formatAmount(rounded).replace(/,/g, ''),
         usd: `USD ${formatAmount(a.amountUsd)}`,
         mxn: `MXN ${formatAmount(amountMxn)}`,
-        delta: deltaMxn === 0 ? '' : `+MXN ${formatAmount(deltaMxn)}`,
-        pct: deltaPct === 0 ? '' : `+${deltaPct.toFixed(1)}%`,
+        delta: deltaMxn === 0
+          ? ''
+          : `${deltaMxn >= 0 ? '+' : ''}MXN ${formatAmount(deltaMxn)}`,
+        pct: deltaPct === 0
+          ? ''
+          : `${deltaPct >= 0 ? '+' : ''}${deltaPct.toFixed(1)}%`,
       },
     };
   };
@@ -1224,6 +1294,7 @@ const toTenth = (value: number): number => Math.round(value * 10) / 10;
  * el riesgo es que el dólar BAJE. La misma mecánica, vocabulario invertido.
  */
 const FORWARD_FACT_LABELS_IMPORT: Partial<Record<CarouselEconomicFactKey, string>> = {
+  operation_usd: 'COMPRA',
   base_rate: 'TC PRESUPUESTADO',
   exposed_rate: 'TC AL PAGO',
   base_cost_mxn: 'COSTO PRESUPUESTADO',
@@ -1238,6 +1309,7 @@ const FORWARD_FACT_LABELS_IMPORT: Partial<Record<CarouselEconomicFactKey, string
 };
 
 const FORWARD_FACT_LABELS_EXPORT: Partial<Record<CarouselEconomicFactKey, string>> = {
+  operation_usd: 'VENTA',
   base_rate: 'TC PRESUPUESTADO',
   exposed_rate: 'TC AL COBRO',
   base_cost_mxn: 'INGRESO PRESUPUESTADO',
@@ -1258,15 +1330,15 @@ const FORWARD_FACT_LABELS_EXPORT: Partial<Record<CarouselEconomicFactKey, string
  * solución sin inventar cifras nuevas.
  */
 const FORWARD_RESOLUTION_LABELS_IMPORT: Partial<Record<CarouselEconomicFactKey, string>> = {
-  base_rate: 'FORWARD PACTADO',
-  base_cost_mxn: 'COSTO FINAL',
+  base_rate: 'TIPO DE CAMBIO PACTADO',
+  base_cost_mxn: 'COSTO PACTADO',
   base_gross_profit_mxn: 'UTILIDAD DEFINIDA',
   base_gross_margin_pct: 'MARGEN PROTEGIDO',
 };
 
 const FORWARD_RESOLUTION_LABELS_EXPORT: Partial<Record<CarouselEconomicFactKey, string>> = {
-  base_rate: 'FORWARD PACTADO',
-  base_cost_mxn: 'INGRESO FINAL',
+  base_rate: 'TIPO DE CAMBIO PACTADO',
+  base_cost_mxn: 'INGRESO PACTADO',
   base_gross_profit_mxn: 'UTILIDAD DEFINIDA',
   base_gross_margin_pct: 'MARGEN PROTEGIDO',
 };

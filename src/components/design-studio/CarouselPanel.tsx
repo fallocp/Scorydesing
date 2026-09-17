@@ -56,12 +56,12 @@ import {
   CAROUSEL_DIMENSIONS,
   CAROUSEL_LAYOUT_LABELS,
   CAROUSEL_OBJECTIVES,
-  CAROUSEL_PRESETS,
   CAROUSEL_ROLE_LABELS,
   DEFAULT_CAROUSEL_OBJECTIVE,
   DEFAULT_CAROUSEL_PRESET_SLUG,
   deriveCarouselCommercialIntent,
   getCarouselPreset,
+  getCarouselPresetsForBranch,
   type CarouselBrandElement,
   type CarouselCommercialIntent,
   type CarouselObjective,
@@ -453,6 +453,25 @@ export function CarouselPanel({
    */
   const activePreset = getCarouselPreset(queue.presetSlug ?? presetSlug);
   /**
+   * Estructuras ofrecidas para esta rama. Coberturas solo el arco: es el único formato
+   * donde el schema de cifras designa una sola slide comparativa. Ver
+   * `getCarouselPresetsForBranch`.
+   */
+  const availablePresets = useMemo(
+    () => getCarouselPresetsForBranch(branchSlug),
+    [branchSlug],
+  );
+  /**
+   * Si el preset elegido no está permitido para la rama (p. ej. al cambiar de rama con
+   * una cronología seleccionada), cae al primero permitido para no generar por un preset
+   * oculto.
+   */
+  useEffect(() => {
+    if (!availablePresets.some((p) => p.slug === presetSlug)) {
+      setPresetSlug(availablePresets[0]?.slug ?? DEFAULT_CAROUSEL_PRESET_SLUG);
+    }
+  }, [availablePresets, presetSlug]);
+  /**
    * Under EDITORIAL_FULL_TEXT every slide has three text levels with different
    * jobs, so the supporting line is part of the design rather than an extra.
    */
@@ -621,13 +640,13 @@ export function CarouselPanel({
       {/* ---------- Step 1: script ---------- */}
       {slots.length === 0 && (
         <div className="space-y-3">
-          {CAROUSEL_PRESETS.length > 1 ? (
+          {availablePresets.length > 1 ? (
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Estructura narrativa
               </Label>
               <div className="flex flex-wrap gap-2">
-                {CAROUSEL_PRESETS.map((preset) => (
+                {availablePresets.map((preset) => (
                   <button
                     key={preset.slug}
                     type="button"
@@ -650,7 +669,7 @@ export function CarouselPanel({
             </div>
           ) : (
             <p className="text-xs text-muted-foreground">
-              Estructura: {CAROUSEL_PRESETS[0].name}
+              Estructura: {availablePresets[0].name}
             </p>
           )}
 
@@ -1168,6 +1187,7 @@ export function CarouselPanel({
               singleLine={isSingleLine}
               onChange={(field, value) => queue.updateSlideCopy(slot.index, field, value)}
               onImageIntentChange={(value) => queue.updateSlideImageIntent(slot.index, value)}
+              onProductCueChange={(patch) => queue.updateSlideProductCue(slot.index, patch)}
             />
           ))}
 
@@ -1426,6 +1446,7 @@ function SlotCopyEditor({
   singleLine,
   onChange,
   onImageIntentChange,
+  onProductCueChange,
 }: {
   slot: CarouselSlotRuntime;
   total: number;
@@ -1434,6 +1455,7 @@ function SlotCopyEditor({
   singleLine: boolean;
   onChange: (field: 'headline' | 'body' | 'cta', value: string) => void;
   onImageIntentChange: (value: string) => void;
+  onProductCueChange: (patch: { text?: string; enabled?: boolean }) => void;
 }) {
   return (
     <Card className="border-border/70">
@@ -1570,6 +1592,30 @@ function SlotCopyEditor({
                     </span>
                   </p>
                 )}
+              </div>
+            )}
+
+            {/* Recurso opcional de "producto en uso", solo en cierres. La casilla decide
+                si el LLM lo usa; desmarcada, el compilador lo excluye explícito. */}
+            {slot.brief.productUseCue && (
+              <div className="space-y-1 pt-1">
+                <label className="flex items-start gap-2 text-[11px] text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5"
+                    checked={slot.brief.productUseCue.enabled}
+                    disabled={disabled}
+                    onChange={(e) => onProductCueChange({ enabled: e.target.checked })}
+                  />
+                  <span className="font-medium text-foreground">Producto en uso (opcional)</span>
+                </label>
+                <Input
+                  value={slot.brief.productUseCue.text}
+                  onChange={(e) => onProductCueChange({ text: e.target.value })}
+                  disabled={disabled || !slot.brief.productUseCue.enabled}
+                  placeholder="ej. guacamole recién hecho con totopos"
+                  className="h-7 text-[11px]"
+                />
               </div>
             )}
           </div>

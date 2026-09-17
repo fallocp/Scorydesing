@@ -158,29 +158,33 @@ interface ForwardSceneSlot {
 }
 
 const FORWARD_FIGURE_SCHEMA: Record<string, ForwardFigureSlot> = {
+  // La apertura solo presenta la obligación o el cobro en USD. Todavía no hay TC ni MXN.
   tension: {
-    factKeys: ['operation_usd', 'base_rate', 'base_cost_mxn', 'sale_price_mxn'],
+    factKeys: ['operation_usd'],
     weight: 'featured',
     suggestedSurface: 'object_label',
   },
+  // El segundo beat aterriza el presupuesto en pesos sin repetir el monto en USD.
   shift: {
-    factKeys: ['operation_usd', 'base_rate', 'base_cost_mxn'],
+    factKeys: ['base_rate', 'base_cost_mxn'],
     weight: 'featured',
     suggestedSurface: 'object_label',
   },
-  // La ÚNICA slide comparativa: dos escenarios.
+  // La ÚNICA slide comparativa: la misma operación, presupuesto contra exposición.
   risk: {
     factKeys: [
-      'base_rate', 'exposed_rate', 'base_cost_mxn', 'exposed_cost_mxn',
-      'cost_delta_mxn', 'base_gross_margin_pct', 'exposed_gross_margin_pct',
+      'operation_usd', 'base_rate', 'exposed_rate', 'base_cost_mxn',
+      'exposed_cost_mxn', 'cost_delta_pct',
     ],
     weight: 'heavy',
     suggestedSurface: 'document',
   },
+  // La resolución tiene una sola confirmación; no repite la venta ni inventa margen.
+  // `document` cuenta como superficie heavy: junto al riesgo son las DOS del set (máx. 2).
   solution: {
-    factKeys: ['operation_usd', 'base_rate', 'base_cost_mxn', 'sale_price_mxn', 'base_gross_profit_mxn'],
-    weight: 'featured',
-    suggestedSurface: 'object_label',
+    factKeys: ['base_rate', 'base_cost_mxn'],
+    weight: 'heavy',
+    suggestedSurface: 'document',
   },
   cta: {
     factKeys: ['sale_price_mxn', 'base_cost_mxn', 'base_gross_profit_mxn', 'base_gross_margin_pct'],
@@ -198,28 +202,28 @@ const FORWARD_FIGURE_SCHEMA: Record<string, ForwardFigureSlot> = {
 const FORWARD_SCENE_IMPORT: Record<string, ForwardSceneSlot> = {
   tension: {
     visualEvidence:
-      'La autoparte importada, terminada y lista para venderse, con su etiqueta de precio de venta ya definido y, a su lado, su costo presupuestado en pesos. Un solo estado: el ingreso ya quedó fijo, pero el costo apenas se está cerrando. Sin comparar tipos de cambio ni un segundo escenario; la escena deja abierta la pregunta de si el margen ya está a salvo.',
-    visualDevice: 'la autoparte con su etiqueta de precio de venta y, a su lado, la de su costo presupuestado',
+      'El producto o lote comercial de la operación, reconocible y listo para su compra, con UNA sola etiqueta del pedido que muestra únicamente la obligación en USD. Sin tipo de cambio, sin importe en pesos, sin costo presupuestado, sin utilidad y sin otra superficie financiera.',
+    visualDevice: 'el producto real de la operación con una única etiqueta del pedido en USD',
   },
   shift: {
     visualEvidence:
-      'La misma autoparte con una etiqueta que revela que su costo nace en dólares: la operación en USD y su costo presupuestado en pesos al tipo de cambio actual. Un solo escenario y un solo costo, sin tarjeta PAGO ni una segunda cifra. Pero sobre el tipo de cambio va una señal sutil —una fina flecha o marca coral hacia arriba— que indica que ese costo pende del dólar y todavía puede moverse. La señal es cualitativa, un presagio de la tensión: NUNCA un segundo número.',
-    visualDevice: 'la autoparte con su costo presupuestado y una marca coral sobre el tipo de cambio que insinúa que puede subir',
+      'El mismo producto o lote con UNA sola etiqueta de presupuesto que muestra el tipo de cambio de referencia y el costo presupuestado en pesos. La obligación en USD no se repite. Un solo escenario, una sola superficie financiera y ninguna cifra futura.',
+    visualDevice: 'el producto de la operación con una única etiqueta de costo presupuestado en pesos',
   },
   risk: {
     visualEvidence:
-      'La misma autoparte con dos etiquetas de costo del mismo pedido, lado a lado: presupuestado (HOY, en turquesa) y sin cobertura (PAGO, en coral). El precio de venta se repite idéntico en ambas para que se vea que lo único que se movió es el costo; entre venta y costo, la franja del margen se estrecha. Exactamente dos escenarios, ni uno más.',
-    visualDevice: 'dos etiquetas de costo sobre la misma autoparte, HOY contra PAGO, con la franja de margen encogiéndose entre venta y costo',
+      'El mismo producto como contexto y exactamente dos documentos comparativos del mismo pedido: presupuesto (HOY, turquesa) y escenario ilustrativo sin cobertura al pago (coral). La obligación en USD aparece una vez en cada documento porque demuestra que la compra es la misma; solo cambian el tipo de cambio y el costo en pesos. Sin tercera tarjeta, sin franja de margen proporcional y sin costo o utilidad inventados.',
+    visualDevice: 'dos documentos del mismo pedido, presupuesto contra pago sin cobertura, con el producto como contexto',
   },
   solution: {
     visualEvidence:
-      'La misma autoparte junto a una confirmación de cobertura y una sola etiqueta de costo ya cerrado en pesos: forward pactado, costo final y utilidad definida. Todo en turquesa —no hay exposición que señalar—, un único valor resuelto, sin comparar escenarios ni usar coral.',
-    visualDevice: 'la autoparte junto a la confirmación de cobertura y la etiqueta del costo final ya cerrado',
+      'El mismo producto o lote junto a UNA sola confirmación de cobertura. La confirmación es la única superficie financiera y muestra el tipo de cambio pactado y el costo pactado en pesos. Sin repetir la obligación en USD, sin segunda hoja, sin datos sobre el empaque y sin utilidad o margen numérico.',
+    visualDevice: 'el producto de la operación junto a una única confirmación de cobertura con el costo pactado',
   },
   cta: {
     visualEvidence:
-      'La misma autoparte como cierre, resuelta y en primer plano, con una etiqueta discreta de margen protegido: precio de venta fijo, costo final y utilidad definida. Máximo aire y escena tranquila, un solo estado ya resuelto; el foco es la decisión de proteger el margen, no otra explicación.',
-    visualDevice: 'la autoparte resuelta en primer plano con una etiqueta de margen protegido y, discreto, el comprobante final',
+      'El mismo producto como cierre, resuelto y en primer plano. Máximo aire y escena tranquila; cualquier dato autorizado vive en una sola etiqueta discreta y ninguna superficie adicional lo repite.',
+    visualDevice: 'el producto resuelto en primer plano con una única superficie informativa discreta',
   },
 };
 
@@ -230,28 +234,28 @@ const FORWARD_SCENE_IMPORT: Record<string, ForwardSceneSlot> = {
 const FORWARD_SCENE_EXPORT: Record<string, ForwardSceneSlot> = {
   tension: {
     visualEvidence:
-      'La autoparte de exportación, terminada y lista para embarcarse, con su costo fijo en pesos ya definido y, a su lado, el ingreso presupuestado que dejará al cobrarse en dólares. Un solo estado: el costo ya quedó fijo, pero el ingreso apenas se está cerrando. Sin comparar tipos de cambio ni un segundo escenario; la escena deja abierta la pregunta de si el margen ya está a salvo.',
-    visualDevice: 'la autoparte con su etiqueta de costo fijo y, a su lado, la de su ingreso presupuestado',
+      'El producto o lote comercial de exportación, reconocible y listo para entrega, con UNA sola etiqueta del pedido que muestra únicamente la venta o cobro en USD. Sin tipo de cambio, sin importe en pesos, sin costo numérico, sin ingreso presupuestado y sin otra superficie financiera.',
+    visualDevice: 'el producto real de exportación con una única etiqueta de venta en USD',
   },
   shift: {
     visualEvidence:
-      'La misma autoparte con una etiqueta que revela que su ingreso llega en dólares: la operación en USD y el ingreso presupuestado en pesos al tipo de cambio actual. Un solo escenario y un solo ingreso, sin tarjeta COBRO ni una segunda cifra. Pero sobre el tipo de cambio va una señal sutil —una fina flecha o marca coral hacia abajo— que indica que ese ingreso pende del dólar y todavía puede bajar. La señal es cualitativa, un presagio de la tensión: NUNCA un segundo número.',
-    visualDevice: 'la autoparte con su ingreso presupuestado y una marca coral sobre el tipo de cambio que insinúa que puede bajar',
+      'El mismo producto o lote con UNA sola etiqueta de presupuesto que muestra el tipo de cambio de referencia y el ingreso presupuestado en pesos. La venta en USD no se repite. Un solo escenario, una sola superficie financiera y ninguna cifra futura.',
+    visualDevice: 'el producto de exportación con una única etiqueta de ingreso presupuestado en pesos',
   },
   risk: {
     visualEvidence:
-      'La misma autoparte con dos etiquetas de ingreso del mismo pedido, lado a lado: presupuestado (HOY, en turquesa) y sin cobertura (COBRO, en coral). El costo se repite idéntico en ambas para que se vea que lo único que se movió es el ingreso; entre ingreso y costo, la franja del margen se estrecha. Exactamente dos escenarios, ni uno más.',
-    visualDevice: 'dos etiquetas de ingreso sobre la misma autoparte, HOY contra COBRO, con la franja de margen encogiéndose entre ingreso y costo',
+      'El mismo producto como contexto y exactamente dos documentos comparativos de la misma venta: presupuesto (HOY, turquesa) y escenario ilustrativo sin cobertura al cobro (coral). La venta en USD aparece una vez en cada documento porque demuestra que la operación es la misma; solo cambian el tipo de cambio y el ingreso en pesos. Sin tercera tarjeta, sin franja de margen proporcional y sin costo o utilidad inventados.',
+    visualDevice: 'dos documentos de la misma venta, presupuesto contra cobro sin cobertura, con el producto como contexto',
   },
   solution: {
     visualEvidence:
-      'La misma autoparte junto a una confirmación de cobertura y un solo ingreso ya cerrado en pesos: forward pactado, ingreso final y utilidad definida. Todo en turquesa —no hay exposición que señalar—, un único valor resuelto, sin comparar escenarios ni usar coral.',
-    visualDevice: 'la autoparte junto a la confirmación de cobertura y la etiqueta del ingreso final ya cerrado',
+      'El mismo producto o lote junto a UNA sola confirmación de cobertura. La confirmación es la única superficie financiera y muestra el tipo de cambio pactado y el ingreso pactado en pesos. Sin repetir la venta en USD, sin segunda hoja, sin datos sobre el empaque y sin representar el cobro como ya recibido.',
+    visualDevice: 'el producto de exportación junto a una única confirmación de cobertura con el ingreso pactado',
   },
   cta: {
     visualEvidence:
-      'La misma autoparte como cierre, resuelta y en primer plano, con una etiqueta discreta de margen protegido: costo fijo, ingreso final y utilidad definida. Máximo aire y escena tranquila, un solo estado ya resuelto; el foco es la decisión de proteger el margen, no otra explicación.',
-    visualDevice: 'la autoparte resuelta en primer plano con una etiqueta de margen protegido y, discreto, el comprobante final',
+      'El mismo producto como cierre, resuelto y en primer plano. Máximo aire y escena tranquila; cualquier dato autorizado vive en una sola etiqueta discreta y ninguna superficie adicional lo repite.',
+    visualDevice: 'el producto resuelto en primer plano con una única superficie informativa discreta',
   },
 };
 
@@ -482,6 +486,134 @@ const SCENARIO_SCHEMAS: Partial<Record<CarouselFigureScenarioId, ScenarioFigureS
  * costos_ahorro, donde import/export no significa nada; ahí el schema no se aplica y la
  * escena la sigue escribiendo el guion.
  */
+const FOUR_SLIDE_ROLE_MAP: Readonly<Record<string, string>> = {
+  hook: 'tension',
+  problem: 'shift',
+  example: 'risk',
+  solution: 'solution',
+};
+
+type CalendarForwardRouteId = 'obligations_calendar' | 'cashflow_certainty';
+
+interface CalendarForwardSceneOverlay {
+  visualEvidenceSuffix: string;
+  visualDevice: string;
+  primaryObjects: 'motif' | readonly string[];
+  supportingObjects: readonly string[];
+  evidenceFamily?: EvidenceFamily;
+}
+
+/*
+ * Las dos rutas de calendario comparten la mecánica financiera forward, pero no la
+ * misma secuencia visual. El calendario es contexto: nunca es una tabla con una tasa
+ * por fecha. Fijar también objetos y familia aquí evita pedirle al crítico que repare
+ * una y otra vez el mismo calendario dominante que el planner proponía por defecto.
+ */
+const CALENDAR_FORWARD_SCENES: Readonly<
+  Record<CalendarForwardRouteId, Readonly<Record<string, CalendarForwardSceneOverlay>>>
+> = {
+  obligations_calendar: {
+    tension: {
+      visualEvidenceSuffix:
+        'Las demás obligaciones solo se insinúan con marcas de vencimiento sin tasas ni importes; la cifra pertenece a una única operación representativa.',
+      visualDevice:
+        'la operación representativa en USD con varias marcas de vencimiento sin cifras como contexto',
+      primaryObjects: 'motif',
+      supportingObjects: ['marcas de vencimiento sin cifras'],
+    },
+    shift: {
+      visualEvidenceSuffix:
+        'La referencia de presupuesto pertenece únicamente a la operación representativa; las demás fechas no reciben cifras.',
+      visualDevice:
+        'la referencia de presupuesto en pesos de una operación dentro de una secuencia de vencimientos sin importes',
+      primaryObjects: ['la referencia de presupuesto en pesos de la operación representativa'],
+      supportingObjects: ['marcas de vencimiento sin cifras'],
+      evidenceFamily: 'currency_value',
+    },
+    risk: {
+      visualEvidenceSuffix:
+        'Un calendario de fondo puede mostrar varias fechas de vencimiento, todas sin cifras. La evidencia financiera sigue siendo exactamente dos documentos de la misma operación y el mismo monto USD: hoy contra el escenario a plazo sin cobertura; nunca una tasa por fecha ni una tercera tarjeta.',
+      visualDevice:
+        'dos documentos comparativos de una operación representativa ante un calendario de vencimientos sin cifras',
+      primaryObjects: ['dos documentos comparativos de la misma operación'],
+      supportingObjects: [
+        'un calendario de vencimientos sin cifras',
+        'el producto o lote de la operación representativa',
+      ],
+      evidenceFamily: 'document',
+    },
+    solution: {
+      visualEvidenceSuffix:
+        'La confirmación resuelve solo la operación representativa; no convierte las demás fechas en cotizaciones ni escenarios numéricos.',
+      visualDevice:
+        'una confirmación de cobertura para la operación representativa dentro del calendario operativo',
+      primaryObjects: ['una confirmación de cobertura para la operación representativa'],
+      supportingObjects: ['el producto o lote de la operación'],
+      evidenceFamily: 'document',
+    },
+    cta: {
+      visualEvidenceSuffix:
+        'El calendario completo vuelve únicamente como contexto secundario, sin tasas ni importes asociados a sus fechas.',
+      visualDevice:
+        'la operación resuelta en primer plano con el calendario de vencimientos sin cifras al fondo',
+      primaryObjects: 'motif',
+      supportingObjects: ['calendario de vencimientos sin cifras'],
+    },
+  },
+  cashflow_certainty: {
+    tension: {
+      visualEvidenceSuffix:
+        'Una sola marca de fecha sitúa el cobro o pago futuro, sin mostrar una tasa ni un importe propio en el calendario.',
+      visualDevice:
+        'la operación representativa en USD con una fecha futura todavía abierta como contexto',
+      primaryObjects: 'motif',
+      supportingObjects: ['una marca de fecha sin cifras'],
+    },
+    shift: {
+      visualEvidenceSuffix:
+        'La cifra de presupuesto muestra qué debe planearse hoy; el calendario permanece fuera de la superficie financiera.',
+      visualDevice:
+        'la cifra de presupuesto en pesos integrada en la planeación de efectivo de la operación',
+      primaryObjects: ['la cifra de presupuesto en pesos de la operación'],
+      supportingObjects: ['el producto o lote como contexto secundario'],
+      evidenceFamily: 'currency_value',
+    },
+    risk: {
+      visualEvidenceSuffix:
+        'Un calendario de tesorería puede aparecer al fondo con una sola fecha seleccionada y las demás fechas sin cifras. La evidencia financiera son exactamente dos documentos de la misma operación y el mismo monto USD: hoy contra el escenario a plazo sin cobertura; nunca una tasa por fecha ni una tercera tarjeta.',
+      visualDevice:
+        'dos documentos comparativos de la misma operación junto a una fecha seleccionada sin importe',
+      primaryObjects: ['dos documentos comparativos de la misma operación'],
+      supportingObjects: [
+        'una fecha seleccionada en un calendario sin cifras',
+        'el producto o lote de la operación',
+      ],
+      evidenceFamily: 'document',
+    },
+    solution: {
+      visualEvidenceSuffix:
+        'La única confirmación de cobertura convierte la operación en un monto planeable; no añade cifras al resto del calendario.',
+      visualDevice:
+        'una confirmación de cobertura que vuelve planeable la salida o entrada de efectivo',
+      primaryObjects: ['una confirmación de cobertura de la operación'],
+      supportingObjects: ['la fecha seleccionada sin cifras'],
+      evidenceFamily: 'document',
+    },
+    cta: {
+      visualEvidenceSuffix:
+        'La fecha seleccionada vuelve como recordatorio secundario, sin una tasa o un importe propio.',
+      visualDevice:
+        'la operación resuelta en primer plano con su fecha seleccionada como contexto discreto',
+      primaryObjects: 'motif',
+      supportingObjects: ['una marca de fecha sin cifras'],
+    },
+  },
+};
+
+function isCalendarForwardRoute(routeId: string): routeId is CalendarForwardRouteId {
+  return routeId === 'obligations_calendar' || routeId === 'cashflow_certainty';
+}
+
 export function applyScenarioFigureSchema(
   plan: CarouselCreativePlan,
   direction: 'import' | 'export' = 'import',
@@ -492,12 +624,41 @@ export function applyScenarioFigureSchema(
   const schema = SCENARIO_SCHEMAS[scenarioId];
   if (!schema) return plan;
   const sceneByRole = direction === 'export' ? schema.scenes.export : schema.scenes.import;
+  const usesFourSlideArc =
+    plan.storyboard.length === 4 &&
+    plan.storyboard.every((beat) => Object.hasOwn(FOUR_SLIDE_ROLE_MAP, beat.role));
+  const calendarRoute =
+    scenarioId === 'forward_protection' && isCalendarForwardRoute(plan.routeId)
+      ? CALENDAR_FORWARD_SCENES[plan.routeId]
+      : null;
+  const motif =
+    plan.visualMotif.trim() ||
+    plan.storyboard[0]?.primaryObjects[0]?.trim() ||
+    'el producto o lote de la operación';
+  const motifFamily = deriveEvidenceFamily({
+    primaryObjects: [motif],
+    visualDevice: motif,
+    visualEvidence: motif,
+  });
+
   return {
     ...plan,
-    storyboard: plan.storyboard.map((beat) => {
-      const slot = schema.figureSchema[beat.role];
-      const scene = sceneByRole[beat.role];
-      if (!slot || !scene) return beat;
+    storyboard: plan.storyboard.map((beat, beatIndex) => {
+      // Los schemas nacieron para tension/shift/risk/solution/cta. El preset corto usa
+      // nombres distintos para los mismos cuatro tiempos; mapearlos aquí evita dejar tres
+      // beats libres y sobrescribir solo `solution`.
+      const schemaRole = usesFourSlideArc ? FOUR_SLIDE_ROLE_MAP[beat.role] : beat.role;
+      const slot = schema.figureSchema[schemaRole];
+      const baseScene = sceneByRole[schemaRole];
+      if (!slot || !baseScene) return beat;
+
+      const overlay = calendarRoute?.[schemaRole];
+      const scene: ForwardSceneSlot = overlay
+        ? {
+            visualEvidence: `${baseScene.visualEvidence} ${overlay.visualEvidenceSuffix}`,
+            visualDevice: overlay.visualDevice,
+          }
+        : baseScene;
       const figureRequirement: CarouselBeatFigureRequirement = {
         mode: 'illustrative',
         scenarioId,
@@ -506,10 +667,34 @@ export function applyScenarioFigureSchema(
         weight: slot.weight,
         suggestedSurface: slot.suggestedSurface,
       };
+
+      if (!overlay) {
+        return {
+          ...beat,
+          visualEvidence: scene.visualEvidence,
+          visualDevice: scene.visualDevice,
+          figureRequirement,
+        };
+      }
+
+      const isClosingBeat = beatIndex === plan.storyboard.length - 1;
+      const overlayPrimaryObjects =
+        overlay.primaryObjects === 'motif' ? [motif] : [...overlay.primaryObjects];
+      const primaryObjects = isClosingBeat ? [motif] : overlayPrimaryObjects;
+      const supportingObjects = [
+        ...new Set([
+          ...overlay.supportingObjects,
+          ...(isClosingBeat ? overlayPrimaryObjects.filter((object) => object !== motif) : []),
+        ]),
+      ];
+
       return {
         ...beat,
         visualEvidence: scene.visualEvidence,
         visualDevice: scene.visualDevice,
+        evidenceFamily: isClosingBeat ? motifFamily : (overlay.evidenceFamily ?? motifFamily),
+        primaryObjects,
+        supportingObjects,
         figureRequirement,
       };
     }),

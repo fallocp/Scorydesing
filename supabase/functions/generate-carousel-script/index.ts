@@ -116,6 +116,12 @@ interface ScriptBrief {
   primaryObjects: string[];
   environmentalText: string[];
   highlights: ScriptHighlight[];
+  /**
+   * Recurso cálido de "producto en uso", propuesto SOLO en los beats de cierre
+   * (solution/cta). Llega marcado por defecto; el usuario lo apaga con la casilla y el
+   * compilador de imagen lo respeta. Ausente en el resto de los roles.
+   */
+  productUseCue?: { text: string; enabled: boolean };
 }
 
 interface GenerateCarouselScriptRequest {
@@ -704,7 +710,8 @@ Responde SOLO JSON válido, sin fences ni texto alrededor:
         "layout": "editorial_top",
         "primaryObjects": [],
         "environmentalText": [],
-        "highlights": [{ "text": "", "colorRole": "risk" }]
+        "highlights": [{ "text": "", "colorRole": "risk" }],
+        "productUseCue": ""
       }
     }
   ]
@@ -718,6 +725,7 @@ Qué va en cada campo del brief:
 - primaryObjects: los objetos que su beat ya declara. Cópialos; puedes añadir alguno solo si la escena no se entiende sin él.
 - environmentalText: etiquetas cortas SIN CIFRAS que pueden aparecer DENTRO de los objetos. Nombres de campo y sellos, nada más. Prohibido cualquier número aquí —montos, tasas, porcentajes—: los hechos exactos los inyecta el sistema en la superficie elegida por el beat. Si el headline o el body nombran un LUGAR o DESTINO concreto (China, México, un país, una ciudad), INCLÚYELO aquí como etiqueta corta —"China", "CN", "destino: China"— para que la escena lo pueda rotular sobre un objeto real (la guía de embarque, la etiqueta del paquete) y no dejar el destino solo en el headline. Esta es la única etiqueta que puede no ser un nombre de campo: es lo que ancla de qué habla la pieza. Vacío si el slide no necesita ninguna.
 - highlights: uno o dos bloques del headline con su rol semántico. El texto tiene que aparecer LITERAL dentro del headline, y ser una unidad semántica completa.
+- productUseCue: SOLO en los roles de cierre (solution y cta). Un recurso cálido de "producto en uso" que humaniza la escena, consistente con el producto del caso (ej. para aguacate "guacamole recién hecho con totopos"; para café "una cafetera sirviendo un espresso"; para autopartes vacío si no hay un uso natural creíble). Es SECUNDARIO: acompaña, no compite con el producto ni con la superficie financiera. Frase corta, sin cifras ni texto para imprimir. En CUALQUIER otro rol devuelve cadena vacía "".
 
 El arreglo "slides" tiene exactamente ${slideCount} elementos, en el orden pedido, con los roles tal como se te dieron.`;
 }
@@ -906,6 +914,20 @@ function normalizeBrief(
   const modelObjects = list(b.primaryObjects);
   const primaryObjects = [...new Set([...beat.primaryObjects, ...modelObjects])];
 
+  /**
+   * El cue de "producto en uso" solo existe en los cierres.
+   *
+   * Se propone marcado (enabled) para que salga por defecto, y el usuario lo apaga con
+   * la casilla del panel. Fuera de solution/cta se descarta aunque el modelo lo mande:
+   * no queremos platillos ni escenas de estilo de vida compitiendo en la tensión o el
+   * riesgo, donde el dato tiene que mandar.
+   */
+  const isCueRole = beat.role === 'solution' || beat.role === 'cta';
+  const cueText = str(b.productUseCue);
+  const productUseCue = isCueRole && cueText
+    ? { text: cueText, enabled: true }
+    : undefined;
+
   return {
     visualIntent: str(b.visualIntent),
     visualMetaphor: str(b.visualMetaphor),
@@ -913,6 +935,7 @@ function normalizeBrief(
     primaryObjects,
     environmentalText,
     highlights,
+    ...(productUseCue ? { productUseCue } : {}),
   };
 }
 

@@ -55,14 +55,18 @@ import {
   getCarouselPreset,
   type CarouselCreativePlan,
   type CarouselCommercialIntent,
+  type CarouselEconomicFact,
   type CarouselEconomicScenario,
+  type CarouselFigureDocument,
   type CarouselObjective,
   type CarouselPlanDigest,
   type CarouselFxAssumptions,
   type CarouselMeta,
+  type CarouselSlideBrief,
   type CarouselSlideCopy,
   type CarouselSlot,
   type CarouselSlotStatus,
+  type CarouselVisibleTextManifest,
   type DesignImageType,
 } from '@/types/design-studio';
 import {
@@ -130,6 +134,234 @@ const CAROUSEL_PLATFORM = 'instagram-post';
 
 function errorMessage(err: unknown, fallback: string): string {
   return err instanceof Error ? err.message : fallback;
+}
+
+const exactDisplayValue = (fact: CarouselEconomicFact, bareUnit = false): string => {
+  const value = bareUnit
+    ? fact.formattedValue.replace(/^(USD|MXN)\s+/i, '')
+    : fact.formattedValue;
+  return value.replace(/^-/, '−');
+};
+
+const exactFactText = (fact: CarouselEconomicFact): string => {
+  const value = exactDisplayValue(fact);
+  if (fact.unit === 'rate' || fact.unit === 'percent') return `${fact.label}: ${value}`;
+  return `${fact.label}\n${value}`;
+};
+
+function manifestFromDocuments(
+  surfaceType: NonNullable<CarouselSlideBrief['figurePresentation']>['suggestedSurface'],
+  documents: CarouselFigureDocument[],
+): CarouselVisibleTextManifest {
+  return {
+    surfaceType,
+    surfaces: documents.map((document, documentIndex) => {
+      const entries: CarouselVisibleTextManifest['surfaces'][number]['entries'] = [];
+      const add = (id: string, exactText: string, colorRole?: 'risk' | 'control') => {
+        const text = exactText.trim();
+        if (!text) return;
+        entries.push({ id, exactText: text, occurrences: 1, colorRole });
+      };
+
+      // `kind` and `label` often carry different jobs (document type and stamp).
+      // When they are identical, print the heading once instead of duplicating it.
+      add(`document_${documentIndex + 1}_kind`, document.kind);
+      if (document.label.trim().toLowerCase() !== document.kind.trim().toLowerCase()) {
+        add(`document_${documentIndex + 1}_label`, document.label);
+      }
+      if (document.date) add(`document_${documentIndex + 1}_date`, document.date);
+      document.fields.forEach((field, fieldIndex) => {
+        add(
+          `document_${documentIndex + 1}_field_${fieldIndex + 1}`,
+          `${field.label}: ${field.value}`,
+          field.colorRole,
+        );
+      });
+      add(
+        `document_${documentIndex + 1}_total`,
+        `${document.total.label}: ${document.total.value}`,
+        document.total.colorRole,
+      );
+
+      return {
+        id: `document_${documentIndex + 1}`,
+        description: `the ${documentIndex + 1 === 1 ? 'first' : 'next'} authorized document`,
+        entries,
+      };
+    }),
+  };
+}
+
+function buildVisibleTextManifest(params: {
+  facts: CarouselEconomicFact[];
+  presentation: NonNullable<CarouselSlideBrief['figurePresentation']>;
+  scenario: CarouselEconomicScenario;
+  beatRole: string;
+  documents?: CarouselFigureDocument[];
+  accumulatedLabel?: string;
+}): CarouselVisibleTextManifest {
+  const {
+    facts,
+    presentation,
+    scenario,
+    beatRole,
+    documents = [],
+    accumulatedLabel,
+  } = params;
+
+  if (presentation.scenarioId !== 'forward_protection' && documents.length > 0) {
+    const manifest = manifestFromDocuments(presentation.suggestedSurface, documents);
+    if (!accumulatedLabel) return manifest;
+    return {
+      ...manifest,
+      surfaces: [
+        ...manifest.surfaces,
+        {
+          id: 'accumulated_result',
+          description: 'the single accumulated result line below the documents',
+          entries: [{
+            id: 'accumulated_impact',
+            exactText: `IMPACTO ACUMULADO\n${accumulatedLabel}`,
+            occurrences: 1,
+            colorRole: 'risk',
+          }],
+        },
+      ],
+    };
+  }
+
+  const byKey = new Map(facts.map((fact) => [fact.key, fact]));
+  const entry = (
+    id: string,
+    exactText: string,
+    colorRole?: 'risk' | 'control',
+  ) => ({ id, exactText, occurrences: 1, colorRole });
+  const isComparison = beatRole === 'risk' || beatRole === 'example';
+  const isResolution = beatRole === 'solution';
+
+  if (presentation.scenarioId === 'forward_protection' && isComparison) {
+    const operation = byKey.get('operation_usd');
+    const baseRate = byKey.get('base_rate');
+    const exposedRate = byKey.get('exposed_rate');
+    const baseMxn = byKey.get('base_cost_mxn');
+    const exposedMxn = byKey.get('exposed_cost_mxn');
+    const deltaPct = byKey.get('cost_delta_pct');
+    const days = scenario.assumptions.daysAhead ?? 60;
+    const variableLabel = scenario.assumptions.direction === 'export' ? 'INGRESO MXN' : 'COSTO MXN';
+
+    return {
+      surfaceType: 'document',
+      surfaces: [
+        {
+          id: 'comparison_left',
+          description: 'the budget reference slip on the left',
+          entries: [
+            entry('baseline_kind', 'AL PRESUPUESTAR'),
+            entry('baseline_label', 'HOY', 'control'),
+            ...(operation ? [entry('operation_usd_baseline', `TOTAL USD\n${exactDisplayValue(operation, true)}`)] : []),
+            ...(baseRate ? [entry('base_rate', `TIPO DE CAMBIO\n${exactDisplayValue(baseRate)}`, 'control')] : []),
+            ...(baseMxn ? [entry('base_mxn', `${variableLabel}\n${exactDisplayValue(baseMxn, true)}`, 'control')] : []),
+          ],
+        },
+        {
+          id: 'comparison_right',
+          description: 'the illustrative unhedged slip on the right',
+          entries: [
+            entry('exposed_kind', `ESCENARIO ILUSTRATIVO · ${days} DÍAS`),
+            entry('exposed_label', 'SIN COBERTURA', 'risk'),
+            ...(operation ? [entry('operation_usd_exposed', `TOTAL USD\n${exactDisplayValue(operation, true)}`)] : []),
+            ...(exposedRate ? [entry('exposed_rate', `TIPO DE CAMBIO\n${exactDisplayValue(exposedRate)}`, 'risk')] : []),
+            ...(deltaPct ? [entry('income_or_cost_variation', `${deltaPct.label}: ${exactDisplayValue(deltaPct)}`, 'risk')] : []),
+            ...(exposedMxn ? [entry('exposed_mxn', `${variableLabel}\n${exactDisplayValue(exposedMxn, true)}`, 'risk')] : []),
+          ],
+        },
+      ],
+    };
+  }
+
+  if (presentation.scenarioId === 'forward_protection' && isResolution) {
+    const baseRate = byKey.get('base_rate');
+    const baseMxn = byKey.get('base_cost_mxn');
+    return {
+      surfaceType: 'document',
+      surfaces: [{
+        id: 'coverage_confirmation',
+        description: 'the single printed coverage confirmation',
+        entries: [
+          entry('coverage_heading', 'CONFIRMACIÓN DE COBERTURA'),
+          ...(baseRate ? [entry('agreed_rate', `${baseRate.label}: ${exactDisplayValue(baseRate)}`, 'control')] : []),
+          ...(baseMxn ? [entry('agreed_mxn', `${baseMxn.label}:\n${exactDisplayValue(baseMxn)}`, 'control')] : []),
+        ],
+      }],
+    };
+  }
+
+  return {
+    surfaceType: presentation.suggestedSurface,
+    surfaces: [{
+      id: `${presentation.suggestedSurface}_1`,
+      description: `the single authorized ${presentation.suggestedSurface} surface`,
+      entries: facts.map((fact) => entry(fact.key, exactFactText(fact), fact.colorRole)),
+    }],
+  };
+}
+
+/**
+ * Firma de las cifras VISIBLES de una slide.
+ *
+ * El compilador de imagen usa el `visibleTextManifest` como única fuente de texto cuando
+ * existe (silencia el bloque de documentos y el económico), así que la firma prioriza el
+ * manifiesto y solo cae a los documentos en el camino legacy sin manifiesto. Devuelve null
+ * cuando la slide no muestra cifras.
+ */
+function figureSignature(brief: CarouselSlotRuntime['brief']): string | null {
+  if (!brief) return null;
+  const manifest = brief.visibleTextManifest;
+  if (manifest && manifest.surfaces.length > 0) {
+    return `m:${JSON.stringify(manifest.surfaces.map((s) => s.entries.map((e) => e.exactText)))}`;
+  }
+  const docs = brief.documents;
+  if (docs && docs.length > 0) {
+    return `d:${JSON.stringify(
+      docs.map((d) => ({ kind: d.kind, label: d.label, fields: d.fields, total: d.total })),
+    )}`;
+  }
+  return null;
+}
+
+/**
+ * Red de seguridad determinista contra dos slides que muestran EXACTAMENTE las mismas
+ * cifras.
+ *
+ * La garantía de "una sola comparación" la da el schema por rol, pero solo en los presets
+ * de arco (coberturas ya está acotada a arco). Fuera de ahí, dos beats podrían proyectar el
+ * mismo par HOY/SIN COBERTURA y el set mostraría la misma tabla dos veces. Este guard
+ * recorre las slides en orden y, cuando una repite la firma de cifras de una anterior, le
+ * APAGA la superficie numérica (hechos, presentación, manifiesto y documentos); conserva su
+ * copy. Es sustractivo y solo dispara ante un duplicado exacto: con el arco no dispara nunca,
+ * porque risk y solution proyectan cifras distintas.
+ */
+function dedupeFigureSurfaces(slots: CarouselSlotRuntime[]): CarouselSlotRuntime[] {
+  const seen = new Set<string>();
+  return slots.map((slot) => {
+    const signature = figureSignature(slot.brief);
+    if (signature === null) return slot;
+    if (!seen.has(signature)) {
+      seen.add(signature);
+      return slot;
+    }
+    return {
+      ...slot,
+      brief: {
+        ...slot.brief!,
+        economicFacts: undefined,
+        figurePresentation: undefined,
+        visibleTextManifest: undefined,
+        documents: undefined,
+        accumulatedLabel: undefined,
+      },
+    };
+  });
 }
 
 /** Drop the in-memory image before writing the carousel back to the bank row. */
@@ -560,18 +792,35 @@ export function useCarouselQueue({
            * construyen cuando la superficie elegida es realmente document.
            */
           if (figurePresentation.suggestedSurface === 'document') {
-            const { documents, accumulatedLabel } = buildPlanFigureDocuments(
-              requirement.scenarioId,
-              fxAssumptions,
-            );
+            // La resolución del forward es UNA confirmación, no la comparación de dos
+            // documentos: `buildPlanFigureDocuments` devuelve el par HOY/SIN COBERTURA, que
+            // es la evidencia del riesgo. Para solution/cta el manifiesto arma la
+            // confirmación única desde los hechos, así que no adjuntamos esos documentos.
+            const isForwardResolution =
+              requirement.scenarioId === 'forward_protection' &&
+              (beat.role === 'solution' || beat.role === 'cta');
+            const { documents, accumulatedLabel } = isForwardResolution
+              ? { documents: [] as CarouselFigureDocument[], accumulatedLabel: undefined }
+              : buildPlanFigureDocuments(requirement.scenarioId, fxAssumptions);
+            const docs = documents.length > 0 ? documents : undefined;
             return {
               ...slot,
               brief: {
                 ...slot.brief,
                 economicFacts,
                 figurePresentation,
-                documents: documents.length > 0 ? documents : undefined,
+                documents: docs,
                 accumulatedLabel,
+                // El manifiesto visible es la única fuente de texto para el compilador:
+                // cada cifra aparece una vez y en su superficie propietaria.
+                visibleTextManifest: buildVisibleTextManifest({
+                  facts: economicFacts,
+                  presentation: figurePresentation,
+                  scenario: nextEconomicScenario,
+                  beatRole: beat.role,
+                  documents: docs,
+                  accumulatedLabel,
+                }),
               },
             };
           }
@@ -584,11 +833,20 @@ export function useCarouselQueue({
               figurePresentation,
               documents: undefined,
               accumulatedLabel: undefined,
+              visibleTextManifest: buildVisibleTextManifest({
+                facts: economicFacts,
+                presentation: figurePresentation,
+                scenario: nextEconomicScenario,
+                beatRole: beat.role,
+              }),
             },
           };
         });
 
-        applySlots(withFigures);
+        // Red de seguridad: ninguna slide del set repite las cifras visibles de otra.
+        const guardedSlots = dedupeFigureSurfaces(withFigures);
+
+        applySlots(guardedSlots);
         setVisualMotif(scriptedMotif);
         setGroupId(newGroupId);
         setPresetSlug(params.presetSlug);
@@ -599,7 +857,7 @@ export function useCarouselQueue({
         setVisualAnchor('');
 
         await persist({
-          slots: withFigures,
+          slots: guardedSlots,
           visualAnchor: '',
           // Passed explicitly: the state setter above has not landed yet, so the
           // value in `persist`'s closure is still the previous motif.
@@ -673,6 +931,33 @@ export function useCarouselQueue({
             ? { ...s, imageIntent: value, prompt: '', status: 'idle' as CarouselSlotStatus }
             : s,
         ),
+      );
+    },
+    [applySlots],
+  );
+
+  /**
+   * Prende/apaga o edita el recurso de "producto en uso" del slide (solo cierres).
+   *
+   * Cambia el prompt que verá el modelo, así que invalida el prompt del slide igual que
+   * una edición de copy. No crea el cue donde el guion no lo propuso: solo modifica el
+   * que ya existe en el brief.
+   */
+  const updateSlideProductCue = useCallback(
+    (index: number, patch: { text?: string; enabled?: boolean }) => {
+      applySlots(
+        slotsRef.current.map((s) => {
+          if (s.index !== index || !s.brief?.productUseCue) return s;
+          return {
+            ...s,
+            brief: {
+              ...s.brief,
+              productUseCue: { ...s.brief.productUseCue, ...patch },
+            },
+            prompt: '',
+            status: 'idle' as CarouselSlotStatus,
+          };
+        }),
       );
     },
     [applySlots],
@@ -1134,6 +1419,7 @@ export function useCarouselQueue({
     createScript,
     updateSlideCopy,
     updateSlideImageIntent,
+    updateSlideProductCue,
     updateVisualMotif,
     saveSlideCopy,
     buildVisualAnchor,

@@ -17,6 +17,7 @@ const CATEGORY_CONFIGS: CategoryConfig[] = [
     options: [
       { value: 'white-classic', label: 'Blanco V1 / Clásico' },
       { value: 'white-xending-v2', label: 'Blanco Xending V2' },
+      { value: 'white-xending-v3', label: 'Blanco Xending V3' },
       { value: 'white-2', label: 'Blanco 2.0' },
       { value: 'dark-navy', label: 'Navy' },
     ],

@@ -29,6 +29,8 @@ export function resolveMasterImagePromptSelection(
       return { backgroundStyle: 'white', masterPromptVersion: 'v1' };
     case 'white-2':
       return { backgroundStyle: 'white_2', masterPromptVersion: 'v2' };
+    case 'white-xending-v3': // V2 + capa producto en empaque real de retail
+      return { backgroundStyle: 'white', masterPromptVersion: 'v3' };
     case 'dark-navy':
     case 'color-turquoise': // legacy value previously fell back to navy
       return { backgroundStyle: 'navy', masterPromptVersion: 'v2' };
@@ -96,6 +98,7 @@ export function designImageTypeLabel(imageType: string | null | undefined): stri
  */
 export const DESIGN_BACKGROUND_OPTIONS: { value: string; label: string }[] = [
   { value: 'white-xending-v2', label: 'Blanco Xending V2' },
+  { value: 'white-xending-v3', label: 'Blanco Xending V3' },
   { value: 'white-2', label: 'Blanco 2.0' },
   { value: 'white-classic', label: 'Blanco V1' },
   { value: 'dark-navy', label: 'Navy' },

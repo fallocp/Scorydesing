@@ -36,7 +36,7 @@ import type {
 } from './carousel-plan-types.ts';
 
 /** Sube cuando cambian las rutas. Se persiste en el plan. */
-export const STORY_REGISTRY_VERSION = 'carousel-story-registry-v7';
+export const STORY_REGISTRY_VERSION = 'carousel-story-registry-v8';
 
 /**
  * Utilería documental que casi cualquier ruta puede pedir y por eso las volvía
@@ -728,94 +728,120 @@ const COBERTURAS_ROUTES: RegisteredStoryRoute[] = [
     origin: 'registry',
     branchSlugs: ['coberturas'],
     compatibleAngles: [],
+    compatibleCommercialIntents: ['forward'],
     compatibleObjectives: [],
     compatiblePresets: [],
     minSlides: 4,
     title: 'El calendario de obligaciones',
     premise:
-      'No hay un pago: hay varios, con fechas distintas, y cada uno se define por separado.',
-    storyQuestion: '¿Cuántas obligaciones en divisa tengo abiertas y cuándo vencen?',
+      'Hay varias obligaciones en divisa y varias fechas, pero la evidencia numérica sigue una sola operación representativa: lo presupuestado hoy frente al escenario a plazo sin cobertura.',
+    storyQuestion:
+      '¿Cómo ordeno varias obligaciones futuras sin convertir cada fecha del calendario en un pronóstico?',
     routeThesis:
-      'Las obligaciones en divisa son varias y con fechas propias, así que se atienden una por una.',
-    resolutionMechanism: 'cada vencimiento queda definido por separado en el mismo calendario',
+      'El calendario organiza las fechas; el forward define el precio de cada operación sin inventar una tasa distinta para cada vencimiento.',
+    resolutionMechanism:
+      'una operación representativa compara exactamente dos momentos y muestra cómo fijar su precio, mientras las demás fechas permanecen como contexto sin cifras',
     deepeningMode: 'accumulation',
-    closingDistillation: 'el calendario completo con cada fecha ya resuelta',
+    closingDistillation:
+      'la operación representativa ya definida, con el calendario completo como contexto sin importes por fecha',
     allowedShapes: ['timeline', 'accumulation'],
-    evidenceMechanisms: ['payment_calendar', 'due_dates_sequence'],
+    evidenceMechanisms: ['payment_calendar_context', 'same_operation_two_rates'],
     figurePolicy: 'required',
-    figureScenarios: ['cashflow_certainty'],
-    requiredCapabilities: ['definir el costo de obligaciones futuras en divisa'],
-    forbiddenClaims: ['decir qué va a pasar con el tipo de cambio en esas fechas'],
+    figureScenarios: ['forward_protection'],
+    requiredCapabilities: ['fijar con un forward el tipo de cambio de una operación futura'],
+    forbiddenClaims: [
+      'decir qué va a pasar con el tipo de cambio en cada fecha',
+      'presentar el escenario a plazo como pronóstico o cotización vigente',
+    ],
     allowedEvidenceDevices: [
-      'calendario con fechas de vencimiento',
-      'varios documentos ordenados por fecha',
-      'secuencia de vencimientos',
+      'calendario con varias fechas sin tasas ni importes',
+      'marcadores de vencimiento como contexto visual',
+      'producto o lote de la operación representativa',
+      'exactamente dos documentos de la misma operación: hoy y escenario a plazo sin cobertura',
+      'una confirmacion de cobertura para la operacion representativa',
     ],
     forbiddenEvidenceDevices: [
+      ...STACKED_DOCUMENT_DEVICES,
+      'una tasa o un importe distinto pegado a cada fecha',
+      'tercera tasa',
+      'tercera tarjeta comparativa',
+      'valores intermedios entre hoy y el escenario a plazo',
       'curva',
       'linea de tendencia',
       'tabla de sensibilidad',
-      'dos cotizaciones lado a lado',
     ],
-    preferredVisualProxies: ['el calendario de obligaciones de la empresa en una vista'],
+    preferredVisualProxies: [
+      'el producto o lote de la operación representativa con el calendario como contexto secundario',
+    ],
     visualDevices: [
-      'un calendario con varias fechas de vencimiento marcadas',
-      'varios documentos de pago ordenados por fecha',
+      'el producto de la operación frente a varias fechas sin cifras',
+      'dos documentos comparativos del mismo monto USD con un calendario sin importes al fondo',
     ],
-    incompatibleDevices: ['una curva de tipo de cambio dibujada sobre las fechas futuras'],
-    motifFamilies: ['el expediente de la operación', 'el calendario de tesorería'],
+    incompatibleDevices: [
+      'un calendario convertido en tabla financiera con una cifra diferente por fecha',
+      'tres o más escenarios numéricos',
+    ],
+    motifFamilies: ['el producto de la operación', 'el lote o pedido representativo'],
   },
   {
     id: 'cashflow_certainty',
     origin: 'registry',
     branchSlugs: ['coberturas'],
     compatibleAngles: [],
+    compatibleCommercialIntents: ['forward'],
     compatibleObjectives: [],
     compatiblePresets: [],
     minSlides: 4,
     title: 'Certidumbre de flujo',
     premise:
-      'Saber cuántos pesos va a requerir un pago futuro cambia lo que se puede planear con el resto.',
-    storyQuestion: '¿Cuánto efectivo tengo que tener reservado para ese pago?',
+      'El calendario puede tener varias fechas, pero la decisión de liquidez se demuestra con una operación representativa: lo presupuestado hoy frente al escenario a plazo sin cobertura.',
+    storyQuestion:
+      '¿Qué cambia en mi planeación de efectivo cuando fijo el tipo de cambio de una operación futura?',
     routeThesis:
-      'Un pago futuro con monto conocido se puede reservar; uno abierto obliga a reservar de más o quedarse corto.',
+      'Fijar el tipo de cambio convierte una exposición abierta en un monto planeable sin asignar una tasa diferente a cada fecha del calendario.',
     resolutionMechanism:
-      'la reserva de efectivo para esa fecha queda definida en una sola cifra',
+      'la misma operación compara exactamente dos momentos y termina con su tipo de cambio fijado mediante un forward',
     deepeningMode: 'planning_horizon',
-    closingDistillation: 'el calendario de pago con su reserva de efectivo ya definida',
+    closingDistillation:
+      'la operación representativa lista para planearse, con su fecha seleccionada como contexto y sin cifras por cada día del calendario',
     allowedShapes: ['progressive_reveal', 'before_after'],
-    evidenceMechanisms: ['single_defined_value', 'planning_with_known_cost'],
+    evidenceMechanisms: ['planning_with_two_moments', 'selected_due_date_context'],
     figurePolicy: 'required',
-    figureScenarios: ['cashflow_certainty'],
-    requiredCapabilities: ['definir hoy el costo en pesos de un pago futuro'],
-    forbiddenClaims: ['prometer rendimiento o ahorro'],
-    /*
-     * Tesorería, no papelería. En la corrida anterior esta ruta terminó apilando
-     * facturas —que es la evidencia de la ruta de acumulación— y con eso su historia
-     * dejó de ser sobre planear efectivo.
-     */
+    figureScenarios: ['forward_protection'],
+    requiredCapabilities: ['fijar hoy el tipo de cambio de una operación futura mediante un forward'],
+    forbiddenClaims: [
+      'prometer rendimiento o ahorro',
+      'presentar el escenario a plazo como pronóstico o cotización vigente',
+    ],
     allowedEvidenceDevices: [
-      'calendario de tesoreria',
-      'reserva de efectivo',
-      'fecha de pago marcada',
-      'flujo proyectado',
-      'monto por reservar',
-      'programacion de salidas',
+      'fecha de pago o cobro seleccionada sin cifra propia',
+      'calendario de tesoreria como contexto secundario',
+      'producto o lote de la operación representativa',
+      'exactamente dos documentos de la misma operación: hoy y escenario a plazo sin cobertura',
+      'una confirmacion de cobertura para la operacion representativa',
     ],
     forbiddenEvidenceDevices: [
       ...STACKED_DOCUMENT_DEVICES,
-      'dos cotizaciones lado a lado',
+      'una tasa o un importe distinto pegado a cada fecha',
+      'tercera tasa',
+      'tercera tarjeta comparativa',
+      'valores intermedios entre hoy y el escenario a plazo',
       'tabla de sensibilidad',
-      'dos tasas',
       'curva',
     ],
-    preferredVisualProxies: ['el plan de flujo con la salida de esa fecha ya definida'],
-    visualDevices: [
-      'el calendario de tesorería con la fecha de pago y su monto por reservar',
-      'el plan de flujo con la línea del pago ya definida',
+    preferredVisualProxies: [
+      'el producto o lote de la operación con una sola fecha seleccionada como contexto',
     ],
-    incompatibleDevices: ['dos valores en disputa: esta ruta cierra, no compara'],
-    motifFamilies: ['el plan de flujo', 'el calendario de tesorería'],
+    visualDevices: [
+      'la operación y su fecha futura todavía abierta, sin cifra pegada al calendario',
+      'dos documentos comparativos del mismo monto USD junto a una fecha seleccionada sin importes',
+    ],
+    incompatibleDevices: [
+      'un calendario convertido en tabla financiera con una cifra diferente por fecha',
+      'dos valores definidos compitiendo después de fijar la cobertura',
+      'tres o más escenarios numéricos',
+    ],
+    motifFamilies: ['el producto de la operación', 'el lote o pedido representativo'],
   },
   {
     id: 'illustrative_case',

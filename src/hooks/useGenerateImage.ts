@@ -31,7 +31,7 @@ export interface GenerateImageRequest {
   corridorOrigin?: string;
   corridorDestination?: string;
   /** Explicit per-request snapshot; bypasses DB/global source for reproducibility. */
-  masterPromptVersion?: 'v1' | 'v2';
+  masterPromptVersion?: 'v1' | 'v2' | 'v3';
   /**
    * Image Stock Studio: process-specific style prompt. When set, the backend
    * uses it as the step-1 system prompt (single-image path) so each generator
