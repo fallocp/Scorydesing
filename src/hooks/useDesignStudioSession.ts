@@ -15,6 +15,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { toJson } from '@/integrations/supabase/json';
 import type {
   DesignSession,
   DesignSessionStatus,
@@ -126,14 +127,14 @@ async function persistSessionToDb(input: PersistSessionInput): Promise<DesignSes
         user_id: input.userId,
         status: 'active' as const,
         input_mode: input.inputMode,
-        selections: input.selections as unknown as Record<string, unknown>,
+        selections: toJson(input.selections),
         reference_image_url: input.referenceImageUrl,
         reference_description: input.referenceDescription,
         platform: input.platform,
-        mockups: input.mockups as unknown as Record<string, unknown>[],
+        mockups: toJson(input.mockups),
         selected_mockup_index: input.selectedMockupIndex,
         current_html: input.currentHtml,
-        html_history: input.htmlHistory as unknown as Record<string, unknown>[],
+        html_history: toJson(input.htmlHistory),
         iteration_count: input.iterationCount,
         updated_at: new Date().toISOString(),
       },

@@ -19,6 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
 import type { OnboardingData } from './OnboardingWizard';
+import { usePromptGovernance } from '@/hooks/usePromptGovernance';
 
 const formSchema = z.object({
   prompt_text: z.string().min(10, 'El prompt debe tener al menos 10 caracteres'),
@@ -38,6 +39,7 @@ interface Props {
 }
 
 export function OnboardingStep7_Prompt({ data, updateData, onValidChange, goNext }: Props) {
+  const governance = usePromptGovernance(data.businessId);
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
 
@@ -71,11 +73,13 @@ export function OnboardingStep7_Prompt({ data, updateData, onValidChange, goNext
 
     setSaving(true);
     try {
+      await governance.assertLegacyWrite();
       // Create master prompt version 1
       const { error: promptError } = await supabase
         .from('master_prompts')
         .insert({
           business_id: data.businessId,
+          prompt_type: 'general',
           prompt_text: formData.prompt_text,
           version: 1,
         });
@@ -116,6 +120,7 @@ export function OnboardingStep7_Prompt({ data, updateData, onValidChange, goNext
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      {governance.capabilities?.governed && <p>El prompt de este negocio se gestiona mediante propuestas y revisión en <a href="/admin/business" className="underline">Administración del negocio</a>.</p>}
       {/* Master Prompt */}
       <Card>
         <CardHeader className="pb-3">
@@ -203,7 +208,7 @@ export function OnboardingStep7_Prompt({ data, updateData, onValidChange, goNext
         </CardContent>
       </Card>
 
-      <Button type="submit" disabled={!isValid || saving} className="w-full">
+      <Button type="submit" disabled={!isValid || saving || !governance.legacyWritable} className="w-full">
         {saving ? 'Guardando...' : 'Guardar Prompt y Reglas'}
       </Button>
     </form>

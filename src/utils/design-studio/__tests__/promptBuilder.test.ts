@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { buildGenerationPrompt } from '../promptBuilder';
 import type { VisualSelections, BrandPalette } from '@/types/design-studio';
+import { visualSelectionsFixture } from './fixtures';
 
 describe('buildGenerationPrompt', () => {
   const fullBrandPalette: BrandPalette = {
@@ -15,6 +16,7 @@ describe('buildGenerationPrompt', () => {
   };
 
   const fullSelections: VisualSelections = {
+    ...visualSelectionsFixture(),
     background: 'dark-navy',
     visualStyle: 'glassmorphism',
     contentType: 'stat',
@@ -50,6 +52,7 @@ describe('buildGenerationPrompt', () => {
 
   it('omits null selections from the prompt', () => {
     const partialSelections: VisualSelections = {
+      ...visualSelectionsFixture(),
       background: null,
       visualStyle: 'minimalist',
       contentType: null,
@@ -113,6 +116,7 @@ describe('buildGenerationPrompt', () => {
 
   it('handles only platform selected (minimum valid state)', () => {
     const minimalSelections: VisualSelections = {
+      ...visualSelectionsFixture(),
       background: null,
       visualStyle: null,
       contentType: null,

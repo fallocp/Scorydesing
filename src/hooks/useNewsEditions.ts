@@ -12,6 +12,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { toJson } from '@/integrations/supabase/json';
 import { useActiveBusiness } from './useActiveBusiness';
 import { useAuth } from './useAuth';
 import type {
@@ -120,11 +121,8 @@ export interface SaveNewsEditionInput {
   status?: 'draft' | 'completed';
 }
 
-// La tabla no está en los tipos generados de Supabase todavía; el cast a `any`
-// es el mismo patrón que usa useDesignMockups con tablas nuevas.
 function editionsTable() {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return supabase.from('news_editions' as any);
+  return supabase.from('news_editions');
 }
 
 /** Listado reciente de ediciones del negocio activo. */
@@ -175,10 +173,10 @@ export function useSaveNewsEdition() {
         edition_type: input.editionType,
         raw_input: input.rawInput,
         input_format: input.inputFormat,
-        normalized: input.normalized ?? null,
-        slide_plan: input.slidePlan,
-        visual_plan: input.visualPlan,
-        slides: input.slides,
+        normalized: toJson(input.normalized ?? null),
+        slide_plan: toJson(input.slidePlan),
+        visual_plan: toJson(input.visualPlan),
+        slides: toJson(input.slides),
         status: input.status ?? 'draft',
       };
 
@@ -191,12 +189,12 @@ export function useSaveNewsEdition() {
           .select('id')
           .single();
         if (error) throw new Error(error.message);
-        return { id: (data as { id: string }).id };
+        return { id: data.id };
       }
 
       const { data, error } = await editionsTable().insert(row).select('id').single();
       if (error) throw new Error(error.message);
-      return { id: (data as { id: string }).id };
+      return { id: data.id };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['news-editions', activeBusinessId] });

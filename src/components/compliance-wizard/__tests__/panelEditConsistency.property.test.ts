@@ -14,6 +14,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as fc from 'fast-check';
 import { useComplianceWizardStore } from '@/store/complianceWizardStore';
+import type { ComplianceRules } from '@/types/compliance-wizard';
 
 // ---------------------------------------------------------------------------
 // Mock supabase client
@@ -31,16 +32,6 @@ vi.mock('@/integrations/supabase/client', () => {
 // Import the mocked module to control invoke behavior
 import { supabase } from '@/integrations/supabase/client';
 const mockInvoke = vi.mocked(supabase.functions.invoke);
-
-// ---------------------------------------------------------------------------
-// Types (local mirror)
-// ---------------------------------------------------------------------------
-
-interface ComplianceRules {
-  forbidden_terms: string[];
-  required_qualifiers: string[];
-  max_values: Record<string, string>;
-}
 
 // ---------------------------------------------------------------------------
 // Generators

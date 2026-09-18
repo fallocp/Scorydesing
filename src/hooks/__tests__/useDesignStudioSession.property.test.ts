@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import * as fc from 'fast-check'
+import { visualSelectionsFixture } from '@/utils/design-studio/__tests__/fixtures'
 
 /**
  * Property 12: Persistencia de sesión round-trip
@@ -58,7 +59,7 @@ const visualSelectionsArb: fc.Arbitrary<VisualSelections> = fc.record({
   contentType: fc.option(fc.string({ minLength: 1, maxLength: 30 }), { nil: null }),
   heroElement: fc.option(fc.string({ minLength: 1, maxLength: 30 }), { nil: null }),
   platform: fc.option(platformArb, { nil: null }),
-})
+}).map(visualSelectionsFixture)
 
 const generatedMockupArb: fc.Arbitrary<GeneratedMockup> = fc.record({
   index: fc.integer({ min: 0, max: 2 }),

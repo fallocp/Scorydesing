@@ -19,6 +19,9 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { EDITOR_ICONS } from '@/constants/editorIcons';
 import { useSuggestCopy } from '@/hooks/useSuggestCopy';
+import { sanitizePresentationHtml } from '@/lib/presentations/presentationHtml';
+import { validatePresentationRaster } from '@/lib/presentations/presentationAssets';
+import { serializeMountedImages } from '@/lib/presentations/presentationManifest';
 
 // --- Editable element definitions ---
 
@@ -606,19 +609,50 @@ interface VisualDesignEditorProps {
 // --- Image Picker Panel (inline in properties) ---
 
 interface ImagePickerPanelProps {
+  businessId?: string | null;
   onSelect: (url: string) => void;
   onUpload: (file: File) => Promise<string | null>;
 }
 
-function ImagePickerPanel({ onSelect, onUpload }: ImagePickerPanelProps) {
+function businessStorageRoot(businessId?: string | null): string | null {
+  return businessId && /^[a-zA-Z0-9_-]+$/.test(businessId) ? `${businessId}/` : null;
+}
+
+function isStorageEntryName(name: string): boolean {
+  const hasControlCharacter = Array.from(name).some(character => character.charCodeAt(0) <= 31 || character.charCodeAt(0) === 127);
+  return !!name && name !== '.' && name !== '..' && !/[\\/%]/.test(name) && !hasControlCharacter;
+}
+
+function isBusinessStoragePath(path: string, root: string | null): boolean {
+  if (!root || !path.startsWith(root)) return false;
+  const relative = path.slice(root.length).replace(/\/$/, '');
+  return relative === '' || relative.split('/').every(isStorageEntryName);
+}
+
+function rasterExtension(mimeType: string): string {
+  if (mimeType === 'image/png') return 'png';
+  if (mimeType === 'image/jpeg') return 'jpg';
+  if (mimeType === 'image/webp') return 'webp';
+  throw new Error('Usa una imagen PNG, JPG o WebP.');
+}
+
+function ImagePickerPanel({ businessId, onSelect, onUpload }: ImagePickerPanelProps) {
   const [images, setImages] = useState<Array<{ url: string; id: string; type?: string }>>([]);
   const [loading, setLoading] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const scopeRef = useRef(businessId);
+  scopeRef.current = businessId;
+  const mountedRef = useRef(true);
+  const libraryRequestRef = useRef(0);
+  const storageRequestRef = useRef(0);
+  const storageRoot = businessStorageRoot(businessId);
 
   // Fuente activa: tabla image_library o explorador de Storage
   const [source, setSource] = useState<'library' | 'storage'>('library');
-  const [storagePath, setStoragePath] = useState('');
+  const [storagePath, setStoragePath] = useState(storageRoot ?? '');
   const [storageFolders, setStorageFolders] = useState<string[]>([]);
   const [storageFiles, setStorageFiles] = useState<Array<{ name: string; url: string }>>([]);
   const [storageLoading, setStorageLoading] = useState(false);
@@ -626,20 +660,49 @@ function ImagePickerPanel({ onSelect, onUpload }: ImagePickerPanelProps) {
   const BUCKET = 'design-images';
   const IMG_RE = /\.(png|jpe?g|webp|gif|svg|avif)$/i;
 
-  // Carga TODA la biblioteca (image_url o image_base64)
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      libraryRequestRef.current += 1;
+      storageRequestRef.current += 1;
+    };
+  }, []);
+
+  useEffect(() => {
+    libraryRequestRef.current += 1;
+    storageRequestRef.current += 1;
+    setImages([]);
+    setStorageFolders([]);
+    setStorageFiles([]);
+    setStoragePath(storageRoot ?? '');
+    setLoading(false);
+    setStorageLoading(false);
+    setErrorMessage(null);
+  }, [storageRoot]);
+
+  // La biblioteca sólo muestra imágenes del negocio recibido por el editor.
   const loadImages = useCallback(async () => {
+    if (!businessId || !storageRoot) return;
+    const scope = businessId;
+    const request = ++libraryRequestRef.current;
+    const isCurrent = () => mountedRef.current && scopeRef.current === scope && request === libraryRequestRef.current;
     setLoading(true);
+    setErrorMessage(null);
     try {
       const { supabase } = await import('@/integrations/supabase/client');
-      const { data } = await (supabase as any)
+      if (!isCurrent()) return;
+      const { data, error } = await supabase
         .from('image_library')
         .select('id, image_url, image_base64, image_type, created_at')
+        .eq('business_id', scope)
         .order('created_at', { ascending: false })
         .limit(500);
-      if (data) {
+      if (error) throw error;
+      if (data && isCurrent()) {
         setImages(
           data
-            .map((d: any) => ({
+            .map((d) => ({
               id: d.id,
               type: d.image_type ?? undefined,
               url: d.image_url || (d.image_base64 ? `data:image/png;base64,${d.image_base64}` : ''),
@@ -648,60 +711,73 @@ function ImagePickerPanel({ onSelect, onUpload }: ImagePickerPanelProps) {
         );
       }
     } catch (err) {
-      console.error('Error loading images:', err);
+      if (isCurrent()) setErrorMessage(err instanceof Error ? err.message : 'No se pudo cargar la biblioteca.');
+    } finally {
+      if (isCurrent()) setLoading(false);
     }
-    setLoading(false);
-  }, []);
+  }, [businessId, storageRoot]);
 
   // Lista archivos/carpetas del bucket de Storage en una ruta dada
   const loadStorage = useCallback(async (path: string) => {
+    if (!businessId || !isBusinessStoragePath(path, storageRoot)) return;
+    const scope = businessId;
+    const request = ++storageRequestRef.current;
+    const isCurrent = () => mountedRef.current && scopeRef.current === scope && request === storageRequestRef.current;
     setStorageLoading(true);
+    setStorageFolders([]);
+    setStorageFiles([]);
+    setErrorMessage(null);
     try {
       const { supabase } = await import('@/integrations/supabase/client');
+      if (!isCurrent()) return;
       const { data, error } = await supabase.storage
         .from(BUCKET)
         .list(path, { limit: 500, sortBy: { column: 'created_at', order: 'desc' } });
       if (error) throw error;
-      const folders = (data || []).filter((it: any) => it.id === null).map((it: any) => it.name);
-      const files = (data || [])
-        .filter((it: any) => it.id !== null && IMG_RE.test(it.name))
-        .map((it: any) => {
-          const full = path ? `${path}/${it.name}` : it.name;
+      const entries = (data || []).filter((it) => isStorageEntryName(it.name));
+      const folders = entries.filter((it) => it.id === null).map((it) => it.name);
+      const files = entries
+        .filter((it) => it.id !== null && IMG_RE.test(it.name))
+        .map((it) => {
+          const full = `${path.replace(/\/$/, '')}/${it.name}`;
           const { data: u } = supabase.storage.from(BUCKET).getPublicUrl(full);
           return { name: it.name, url: u.publicUrl };
         });
-      setStorageFolders(folders);
-      setStorageFiles(files);
+      if (isCurrent()) {
+        setStorageFolders(folders);
+        setStorageFiles(files);
+      }
     } catch (err) {
-      console.error('Error listing storage:', err);
-      setStorageFolders([]);
-      setStorageFiles([]);
+      if (isCurrent()) setErrorMessage(err instanceof Error ? err.message : 'No se pudieron cargar los archivos.');
+    } finally {
+      if (isCurrent()) setStorageLoading(false);
     }
-    setStorageLoading(false);
-  }, []);
+  }, [businessId, storageRoot]);
 
   const openModal = useCallback(() => {
+    if (!storageRoot) return;
     setModalOpen(true);
     if (images.length === 0) loadImages();
-  }, [images.length, loadImages]);
+  }, [images.length, loadImages, storageRoot]);
 
   const goToStorageFolder = useCallback((path: string) => {
+    if (!isBusinessStoragePath(path, storageRoot)) return;
     setStoragePath(path);
     loadStorage(path);
-  }, [loadStorage]);
+  }, [loadStorage, storageRoot]);
 
   const switchSource = useCallback((s: 'library' | 'storage') => {
     setSource(s);
     if (s === 'storage' && storageFolders.length === 0 && storageFiles.length === 0) {
-      loadStorage('');
+      loadStorage(storagePath || storageRoot || '');
     }
-  }, [storageFolders.length, storageFiles.length, loadStorage]);
+  }, [storageFolders.length, storageFiles.length, loadStorage, storagePath, storageRoot]);
 
   const filtered = search.trim()
     ? images.filter((i) => (i.type || '').toLowerCase().includes(search.toLowerCase()) || i.url.toLowerCase().includes(search.toLowerCase()))
     : images;
 
-  const breadcrumbs = storagePath ? storagePath.split('/') : [];
+  const breadcrumbs = storageRoot ? storagePath.slice(storageRoot.length).split('/').filter(Boolean) : [];
 
   return (
     <div className="space-y-2 border-t pt-2">
@@ -710,16 +786,29 @@ function ImagePickerPanel({ onSelect, onUpload }: ImagePickerPanelProps) {
       {/* Upload */}
       <label className="flex items-center gap-2 p-2 border-2 border-dashed rounded-lg cursor-pointer hover:border-[#2ED4C7] hover:bg-[#2ED4C7]/5 transition-colors">
         <span className="text-sm">📷</span>
-        <span className="text-xs text-muted-foreground">Subir desde tu computadora</span>
+        <span className="text-xs text-muted-foreground">{uploading ? 'Subiendo imagen…' : 'Subir imagen PNG, JPG o WebP'}</span>
         <input
           type="file"
-          accept="image/*"
+          accept="image/png,image/jpeg,image/webp"
+          disabled={!storageRoot || uploading}
           className="hidden"
           onChange={async (e) => {
             const file = e.target.files?.[0];
-            if (!file) return;
-            const url = await onUpload(file);
-            if (url) onSelect(url);
+            e.currentTarget.value = '';
+            if (!file || !storageRoot || uploading) return;
+            const scope = businessId;
+            setUploading(true);
+            setErrorMessage(null);
+            try {
+              const url = await onUpload(file);
+              if (url && mountedRef.current && scopeRef.current === scope) onSelect(url);
+            } catch (error) {
+              if (mountedRef.current && scopeRef.current === scope) {
+                setErrorMessage(error instanceof Error ? error.message : 'No se pudo subir la imagen.');
+              }
+            } finally {
+              if (mountedRef.current && scopeRef.current === scope) setUploading(false);
+            }
           }}
         />
       </label>
@@ -728,10 +817,13 @@ function ImagePickerPanel({ onSelect, onUpload }: ImagePickerPanelProps) {
       <button
         type="button"
         onClick={openModal}
+        disabled={!storageRoot}
         className="w-full text-xs text-center py-1.5 rounded border hover:bg-muted transition-colors"
       >
-        📚 Ver biblioteca completa
+        📚 Ver biblioteca del negocio
       </button>
+      {!storageRoot && <p className="text-xs text-muted-foreground">Selecciona un negocio para abrir su biblioteca o subir imágenes.</p>}
+      {errorMessage && <p role="alert" className="text-xs text-destructive">{errorMessage}</p>}
 
       {/* URL paste */}
       <input
@@ -804,9 +896,9 @@ function ImagePickerPanel({ onSelect, onUpload }: ImagePickerPanelProps) {
             {/* Breadcrumb de carpetas (solo storage) */}
             {source === 'storage' && (
               <div className="flex items-center flex-wrap gap-1 px-4 pt-2 text-xs">
-                <button type="button" onClick={() => goToStorageFolder('')} className="px-1.5 py-0.5 rounded hover:bg-muted text-[#2ED4C7] font-medium">{BUCKET}</button>
+                <button type="button" onClick={() => goToStorageFolder(storageRoot || '')} className="px-1.5 py-0.5 rounded hover:bg-muted text-[#2ED4C7] font-medium">Archivos del negocio</button>
                 {breadcrumbs.map((seg, i) => {
-                  const path = breadcrumbs.slice(0, i + 1).join('/');
+                  const path = `${storageRoot}${breadcrumbs.slice(0, i + 1).join('/')}/`;
                   return (
                     <span key={path} className="flex items-center gap-1">
                       <span className="text-muted-foreground">/</span>
@@ -819,6 +911,7 @@ function ImagePickerPanel({ onSelect, onUpload }: ImagePickerPanelProps) {
 
             {/* Contenido */}
             <div className="flex-1 overflow-y-auto p-4">
+              {errorMessage && <p role="alert" className="mb-3 text-xs text-destructive">{errorMessage}</p>}
               {source === 'library' ? (
                 <>
                   {loading && <p className="text-sm text-muted-foreground text-center py-12">Cargando imágenes…</p>}
@@ -852,7 +945,7 @@ function ImagePickerPanel({ onSelect, onUpload }: ImagePickerPanelProps) {
                         <button
                           key={f}
                           type="button"
-                          onClick={() => goToStorageFolder(storagePath ? `${storagePath}/${f}` : f)}
+                          onClick={() => goToStorageFolder(`${storagePath.replace(/\/$/, '')}/${f}/`)}
                           className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg border hover:bg-muted"
                         >
                           📁 {f.length > 22 ? f.slice(0, 22) + '…' : f}
@@ -891,6 +984,7 @@ function ImagePickerPanel({ onSelect, onUpload }: ImagePickerPanelProps) {
 // --- Icon Picker (Marca + Genéricos) ---
 
 interface IconPickerModalProps {
+  businessId?: string | null;
   onClose: () => void;
   onPickGeneric: (svg: string, label: string) => void;
   onPickBrand: (url: string) => void;
@@ -898,57 +992,89 @@ interface IconPickerModalProps {
 
 /**
  * Modal con dos pestañas:
- *  - "Marca": iconos con branding subidos al Storage (carpeta `brand-icons/`),
+ *  - "Marca": iconos con branding subidos a la carpeta del negocio,
  *    que el equipo va surtiendo. Se insertan como <img> (color fijo de marca).
  *  - "Genéricos": set integrado (sociales + negocio) como SVG monocromo,
  *    recoloreable con el color del elemento.
  */
-function IconPickerModal({ onClose, onPickGeneric, onPickBrand }: IconPickerModalProps) {
+function IconPickerModal({ businessId, onClose, onPickGeneric, onPickBrand }: IconPickerModalProps) {
   const [tab, setTab] = useState<'generic' | 'brand'>('generic');
   const [search, setSearch] = useState('');
   const [brandFiles, setBrandFiles] = useState<Array<{ name: string; url: string }>>([]);
   const [brandLoading, setBrandLoading] = useState(false);
+  const [brandUploading, setBrandUploading] = useState(false);
+  const [brandError, setBrandError] = useState<string | null>(null);
+  const scopeRef = useRef(businessId);
+  scopeRef.current = businessId;
+  const mountedRef = useRef(true);
+  const requestRef = useRef(0);
 
   const BUCKET = 'design-images';
-  const PREFIX = 'brand-icons';
+  const root = businessStorageRoot(businessId);
+  const prefix = root ? `${root}brand-icons/` : null;
   const IMG_RE = /\.(png|jpe?g|webp|gif|svg|avif)$/i;
 
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; requestRef.current += 1; };
+  }, []);
+
+  useEffect(() => { setBrandFiles([]); setBrandError(null); }, [businessId]);
+
   const loadBrand = useCallback(async () => {
+    if (!businessId || !prefix) return;
+    const scope = businessId;
+    const request = ++requestRef.current;
+    const isCurrent = () => mountedRef.current && scopeRef.current === scope && requestRef.current === request;
     setBrandLoading(true);
+    setBrandError(null);
     try {
       const { supabase } = await import('@/integrations/supabase/client');
+      if (!isCurrent()) return;
       const { data, error } = await supabase.storage
         .from(BUCKET)
-        .list(PREFIX, { limit: 500, sortBy: { column: 'created_at', order: 'desc' } });
+        .list(prefix, { limit: 500, sortBy: { column: 'created_at', order: 'desc' } });
       if (error) throw error;
       const files = (data || [])
-        .filter((it: { id: string | null; name: string }) => it.id !== null && IMG_RE.test(it.name))
-        .map((it: { name: string }) => {
-          const { data: u } = supabase.storage.from(BUCKET).getPublicUrl(`${PREFIX}/${it.name}`);
+        .filter((it) => it.id !== null && isStorageEntryName(it.name) && IMG_RE.test(it.name))
+        .map((it) => {
+          const { data: u } = supabase.storage.from(BUCKET).getPublicUrl(`${prefix}${it.name}`);
           return { name: it.name, url: u.publicUrl };
         });
-      setBrandFiles(files);
+      if (isCurrent()) setBrandFiles(files);
     } catch (err) {
-      console.error('Error listando iconos de marca:', err);
-      setBrandFiles([]);
+      if (isCurrent()) {
+        setBrandError(err instanceof Error ? err.message : 'No se pudieron cargar los iconos.');
+        setBrandFiles([]);
+      }
+    } finally {
+      if (isCurrent()) setBrandLoading(false);
     }
-    setBrandLoading(false);
-  }, []);
+  }, [businessId, prefix]);
 
   useEffect(() => { if (tab === 'brand') loadBrand(); }, [tab, loadBrand]);
 
   const uploadBrand = useCallback(async (file: File) => {
+    if (!businessId || !prefix || brandUploading) return;
+    const scope = businessId;
+    const isCurrent = () => mountedRef.current && scopeRef.current === scope;
+    setBrandUploading(true);
+    setBrandError(null);
     try {
+      const { mimeType } = await validatePresentationRaster(file);
+      if (!isCurrent()) return;
       const { supabase } = await import('@/integrations/supabase/client');
-      const ext = file.name.split('.').pop() || 'png';
-      const path = `${PREFIX}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-      const { error } = await supabase.storage.from(BUCKET).upload(path, file, { upsert: false });
+      if (!isCurrent()) return;
+      const path = `${prefix}${crypto.randomUUID()}.${rasterExtension(mimeType)}`;
+      const { error } = await supabase.storage.from(BUCKET).upload(path, file, { upsert: false, contentType: mimeType });
       if (error) throw error;
-      await loadBrand();
+      if (isCurrent()) await loadBrand();
     } catch (err) {
-      console.error('Error subiendo icono de marca:', err);
+      if (isCurrent()) setBrandError(err instanceof Error ? err.message : 'No se pudo subir el icono.');
+    } finally {
+      if (isCurrent()) setBrandUploading(false);
     }
-  }, [loadBrand]);
+  }, [businessId, prefix, brandUploading, loadBrand]);
 
   const q = search.trim().toLowerCase();
   const filteredGeneric = q
@@ -975,7 +1101,7 @@ function IconPickerModal({ onClose, onPickGeneric, onPickBrand }: IconPickerModa
               onClick={() => setTab('brand')}
               className={cn('text-xs px-3 py-1.5 rounded-md border', tab === 'brand' ? 'bg-primary text-primary-foreground border-primary' : 'hover:bg-muted')}
             >
-              Marca (Xending)
+              Marca del negocio
             </button>
           </div>
           <div className="flex items-center gap-2">
@@ -1040,14 +1166,17 @@ function IconPickerModal({ onClose, onPickGeneric, onPickBrand }: IconPickerModa
             <div className="space-y-3">
               <label className="flex items-center gap-2 p-2 border-2 border-dashed rounded-lg cursor-pointer hover:border-[#2ED4C7] hover:bg-[#2ED4C7]/5 transition-colors w-fit">
                 <span className="text-sm">⬆️</span>
-                <span className="text-xs text-muted-foreground">Subir icono de marca (PNG/SVG)</span>
+                <span className="text-xs text-muted-foreground">{brandUploading ? 'Subiendo icono…' : 'Subir icono de marca (PNG, JPG o WebP)'}</span>
                 <input
                   type="file"
-                  accept="image/*"
+                  accept="image/png,image/jpeg,image/webp"
+                  disabled={!prefix || brandUploading}
                   className="hidden"
-                  onChange={async (e) => { const f = e.target.files?.[0]; if (f) await uploadBrand(f); }}
+                  onChange={async (e) => { const f = e.target.files?.[0]; e.currentTarget.value = ''; if (f) await uploadBrand(f); }}
                 />
               </label>
+              {!prefix && <p className="text-xs text-muted-foreground">Selecciona un negocio para ver sus iconos.</p>}
+              {brandError && <p role="alert" className="text-xs text-destructive">{brandError}</p>}
               {brandLoading ? (
                 <p className="text-xs text-muted-foreground py-8 text-center">Cargando…</p>
               ) : brandFiles.length === 0 ? (
@@ -1105,6 +1234,32 @@ function CollapsibleSection({ title, open, onToggle, children }: CollapsibleSect
 export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensions, editableElements, onApply, businessId }: VisualDesignEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [loadedIframeToken, setLoadedIframeToken] = useState<string | null>(null);
+  const businessScopeRef = useRef(businessId);
+  businessScopeRef.current = businessId;
+  const editorMountedRef = useRef(true);
+  useEffect(() => {
+    editorMountedRef.current = true;
+    return () => { editorMountedRef.current = false; };
+  }, []);
+
+  const uploadPresentationImage = useCallback(async (file: File): Promise<string | null> => {
+    const root = businessStorageRoot(businessId);
+    if (!root) throw new Error('Selecciona un negocio antes de subir una imagen.');
+    const scope = businessId;
+    const isCurrent = () => editorMountedRef.current && businessScopeRef.current === scope;
+    const { mimeType } = await validatePresentationRaster(file);
+    if (!isCurrent()) return null;
+    const { supabase } = await import('@/integrations/supabase/client');
+    if (!isCurrent()) return null;
+    const path = `${root}presentations/${crypto.randomUUID()}.${rasterExtension(mimeType)}`;
+    const { error } = await supabase.storage.from('design-images').upload(path, file, {
+      contentType: mimeType, upsert: false,
+    });
+    if (error) throw new Error(error.message);
+    if (!isCurrent()) return null;
+    return supabase.storage.from('design-images').getPublicUrl(path).data.publicUrl;
+  }, [businessId]);
 
   const [scale, setScale] = useState(0.7);
   const [overlays, setOverlays] = useState<ElementOverlay[]>([]);
@@ -1323,18 +1478,16 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
     return cleanHtml.replace('</body>', `${inject}</body>`);
   }, [workingHtml, styleOverrides, usedFonts, groups]);
 
-  // Build iframe src — reloads whenever htmlWithOverrides changes
-  const iframeSrc = useMemo(() => {
-    const blob = new Blob([htmlWithOverrides], { type: 'text/html' });
-    return URL.createObjectURL(blob);
+  // El padre controla el zoom sobre el viewport completo del diseño.
+  // El documento mantiene estilos y configuración inerte; nunca ejecuta scripts.
+  const iframeDocument = useMemo(() => {
+    const token = crypto.randomUUID();
+    const source = sanitizePresentationHtml(htmlWithOverrides);
+    return { token, source: source.replace('</head>', `<meta name="scory-editor-render" content="${token}"></head>`) };
   }, [htmlWithOverrides]);
-
-  // Cleanup blob URL
-  useEffect(() => {
-    return () => {
-      if (iframeSrc) URL.revokeObjectURL(iframeSrc);
-    };
-  }, [iframeSrc]);
+  const iframeSrcDoc = iframeDocument.source;
+  const mountedLayoutPending = /\bdata-asset-(?:id|version)\s*=/.test(htmlWithOverrides)
+    && loadedIframeToken !== iframeDocument.token;
 
   // Scan iframe for editable elements and build overlays (auto-detección + nombres bonitos)
   const scanElements = useCallback(() => {
@@ -1590,9 +1743,17 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
 
   // Scan after iframe loads
   const handleIframeLoad = useCallback(() => {
-    // Small delay to ensure rendering is complete
-    setTimeout(scanElements, 300);
-  }, [scanElements]);
+    const document = iframeRef.current?.contentDocument;
+    const token = document?.querySelector('meta[name="scory-editor-render"]')?.getAttribute('content');
+    if (editorMountedRef.current && token === iframeDocument.token) setLoadedIframeToken(token);
+    const scanCurrentDocument = () => {
+      if (editorMountedRef.current && iframeRef.current?.contentDocument === document) scanElements();
+    };
+    // El zoom y el hit-testing siguen en el padre; las fuentes pueden terminar
+    // de cargar después del documento aunque éste no ejecute ningún script.
+    setTimeout(scanCurrentDocument, 300);
+    void document?.fonts?.ready.then(scanCurrentDocument, () => {});
+  }, [scanElements, iframeDocument.token]);
 
   // Re-scan when iframe reloads (HTML changed)
   useEffect(() => {
@@ -1679,16 +1840,28 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
 
   // --- Save ---
 
+  const serializeCurrentHtml = useCallback(() => {
+    const document = iframeRef.current?.contentDocument ?? null;
+    // srcDoc changes before its navigation finishes. Measure only the document
+    // bearing this render's marker, never geometry from the preceding revision.
+    const currentDocument = document?.readyState === 'complete'
+      && document.querySelector('meta[name="scory-editor-render"]')?.getAttribute('content') === iframeDocument.token
+      ? document : null;
+    return sanitizePresentationHtml(serializeMountedImages(html, htmlWithOverrides, currentDocument,
+      { width: designWidth, height: designHeight }));
+  }, [html, htmlWithOverrides, iframeDocument.token, designWidth, designHeight]);
+
   const handleSave = useCallback(() => {
-    onSave(htmlWithOverrides);
-  }, [htmlWithOverrides, onSave]);
+    onSave(serializeCurrentHtml());
+  }, [serializeCurrentHtml, onSave]);
 
   const handleApply = useCallback(() => {
     // Remember what we emitted so the sync effect below can tell our own echo
     // apart from a genuinely new document coming from the parent.
-    lastEmittedRef.current = htmlWithOverrides;
-    onApply?.(htmlWithOverrides);
-  }, [htmlWithOverrides, onApply]);
+    const serializedHtml = serializeCurrentHtml();
+    lastEmittedRef.current = serializedHtml;
+    onApply?.(serializedHtml);
+  }, [serializeCurrentHtml, onApply]);
 
   // --- Zoom ---
 
@@ -3778,6 +3951,8 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
     <div className="space-y-3">
       {iconPickerOpen && (
         <IconPickerModal
+          key={businessId || 'no-business'}
+          businessId={businessId}
           onClose={() => setIconPickerOpen(false)}
           onPickGeneric={(svg, label) => { addIconSvg(svg, label); setIconPickerOpen(false); }}
           onPickBrand={(url) => { addImageFromUrl(url); setIconPickerOpen(false); }}
@@ -3981,11 +4156,15 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
             <X className="h-3.5 w-3.5 mr-1" /> Cancelar
           </Button>
           {onApply && (
-            <Button size="sm" variant="outline" onClick={handleApply} className="h-7 text-xs border-[#2ED4C7] text-[#0F1419]">
+            <Button size="sm" variant="outline" onClick={handleApply} disabled={mountedLayoutPending}
+              title={mountedLayoutPending ? 'Cargando la vista previa para guardar la posición de las imágenes' : undefined}
+              className="h-7 text-xs border-[#2ED4C7] text-[#0F1419]">
               <Save className="h-3.5 w-3.5 mr-1" /> Aplicar
             </Button>
           )}
-          <Button size="sm" onClick={handleSave} className="h-7 text-xs">
+          <Button size="sm" onClick={handleSave} disabled={mountedLayoutPending}
+            title={mountedLayoutPending ? 'Cargando la vista previa para guardar la posición de las imágenes' : undefined}
+            className="h-7 text-xs">
             <Save className="h-3.5 w-3.5 mr-1" /> Guardar
           </Button>
         </div>
@@ -4198,11 +4377,12 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
             {/* Iframe with the design */}
             <iframe
               ref={iframeRef}
-              src={iframeSrc}
+              srcDoc={iframeSrcDoc}
+              title="Editor visual del diseño"
               width={designWidth}
               height={designHeight}
               onLoad={handleIframeLoad}
-              sandbox="allow-same-origin allow-scripts"
+              sandbox="allow-same-origin"
               className="origin-top-left border-0"
               style={{
                 transform: `scale(${scale})`,
@@ -5513,6 +5693,8 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
               {/* Image URL input — for photo or image placeholder elements */}
               {(selectedOverlay.id === 'photo' || selectedOverlay.id === 'img-placeholder' || selectedOverlay.id === 'hero-photo' || selectedOverlay.def.kind === 'image' || selectedOverlay.def.kind === 'image-bg' || selectedOverlay.def.kind === 'shape' || /logo|imagen|icono|espacio|foto|photo/i.test(selectedOverlay.def.label || '')) && (
                 <ImagePickerPanel
+                  key={businessId || 'no-business'}
+                  businessId={businessId}
                   onSelect={(url) => {
                     pushUndo();
                     // Fondo (background-image): se cambia conservando pan/tinte/fundido
@@ -5608,24 +5790,7 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
                     }
                     setChanges((c) => [...c, { id: selectedOverlay.id, selector: selectedOverlay.def.selector, oldText: '', newText: url }]);
                   }}
-                  onUpload={async (file) => {
-                    try {
-                      const { supabase } = await import('@/integrations/supabase/client');
-                      const ext = file.name.split('.').pop() || 'png';
-                      const path = `presentations/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-                      const { error: uploadError } = await supabase.storage
-                        .from('design-images')
-                        .upload(path, file, { contentType: file.type });
-                      if (uploadError) throw uploadError;
-                      const { data: urlData } = supabase.storage
-                        .from('design-images')
-                        .getPublicUrl(path);
-                      return urlData.publicUrl;
-                    } catch (err) {
-                      console.error('Error subiendo imagen:', err);
-                      return null;
-                    }
-                  }}
+                  onUpload={uploadPresentationImage}
                 />
               )}
 

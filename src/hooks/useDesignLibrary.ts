@@ -70,7 +70,7 @@ export interface DesignLibraryFilters {
 
 async function fetchDesigns(filters: DesignLibraryFilters): Promise<DesignLibraryRow[]> {
   let query = supabase
-    .from('design_library' as any)
+    .from('design_library')
     .select('*')
     .eq('business_id', filters.businessId)
     .order('created_at', { ascending: false });
@@ -103,7 +103,7 @@ async function saveDesign(input: SaveDesignInput): Promise<DesignLibraryRow> {
   // Determine version number: count existing designs with same copy + format + branch
   let versionNumber = 1;
   const { data: existing } = await supabase
-    .from('design_library' as any)
+    .from('design_library')
     .select('version_number')
     .eq('business_id', input.businessId)
     .eq('headline', input.headline)
@@ -112,13 +112,13 @@ async function saveDesign(input: SaveDesignInput): Promise<DesignLibraryRow> {
     .limit(1);
 
   if (existing && existing.length > 0) {
-    versionNumber = (existing[0] as any).version_number + 1;
+    versionNumber = existing[0].version_number + 1;
   }
 
   // Deactivate previous versions for same copy + format
   if (versionNumber > 1) {
     await supabase
-      .from('design_library' as any)
+      .from('design_library')
       .update({ is_active: false })
       .eq('business_id', input.businessId)
       .eq('headline', input.headline)
@@ -126,7 +126,7 @@ async function saveDesign(input: SaveDesignInput): Promise<DesignLibraryRow> {
   }
 
   const { data, error } = await supabase
-    .from('design_library' as any)
+    .from('design_library')
     .insert({
       business_id: input.businessId,
       commercial_branch_id: input.commercialBranchId || null,
@@ -158,18 +158,18 @@ async function saveDesign(input: SaveDesignInput): Promise<DesignLibraryRow> {
 
 async function deleteDesign(id: string): Promise<{ id: string; businessId: string }> {
   const { data: design } = await supabase
-    .from('design_library' as any)
+    .from('design_library')
     .select('business_id')
     .eq('id', id)
     .single();
 
   const { error } = await supabase
-    .from('design_library' as any)
+    .from('design_library')
     .delete()
     .eq('id', id);
 
   if (error) throw new Error(error.message);
-  return { id, businessId: (design as any)?.business_id || '' };
+  return { id, businessId: design?.business_id || '' };
 }
 
 // ─── Hooks ───────────────────────────────────────────────────────────────────

@@ -8,7 +8,7 @@
  * Requirements: 16.5, 16.6, 16.9
  */
 
-import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.53.0";
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.53.0";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -95,12 +95,15 @@ export async function fetchBusinessContext(
     );
   }
 
-  // --- 2. Fetch latest master prompt (highest version) --------------------
+  // --- 2. Read the general family; image/style versions are independent. --
   const { data: promptRow } = await supabase
     .from("master_prompts")
     .select("prompt_text")
     .eq("business_id", businessId)
+    .eq("prompt_type", "general")
     .order("version", { ascending: false })
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
     .limit(1)
     .maybeSingle();
 

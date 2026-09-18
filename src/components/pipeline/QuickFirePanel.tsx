@@ -169,7 +169,7 @@ export function QuickFirePanel() {
         .order('name');
 
       if (error) throw error;
-      return (data ?? []) as TriggerTemplate[];
+      return data ?? [];
     },
     enabled: !!activeBusinessId,
   });

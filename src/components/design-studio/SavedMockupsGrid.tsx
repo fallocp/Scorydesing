@@ -126,6 +126,8 @@ interface SavedMockupsGridProps {
   isLoading: boolean
   onSelect: (mockup: SavedMockup) => void
   onIterateFrom?: (mockup: SavedMockup, feedback: string) => void
+  /** Opens the reviewed image workflow with this exact persisted source. */
+  onDesign?: (mockup: SavedMockup, action: 'edit_image' | 'regenerate_image' | 'compare') => void
   selectedId: string | null
   isGenerating?: boolean
   /**
@@ -140,6 +142,7 @@ export function SavedMockupsGrid({
   isLoading,
   onSelect,
   onIterateFrom,
+  onDesign,
   selectedId,
   isGenerating = false,
   onClearSelection,
@@ -384,6 +387,11 @@ export function SavedMockupsGrid({
                     <MessageSquare className="h-5 w-5" />
                   </button>
                 )}
+                {onDesign && <button type="button" disabled={isGenerating}
+                  className="rounded-full bg-white/10 px-3 py-2 text-sm text-white"
+                  onClick={() => { setExpandedIndex(null); onDesign(mockup, 'compare') }}>
+                  Editar y comparar
+                </button>}
                 <button
                   type="button"
                   onClick={() => likeMockup(mockup)}
@@ -555,6 +563,13 @@ export function SavedMockupsGrid({
                       className={cn('w-full object-contain bg-muted/40', platformAspect)}
                       loading="lazy"
                     />
+
+                    {onDesign && <div className="absolute inset-x-0 top-12 z-10 flex flex-wrap justify-center gap-1 px-2" onClick={event => event.stopPropagation()}>
+                      {([['edit_image', 'Editar píxeles'], ['regenerate_image', 'Regenerar'], ['compare', 'Comparar']] as const).map(([action, label]) =>
+                        <button key={action} type="button" disabled={isGenerating}
+                          className="rounded-md bg-black/80 px-2 py-1.5 text-xs text-white shadow disabled:opacity-50"
+                          onClick={() => onDesign(mockup, action)}>{label}</button>)}
+                    </div>}
 
                     {/* Top-left: "subido" checkbox (always visible) + estado like/selección */}
                     <div className="absolute top-2 left-2 flex items-center gap-1.5">

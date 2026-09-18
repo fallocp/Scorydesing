@@ -60,6 +60,7 @@ import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useBusinessTenants } from '@/hooks/useBusinessTenants';
 import { useToast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils';
+import { usePresentationDesignService } from '@/components/presentations/PresentationDesignContext';
 
 const MODE_OPTIONS = [
   {
@@ -77,11 +78,32 @@ const MODE_OPTIONS = [
     route: '/presentations',
   },
   {
+    key: 'free-design',
+    title: 'Diseño libre',
+    description: 'Portadas, páginas y diseños especiales con HTML editable',
+    icon: Palette,
+    route: '/free-design',
+  },
+  {
     key: 'palette',
     title: 'Paleta de Marca',
     description: 'Colores, tipografías, gradientes y tokens del sistema',
     icon: Palette,
     route: '/brand-palette',
+  },
+  {
+    key: 'materials',
+    title: 'Materiales de referencia',
+    description: 'PDFs, documentación e ideas con una ficha revisable',
+    icon: Library,
+    route: '/materials',
+  },
+  {
+    key: 'onboarding',
+    title: 'Configurar marca',
+    description: 'Comprende tus materiales, explora una dirección y guarda tu perfil',
+    icon: Building2,
+    route: '/onboarding',
   },
   {
     key: 'design-studio',
@@ -93,6 +115,7 @@ const MODE_OPTIONS = [
 ] as const;
 
 function XendingDesignPage() {
+  const designService = usePresentationDesignService();
   const navigate = useNavigate();
   const { toast } = useToast();
   const deploymentMode = useDeploymentMode();
@@ -186,9 +209,10 @@ function XendingDesignPage() {
       <section className="space-y-3">
         <h2 className="text-lg font-semibold text-foreground">Herramientas</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {MODE_OPTIONS.map((mode) => {
+          {MODE_OPTIONS.filter(mode => (mode.key !== 'free-design' || !!designService) && (mode.key !== 'materials' || !!designService?.client.materials)
+            && (mode.key !== 'onboarding' || !!designService?.client.onboarding)).map((mode) => {
             const Icon = mode.icon;
-            const disabled = !isReady;
+            const disabled = !isReady || (mode.key === 'onboarding' && !activeBusinessId);
             return (
               <Card
                 key={mode.key}

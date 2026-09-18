@@ -16,6 +16,7 @@ import { describe, it, expect } from 'vitest';
 import * as fc from 'fast-check';
 import { buildGenerationPrompt } from '../promptBuilder';
 import type { VisualSelections, BrandPalette, PlatformFormat, ContentMode } from '@/types/design-studio';
+import { visualSelectionsFixture } from './fixtures';
 
 // ---------------------------------------------------------------------------
 // Generators
@@ -50,7 +51,7 @@ const arbVisualSelections: fc.Arbitrary<VisualSelections> = fc.record({
   customIdea: arbNullableSelection,
   pieceCopy: fc.constant(null),
   pieceImagePrompt: fc.constant(null),
-});
+}).map(visualSelectionsFixture);
 
 /** Generate a hex color string. */
 const arbHexColor = fc

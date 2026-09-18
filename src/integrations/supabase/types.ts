@@ -135,6 +135,60 @@ export type Database = {
         }
         Relationships: []
       }
+      asset_snapshots: {
+        Row: {
+          asset_id: string
+          asset_type: string
+          business_id: string
+          content: string
+          created_at: string | null
+          feedback: string | null
+          id: string
+          metadata: Json | null
+          parent_snapshot_id: string | null
+          version: number
+        }
+        Insert: {
+          asset_id: string
+          asset_type: string
+          business_id: string
+          content: string
+          created_at?: string | null
+          feedback?: string | null
+          id?: string
+          metadata?: Json | null
+          parent_snapshot_id?: string | null
+          version?: number
+        }
+        Update: {
+          asset_id?: string
+          asset_type?: string
+          business_id?: string
+          content?: string
+          created_at?: string | null
+          feedback?: string | null
+          id?: string
+          metadata?: Json | null
+          parent_snapshot_id?: string | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asset_snapshots_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "business_tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asset_snapshots_parent_snapshot_id_fkey"
+            columns: ["parent_snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "asset_snapshots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       beneficiaries: {
         Row: {
           aba_number: string | null
@@ -1764,6 +1818,69 @@ export type Database = {
         }
         Relationships: []
       }
+      custom_templates: {
+        Row: {
+          business_id: string
+          created_at: string | null
+          created_by: string
+          html_template: string
+          id: string
+          is_active: boolean | null
+          name: string
+          platform: string
+          slots: Json
+          source_mockup_url: string | null
+          source_session_id: string | null
+          thumbnail_url: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          business_id: string
+          created_at?: string | null
+          created_by: string
+          html_template: string
+          id?: string
+          is_active?: boolean | null
+          name: string
+          platform: string
+          slots?: Json
+          source_mockup_url?: string | null
+          source_session_id?: string | null
+          thumbnail_url?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          business_id?: string
+          created_at?: string | null
+          created_by?: string
+          html_template?: string
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          platform?: string
+          slots?: Json
+          source_mockup_url?: string | null
+          source_session_id?: string | null
+          thumbnail_url?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_templates_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "business_tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "custom_templates_source_session_id_fkey"
+            columns: ["source_session_id"]
+            isOneToOne: false
+            referencedRelation: "design_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       daily_fx_reports: {
         Row: {
           created_at: string | null
@@ -2784,6 +2901,54 @@ export type Database = {
           },
         ]
       }
+      learning_deltas: {
+        Row: {
+          business_id: string
+          created_at: string | null
+          decrease: Json
+          id: string
+          increase: Json
+          profile_version: number
+          trigger_context: Json | null
+          trigger_type: string
+        }
+        Insert: {
+          business_id: string
+          created_at?: string | null
+          decrease?: Json
+          id?: string
+          increase?: Json
+          profile_version: number
+          trigger_context?: Json | null
+          trigger_type: string
+        }
+        Update: {
+          business_id?: string
+          created_at?: string | null
+          decrease?: Json
+          id?: string
+          increase?: Json
+          profile_version?: number
+          trigger_context?: Json | null
+          trigger_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learning_deltas_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "business_tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_profile"
+            columns: ["business_id", "profile_version"]
+            isOneToOne: false
+            referencedRelation: "creative_profiles"
+            referencedColumns: ["business_id", "version"]
+          },
+        ]
+      }
       market_data_snapshots: {
         Row: {
           created_at: string | null
@@ -3367,6 +3532,65 @@ export type Database = {
           parent_user_id?: string | null
         }
         Relationships: []
+      }
+      news_editions: {
+        Row: {
+          business_id: string
+          created_at: string | null
+          created_by: string
+          edition_type: string
+          id: string
+          input_format: string | null
+          normalized: Json | null
+          raw_input: string | null
+          slide_plan: Json | null
+          slides: Json | null
+          status: string
+          title: string | null
+          updated_at: string | null
+          visual_plan: Json | null
+        }
+        Insert: {
+          business_id: string
+          created_at?: string | null
+          created_by: string
+          edition_type?: string
+          id?: string
+          input_format?: string | null
+          normalized?: Json | null
+          raw_input?: string | null
+          slide_plan?: Json | null
+          slides?: Json | null
+          status?: string
+          title?: string | null
+          updated_at?: string | null
+          visual_plan?: Json | null
+        }
+        Update: {
+          business_id?: string
+          created_at?: string | null
+          created_by?: string
+          edition_type?: string
+          id?: string
+          input_format?: string | null
+          normalized?: Json | null
+          raw_input?: string | null
+          slide_plan?: Json | null
+          slides?: Json | null
+          status?: string
+          title?: string | null
+          updated_at?: string | null
+          visual_plan?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "news_editions_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "business_tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       pipeline_pieces: {
         Row: {
@@ -6058,6 +6282,112 @@ export type Database = {
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      template_registry: {
+        Row: {
+          business_id: string | null
+          content_type: string
+          created_at: string | null
+          css_overrides: string | null
+          html_template: string
+          id: string
+          is_active: boolean | null
+          layout_variation: string
+          platform: string
+          preview_url: string | null
+          slots: Json
+          updated_at: string | null
+          visual_tone: string
+        }
+        Insert: {
+          business_id?: string | null
+          content_type: string
+          created_at?: string | null
+          css_overrides?: string | null
+          html_template: string
+          id?: string
+          is_active?: boolean | null
+          layout_variation?: string
+          platform: string
+          preview_url?: string | null
+          slots?: Json
+          updated_at?: string | null
+          visual_tone: string
+        }
+        Update: {
+          business_id?: string | null
+          content_type?: string
+          created_at?: string | null
+          css_overrides?: string | null
+          html_template?: string
+          id?: string
+          is_active?: boolean | null
+          layout_variation?: string
+          platform?: string
+          preview_url?: string | null
+          slots?: Json
+          updated_at?: string | null
+          visual_tone?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "template_registry_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "business_tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      trigger_templates: {
+        Row: {
+          auto_platforms: string[]
+          business_id: string
+          content_type: string
+          copy_template: Json
+          created_at: string | null
+          default_angle: string
+          id: string
+          image_strategy: string
+          is_active: boolean | null
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          auto_platforms?: string[]
+          business_id: string
+          content_type: string
+          copy_template: Json
+          created_at?: string | null
+          default_angle: string
+          id?: string
+          image_strategy?: string
+          is_active?: boolean | null
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          auto_platforms?: string[]
+          business_id?: string
+          content_type?: string
+          copy_template?: Json
+          created_at?: string | null
+          default_angle?: string
+          id?: string
+          image_strategy?: string
+          is_active?: boolean | null
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trigger_templates_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "business_tenants"
             referencedColumns: ["id"]
           },
         ]

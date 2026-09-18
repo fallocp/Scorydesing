@@ -9,6 +9,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveBusiness } from './useActiveBusiness';
 import type { MasterPrompt } from '@/types/xendingDesign';
+import { usePromptGovernance } from './usePromptGovernance';
 
 async function fetchLatestMasterPrompt(
   businessId: string,
@@ -17,7 +18,10 @@ async function fetchLatestMasterPrompt(
     .from('master_prompts')
     .select('*')
     .eq('business_id', businessId)
+    .eq('prompt_type', 'general')
     .order('version', { ascending: false })
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: false })
     .limit(1)
     .maybeSingle();
 
@@ -37,6 +41,7 @@ async function createMasterPromptVersion(params: {
     .from('master_prompts')
     .insert({
       business_id: params.businessId,
+      prompt_type: 'general',
       prompt_text: params.promptText,
       version: params.currentVersion + 1,
     })
@@ -52,30 +57,37 @@ async function createMasterPromptVersion(params: {
 
 export function useMasterPrompt() {
   const { activeBusinessId } = useActiveBusiness();
+  const governance = usePromptGovernance(activeBusinessId);
   const queryClient = useQueryClient();
 
   const query = useQuery({
-    queryKey: ['master-prompt', activeBusinessId],
+    queryKey: ['master-prompt', activeBusinessId, governance.actorId],
     queryFn: () => fetchLatestMasterPrompt(activeBusinessId!),
-    enabled: !!activeBusinessId,
+    enabled: !!activeBusinessId && !!governance.actorId,
     staleTime: 5 * 60 * 1000,
   });
 
   const mutation = useMutation({
-    mutationFn: (promptText: string) =>
-      createMasterPromptVersion({
+    mutationFn: async (promptText: string) => {
+      await governance.assertLegacyWrite();
+      const latest = await fetchLatestMasterPrompt(activeBusinessId!);
+      await governance.assertLegacyWrite();
+      return createMasterPromptVersion({
         businessId: activeBusinessId!,
         promptText,
-        currentVersion: query.data?.version ?? 0,
-      }),
+        currentVersion: latest?.version ?? 0,
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ['master-prompt', activeBusinessId],
       });
+      queryClient.invalidateQueries({ queryKey: ['master-prompt-history', activeBusinessId] });
     },
   });
 
   return {
+    governance,
     /** The latest master prompt for the active business, or null */
     masterPrompt: query.data ?? null,
     /** Loading state for the query */

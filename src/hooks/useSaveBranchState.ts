@@ -5,6 +5,7 @@
 
 import { useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { toJson } from '@/integrations/supabase/json';
 import type { StrategyBranch } from '@/types/xendingDesign';
 
 export interface BranchWorkState {
@@ -48,7 +49,7 @@ export function useSaveBranchState(campaignId: string | undefined) {
 
       const { error } = await supabase
         .from('design_campaigns')
-        .update({ branch_data: branchData as unknown as Record<string, unknown> })
+        .update({ branch_data: toJson(branchData) })
         .eq('id', campaignId)
         .select('id')
         .single();

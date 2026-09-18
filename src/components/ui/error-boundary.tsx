@@ -208,12 +208,12 @@ export class ErrorBoundary extends Component<Props, State> {
 }
 
 // HOC para envolver componentes con error boundary
-export const withErrorBoundary = <P extends object>(
-  Component: React.ComponentType<P>,
+export const withErrorBoundary = <P extends object, R = unknown>(
+  Component: React.ComponentType<React.PropsWithoutRef<P> & React.RefAttributes<R>>,
   fallback?: ReactNode,
   onError?: (error: Error, errorInfo: ErrorInfo) => void
 ) => {
-  const WrappedComponent = React.forwardRef<any, P>((props, ref) => (
+  const WrappedComponent = React.forwardRef<R, P>((props, ref) => (
     <ErrorBoundary fallback={fallback} onError={onError}>
       <Component {...props} ref={ref} />
     </ErrorBoundary>

@@ -5,6 +5,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import type { TablesUpdate } from '@/integrations/supabase/types';
 
 export interface DesignPieceRow {
   id: string;
@@ -90,7 +91,7 @@ async function savePieceVersion(input: SavePieceInput): Promise<DesignPieceRow> 
 
 // Update an existing piece (for minor edits like HTML tweaks)
 async function updatePiece(input: UpdatePieceInput): Promise<DesignPieceRow> {
-  const updates: Record<string, unknown> = {};
+  const updates: TablesUpdate<'design_pieces'> = {};
   if (input.htmlContent !== undefined) updates.html_content = input.htmlContent;
   if (input.pngUrl !== undefined) updates.png_url = input.pngUrl;
   if (input.status !== undefined) updates.status = input.status;

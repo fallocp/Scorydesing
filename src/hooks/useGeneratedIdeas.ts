@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveBusiness } from './useActiveBusiness';
-import type { PieceV2 } from './useRenderMultichannel';
+import type { Json, TablesInsert } from '@/integrations/supabase/types';
 
 export interface GeneratedIdeaRow {
   id: string;
@@ -22,9 +22,9 @@ export interface GeneratedIdeaRow {
   copy_base?: string | null;
   slides?: string[] | null;
   image_text?: string | null;
-  // V2 multi-channel piece (overlays + captions for all platforms).
-  // NULL on legacy rows; populated when generate-ideas returned a v2 schema.
-  piece_v2?: PieceV2 | null;
+  // Shared JSONB column: multichannel pieces or Design Studio copy-bank metadata.
+  // Consumers narrow the payload according to its discriminator/shape.
+  piece_v2?: Json | null;
 }
 
 export function useGeneratedIdeas(branchId?: string | null) {
@@ -56,7 +56,7 @@ export function useSaveGeneratedIdeas() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (ideas: Omit<GeneratedIdeaRow, 'id' | 'created_at'>[]) => {
+    mutationFn: async (ideas: TablesInsert<'generated_ideas'>[]) => {
       const { data, error } = await supabase
         .from('generated_ideas')
         .insert(ideas)

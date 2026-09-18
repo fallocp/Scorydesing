@@ -48,7 +48,7 @@ import { exportCarouselPdf, exportCarouselPngs } from '@/utils/design-studio/exp
 import type {
   NewsEditionType,
   NewsSlidePlan,
-} from '../../supabase/functions/_shared/news/news-types';
+} from '../../../supabase/functions/_shared/news/news-types';
 
 /** Vía A: generar en la app. Vía B: solo entregar el prompt para GPT-Image. */
 type ImageMode = 'app' | 'prompt';

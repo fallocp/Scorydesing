@@ -185,11 +185,11 @@ export const FormLoading: React.FC = () => (
 );
 
 // HOC para lazy loading con skeleton personalizado
-export const withLoadingSkeleton = <P extends object>(
-  Component: React.ComponentType<P>,
+export const withLoadingSkeleton = <P extends object, R = unknown>(
+  Component: React.ComponentType<React.PropsWithoutRef<P> & React.RefAttributes<R>>,
   LoadingSkeleton: React.ComponentType = OptimizedLoading
 ) => {
-  return React.forwardRef<any, P>((props, ref) => (
+  return React.forwardRef<R, P>((props, ref) => (
     <React.Suspense fallback={<LoadingSkeleton />}>
       <Component {...props} ref={ref} />
     </React.Suspense>

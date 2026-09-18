@@ -35,3 +35,12 @@ verify_jwt = false
 
 [functions.compliance-wizard]
 verify_jwt = true
+
+# Isolated experiment: getUser + database membership checks inside the handler.
+[functions.desaing-server]
+verify_jwt = true
+
+# Administrative pilot: every request requires the separate secret pilot token.
+# No browser integration; pinned actor/business, expiry and USD 5 policy in handler.
+[functions.desaing-pilot]
+verify_jwt = false

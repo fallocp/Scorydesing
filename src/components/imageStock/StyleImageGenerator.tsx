@@ -114,13 +114,15 @@ export function StyleImageGenerator({ style }: StyleImageGeneratorProps) {
             </Button>
           </CollapsibleTrigger>
           {isPromptDirty && (
-            <Button size="sm" onClick={handleSavePrompt} disabled={stylePrompts.isSaving || promptDraft.trim().length < 10}>
+            <Button size="sm" onClick={handleSavePrompt} disabled={stylePrompts.isSaving || promptDraft.trim().length < 10 || !stylePrompts.governance.legacyWritable}>
               <Save className="h-4 w-4 mr-2" />
               {stylePrompts.isSaving ? 'Guardando...' : 'Guardar prompt'}
             </Button>
           )}
         </div>
         <CollapsibleContent className="mt-3 space-y-3">
+          {stylePrompts.governance.capabilities?.governed && <p className="text-sm text-muted-foreground">Puedes editar este texto para la pieza actual. Para cambiar el estilo reutilizable, abre el <a className="underline" href="/admin/business">editor administrativo de prompts</a>; requiere permiso específico y revisión.</p>}
+          {stylePrompts.governance.error && <p role="alert" className="text-sm text-destructive">No se pudieron comprobar los permisos de publicación. La edición local sigue disponible.</p>}
           {stylePrompts.isLoading ? (
             <Skeleton className="h-40 w-full" />
           ) : (
@@ -155,12 +157,12 @@ export function StyleImageGenerator({ style }: StyleImageGeneratorProps) {
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            Ajusta el prompt con feedback en lenguaje natural. Cuando te guste, guárdalo como nueva versión reutilizable.
+            {stylePrompts.governance.capabilities?.governed ? 'Los ajustes de este editor sólo afectan a la pieza actual. Los cambios reutilizables se revisan en administración.' : 'Ajusta el prompt con feedback en lenguaje natural. Cuando te guste, guárdalo como nueva versión reutilizable.'}
           </p>
 
           <Separator />
 
-          {/* Historial de versiones — original + últimas 4 ediciones */}
+          {/* Historial de versiones */}
           <Collapsible open={historyOpen} onOpenChange={setHistoryOpen}>
             <CollapsibleTrigger asChild>
               <Button variant="ghost" size="sm" className="gap-2">
@@ -210,7 +212,7 @@ export function StyleImageGenerator({ style }: StyleImageGeneratorProps) {
                 </div>
               ))}
               <p className="text-xs text-muted-foreground">
-                Se conserva el original y las últimas 4 ediciones. Las más antiguas se eliminan automáticamente.
+                Se conserva el historial completo. Cargar una versión sólo modifica este borrador local.
               </p>
             </CollapsibleContent>
           </Collapsible>

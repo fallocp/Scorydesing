@@ -42,6 +42,8 @@ import {
 import { planCoversRoles } from '../../supabase/functions/_shared/buildCarouselScriptBeats';
 import { useActiveBusiness } from './useActiveBusiness';
 import { useSaveMockup } from './useDesignMockups';
+import { adoptStudioCarouselReceipt } from '@/lib/desaing/studioImageState';
+import type { ProductionReceipt } from '../../supabase/functions/_shared/desaing/production';
 import { useUpdateBankMeta, type CopyBankItem } from './useDesignCopyBank';
 import {
   brandElementsForSlide,
@@ -1391,6 +1393,25 @@ export function useCarouselQueue({
   const hasPrompts = slots.length > 0 && slots.every((s) => s.prompt.trim().length > 0);
   const doneCount = slots.filter((s) => s.status === 'done').length;
 
+  /** Frozen comparison input for the server workflow. Opening it never saves local edits. */
+  const productionCarousel = useMemo<CarouselMeta | null>(() => {
+    const stored = bankItem?.meta.carousel;
+    if (!stored || !groupId || !presetSlug) return null;
+    const next: CarouselMeta = { ...stored, groupId, presetSlug, visualAnchor, imageType, slots: toPersisted(slots) };
+    if (stored.objective !== undefined || objective !== 'vender') next.objective = objective;
+    if (stored.visualMotif !== undefined || visualMotif) next.visualMotif = visualMotif;
+    if (stored.plan !== undefined || plan) next.plan = plan ?? undefined;
+    if (stored.planDigest !== undefined || planDigest) next.planDigest = planDigest ?? undefined;
+    if (stored.economicScenario !== undefined || economicScenario) next.economicScenario = economicScenario ?? undefined;
+    return next;
+  }, [bankItem?.meta.carousel, groupId, presetSlug, visualAnchor, imageType, slots, objective, visualMotif, plan, planDigest, economicScenario]);
+
+  const adoptReviewedImage = useCallback((receipt: ProductionReceipt, expectedMockupId: string) => {
+    if (receipt.source.kind !== 'carousel' || receipt.business_id !== activeBusinessId
+      || receipt.source.row_id !== bankItem?.row.id || receipt.source.group_id !== groupId) throw Error('studio_source_changed');
+    applySlots(adoptStudioCarouselReceipt(slotsRef.current, receipt.source, receipt, expectedMockupId));
+  }, [activeBusinessId, bankItem?.row.id, groupId, applySlots]);
+
   return {
     slots,
     visualAnchor,
@@ -1405,6 +1426,8 @@ export function useCarouselQueue({
      * que las historias candidatas del planificador: estas se comparan, esta ya se usó.
      */
     plan,
+    productionCarousel,
+    adoptReviewedImage,
     // Flags
     isScripting,
     isBuildingPrompts,

@@ -64,7 +64,7 @@ const initialData: OnboardingData = {
   promptCreated: false,
 };
 
-export function OnboardingWizard() {
+export function OnboardingWizard({ onComplete }: { onComplete?(businessId: string): Promise<void> } = {}) {
   const [currentStep, setCurrentStep] = useState(0);
   const [data, setData] = useState<OnboardingData>(initialData);
   const [stepValid, setStepValid] = useState(false);
@@ -98,9 +98,14 @@ export function OnboardingWizard() {
   }, []);
 
   const handleComplete = useCallback(() => {
+    if (onComplete && data.businessId) {
+      void onComplete(data.businessId).catch(error => toast({ title: 'Negocio activado',
+        description: error instanceof Error ? error.message : 'Vuelve a abrir la configuración para continuar.', variant: 'destructive' }));
+      return;
+    }
     toast({ title: '¡Negocio configurado!', description: 'Ya puedes empezar a generar contenido.' });
     navigate('/');
-  }, [navigate, toast]);
+  }, [navigate, toast, onComplete, data.businessId]);
 
   const renderStep = () => {
     const commonProps = {

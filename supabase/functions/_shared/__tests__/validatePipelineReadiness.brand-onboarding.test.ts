@@ -45,8 +45,9 @@ function createMockSupabase(config: {
     if (table === "master_prompts") {
       return {
         select: (..._args: unknown[]) => ({
-          eq: (_col: string, _val: unknown) =>
-            config.prompts ?? { count: 1, error: null },
+          eq: (_col: string, _val: unknown) => ({
+            eq: (_family: string, _type: unknown) => config.prompts ?? { count: 1, error: null },
+          }),
         }),
       };
     }

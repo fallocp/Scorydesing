@@ -1,6 +1,9 @@
 node_modules
 dist
 dist-ssr
+dist-desaing-lab/
+dist-presentations-test/
+artifacts/desaing-lab/
 *.local
 .env
 

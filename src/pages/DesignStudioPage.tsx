@@ -15,6 +15,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Loader2, Sparkles, Save, Newspaper, TrendingUp } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -38,6 +39,9 @@ import { IndustrySelector } from '@/components/design-studio/IndustrySelector';
 import { ReferenceImageUploader } from '@/components/design-studio/ReferenceImageUploader';
 import { MockupGallery } from '@/components/design-studio/MockupGallery';
 import { SavedMockupsGrid } from '@/components/design-studio/SavedMockupsGrid';
+import { StudioImagePanel } from '@/components/design-studio/StudioImagePanel';
+import { usePresentationDesignService } from '@/components/presentations/PresentationDesignContext';
+import type { StudioImageAction } from '@/lib/desaing/studioImageState';
 import { CarouselPdfComposer } from '@/components/design-studio/CarouselPdfComposer';
 import { DesignFeedbackChat } from '@/components/design-studio/DesignFeedbackChat';
 import { HtmlPreviewPanel } from '@/components/design-studio/HtmlPreviewPanel';
@@ -117,6 +121,7 @@ export default function DesignStudioPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
+  const designService = usePresentationDesignService(), queryClient = useQueryClient();
   const { activeBusiness, activeBusinessId } = useActiveBusiness();
   const { data: businessConfig, isLoading: isLoadingConfig } = useBusinessConfig();
 
@@ -175,6 +180,8 @@ export default function DesignStudioPage() {
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [selectedSavedId, setSelectedSavedId] = useState<string | null>(null);
+  const [reviewedImage, setReviewedImage] = useState<{ businessId: string; actorId: string; mockupId: string; action: StudioImageAction } | null>(null);
+  useEffect(() => { setReviewedImage(null); }, [activeBusinessId, user?.id]);
 
   // --- Carousel subject -----------------------------------------------------
   // The carousel reads the v1 CopyBankItem shape. For a v2 row we adapt it, and
@@ -1258,6 +1265,8 @@ export default function DesignStudioPage() {
                       key={`${activeCarouselItem?.row.id ?? 'none'}:${carouselBranchSlug ?? ''}`}
                       bankItem={activeCarouselItem}
                       persistMeta={carouselPersistMeta}
+                      sourceTable={activeSource === 'v2' ? 'copy_bank_items' : 'generated_ideas'}
+                      sourceMeta={activeSource === 'v2' ? activeV2Row?.image_meta : activeCarouselItem?.row.piece_v2}
                       branchId={carouselBranchId}
                       branchSlug={carouselBranchSlug}
                       background={store.selections.background}
@@ -1489,6 +1498,9 @@ export default function DesignStudioPage() {
           isLoading={isLoadingSaved}
           isGenerating={store.isGeneratingMockups}
           selectedId={selectedSavedId}
+          onDesign={designService?.client.production && activeBusinessId && user ? (mockup, action) => {
+            setReviewedImage({ businessId: activeBusinessId, actorId: user.id, mockupId: mockup.id, action });
+          } : undefined}
           // Al borrar el seleccionado, el store sigue con esa imagen cargada para
           // la conversión a HTML: hay que soltarla o el flujo apunta a algo que ya no existe.
           onClearSelection={() => {
@@ -1590,6 +1602,11 @@ export default function DesignStudioPage() {
         />
           </TabsContent>
         </Tabs>
+        {reviewedImage && designService && reviewedImage.businessId === activeBusinessId && reviewedImage.actorId === user?.id &&
+          <StudioImagePanel key={`${reviewedImage.businessId}:${reviewedImage.actorId}:${reviewedImage.mockupId}`}
+            service={designService} businessId={reviewedImage.businessId} source={{ kind: 'image', mockup_id: reviewedImage.mockupId }}
+            initialAction={reviewedImage.action} onClose={() => setReviewedImage(null)}
+            onSaved={async () => { await queryClient.invalidateQueries({ queryKey: ['design-mockups', reviewedImage.businessId] }); }} />}
       </div>
     </div>
   );

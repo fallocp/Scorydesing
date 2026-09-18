@@ -29,7 +29,7 @@ function createQueryBuilder() {
 }
 
 const mockQueryBuilder = createQueryBuilder();
-const mockFrom = vi.fn(() => mockQueryBuilder);
+const mockFrom = vi.fn((..._args: unknown[]) => mockQueryBuilder);
 
 vi.mock('@/integrations/supabase/client', () => ({
   supabase: {

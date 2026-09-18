@@ -78,11 +78,12 @@ export async function validatePipelineReadiness(
     missing.push("primary_color");
   }
 
-  // --- 3. Check at least 1 master prompt exists ---------------------------
+  // --- 3. Require the general prompt; a style prompt is not a substitute. -
   const { count: promptCount, error: promptError } = await supabase
     .from("master_prompts")
     .select("id", { count: "exact", head: true })
-    .eq("business_id", businessId);
+    .eq("business_id", businessId)
+    .eq("prompt_type", "general");
 
   if (promptError || !promptCount || promptCount < 1) {
     missing.push("master_prompt");

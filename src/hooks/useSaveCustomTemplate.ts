@@ -10,6 +10,7 @@
 
 import { useMutation } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { toJson } from '@/integrations/supabase/json';
 import type {
   SaveTemplateRequest,
   SaveTemplateResponse,
@@ -23,14 +24,20 @@ async function saveCustomTemplate(
     throw new Error('El nombre del template es requerido');
   }
 
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    throw new Error(authError?.message || 'Debes iniciar sesión para guardar un template');
+  }
+
   const { data, error } = await supabase
     .from('custom_templates')
     .insert({
       name: request.name.trim(),
       business_id: request.business_id,
+      created_by: user.id,
       platform: request.platform,
       html_template: request.template_html,
-      slots: request.slots as unknown as Record<string, unknown>[],
+      slots: toJson(request.slots),
       thumbnail_url: request.thumbnail_base64 ?? null,
       source_mockup_url: request.source_mockup_url ?? null,
     })

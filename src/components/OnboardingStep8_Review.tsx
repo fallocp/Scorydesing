@@ -55,7 +55,7 @@ export function OnboardingStep8_Review({ data, goToStep, onComplete }: Props) {
           supabase.from('market_moments').select('name').eq('business_id', businessId),
           supabase.from('business_channels').select('name').eq('business_id', businessId).order('display_order'),
           supabase.from('business_angles').select('name').eq('business_id', businessId).order('display_order'),
-          supabase.from('master_prompts').select('prompt_text').eq('business_id', businessId).order('version', { ascending: false }).limit(1).maybeSingle(),
+          supabase.from('master_prompts').select('prompt_text').eq('business_id', businessId).eq('prompt_type', 'general').order('version', { ascending: false }).order('created_at', { ascending: false }).order('id', { ascending: false }).limit(1).maybeSingle(),
         ]);
 
         setReview({

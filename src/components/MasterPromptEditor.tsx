@@ -5,7 +5,7 @@
  * Requirements: 12.1, 12.3, 12.4
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Save, History, RotateCcw } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
@@ -24,6 +24,8 @@ import { useMasterPrompt } from '@/hooks/useMasterPrompt';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { useToast } from '@/components/ui/use-toast';
 import type { MasterPrompt } from '@/types/xendingDesign';
+import { usePromptGovernance } from '@/hooks/usePromptGovernance';
+import { PromptAdminPanel } from '@/components/desaing/PromptAdminPanel';
 
 interface MasterPromptEditorProps {
   /** Optional class name for the root element */
@@ -32,32 +34,49 @@ interface MasterPromptEditorProps {
 
 export function MasterPromptEditor({ className }: MasterPromptEditorProps) {
   const { activeBusinessId } = useActiveBusiness();
-  const { masterPrompt, isLoading, updatePromptAsync, isUpdating } = useMasterPrompt();
+  const governance = usePromptGovernance(activeBusinessId);
+  if (governance.loading) return <Card className={className}><CardContent className="p-6">Comprobando permisos del prompt…</CardContent></Card>;
+  if (governance.error) return <Card className={className}><CardContent className="p-6 space-y-3"><p role="alert">No se pudieron comprobar los permisos. La publicación permanece deshabilitada.</p><Button onClick={() => void governance.refresh()}>Comprobar permisos</Button></CardContent></Card>;
+  if (governance.capabilities?.governed) {
+    if (!governance.capabilities.can_manage) return <Card className={className}><CardContent className="p-6">Las propuestas y la publicación del prompt maestro requieren el permiso administrativo específico de Fai. Las preferencias de tu marca permanecen en su flujo de diseño.</CardContent></Card>;
+    if (!governance.service || !activeBusinessId || import.meta.env.VITE_DESAING_PROMPT_ADMIN_ENABLED !== 'true') return <Card className={className}><CardContent className="p-6">El editor administrativo está deshabilitado. El prompt publicado y su historial se conservan.</CardContent></Card>;
+    return <PromptAdminPanel key={`${activeBusinessId}:${governance.actorId}`} client={governance.service.client} businessId={activeBusinessId} />;
+  }
+  return <LegacyMasterPromptEditor key={`${activeBusinessId}:${governance.actorId}`} className={className} />;
+}
+
+function LegacyMasterPromptEditor({ className }: MasterPromptEditorProps) {
+  const { activeBusinessId } = useActiveBusiness();
+  const { masterPrompt, isLoading, updatePromptAsync, isUpdating, governance } = useMasterPrompt();
   const { toast } = useToast();
 
   const [draft, setDraft] = useState('');
   const [showHistory, setShowHistory] = useState(false);
+  const loaded = useRef(false);
 
   // Sync draft with latest prompt
   useEffect(() => {
-    if (masterPrompt?.prompt_text) {
-      setDraft(masterPrompt.prompt_text);
+    if (!isLoading && !loaded.current) {
+      setDraft(masterPrompt?.prompt_text ?? ''); loaded.current = true;
     }
-  }, [masterPrompt?.prompt_text]);
+  }, [masterPrompt?.prompt_text, isLoading]);
 
   // Fetch version history
   const historyQuery = useQuery({
-    queryKey: ['master-prompt-history', activeBusinessId],
+    queryKey: ['master-prompt-history', activeBusinessId, governance.actorId],
     queryFn: async () => {
       if (!activeBusinessId) return [];
       const { data, error } = await supabase
         .from('master_prompts')
         .select('*')
         .eq('business_id', activeBusinessId)
+        .eq('prompt_type', 'general')
         .order('version', { ascending: false })
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
         .limit(10);
       if (error) throw new Error(error.message);
-      return (data ?? []) as MasterPrompt[];
+      return data ?? [];
     },
     enabled: !!activeBusinessId && showHistory,
     staleTime: 30_000,
@@ -121,7 +140,7 @@ export function MasterPromptEditor({ className }: MasterPromptEditorProps) {
         <div className="flex items-center gap-2">
           <Button
             onClick={handleSave}
-            disabled={!isDirty || draft.length < 10 || isUpdating}
+            disabled={!isDirty || draft.length < 10 || isUpdating || !governance.legacyWritable}
             size="sm"
           >
             <Save className="h-4 w-4 mr-2" />

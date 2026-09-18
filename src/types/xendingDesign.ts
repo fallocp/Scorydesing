@@ -2,6 +2,8 @@
 // Interfaces y constantes para campañas de marketing, templates, y generación de diseños
 
 // --- Campaign Architecture Types (re-exported from Zod schemas) ---
+import type { BusinessTenant } from '@/schemas/campaign/businessTenant.schema';
+import type { CampaignCategory } from '@/schemas/campaign/campaignCategory.schema';
 
 export type {
   BusinessTenant,

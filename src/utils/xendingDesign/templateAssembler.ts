@@ -202,6 +202,15 @@ interface QueryParams {
   businessId: string | null;
 }
 
+function isTemplateSlot(value: unknown): value is TemplateSlot {
+  return typeof value === 'object' && value !== null
+    && 'name' in value && typeof value.name === 'string'
+    && 'type' in value
+    && (value.type === 'text' || value.type === 'image' || value.type === 'component' || value.type === 'optional')
+    && 'required' in value && typeof value.required === 'boolean'
+    && (!('maxLength' in value) || typeof value.maxLength === 'number');
+}
+
 /**
  * Queries the template_registry table for a matching template.
  * Returns null if no match found.
@@ -232,11 +241,12 @@ async function queryTemplateRegistry(
     return null;
   }
 
+  const slots: unknown[] = Array.isArray(data.slots) ? data.slots : [];
   return {
     id: data.id,
     html_template: data.html_template,
     css_overrides: data.css_overrides,
-    slots: Array.isArray(data.slots) ? data.slots as TemplateSlot[] : [],
+    slots: slots.filter(isTemplateSlot),
   };
 }
 

@@ -1,0 +1,4 @@
+{
+  "extends": "./tsconfig.app.json",
+  "include": ["src/vite-env.d.ts", "experiments/presentations/main.tsx", "vite.presentations-test.config.ts", "vite.generation-test.config.ts", "vite.exploration-test.config.ts", "vite.exploration-server-test.config.ts", "vite.proposals-test.config.ts", "vite.composition-test.config.ts", "vite.workspace-test.config.ts", "vite.materials-test.config.ts", "vite.onboarding-test.config.ts", "vite.production-test.config.ts", "vite.prompt-admin-test.config.ts"]
+}

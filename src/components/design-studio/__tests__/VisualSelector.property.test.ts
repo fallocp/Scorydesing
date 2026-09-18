@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import * as fc from 'fast-check'
 import type { PlatformFormat, VisualSelections } from '@/types/design-studio'
+import { visualSelectionsFixture } from '@/utils/design-studio/__tests__/fixtures'
 
 /**
  * Property 3: Plataforma requerida para generación
@@ -49,7 +50,7 @@ const visualSelectionsArbitrary: fc.Arbitrary<VisualSelections> = fc.record({
   contentType: nullableString,
   heroElement: nullableString,
   platform: nullablePlatform,
-})
+}).map(visualSelectionsFixture)
 
 describe('VisualSelector - Property Tests', () => {
   it('Property 3: generate button enabled ↔ platform ≠ null for any combination of selections', () => {
@@ -73,6 +74,7 @@ describe('VisualSelector - Property Tests', () => {
         nullableString,
         (background, visualStyle, contentType, heroElement) => {
           const selections: VisualSelections = {
+            ...visualSelectionsFixture(),
             background,
             visualStyle,
             contentType,
@@ -99,6 +101,7 @@ describe('VisualSelector - Property Tests', () => {
         fc.constantFrom(...VALID_PLATFORMS),
         (background, visualStyle, contentType, heroElement, platform) => {
           const selections: VisualSelections = {
+            ...visualSelectionsFixture(),
             background,
             visualStyle,
             contentType,

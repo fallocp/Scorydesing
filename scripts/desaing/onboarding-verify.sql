@@ -1,0 +1,15 @@
+SELECT
+  (SELECT count(*) FROM public.creative_profiles) AS profiles,
+  (SELECT count(*) FROM public.desaing_brand_drafts) AS drafts,
+  (SELECT count(*) FROM public.desaing_brand_revisions) AS revisions,
+  (SELECT count(*) FROM public.desaing_brand_publications) AS publications,
+  has_table_privilege('authenticated','public.creative_profiles','INSERT') AS client_profile_insert,
+  has_table_privilege('authenticated','public.creative_profiles','DELETE') AS client_profile_delete,
+  has_table_privilege('service_role','public.creative_profiles','INSERT') AS direct_service_profile_insert,
+  has_table_privilege('authenticated','public.desaing_brand_drafts','SELECT') AS client_draft_read,
+  has_table_privilege('authenticated','public.desaing_brand_publications','INSERT') AS client_receipt_insert,
+  has_function_privilege('authenticated','public.desaing_publish_onboarding(uuid,uuid,jsonb,jsonb,bigint,jsonb,jsonb,jsonb,text)','EXECUTE') AS client_publish,
+  has_function_privilege('service_role','public.desaing_publish_onboarding(uuid,uuid,jsonb,jsonb,bigint,jsonb,jsonb,jsonb,text)','EXECUTE') AS service_publish,
+  EXISTS(SELECT 1 FROM pg_trigger WHERE tgname='desaing_profile_append_only' AND NOT tgisinternal AND tgenabled='O') AS profile_append_only,
+  EXISTS(SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='creative_profiles' AND policyname='desaing_creative_profiles_read') AS profile_member_read,
+  EXISTS(SELECT 1 FROM supabase_migrations.schema_migrations WHERE version='202609180004') AS migration_recorded;

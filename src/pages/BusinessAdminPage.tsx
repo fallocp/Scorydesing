@@ -31,6 +31,7 @@ import { MasterPromptEditor } from '@/components/MasterPromptEditor';
 import { ComplianceRulesEditor } from '@/components/ComplianceRulesEditor';
 import { StrategicConfigEditor } from '@/components/StrategicConfigEditor';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
+import { useAuth } from '@/hooks/useAuth';
 import { useCommercialBranches } from '@/hooks/useCommercialBranches';
 import { useCampaignCategories } from '@/hooks/useCampaignCategories';
 import { useBusinessConfig } from '@/hooks/useBusinessConfig';
@@ -43,15 +44,16 @@ import type { CommercialBranch, StrategicConfig } from '@/types/xendingDesign';
  */
 function useIsAdmin() {
   const { activeBusinessId } = useActiveBusiness();
+  const { user: actor, loading: authLoading } = useAuth();
 
   return useQuery({
-    queryKey: ['user-role', activeBusinessId],
+    queryKey: ['user-role', activeBusinessId, actor?.id],
     queryFn: async () => {
       if (!activeBusinessId) return false;
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      if (!user) return false;
+      if (!user || user.id !== actor?.id) return false;
 
       const { data, error } = await supabase
         .from('user_business_memberships')
@@ -63,7 +65,7 @@ function useIsAdmin() {
       if (error || !data) return false;
       return data.role === 'owner' || data.role === 'admin';
     },
-    enabled: !!activeBusinessId,
+    enabled: !!activeBusinessId && !!actor?.id && !authLoading,
     staleTime: 5 * 60 * 1000,
   });
 }

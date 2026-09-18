@@ -1,0 +1,5 @@
+{
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": { "strict": true },
+  "include": ["src/vite-env.d.ts", "src/desaing-lab.tsx", "src/components/desaing", "src/components/presentations/ServerDesignPanel.tsx", "src/lib/desaing", "src/lib/presentations/presentationServerDesign.ts", "supabase/functions/_shared/desaing", "vite.desaing.config.ts", "vite.presentations-test.config.ts", "vite.generation-test.config.ts", "vite.exploration-test.config.ts", "vite.exploration-server-test.config.ts", "vite.proposals-test.config.ts"]
+}

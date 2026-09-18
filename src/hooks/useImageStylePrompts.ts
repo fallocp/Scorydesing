@@ -6,10 +6,7 @@
  * Prompts are versioned (each save inserts version + 1) so they double as
  * reusable master prompts across the pipeline, presentations and design studio.
  *
- * Version retention: the ORIGINAL (seeded) version is always kept, plus up to
- * MAX_RECENT_VERSIONS of the most recent edits. Older edits beyond that window
- * are pruned after each save so the history stays small and you can always roll
- * back to the original.
+ * All versions remain available; restoring a version creates a new version.
  */
 
 import { useMemo } from 'react';
@@ -17,9 +14,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveBusiness } from './useActiveBusiness';
 import { IMAGE_STYLES } from '@/constants/imageStockStudio';
-
-/** How many recent versions to keep in addition to the original. */
-export const MAX_RECENT_VERSIONS = 4;
+import { usePromptGovernance } from './usePromptGovernance';
 
 export interface StylePromptVersion {
   /** Row id. */
@@ -55,7 +50,7 @@ async function fetchStylePrompts(businessId: string): Promise<Record<string, Sty
     .select('id, prompt_type, prompt_text, version, created_at')
     .eq('business_id', businessId)
     .in('prompt_type', STYLE_PROMPT_TYPES)
-    .order('version', { ascending: false });
+    .order('version', { ascending: false }).order('created_at', { ascending: false }).order('id', { ascending: false });
 
   if (error) throw new Error(error.message);
 
@@ -88,32 +83,6 @@ async function fetchStylePrompts(businessId: string): Promise<Record<string, Sty
   return result;
 }
 
-/**
- * Keep the original (lowest version) + the MAX_RECENT_VERSIONS most recent
- * versions; delete the rest. Best-effort: RLS may restrict DELETE to owners, so
- * failures are swallowed and never block a save.
- */
-async function prunePromptVersions(businessId: string, promptType: string): Promise<void> {
-  const { data, error } = await supabase
-    .from('master_prompts')
-    .select('id, version')
-    .eq('business_id', businessId)
-    .eq('prompt_type', promptType)
-    .order('version', { ascending: false });
-
-  if (error || !data || data.length === 0) return;
-
-  const minVersion = Math.min(...data.map((r) => r.version));
-  const keepIds = new Set<string>(data.slice(0, MAX_RECENT_VERSIONS).map((r) => r.id));
-  const original = data.find((r) => r.version === minVersion);
-  if (original) keepIds.add(original.id);
-
-  const toDelete = data.filter((r) => !keepIds.has(r.id)).map((r) => r.id);
-  if (toDelete.length === 0) return;
-
-  await supabase.from('master_prompts').delete().in('id', toDelete);
-}
-
 async function saveStylePrompt(params: {
   businessId: string;
   promptType: string;
@@ -133,13 +102,6 @@ async function saveStylePrompt(params: {
 
   if (error) throw new Error(error.message);
 
-  // Prune old versions (best-effort; ignore failures so the save still succeeds).
-  try {
-    await prunePromptVersions(params.businessId, params.promptType);
-  } catch {
-    /* retention is best-effort */
-  }
-
   return {
     promptType: data.prompt_type,
     promptText: data.prompt_text,
@@ -152,17 +114,20 @@ async function saveStylePrompt(params: {
 export function useImageStylePrompts() {
   const { activeBusinessId } = useActiveBusiness();
   const queryClient = useQueryClient();
+  const governance = usePromptGovernance(activeBusinessId);
 
   const query = useQuery({
-    queryKey: ['image-style-prompts', activeBusinessId],
+    queryKey: ['image-style-prompts', activeBusinessId, governance.actorId],
     queryFn: () => fetchStylePrompts(activeBusinessId!),
-    enabled: !!activeBusinessId,
+    enabled: !!activeBusinessId && !!governance.actorId,
     staleTime: 5 * 60 * 1000,
   });
 
   const mutation = useMutation({
-    mutationFn: (params: { promptType: string; promptText: string }) => {
-      const current = query.data?.[params.promptType];
+    mutationFn: async (params: { promptType: string; promptText: string }) => {
+      await governance.assertLegacyWrite();
+      const current = (await fetchStylePrompts(activeBusinessId!))[params.promptType];
+      await governance.assertLegacyWrite();
       return saveStylePrompt({
         businessId: activeBusinessId!,
         promptType: params.promptType,
@@ -180,13 +145,14 @@ export function useImageStylePrompts() {
   return {
     /** Map of prompt_type → latest StylePrompt (with retained `history`). */
     prompts,
+    governance,
     /** Convenience: get the current text for a prompt_type (empty string if none). */
     getPromptText: (promptType: string) => prompts[promptType]?.promptText ?? '',
     /** Retained version history for a prompt_type (latest first, original last). */
     getHistory: (promptType: string): StylePromptVersion[] => prompts[promptType]?.history ?? [],
     isLoading: query.isLoading,
     error: query.error,
-    /** Save a new version of a style prompt (auto-prunes old versions). */
+    /** Save a new version of a style prompt, preserving history. */
     savePrompt: mutation.mutate,
     savePromptAsync: mutation.mutateAsync,
     isSaving: mutation.isPending,

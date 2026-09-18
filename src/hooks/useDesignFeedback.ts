@@ -8,6 +8,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { toJson } from '@/integrations/supabase/json';
 import { useActiveBusiness } from './useActiveBusiness';
 import { useAuth } from './useAuth';
 
@@ -47,12 +48,12 @@ export function useLikeMockup() {
       if (!activeBusinessId || !user?.id) throw new Error('No business or user');
 
       const { error } = await supabase
-        .from('design_feedback' as any)
+        .from('design_feedback')
         .insert({
           business_id: activeBusinessId,
           mockup_id: params.mockupId,
           feedback_type: 'like',
-          selections: params.selections || null,
+          selections: toJson(params.selections || null),
           prompt_used: params.promptUsed || null,
           created_by: user.id,
         });
@@ -78,12 +79,12 @@ export function useDislikeMockup() {
       if (!activeBusinessId || !user?.id) throw new Error('No business or user');
 
       const { error } = await supabase
-        .from('design_feedback' as any)
+        .from('design_feedback')
         .insert({
           business_id: activeBusinessId,
           mockup_id: params.mockupId,
           feedback_type: 'dislike',
-          selections: params.selections || null,
+          selections: toJson(params.selections || null),
           prompt_used: params.promptUsed || null,
           created_by: user.id,
         });
@@ -107,7 +108,7 @@ export function useRecentFeedback() {
     queryKey: ['design-feedback', activeBusinessId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('design_feedback' as any)
+        .from('design_feedback')
         .select('id, mockup_id, feedback_type, created_at')
         .eq('business_id', activeBusinessId!)
         .in('feedback_type', ['like', 'dislike'])
@@ -152,7 +153,7 @@ export function useChatFeedbackHistory() {
     queryKey: ['design-feedback-chat', activeBusinessId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('design_feedback' as any)
+        .from('design_feedback')
         .select('id, message, interpreted_changes, created_at')
         .eq('business_id', activeBusinessId!)
         .eq('feedback_type', 'chat')
@@ -237,7 +238,7 @@ export function useSendChatFeedback() {
 
       // 2. Save to design_feedback with feedback_type='chat'
       const { error: insertError } = await supabase
-        .from('design_feedback' as any)
+        .from('design_feedback')
         .insert({
           business_id: activeBusinessId,
           feedback_type: 'chat',

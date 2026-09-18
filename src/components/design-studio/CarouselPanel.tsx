@@ -11,6 +11,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   AlertCircle,
   Check,
@@ -74,6 +75,12 @@ import {
 } from '@/utils/design-studio/masterImagePrompt';
 import { CollapsibleSection } from './CollapsibleSection';
 import { CarouselStoryboardPreview } from './CarouselStoryboardPreview';
+import { StudioImagePanel } from './StudioImagePanel';
+import { usePresentationDesignService } from '@/components/presentations/PresentationDesignContext';
+import { useActiveBusiness } from '@/hooks/useActiveBusiness';
+import { useAuth } from '@/hooks/useAuth';
+import type { StudioImageAction, StudioCarouselContext } from '@/lib/desaing/studioImageState';
+import type { ProductionSource } from '../../../supabase/functions/_shared/desaing/production';
 
 interface CarouselPanelProps {
   /** The approved bank copy this carousel derives from. */
@@ -100,6 +107,8 @@ interface CarouselPanelProps {
   brandSlug: string | undefined;
   /** Overrides where the carousel state is written. See UseCarouselQueueParams. */
   persistMeta?: UseCarouselQueueParams['persistMeta'];
+  sourceTable?: 'copy_bank_items' | 'generated_ideas';
+  sourceMeta?: unknown;
   disabled?: boolean;
 }
 
@@ -136,9 +145,15 @@ export function CarouselPanel({
   imageType,
   brandSlug,
   persistMeta,
+  sourceTable = 'generated_ideas',
+  sourceMeta,
   disabled = false,
 }: CarouselPanelProps) {
   const { toast } = useToast();
+  const designService = usePresentationDesignService(), queryClient = useQueryClient();
+  const { activeBusinessId } = useActiveBusiness(), { user } = useAuth();
+  const [reviewedImage, setReviewedImage] = useState<{ businessId: string; actorId: string; source: ProductionSource; action: StudioImageAction; local: StudioCarouselContext } | null>(null);
+  useEffect(() => { setReviewedImage(null); }, [activeBusinessId, user?.id]);
   const [presetSlug, setPresetSlug] = useState(DEFAULT_CAROUSEL_PRESET_SLUG);
   /**
    * What the set is for, chosen here and not derived from the copy.
@@ -445,7 +460,7 @@ export function CarouselPanel({
     error,
   } = queue;
 
-  const busy = disabled || isBusy;
+  const busy = disabled || isBusy || !!reviewedImage;
   /**
    * Shape of the carousel on screen. Read from the persisted slug, not from the
    * selector, so a carousel loaded from the bank keeps the shape it was written
@@ -607,7 +622,7 @@ export function CarouselPanel({
   if (!bankItem) return null;
 
   return (
-    <CollapsibleSection
+    <><CollapsibleSection
       // No "Carrusel": el StageHeader de arriba ya lo dice, y dos títulos iguales
       // pegados hacen dudar de si son el mismo bloque.
       title="Generar el carrusel"
@@ -1326,6 +1341,12 @@ export function CarouselPanel({
               isRendering={renderingIndex === slot.index}
               onPromptChange={(text) => queue.updateSlotPrompt(slot.index, text)}
               onGenerate={() => queue.generateSlot(slot.index)}
+              onDesign={designService?.client.production && activeBusinessId && user && queue.groupId && queue.productionCarousel && slot.imageUrl && slot.mockupId ? action => {
+                setReviewedImage({ businessId: activeBusinessId, actorId: user.id, action,
+                  source: { kind: 'carousel', source_table: sourceTable, row_id: bankItem.row.id, group_id: queue.groupId!, slide_id: slot.id },
+                  local: structuredClone({ meta: sourceMeta ?? bankItem.row.piece_v2 ?? {}, carousel: queue.productionCarousel!,
+                    editorial: { headline: bankItem.row.headline, subcopy: bankItem.row.subcopy ?? null, cta: bankItem.row.cta ?? null, status: bankItem.row.status } }) });
+              } : undefined}
             />
           ))}
         </div>
@@ -1382,6 +1403,17 @@ export function CarouselPanel({
         </div>
       )}
     </CollapsibleSection>
+    {reviewedImage && designService && reviewedImage.businessId === activeBusinessId && reviewedImage.actorId === user?.id &&
+      <StudioImagePanel service={designService} businessId={reviewedImage.businessId} source={reviewedImage.source}
+        initialAction={reviewedImage.action} localCarousel={reviewedImage.local} onClose={() => setReviewedImage(null)}
+        onSaved={async (receipt, snapshot) => {
+          queue.adoptReviewedImage(receipt, snapshot.base_mockup_id);
+          await Promise.all([
+            queryClient.invalidateQueries({ queryKey: ['design-mockups', reviewedImage.businessId] }),
+            queryClient.invalidateQueries({ queryKey: [sourceTable === 'copy_bank_items' ? 'copy-bank-v2' : 'generated-ideas'] }),
+          ]);
+        }} />}
+    </>
   );
 }
 
@@ -1648,6 +1680,7 @@ function SlotRenderCard({
   isRendering,
   onPromptChange,
   onGenerate,
+  onDesign,
 }: {
   slot: CarouselSlotRuntime;
   total: number;
@@ -1655,6 +1688,7 @@ function SlotRenderCard({
   isRendering: boolean;
   onPromptChange: (text: string) => void;
   onGenerate: () => void;
+  onDesign?: (action: StudioImageAction) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const preview = slot.imageBase64
@@ -1732,6 +1766,11 @@ function SlotRenderCard({
               >
                 {expanded ? 'Ocultar prompt' : 'Ver prompt'}
               </Button>
+              {onDesign && <>
+                <Button type="button" size="sm" variant="outline" disabled={disabled} onClick={() => onDesign('edit_image')}>Editar píxeles</Button>
+                <Button type="button" size="sm" variant="outline" disabled={disabled} onClick={() => onDesign('regenerate_image')}>Regenerar y revisar</Button>
+                <Button type="button" size="sm" variant="ghost" disabled={disabled} onClick={() => onDesign('compare')}>Comparar versiones</Button>
+              </>}
             </div>
           </div>
         </div>

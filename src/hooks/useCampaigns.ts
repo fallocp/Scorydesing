@@ -5,6 +5,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import type { TablesUpdate } from '@/integrations/supabase/types';
 import type { Brand, Campaign, CampaignStatus, ContentType } from '@/types/xendingDesign';
 
 const CAMPAIGNS_KEY = 'design-campaigns';
@@ -62,9 +63,14 @@ export interface CreateCampaignInput {
 }
 
 async function createCampaign(input: CreateCampaignInput): Promise<Campaign> {
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError) throw new Error(authError.message);
+  if (!user) throw new Error('No autenticado');
+
   const { data, error } = await supabase
     .from('design_campaigns')
     .insert({
+      user_id: user.id,
       brand: input.brand,
       name: input.name,
       brief: input.brief,
@@ -90,7 +96,7 @@ export interface UpdateCampaignInput {
 }
 
 async function updateCampaign(input: UpdateCampaignInput): Promise<Campaign> {
-  const updates: Record<string, unknown> = {};
+  const updates: TablesUpdate<'design_campaigns'> = {};
   if (input.name !== undefined) updates.name = input.name;
   if (input.brief !== undefined) updates.brief = input.brief;
   if (input.contentType !== undefined) updates.content_type = input.contentType;

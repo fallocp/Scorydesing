@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=800, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:;">
+  <title>Ideas que cruzan fronteras · Xending</title>
+  <style>
+    :root { color-scheme: light; --ivory: #f7f8f3; --navy: #112c38; --teal: #177b78; --coral: #e58267; }
+    * { box-sizing: border-box; }
+    html, body { width: 800px; height: 450px; margin: 0; overflow: hidden; }
+    body { background: var(--ivory); color: var(--navy); font-family: Arial, Helvetica, sans-serif; }
+    .slide { position: relative; width: 800px; height: 450px; isolation: isolate; }
+    .brand { position: absolute; left: 48px; top: 35px; display: flex; align-items: center; gap: 12px; }
+    .brand-mark { display: grid; grid-template-columns: 6px 6px; gap: 3px; transform: rotate(-12deg); }
+    .brand-mark i { width: 6px; height: 6px; border-radius: 2px; background: var(--teal); }
+    .brand-mark i:last-child { background: var(--coral); }
+    .brand-name { font-size: 14px; font-weight: 800; letter-spacing: 2.4px; }
+    .brand-divider { width: 1px; height: 15px; background: #cbd5d0; margin: 0 1px; }
+    .brand-studio { color: #597078; font-size: 9px; font-weight: 700; letter-spacing: 1.7px; }
+    .edition { position: absolute; top: 41px; right: 42px; color: #61797d; font-size: 9px; letter-spacing: 1.6px; }
+    .eyebrow { position: absolute; left: 48px; top: 118px; margin: 0; color: var(--teal); font-size: 10px; font-weight: 700; letter-spacing: 2.3px; }
+    h1 { position: absolute; left: 46px; top: 148px; width: 366px; margin: 0; font-size: 49px; line-height: 1.02; font-weight: 700; letter-spacing: -2.3px; }
+    h1 em { font-style: normal; color: var(--teal); }
+    .accent { position: absolute; left: 48px; top: 318px; width: 35px; height: 4px; border-radius: 4px; background: var(--coral); }
+    .description { position: absolute; left: 48px; top: 337px; width: 325px; margin: 0; color: #587078; font-size: 13px; line-height: 1.55; }
+    /* Destination for the independent AI asset. Coordinates are part of the pilot contract. */
+    .asset-region { position: absolute; left: 430px; top: 100px; width: 330px; height: 300px; border: 1px solid #dce5dd; border-radius: 20px; overflow: hidden; }
+    .asset-region img { display: block; width: 100%; height: 100%; object-fit: contain; }
+    .footer { position: absolute; bottom: 21px; left: 48px; right: 42px; display: flex; justify-content: space-between; color: #78908d; font-size: 8px; letter-spacing: 1.6px; }
+    [contenteditable]:focus-visible { outline: 1px dashed var(--teal); outline-offset: 4px; }
+  </style>
+</head>
+<body>
+  <main class="slide" aria-label="Portada: Ideas que cruzan fronteras">
+    <header class="brand">
+      <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+      <span class="brand-name" contenteditable="true" spellcheck="false">XENDING</span>
+      <span class="brand-divider" aria-hidden="true"></span>
+      <span class="brand-studio" contenteditable="true" spellcheck="false">SCORYDESIGN</span>
+    </header>
+    <span class="edition" contenteditable="true" spellcheck="false">NUEVAS PERSPECTIVAS</span>
+    <p class="eyebrow" contenteditable="true" spellcheck="false">DISEÑO EN MOVIMIENTO</p>
+    <h1 contenteditable="true" spellcheck="false">Ideas que<br>cruzan<br><em>fronteras.</em></h1>
+    <span class="accent" aria-hidden="true"></span>
+    <p class="description" contenteditable="true" spellcheck="false">Una nueva perspectiva para conectar<br>lo que imaginas con lo que viene.</p>
+    <div class="asset-region" data-pilot-asset="airplane" data-region="430,100,330,300" aria-label="Zona reservada para la imagen de un avión"></div>
+    <footer class="footer"><span contenteditable="true" spellcheck="false">IMAGINAR · CONECTAR · CREAR</span><span>01 / 01</span></footer>
+  </main>
+</body>
+</html>

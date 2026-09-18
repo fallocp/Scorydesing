@@ -35,6 +35,13 @@ export interface CustomTemplate {
 // Fetch function
 // ---------------------------------------------------------------------------
 
+function isTemplateSlot(value: unknown): value is CustomTemplate['slots'][number] {
+  return typeof value === 'object' && value !== null
+    && 'name' in value && typeof value.name === 'string'
+    && 'type' in value && (value.type === 'text' || value.type === 'image')
+    && 'required' in value && typeof value.required === 'boolean';
+}
+
 async function fetchCustomTemplates(businessId: string): Promise<CustomTemplate[]> {
   const { data, error } = await supabase
     .from('custom_templates')
@@ -47,7 +54,10 @@ async function fetchCustomTemplates(businessId: string): Promise<CustomTemplate[
     throw new Error(error.message);
   }
 
-  return (data ?? []) as CustomTemplate[];
+  return (data ?? []).map((template) => {
+    const slots: unknown[] = Array.isArray(template.slots) ? template.slots : [];
+    return { ...template, slots: slots.filter(isTemplateSlot) };
+  });
 }
 
 // ---------------------------------------------------------------------------

@@ -1,17 +1,32 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { toJson } from '@/integrations/supabase/json';
 import type { Brand, StrategyBranch } from '@/types/xendingDesign';
 
 const SAVED_BRANCHES_KEY = 'saved-branches';
 
-interface SavedBranchRow {
-  id: string;
-  brand: string;
-  name: string;
-  brief: string;
-  content_type: string;
-  branch_data: StrategyBranch;
-  created_at: string;
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isStrategyBranch(value: unknown): value is StrategyBranch {
+  return isRecord(value)
+    && ['id', 'name', 'category', 'description', 'targetAudience', 'keyMessage']
+      .every((key) => typeof value[key] === 'string')
+    && (value.branchPrompt === undefined || typeof value.branchPrompt === 'string')
+    && (value.approved === null || typeof value.approved === 'boolean')
+    && Array.isArray(value.imageDescriptions)
+    && value.imageDescriptions.every((item) => typeof item === 'string')
+    && Array.isArray(value.copyIdeas)
+    && value.copyIdeas.every((item) => isRecord(item)
+      && ['headline', 'subcopy', 'cta'].every((key) => typeof item[key] === 'string')
+      && (item.imageSuggestion === undefined || typeof item.imageSuggestion === 'string')
+      && (item.pieceV2 == null || isRecord(item.pieceV2)));
+}
+
+function readStrategyBranch(value: unknown): StrategyBranch {
+  if (!isStrategyBranch(value)) throw new Error('La rama guardada tiene un formato inválido.');
+  return value;
 }
 
 export interface SavedBranch {
@@ -31,10 +46,10 @@ async function fetchSavedBranches(brand: Brand): Promise<SavedBranch[]> {
 
   if (error) throw new Error(error.message);
 
-  return (data ?? []).map((row: SavedBranchRow) => ({
+  return (data ?? []).map((row) => ({
     id: row.id,
     brand: row.brand as Brand,
-    branch: row.branch_data,
+    branch: readStrategyBranch(row.branch_data),
     createdAt: row.created_at,
   }));
 }
@@ -56,7 +71,7 @@ async function saveBranch(params: { branch: StrategyBranch; brand: Brand }): Pro
       content_type: branch.category.toLowerCase().replace(/\s+/g, '-'),
       status: 'draft',
       partner: 'none',
-      branch_data: branch as unknown as Record<string, unknown>,
+      branch_data: toJson(branch),
     })
     .select()
     .single();
@@ -66,7 +81,7 @@ async function saveBranch(params: { branch: StrategyBranch; brand: Brand }): Pro
   return {
     id: data.id,
     brand: data.brand as Brand,
-    branch: data.branch_data as unknown as StrategyBranch,
+    branch: readStrategyBranch(data.branch_data),
     createdAt: data.created_at,
   };
 }
@@ -87,7 +102,7 @@ async function updateSavedBranch(params: { id: string; branch: StrategyBranch })
   const { error } = await supabase
     .from('design_campaigns')
     .update({
-      branch_data: branch as unknown as Record<string, unknown>,
+      branch_data: toJson(branch),
       name: branch.name,
       brief: branch.description,
       updated_at: new Date().toISOString(),

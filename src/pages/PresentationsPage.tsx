@@ -38,32 +38,24 @@ import { useToast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
-import { PRESENTATION_TEMPLATES, getPresentationHtml } from '@/constants/presentationTemplates';
+import { PRESENTATION_TEMPLATES } from '@/constants/presentationTemplates';
 
 import { renderHtmlToPng, renderSlidesToPdf } from '@/utils/xendingDesign/canvasRenderer';
 import { HtmlSectionEditor } from '@/components/HtmlSectionEditor';
 import { VisualDesignEditor, type ElementDef } from '@/components/VisualDesignEditor';
 import { SlideGeneratorPanel } from '@/components/presentations/SlideGeneratorPanel';
-
-/** Tamaño por defecto (16:9) cuando el HTML no declara sus dimensiones. */
-const DEFAULT_SLIDE_DIMENSIONS = { width: 1920, height: 1080 } as const;
-
-/**
- * Lee el tamaño real de un slide desde su HTML (el `.slide`/`.story` declara
- * `width:Npx;height:Npx`). Así un deck puede mezclar 16:9 y carta vertical y la
- * exportación/preview usan el tamaño correcto por slide, no un fijo 1920×1080.
- */
-function getSlideDimensions(html: string): { width: number; height: number } {
-  const m = html.match(/\.(?:slide|story)\s*\{[^}]*?width:\s*(\d+)px[^}]*?height:\s*(\d+)px/i);
-  if (m) {
-    const width = parseInt(m[1], 10);
-    const height = parseInt(m[2], 10);
-    if (Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0) {
-      return { width, height };
-    }
-  }
-  return { ...DEFAULT_SLIDE_DIMENSIONS };
-}
+import { MountedImagesPanel } from '@/components/presentations/MountedImagesPanel';
+import { ServerDesignPanel } from '@/components/presentations/ServerDesignPanel';
+import { DesignToHtmlPanel } from '@/components/presentations/DesignToHtmlPanel';
+import { DeckComposerPanel } from '@/components/presentations/DeckComposerPanel';
+import type { RegisteredAssetVersion } from '../../supabase/functions/_shared/desaing/assets';
+import { usePresentationDesignService } from '@/components/presentations/PresentationDesignContext';
+import { buildActivePresentationHtml, duplicateSlide, getSlideDimensions, normalizeSlides, reviseSlide, type PresentationSlide } from '@/lib/presentations/presentationDocument';
+import { sanitizePresentationHtml } from '@/lib/presentations/presentationHtml';
+import { PresentationCanvas } from '@/components/presentations/PresentationCanvas';
+import { detachUnverifiedMountedImages, reconcileMountedAssets } from '@/lib/presentations/presentationManifest';
+import { prepareReviewedPresentation, saveReviewedPresentation } from '@/lib/presentations/reviewedPresentationProject';
+import { presentationProjectPort } from '@/lib/presentations/presentationProjectPort';
 
 // --- Traducción estable a inglés -------------------------------------------
 // Se traduce POR ELEMENTO de texto (headline, subcopy, CTA…), no fragmento a
@@ -262,11 +254,18 @@ const PRESENTATIONS_STORAGE_KEY = 'xending-presentations-v1';
 // pierda al crear otro proyecto, cambiar de proyecto o recargar la página.
 const DRAFT_STORAGE_KEY = 'xending-presentation-draft';
 
-type Deck = Array<{ title: string; html: string }>;
+type Deck = PresentationSlide[];
+type DeckInput = Array<{ title: string; html: string; id?: string; revision?: number }>;
+function prepareDeck(value: unknown): Deck {
+  return normalizeSlides(value).map(slide => {
+    const html = sanitizePresentationHtml(slide.html);
+    return { ...slide, html, ...(slide.mounted_assets ? { mounted_assets: reconcileMountedAssets(slide, html) } : {}) };
+  });
+}
 
 /** Deck por defecto (plantillas de portada). */
 function defaultDeck(): Deck {
-  return PRESENTATION_TEMPLATES.map((s) => ({ title: s.title, html: s.html }));
+  return prepareDeck(PRESENTATION_TEMPLATES.map((s) => ({ title: s.title, html: s.html })));
 }
 
 /** Valida que un valor tenga forma de deck: array no vacío de { html }. */
@@ -279,27 +278,39 @@ function isValidDeck(v: unknown): v is Deck {
  * existe el deck de la versión anterior (`xending-presentations-v1`), lo migra
  * para recuperarlo. Devuelve las plantillas por defecto si no hay nada.
  */
-function loadDraftDeck(): { deck: Deck; recoveredLegacy: boolean } {
+function loadDraftDeck(draftKey: string, businessId: string | null): { deck: Deck; recoveredLegacy: boolean; recoveryError?: string } {
   try {
-    const raw = localStorage.getItem(DRAFT_STORAGE_KEY);
+    const raw = localStorage.getItem(draftKey);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (isValidDeck(parsed)) return { deck: parsed, recoveredLegacy: false };
+      if (isValidDeck(parsed)) return { deck: prepareDeck(parsed), recoveredLegacy: false };
+      throw new Error('El borrador contiene datos inválidos.');
     }
     // Migración/recuperación desde la clave legacy de la versión anterior.
-    const legacy = localStorage.getItem(PRESENTATIONS_STORAGE_KEY);
+    const previousOwner = localStorage.getItem('xending-legacy-draft-business');
+    const legacy = businessId && (!previousOwner || previousOwner === businessId)
+      ? localStorage.getItem(DRAFT_STORAGE_KEY) || localStorage.getItem(PRESENTATIONS_STORAGE_KEY) : null;
     if (legacy) {
       const parsedLegacy = JSON.parse(legacy);
       if (isValidDeck(parsedLegacy)) {
-        try { localStorage.setItem(DRAFT_STORAGE_KEY, legacy); } catch { /* ignore */ }
-        return { deck: parsedLegacy, recoveredLegacy: true };
+        try { localStorage.setItem(draftKey, legacy); localStorage.setItem('xending-legacy-draft-business', businessId!); } catch { /* ignore */ }
+        return { deck: prepareDeck(parsedLegacy), recoveredLegacy: true };
       }
     }
-  } catch { /* ignore */ }
+  } catch {
+    return { deck: defaultDeck(), recoveredLegacy: false, recoveryError: 'No se pudo abrir el borrador. Conservamos el original en este navegador sin sobrescribirlo. Puedes importar un respaldo o restablecerlo explícitamente.' };
+  }
   return { deck: defaultDeck(), recoveredLegacy: false };
 }
 
-function PresentationsPage() {
+function PresentationsPageContent({ activeBusinessId }: { activeBusinessId: string | null }) {
+  const designService = usePresentationDesignService();
+  const [designTarget, setDesignTarget] = useState<{ documentId: string; slide: PresentationSlide; initialScope?: 'asset_in_region' | 'full_design' } | null>(null);
+  const [compositionTarget, setCompositionTarget] = useState<{ documentId: string; slide: PresentationSlide; asset?: RegisteredAssetVersion; copy?: string } | null>(null);
+  const [deckComposerTarget, setDeckComposerTarget] = useState<{ documentId: string; slide: PresentationSlide } | null>(null);
+  const draftKey = `${DRAFT_STORAGE_KEY}:${activeBusinessId ?? 'unassigned'}`;
+  const alive = useRef(true);
+  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
   const navigate = useNavigate();
   const { toast } = useToast();
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -308,11 +319,28 @@ function PresentationsPage() {
   // Cantidad de slides del borrador (para mostrarlo en el menú de proyectos).
   const [draftSlideCount, setDraftSlideCount] = useState(0);
   const recoveredLegacyRef = useRef(false);
-  const [slides, setSlides] = useState<Deck>(() => {
-    const { deck, recoveredLegacy } = loadDraftDeck();
+  const draftRecoveryRef = useRef<string | undefined>();
+  const [slides, setSlidesState] = useState<Deck>(() => {
+    const { deck, recoveredLegacy, recoveryError } = loadDraftDeck(draftKey, activeBusinessId);
+    draftRecoveryRef.current = recoveryError;
     recoveredLegacyRef.current = recoveredLegacy;
     return deck;
   });
+  const slidesRef = useRef(slides);
+  // Validate boundaries and advance revisions by identity, including imported slides.
+  const setSlides = useCallback((input: DeckInput | ((previous: Deck) => DeckInput)) => {
+    const previous = slidesRef.current;
+    const next = prepareDeck(typeof input === 'function' ? input(previous) : input).map(slide => {
+      const before = previous.find(item => item.id === slide.id);
+      return before && (before.html !== slide.html || before.title !== slide.title) && slide.revision <= before.revision
+        ? { ...slide, revision: before.revision + 1 } : slide;
+    });
+    if (!next.length) throw new Error('La presentación debe conservar al menos un slide.');
+    slidesRef.current = next;
+    setSlidesState(next);
+  }, []);
+  const [mountTarget, setMountTarget] = useState<{ documentId: string; slide: PresentationSlide } | null>(null);
+  const loadSequence = useRef(0);
   const [editingMode, setEditingMode] = useState<'none' | 'html' | 'visual'>('none');
   const containerRef = useRef<HTMLDivElement>(null);
   // Proyecto "dueño" de los slides que están ahora en memoria. El autoguardado
@@ -326,15 +354,17 @@ function PresentationsPage() {
   // "sin guardar (nuevo)" lo persiste como borrador para no perderlo jamás.
   useEffect(() => {
     const ownerId = slidesOwnerIdRef.current;
+    if (!ownerId && draftRecoveryRef.current) return;
     try {
       if (ownerId) {
         localStorage.setItem(`xending-presentation-${ownerId}`, JSON.stringify(slides));
       } else {
-        localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(slides));
+        localStorage.setItem(draftKey, JSON.stringify(slides));
         setDraftSlideCount(slides.length);
       }
     } catch (err) {
       console.warn('No se pudo autoguardar la presentación en el navegador:', err);
+      toast({ title: 'No se guardó la copia local', description: 'El almacenamiento está lleno o bloqueado. Exporta un respaldo o guarda en la nube antes de cerrar.', variant: 'destructive' });
     }
   }, [slides]);
 
@@ -342,7 +372,7 @@ function PresentationsPage() {
   // la versión anterior, avisa al usuario dónde encontrarlo.
   useEffect(() => {
     try {
-      const raw = localStorage.getItem(DRAFT_STORAGE_KEY);
+      const raw = localStorage.getItem(draftKey);
       if (raw) {
         const parsed = JSON.parse(raw);
         if (isValidDeck(parsed)) setDraftSlideCount(parsed.length);
@@ -358,7 +388,6 @@ function PresentationsPage() {
   }, []);
 
   // --- Persistencia en la nube (Supabase) · multi-proyecto ---
-  const { activeBusinessId } = useActiveBusiness();
   // Lista de presentaciones (proyectos) del negocio y la activa.
   const [presentations, setPresentations] = useState<Array<{ id: string; name: string }>>([]);
   const [activePresentationId, setActivePresentationId] = useState<string | null>(null);
@@ -371,37 +400,59 @@ function PresentationsPage() {
   const importInputRef = useRef<HTMLInputElement>(null);
   const [cloudLoading, setCloudLoading] = useState(false);
   const [cloudSaving, setCloudSaving] = useState(false);
+  const cloudWrites = useRef(new Map<string, Promise<void>>());
+  const persistDeck = useCallback((ownerId: string, deck: Deck) => {
+    const snapshot = structuredClone(deck);
+    const write = (cloudWrites.current.get(ownerId) ?? Promise.resolve()).catch(() => undefined).then(async () => {
+      const { error } = await (supabase as any).from('presentations').update({ slides: snapshot })
+        .eq('id', ownerId).eq('business_id', activeBusinessId);
+      if (error) throw error;
+    });
+    cloudWrites.current.set(ownerId, write);
+    return write;
+  }, [activeBusinessId]);
 
   // Carga los slides de un proyecto y lo marca como activo/dueño.
   const loadPresentationSlides = useCallback(async (id: string) => {
+    if (!activeBusinessId) return;
+    const request = ++loadSequence.current;
+    const before = slidesRef.current;
     setCloudLoading(true);
     try {
       const { data, error } = await (supabase as any)
         .from('presentations')
         .select('slides')
         .eq('id', id)
+        .eq('business_id', activeBusinessId)
         .maybeSingle();
       if (error) throw error;
+      if (!alive.current || request !== loadSequence.current) return;
+      if (slidesRef.current !== before) throw new Error('El slide cambió durante la carga. Vuelve a seleccionar el proyecto.');
+      if (!data) throw new Error('No se encontró el proyecto en este negocio.');
+      if (!Array.isArray(data.slides)) throw new Error('El proyecto contiene slides inválidos. Sus datos se conservaron.');
       const arr = Array.isArray(data?.slides) && data.slides.length > 0
         ? data.slides
         : PRESENTATION_TEMPLATES.map((s) => ({ title: s.title, html: s.html }));
+      const validated = prepareDeck(arr);
+      setSlides(validated);
       slidesOwnerIdRef.current = id;
       setActivePresentationId(id);
-      setSlides(arr);
       setCurrentSlide(0);
       if (activeBusinessId) {
         try { localStorage.setItem(`xending-active-presentation-${activeBusinessId}`, id); } catch { /* ignore */ }
       }
     } catch (err) {
       console.error('Error cargando slides del proyecto:', err);
+      if (alive.current) toast({ title: 'No se pudo abrir el proyecto', description: err instanceof Error ? err.message : 'Intenta de nuevo.', variant: 'destructive' });
     } finally {
-      setCloudLoading(false);
+      if (alive.current && request === loadSequence.current) setCloudLoading(false);
     }
   }, [activeBusinessId]);
 
   // Carga la lista de proyectos del negocio y activa el último usado (o el más reciente).
   const loadPresentations = useCallback(async () => {
     if (!activeBusinessId) return;
+    const sequence = loadSequence.current;
     setCloudLoading(true);
     try {
       const { data, error } = await (supabase as any)
@@ -410,6 +461,7 @@ function PresentationsPage() {
         .eq('business_id', activeBusinessId)
         .order('created_at', { ascending: true });
       if (error) throw error;
+      if (!alive.current || sequence !== loadSequence.current) return;
       const rows = data ?? [];
       setPresentations(rows.map((p: any) => ({ id: p.id, name: p.name || 'Presentación' })));
       if (rows.length > 0) {
@@ -444,11 +496,7 @@ function PresentationsPage() {
     try {
       const ownerId = slidesOwnerIdRef.current;
       if (ownerId) {
-        const { error } = await (supabase as any)
-          .from('presentations')
-          .update({ slides })
-          .eq('id', ownerId);
-        if (error) throw error;
+        await persistDeck(ownerId, slides);
       } else {
         const name = (window.prompt('Nombre de la presentación:', `Presentación ${presentations.length + 1}`) || '').trim() || `Presentación ${presentations.length + 1}`;
         const { data, error } = await (supabase as any)
@@ -457,6 +505,10 @@ function PresentationsPage() {
           .select('id, name')
           .single();
         if (error) throw error;
+        if (!alive.current || slidesOwnerIdRef.current !== ownerId || slidesRef.current !== slides) {
+          toast({ title: 'Copia guardada en la nube', description: 'El borrador cambió durante el guardado; conservamos tus cambios actuales.' });
+          return;
+        }
         slidesOwnerIdRef.current = data.id;
         setActivePresentationId(data.id);
         setPresentations((prev) => [...prev, { id: data.id, name: data.name || name }]);
@@ -468,7 +520,7 @@ function PresentationsPage() {
     } finally {
       setCloudSaving(false);
     }
-  }, [activeBusinessId, slides, presentations.length, toast]);
+  }, [activeBusinessId, slides, presentations.length, toast, persistDeck]);
 
   // Autoguardado en la nube (debounce) hacia el proyecto dueño de los slides actuales.
   useEffect(() => {
@@ -476,13 +528,14 @@ function PresentationsPage() {
     if (!ownerId || !activeBusinessId) return;
     const t = setTimeout(async () => {
       try {
-        await (supabase as any).from('presentations').update({ slides }).eq('id', ownerId);
+        await persistDeck(ownerId, slides);
       } catch (err) {
         console.error('Autoguardado en la nube falló:', err);
+        toast({ title: 'No se guardó en la nube', description: 'Conserva un respaldo local y vuelve a intentar guardar.', variant: 'destructive' });
       }
     }, 2000);
     return () => clearTimeout(t);
-  }, [slides, activeBusinessId]);
+  }, [slides, activeBusinessId, persistDeck, toast]);
 
   // --- Gestión de proyectos (presentaciones) ---
   const switchPresentation = useCallback((id: string) => {
@@ -495,16 +548,12 @@ function PresentationsPage() {
   const switchToDraft = useCallback(() => {
     setProjectMenuOpen(false);
     if (activePresentationId === null) return; // ya estamos en el borrador
+    ++loadSequence.current;
+    setCloudLoading(false);
     slidesOwnerIdRef.current = null;
     setActivePresentationId(null);
-    let deck = defaultDeck();
-    try {
-      const raw = localStorage.getItem(DRAFT_STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (isValidDeck(parsed)) deck = parsed;
-      }
-    } catch { /* ignore */ }
+    const { deck, recoveryError } = loadDraftDeck(draftKey, activeBusinessId);
+    draftRecoveryRef.current = recoveryError;
     setSlides(deck);
     setCurrentSlide(0);
   }, [activePresentationId]);
@@ -517,7 +566,9 @@ function PresentationsPage() {
     const name = (window.prompt('Nombre del nuevo proyecto:', `Presentación ${presentations.length + 1}`) || '').trim();
     if (!name) return;
     // Slide inicial (portada) para que el proyecto no quede vacío.
-    const starter = [{ title: PRESENTATION_TEMPLATES[0].title, html: PRESENTATION_TEMPLATES[0].html }];
+    const starter = prepareDeck([{ title: PRESENTATION_TEMPLATES[0].title, html: PRESENTATION_TEMPLATES[0].html }]);
+    const previousDeck = slidesRef.current;
+    const previousOwner = slidesOwnerIdRef.current;
     try {
       const { data, error } = await (supabase as any)
         .from('presentations')
@@ -525,7 +576,12 @@ function PresentationsPage() {
         .select('id, name')
         .single();
       if (error) throw error;
+      if (!alive.current) return;
       setPresentations((prev) => [...prev, { id: data.id, name: data.name || name }]);
+      if (slidesRef.current !== previousDeck || slidesOwnerIdRef.current !== previousOwner) {
+        toast({ title: `Proyecto creado: ${name}`, description: 'Está disponible en el menú; conservamos la edición actual.' });
+        return;
+      }
       slidesOwnerIdRef.current = data.id;
       setActivePresentationId(data.id);
       setSlides(starter);
@@ -551,10 +607,10 @@ function PresentationsPage() {
       const { data: src, error: readErr } = await (supabase as any)
         .from('presentations')
         .select('slides')
-        .eq('id', id)
+        .eq('id', id).eq('business_id', activeBusinessId)
         .maybeSingle();
       if (readErr) throw readErr;
-      const srcSlides = Array.isArray(src?.slides) ? src.slides : [];
+      const srcSlides = prepareDeck(src?.slides).map(slide => ({ ...slide, id: crypto.randomUUID(), revision: 1 }));
       const { data, error } = await (supabase as any)
         .from('presentations')
         .insert({ business_id: activeBusinessId, name: newName, slides: srcSlides })
@@ -583,7 +639,7 @@ function PresentationsPage() {
         deck = slides;
       } else {
         const { data, error } = await (supabase as any)
-          .from('presentations').select('slides').eq('id', id).maybeSingle();
+          .from('presentations').select('slides').eq('id', id).eq('business_id', activeBusinessId).maybeSingle();
         if (error) throw error;
         deck = Array.isArray(data?.slides) ? data.slides : [];
       }
@@ -608,7 +664,7 @@ function PresentationsPage() {
     } catch (err) {
       toast({ title: 'Error al exportar', description: err instanceof Error ? err.message : 'Error desconocido', variant: 'destructive' });
     }
-  }, [activePresentationId, slides, toast]);
+  }, [activePresentationId, slides, toast, activeBusinessId]);
 
   // Importa un respaldo .json como un NUEVO proyecto (no sobreescribe ninguno).
   const handleImportFile = useCallback(async (file: File | null) => {
@@ -620,11 +676,7 @@ function PresentationsPage() {
     try {
       const parsed = JSON.parse(await file.text());
       const rawSlides = Array.isArray(parsed) ? parsed : parsed?.slides;
-      const clean = Array.isArray(rawSlides)
-        ? rawSlides
-            .filter((s: any) => s && typeof s.html === 'string')
-            .map((s: any) => ({ title: typeof s.title === 'string' ? s.title : 'Slide', html: s.html }))
-        : [];
+      const clean = prepareDeck(rawSlides);
       if (clean.length === 0) throw new Error('El archivo no contiene slides válidos.');
       const fallback = parsed?.name ? `${parsed.name} (importado)` : file.name.replace(/\.json$/i, '');
       const name = (window.prompt('Nombre del proyecto importado:', fallback || 'Presentación importada') || '').trim();
@@ -663,28 +715,18 @@ function PresentationsPage() {
     const ownerId = slidesOwnerIdRef.current;
     toast({ title: `Traduciendo… 0/${total}` });
     try {
-      const working = [...slides];
+      const working = structuredClone(slides);
       for (let i = 0; i < total; i++) {
         // Solo traduce el texto; el markup/diseño del slide no se toca.
         const html = await translateSlideHtml(working[i].html);
-        working[i] = { ...working[i], html };
-        // Refleja el progreso en vivo solo si seguimos en el mismo deck.
-        if (slidesOwnerIdRef.current === ownerId) {
-          setSlides((prev) => {
-            const next = [...prev];
-            if (next[i]) next[i] = { ...next[i], html };
-            return next;
-          });
-        }
+        if (!alive.current || slidesOwnerIdRef.current !== ownerId) throw new Error('Cambió el proyecto. Se detuvo la traducción.');
+        const target = working[i];
+        setSlides(prev => reviseSlide(prev, { slide_id: target.id, expected_revision: target.revision, html }));
         toast({ title: `Traduciendo… ${i + 1}/${total}` });
       }
       // Persistencia explícita en la nube (además del autoguardado).
       if (ownerId) {
-        const { error: upErr } = await (supabase as any)
-          .from('presentations')
-          .update({ slides: working })
-          .eq('id', ownerId);
-        if (upErr) throw upErr;
+        await persistDeck(ownerId, slidesRef.current);
       }
       toast({
         title: `✅ Traducción completa (${total} slides)`,
@@ -695,7 +737,7 @@ function PresentationsPage() {
     } finally {
       setTranslating(false);
     }
-  }, [translating, slides, toast]);
+  }, [translating, slides, toast, persistDeck]);
 
   // Traduce a inglés SOLO el slide actual (página por página). Mismo motor por
   // unidades de texto; el diseño no se toca.
@@ -713,14 +755,11 @@ function PresentationsPage() {
     toast({ title: `Traduciendo slide ${idx + 1}…` });
     try {
       const html = await translateSlideHtml(slide.html);
-      const updated = slides.map((s, i) => (i === idx ? { ...s, html } : s));
-      if (slidesOwnerIdRef.current === ownerId) setSlides(updated);
+      if (!alive.current || slidesOwnerIdRef.current !== ownerId) throw new Error('Cambió el proyecto. Se detuvo la traducción.');
+      setSlides(prev => reviseSlide(prev, { slide_id: slide.id, expected_revision: slide.revision, html }));
+      const updated = slidesRef.current;
       if (ownerId) {
-        const { error: upErr } = await (supabase as any)
-          .from('presentations')
-          .update({ slides: updated })
-          .eq('id', ownerId);
-        if (upErr) throw upErr;
+        await persistDeck(ownerId, updated);
       }
       toast({ title: `✅ Slide ${idx + 1} traducido`, description: 'Solo el texto; revisa nombres y cifras.' });
     } catch (err) {
@@ -728,25 +767,25 @@ function PresentationsPage() {
     } finally {
       setTranslating(false);
     }
-  }, [translating, slides, currentSlide, toast]);
+  }, [translating, slides, currentSlide, toast, persistDeck]);
 
   const renamePresentation = useCallback(async (id: string, currentName: string) => {
     const name = (window.prompt('Nuevo nombre del proyecto:', currentName) || '').trim();
     if (!name || name === currentName) return;
     try {
-      const { error } = await (supabase as any).from('presentations').update({ name }).eq('id', id);
+      const { error } = await (supabase as any).from('presentations').update({ name }).eq('id', id).eq('business_id', activeBusinessId);
       if (error) throw error;
       setPresentations((prev) => prev.map((p) => (p.id === id ? { ...p, name } : p)));
       toast({ title: 'Proyecto renombrado' });
     } catch (err) {
       toast({ title: 'Error al renombrar', description: err instanceof Error ? err.message : 'Error desconocido', variant: 'destructive' });
     }
-  }, [toast]);
+  }, [toast, activeBusinessId]);
 
   const deletePresentation = useCallback(async (id: string, name: string) => {
     if (!window.confirm(`¿Eliminar el proyecto "${name}" y todas sus slides? Esta acción no se puede deshacer.`)) return;
     try {
-      const { error } = await (supabase as any).from('presentations').delete().eq('id', id);
+      const { error } = await (supabase as any).from('presentations').delete().eq('id', id).eq('business_id', activeBusinessId);
       if (error) throw error;
       const remaining = presentations.filter((p) => p.id !== id);
       setPresentations(remaining);
@@ -765,7 +804,7 @@ function PresentationsPage() {
     } catch (err) {
       toast({ title: 'Error al eliminar', description: err instanceof Error ? err.message : 'Error desconocido', variant: 'destructive' });
     }
-  }, [presentations, activePresentationId, loadPresentationSlides, toast]);
+  }, [presentations, activePresentationId, loadPresentationSlides, toast, activeBusinessId]);
 
   // Agrega un slide al final de OTRO proyecto (lee su array actual en la nube y
   // le hace push). El proyecto destino no está activo, así que su fuente de verdad
@@ -774,16 +813,16 @@ function PresentationsPage() {
     const { data, error } = await (supabase as any)
       .from('presentations')
       .select('slides')
-      .eq('id', targetId)
+      .eq('id', targetId).eq('business_id', activeBusinessId)
       .maybeSingle();
     if (error) throw error;
     const targetSlides = Array.isArray(data?.slides) ? data.slides : [];
     const { error: upErr } = await (supabase as any)
       .from('presentations')
-      .update({ slides: [...targetSlides, { title: slide.title, html: slide.html }] })
-      .eq('id', targetId);
+      .update({ slides: prepareDeck([...targetSlides, { ...slide, id: crypto.randomUUID(), revision: 1 }]) })
+      .eq('id', targetId).eq('business_id', activeBusinessId);
     if (upErr) throw upErr;
-  }, []);
+  }, [activeBusinessId]);
 
   const copySlideToProject = useCallback(async (targetId: string) => {
     const slide = slides[currentSlide];
@@ -804,11 +843,16 @@ function PresentationsPage() {
     }
     const slide = slides[currentSlide];
     if (!slide) return;
+    const ownerId = slidesOwnerIdRef.current;
     setMoveMenuOpen(false);
     try {
       await appendSlideToProject(targetId, slide);
       // Quitar del proyecto actual (el autoguardado persiste el origen sin este slide).
-      setSlides((prev) => prev.filter((_, i) => i !== currentSlide));
+      if (!alive.current || slidesOwnerIdRef.current !== ownerId || !slidesRef.current.some(item => item.id === slide.id && item.revision === slide.revision)) {
+        toast({ title: 'Slide copiado; origen conservado', description: 'El proyecto o el slide cambió durante la copia.' });
+        return;
+      }
+      setSlides(prev => prev.filter(item => item.id !== slide.id));
       setCurrentSlide((i) => Math.max(0, Math.min(i, slides.length - 2)));
       toast({ title: `Slide movido a "${presentations.find((p) => p.id === targetId)?.name ?? 'proyecto'}"` });
     } catch (err) {
@@ -819,6 +863,7 @@ function PresentationsPage() {
   const handleResetDeck = useCallback(() => {
     const ok = window.confirm('¿Restablecer la presentación al diseño original? Se perderán los cambios y duplicados guardados en este navegador.');
     if (!ok) return;
+    draftRecoveryRef.current = undefined;
     const fresh = PRESENTATION_TEMPLATES.map((s) => ({ title: s.title, html: s.html }));
     setSlides(fresh);
     setCurrentSlide(0);
@@ -840,7 +885,7 @@ function PresentationsPage() {
     // No navegar con teclado si el panel generador está abierto o si el foco
     // está en un campo de texto (textarea/input/contenteditable): de lo contrario
     // escribir un espacio saltaba de slide y bloqueaba la escritura.
-    if (generatorOpen) return;
+    if (generatorOpen || mountTarget || designTarget || compositionTarget || deckComposerTarget) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName === 'TEXTAREA' || t.tagName === 'INPUT' || t.isContentEditable)) return;
@@ -858,19 +903,20 @@ function PresentationsPage() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [goNext, goPrev, editingMode, generatorOpen]);
+  }, [goNext, goPrev, editingMode, generatorOpen, mountTarget, designTarget, compositionTarget, deckComposerTarget]);
 
   const handleExportHtml = useCallback(() => {
-    const fullHtml = getPresentationHtml();
+    const name = presentations.find(p => p.id === activePresentationId)?.name ?? 'Presentación';
+    const fullHtml = buildActivePresentationHtml(slides, name);
     const blob = new Blob([fullHtml], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'xending-global-pitch.html';
+    a.download = 'presentacion.html';
     a.click();
     URL.revokeObjectURL(url);
-    toast({ title: 'Presentación exportada', description: 'Archivo HTML descargado.' });
-  }, [toast]);
+    toast({ title: 'Presentación exportada', description: `${slides.length} slides de la versión actual.` });
+  }, [slides, presentations, activePresentationId, toast]);
 
   const handleDownloadSlide = useCallback(() => {
     const html = slides[currentSlide].html;
@@ -1055,31 +1101,24 @@ function PresentationsPage() {
   }, []);
 
   const handleSaveHtml = useCallback((newHtml: string) => {
-    setSlides((prev) => {
-      const updated = [...prev];
-      updated[currentSlide] = { ...updated[currentSlide], html: newHtml };
-      return updated;
-    });
+    const target = slides[currentSlide];
+    const html = editingMode === 'html' ? detachUnverifiedMountedImages(target.html, newHtml) : newHtml;
+    setSlides(prev => reviseSlide(prev, { slide_id: target.id, expected_revision: target.revision, html }));
     setEditingMode('none');
     toast({ title: 'Slide guardado' });
-  }, [currentSlide, toast]);
+  }, [currentSlide, slides, editingMode, toast]);
 
   // Aplica cambios al slide SIN salir del editor
   const handleApplyHtml = useCallback((newHtml: string) => {
-    setSlides((prev) => {
-      const updated = [...prev];
-      updated[currentSlide] = { ...updated[currentSlide], html: newHtml };
-      return updated;
-    });
+    const target = slides[currentSlide];
+    setSlides(prev => reviseSlide(prev, { slide_id: target.id, expected_revision: target.revision, html: newHtml }));
     toast({ title: 'Cambios aplicados', description: 'Sigues editando. Usa Guardar para finalizar.' });
-  }, [currentSlide, toast]);
+  }, [currentSlide, slides, toast]);
 
   // Duplica el slide actual (como Canva) y se posiciona en la copia
   const handleDuplicateSlide = useCallback(() => {
     setSlides((prev) => {
-      const copy = { title: `${prev[currentSlide].title} (copia)`, html: prev[currentSlide].html };
-      const updated = [...prev.slice(0, currentSlide + 1), copy, ...prev.slice(currentSlide + 1)];
-      return updated;
+      return duplicateSlide(prev, prev[currentSlide].id);
     });
     setCurrentSlide((i) => i + 1);
     toast({ title: 'Slide duplicado' });
@@ -1090,21 +1129,24 @@ function PresentationsPage() {
 
   // Inserta un slide generado con IA después del slide actual
   const handleInsertGeneratedSlide = useCallback((html: string) => {
+    const target = slides[currentSlide];
+    if (!alive.current || slidesOwnerIdRef.current !== activePresentationId) throw new Error('Cambió el proyecto; vuelve a abrir el generador.');
+    const index = slidesRef.current.findIndex(slide => slide.id === target.id && slide.revision === target.revision);
+    if (index < 0) throw new Error('El slide cambió mientras se generaba. Revisa la versión actual.');
     setSlides((prev) => {
       const item = { title: 'Slide IA', html };
-      return [...prev.slice(0, currentSlide + 1), item, ...prev.slice(currentSlide + 1)];
+      return [...prev.slice(0, index + 1), item, ...prev.slice(index + 1)];
     });
-    setCurrentSlide((i) => i + 1);
-  }, [currentSlide]);
+    setCurrentSlide(index + 1);
+  }, [currentSlide, slides, activePresentationId]);
 
   // Reemplaza el HTML del slide actual con la versión refinada por IA
   const handleApplyGeneratedToCurrent = useCallback((html: string) => {
-    setSlides((prev) => {
-      const updated = [...prev];
-      updated[currentSlide] = { ...updated[currentSlide], html };
-      return updated;
-    });
-  }, [currentSlide]);
+    const target = slides[currentSlide];
+    if (!alive.current || slidesOwnerIdRef.current !== activePresentationId) throw new Error('Cambió el proyecto; vuelve a abrir el generador.');
+    setSlides(prev => reviseSlide(prev, { slide_id: target.id, expected_revision: target.revision,
+      html: detachUnverifiedMountedImages(target.html, html) }));
+  }, [currentSlide, slides, activePresentationId]);
 
   const handleInsertTemplate = useCallback((tplIndex: number) => {
     const tpl = PRESENTATION_TEMPLATES[tplIndex];
@@ -1149,17 +1191,11 @@ function PresentationsPage() {
   }, []);
 
   const moveSlide = useCallback((dir: -1 | 1) => {
-    setCurrentSlide((cur) => {
-      const to = cur + dir;
-      if (to < 0 || to >= slides.length) return cur;
-      setSlides((prev) => {
-        const updated = [...prev];
-        [updated[cur], updated[to]] = [updated[to], updated[cur]];
-        return updated;
-      });
-      return to;
-    });
-  }, [slides.length]);
+    const to = currentSlide + dir;
+    if (to < 0 || to >= slides.length) return;
+    setSlides(prev => { const next = [...prev]; [next[currentSlide], next[to]] = [next[to], next[currentSlide]]; return next; });
+    setCurrentSlide(to);
+  }, [currentSlide, slides.length]);
 
   const handleDeleteSlide = useCallback(() => {
     if (slides.length <= 1) {
@@ -1173,8 +1209,9 @@ function PresentationsPage() {
     toast({ title: 'Slide eliminado' });
   }, [slides, currentSlide, toast]);
 
-  const currentHtml = slides[currentSlide].html;
-  const slideTitle = slides[currentSlide].title;
+  const visibleSlide = slides[Math.min(currentSlide, slides.length - 1)];
+  const currentHtml = visibleSlide.html;
+  const slideTitle = visibleSlide.title;
   const currentDims = getSlideDimensions(currentHtml);
 
   const handleCancelEdit = useCallback(() => {
@@ -1211,6 +1248,63 @@ function PresentationsPage() {
   // --- Main viewer ---
   return (
     <div className="container mx-auto py-6 space-y-6">
+      {draftRecoveryRef.current && !activePresentationId && <p role="alert" className="rounded border border-amber-400 bg-amber-50 p-3 text-sm">{draftRecoveryRef.current}</p>}
+      {mountTarget && activeBusinessId && <MountedImagesPanel
+        businessId={activeBusinessId} documentId={mountTarget.documentId} slide={mountTarget.slide}
+        onClose={() => setMountTarget(null)}
+        onApply={next => {
+          if (!alive.current || (slidesOwnerIdRef.current ?? `draft:${activeBusinessId}`) !== mountTarget.documentId) {
+            throw new Error('Cambió el proyecto. Vuelve a abrir el montaje.');
+          }
+          setSlides(prev => reviseSlide(prev, { slide_id: mountTarget.slide.id, expected_revision: mountTarget.slide.revision,
+            html: next.html, mounted_assets: next.mounted_assets }));
+          toast({ title: 'Imagen montada', description: 'La imagen y los textos se pueden editar por separado.' });
+        }}
+      />}
+      {designTarget && activeBusinessId && designService && <ServerDesignPanel
+        key={`${activeBusinessId}:${designTarget.documentId}:${designTarget.slide.id}`}
+        service={designService} businessId={activeBusinessId} documentId={designTarget.documentId} slide={designTarget.slide}
+        initialScope={designTarget.initialScope}
+        onUseDesignForHtml={(asset, copy) => { setCompositionTarget({ documentId: designTarget.documentId, slide: designTarget.slide, asset, copy }); setDesignTarget(null); }}
+        onClose={() => setDesignTarget(null)} onApply={next => {
+          if (!alive.current || (slidesOwnerIdRef.current ?? `draft:${activeBusinessId}`) !== designTarget.documentId) throw new Error('slide_revision_conflict');
+          setSlides(previous => reviseSlide(previous, { slide_id: designTarget.slide.id, expected_revision: designTarget.slide.revision,
+            html: next.html, mounted_assets: next.mounted_assets }));
+          toast({ title: 'Diseño aplicado', description: 'El resultado revisado quedó incorporado a la diapositiva.' });
+        }} />}
+      {compositionTarget && activeBusinessId && designService && <DesignToHtmlPanel
+        key={`${activeBusinessId}:${compositionTarget.documentId}:${compositionTarget.slide.id}`}
+        service={designService} businessId={activeBusinessId} documentId={compositionTarget.documentId} slide={compositionTarget.slide}
+        initialAsset={compositionTarget.asset} initialCopy={compositionTarget.copy} onClose={() => setCompositionTarget(null)}
+        onApply={next => {
+          if (!alive.current || (slidesOwnerIdRef.current ?? `draft:${activeBusinessId}`) !== compositionTarget.documentId) throw new Error('slide_revision_conflict');
+          setSlides(previous => reviseSlide(previous, { slide_id: compositionTarget.slide.id, expected_revision: compositionTarget.slide.revision,
+            html: next.html, mounted_assets: next.mounted_assets }));
+          toast({ title: 'Composición aplicada', description: 'Textos, formas y piezas se pueden ajustar en el Editor Visual.' });
+        }} />}
+      {deckComposerTarget && activeBusinessId && designService && <DeckComposerPanel
+        key={`${activeBusinessId}:${deckComposerTarget.documentId}:${deckComposerTarget.slide.id}`}
+        businessId={activeBusinessId} documentId={deckComposerTarget.documentId} source={deckComposerTarget.slide}
+        client={designService.client} onClose={() => setDeckComposerTarget(null)}
+        onApply={async (generated, name, draftId) => {
+          if (!alive.current || (slidesOwnerIdRef.current ?? `draft:${activeBusinessId}`) !== deckComposerTarget.documentId) throw new Error('deck_context_changed');
+          if (!/^[0-9a-f-]{36}$/i.test(draftId) || !name.trim() || name.length > 160 || generated.length < 2 || generated.length > 20) throw new Error('invalid_deck');
+          const source = slidesRef.current.find(item => item.id === deckComposerTarget.slide.id);
+          if (!source || source.revision !== deckComposerTarget.slide.revision) throw new Error('slide_revision_conflict');
+          const deck = prepareReviewedPresentation(generated, activeBusinessId), before = slidesRef.current, owner = slidesOwnerIdRef.current;
+          const payload = { id: draftId, business_id: activeBusinessId, name, slides: deck };
+          const actor = (await designService.client.session()).actorId;
+          await saveReviewedPresentation(presentationProjectPort, payload, async () => {
+            if (!alive.current || (await designService.client.session()).actorId !== actor) throw new Error('server_session_changed');
+          });
+          if (!alive.current) return;
+          setPresentations(previous => previous.some(item => item.id === draftId) ? previous : [...previous, { id: draftId, name }]);
+          if (slidesRef.current === before && slidesOwnerIdRef.current === owner) {
+            ++loadSequence.current; slidesOwnerIdRef.current = draftId; setActivePresentationId(draftId); setSlides(deck); setCurrentSlide(0);
+            try { localStorage.setItem(`xending-active-presentation-${activeBusinessId}`, draftId); } catch { /* Cloud creation succeeded. */ }
+          }
+          toast({ title: 'Presentación creada', description: `${deck.length} diapositivas revisadas. Puedes continuar editándolas desde este proyecto.` });
+        }} />}
       {generatorOpen && (
         <SlideGeneratorPanel
           currentHtml={slides[currentSlide]?.html}
@@ -1523,6 +1617,25 @@ function PresentationsPage() {
             <Sparkles className="h-4 w-4" />
             Generar IA
           </Button>
+          <Button variant="outline" size="sm" disabled={!activeBusinessId || cloudLoading}
+            onClick={() => setMountTarget({ documentId: slidesOwnerIdRef.current ?? `draft:${activeBusinessId}`, slide: structuredClone(visibleSlide) })}
+            className="gap-2">
+            <FileImage className="h-4 w-4" /> Añadir imágenes montadas
+          </Button>
+          {designService && <Button variant="outline" size="sm" disabled={!activeBusinessId || cloudLoading}
+            onClick={() => setDesignTarget({ documentId: slidesOwnerIdRef.current ?? `draft:${activeBusinessId}`, slide: structuredClone(visibleSlide) })}
+            className="gap-2"><Sparkles className="h-4 w-4" />{designService.simulation ? 'Crear pieza de prueba' : 'Crear pieza para el slide'}</Button>}
+          {designService && <Button variant="outline" size="sm" disabled={!activeBusinessId || cloudLoading}
+            onClick={() => setDesignTarget({ documentId: slidesOwnerIdRef.current ?? `draft:${activeBusinessId}`, slide: structuredClone(visibleSlide), initialScope: 'full_design' })}
+            className="gap-2"><Sparkles className="h-4 w-4" />Diseñar antes de HTML</Button>}
+          {designService?.client.html && <Button variant="outline" size="sm" disabled={!activeBusinessId || cloudLoading}
+            onClick={() => setCompositionTarget({ documentId: slidesOwnerIdRef.current ?? `draft:${activeBusinessId}`, slide: structuredClone(visibleSlide) })}
+            className="gap-2">Usar diseño para HTML</Button>}
+          {designService && <Button variant="outline" size="sm" disabled={!activeBusinessId || cloudLoading}
+            onClick={() => setDeckComposerTarget({ documentId: slidesOwnerIdRef.current ?? `draft:${activeBusinessId}`, slide: structuredClone(visibleSlide) })}
+            className="gap-2"><Presentation className="h-4 w-4" />Crear presentación completa</Button>}
+          {designService && <Button variant="ghost" size="sm" onClick={() => navigate('/free-design')}>Diseño libre</Button>}
+          {designService?.client.materials && <Button variant="ghost" size="sm" onClick={() => navigate('/materials')}>Materiales de referencia</Button>}
           <Button
             variant="outline"
             size="sm"
@@ -1622,15 +1735,7 @@ function PresentationsPage() {
       <div ref={containerRef} className="space-y-4">
         <Card className="overflow-hidden border-2 border-[#0F1419]/10">
           <CardContent className="p-0">
-            {/* Aspect ratio del slide (16:9 o carta vertical), según su tamaño real */}
-            <div className="relative w-full" style={{ paddingBottom: `${(currentDims.height / currentDims.width) * 100}%` }}>
-              <iframe
-                srcDoc={currentHtml}
-                className="absolute inset-0 w-full h-full border-0"
-                title={`Slide ${currentSlide + 1}: ${slideTitle}`}
-                sandbox="allow-same-origin allow-scripts"
-              />
-            </div>
+            <PresentationCanvas html={currentHtml} title={`Slide ${currentSlide + 1}: ${slideTitle}`} />
           </CardContent>
         </Card>
 
@@ -1807,6 +1912,11 @@ function PresentationsPage() {
       )}
     </div>
   );
+}
+
+function PresentationsPage() {
+  const { activeBusinessId } = useActiveBusiness();
+  return <PresentationsPageContent key={activeBusinessId ?? 'unassigned'} activeBusinessId={activeBusinessId} />;
 }
 
 export default PresentationsPage;

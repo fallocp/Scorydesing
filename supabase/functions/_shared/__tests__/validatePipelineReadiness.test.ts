@@ -51,8 +51,9 @@ function createMockSupabase(config: {
         select: (...args: unknown[]) => {
           mockSelect(...args);
           return {
-            eq: (_col: string, _val: unknown) =>
-              config.prompts ?? { count: 0, error: null },
+            eq: (_col: string, _val: unknown) => ({
+              eq: (_family: string, _type: unknown) => config.prompts ?? { count: 0, error: null },
+            }),
           };
         },
       };

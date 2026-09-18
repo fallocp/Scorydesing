@@ -10,6 +10,8 @@ import AssetLibraryPage from "./pages/AssetLibraryPage";
 import BrandPalettePage from "./pages/BrandPalettePage";
 import BusinessAdminPage from "./pages/BusinessAdminPage";
 import PresentationsPage from "./pages/PresentationsPage";
+import FreeDesignPage from "./pages/FreeDesignPage";
+import MaterialsPage from "./pages/MaterialsPage";
 import DesignStudioPage from "./pages/DesignStudioPage";
 
 function App() {
@@ -41,6 +43,8 @@ function AuthenticatedApp() {
       <Route path="/admin" element={<BusinessAdminPage />} />
       <Route path="/admin/business" element={<BusinessAdminPage />} />
       <Route path="/presentations" element={<PresentationsPage />} />
+      <Route path="/free-design" element={<FreeDesignPage />} />
+      <Route path="/materials" element={<MaterialsPage />} />
       <Route path="/design-studio" element={<DesignStudioPage />} />
       <Route path="/library" element={<ContentLibraryPage />} />
       {/*

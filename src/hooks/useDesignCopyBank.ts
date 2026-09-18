@@ -14,6 +14,7 @@
 import { useMemo } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { toJson } from '@/integrations/supabase/json';
 import { useActiveBusiness } from './useActiveBusiness';
 import {
   useGeneratedIdeas,
@@ -106,18 +107,13 @@ export function useSaveBankCopies() {
           cta: c.cta,
           image_suggestion: c.imageSuggestion ?? null,
           status: 'generated',
-          // Design-Studio meta lives in piece_v2 (JSONB); cast because the
-          // column's TS type describes the multichannel shape.
-          piece_v2: meta as unknown as GeneratedIdeaRow['piece_v2'],
+          piece_v2: toJson(meta),
         } satisfies Omit<GeneratedIdeaRow, 'id' | 'created_at'>;
       });
 
-      // Cast: the generated Supabase types predate the `piece_v2` column, so
-      // inserts carrying it must be cast (same pattern used elsewhere).
       const { data, error } = await supabase
         .from('generated_ideas')
-        // deno-lint-ignore no-explicit-any
-        .insert(rows as any)
+        .insert(rows)
         .select();
       if (error) throw new Error(error.message);
       return data as GeneratedIdeaRow[];
@@ -172,8 +168,7 @@ export function useUpdateBankMeta() {
       };
       const { error } = await supabase
         .from('generated_ideas')
-        // deno-lint-ignore no-explicit-any
-        .update({ piece_v2: merged } as any)
+        .update({ piece_v2: toJson(merged) })
         .eq('id', params.id);
       if (error) throw new Error(error.message);
       return merged;
