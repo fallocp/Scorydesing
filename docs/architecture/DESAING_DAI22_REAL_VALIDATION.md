@@ -2,6 +2,8 @@
 
 Estado: en curso. Esta etapa contrasta la aplicación y los servicios reales; las pruebas simuladas anteriores conservan su valor, pero no sustituyen esta evidencia ni la aceptación visual de Fai.
 
+La revisión posterior del [plan 2.3](./DESAING_EXPERIMENTAL_PLAN.md#1534-auditoría-de-experiencia-y-alcance-de-modelos) identificó además brechas funcionales de modelos, referencias, conversación y editor. Este documento conserva los recibos y condiciones del piloto descrito a continuación; no acredita la configuración o saldo remoto actuales ni significa que sólo falten pruebas. El cierre de producto pendiente se detalla en la sección 14.1 del plan.
+
 ## Alcance autorizado
 
 Se mantiene el negocio Xending de desarrollo, la cuenta Fai, US$5 totales, cuatro salidas de imagen y el sublímite textual/visión de US$1. No se renuevan ventanas ni se amplían cuotas. Las lecturas, recuperación y reutilización de archivos guardados no generan imágenes. La comparación administrativa de dos imágenes continúa bloqueada porque sólo queda una salida.

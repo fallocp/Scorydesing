@@ -1,0 +1,51 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import {createRequire} from 'node:module';
+import {fileURLToPath} from 'node:url';
+const require=createRequire(import.meta.url);
+const ts=require(process.env.SCORY_TYPESCRIPT_PATH||'typescript');
+const src=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../src');
+const cache={};
+function load(file){
+ if(cache[file])return cache[file].exports;
+ const m={exports:{}};cache[file]=m;
+ const output=ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}}).outputText;
+ new Function('module','exports','require',output)(m,m.exports,id=>load(path.resolve(path.dirname(file),id+'.ts')));
+ return m.exports;
+}
+const data=load(path.join(src,'data.ts')), c=load(path.join(src,'demo-controller.ts'));
+let s={...data.initialState};
+s=c.updateField(s,'idea','Quiero una historia de cables');
+s=c.updateField(s,'headline','Texto literal aprobado de prueba');
+s=c.reduceDemo(s,'start');
+s=c.reduceDemo(s,'step','1');
+s=c.reduceDemo(s,'format','ig-story');
+s=c.reduceDemo(s,'nav','library');s=c.reduceDemo(s,'nav','create');
+assert.equal(s.idea,'Quiero una historia de cables');
+assert.equal(s.headline,'Texto literal aprobado de prueba');
+assert.equal(s.formatId,'ig-story');
+assert.equal(s.step,1);
+assert.equal(s.references.length,1);
+assert.equal(data.imageFormats.find(f=>f.id==='facebook').dimensions,'1200 × 628');
+assert.equal(data.imageFormats.find(f=>f.id==='linkedin').dimensions,'1200 × 628');
+assert.equal(data.imageFormats.find(f=>f.id==='banner').dimensions,'1920 × 1080');
+assert.equal(data.formatsFor('carousel')[0].dimensions,'1024 × 1024');
+assert.equal(c.reduceDemo(s,'format','unregistered').formatId,s.formatId);
+assert.equal(c.reduceDemo(s,'step','99').step,s.step);
+assert.equal(c.reduceDemo(s,'nav','unknown').view,s.view);
+s=c.reduceDemo(s,'use-reference','campaign');s=c.reduceDemo(s,'use-reference','proposal');
+assert.equal(s.references.length,3);
+const denied=c.reduceDemo(s,'use-reference','presentation');assert.equal(denied.references.length,3);assert.match(denied.notice,/3 referencias/);
+s=c.updateReferenceRole(s,s.references[0].id,'Estilo');assert.equal(s.references[0].role,'Estilo');
+s=c.reduceDemo(s,'text-mode','none');assert.equal(s.headline,'Texto literal aprobado de prueba');
+s=c.reduceDemo(s,'show-example');assert.equal(s.resultVisible,true);
+s=c.reduceDemo(s,'demo-edit');assert.match(s.notice,/no ejecuta generación/);
+assert.equal(c.escapeHtml('<script>"x" & \'y\'</script>'),'&lt;script&gt;&quot;x&quot; &amp; &#39;y&#39;&lt;/script&gt;');
+let modules=0;
+function walk(dir){for(const entry of fs.readdirSync(dir,{withFileTypes:true})){const file=path.join(dir,entry.name);if(entry.isDirectory())walk(file);else if(/\.tsx?$/.test(file)){
+ const r=ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext,jsx:ts.JsxEmit.ReactJSX},fileName:file,reportDiagnostics:true});
+ assert.equal((r.diagnostics||[]).filter(d=>d.category===ts.DiagnosticCategory.Error).length,0,'Syntax diagnostic: '+file);modules++;
+}}}
+walk(src);
+console.log('PASS: demo state, continuity, catalog, reference limit, input escaping and TypeScript syntax for '+modules+' modules. Not a full React typecheck/build.');

@@ -1,0 +1,2 @@
+/* Standalone demo only. Do not import this reset into the existing product. */
+html,body,#root {margin:0;min-height:100%;} body {background:#f1f6fd;}

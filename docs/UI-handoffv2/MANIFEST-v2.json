@@ -1,0 +1,426 @@
+{
+  "package": "ScoryDesign-UI-Handoff-v2",
+  "status": "Documentacion actualizada; demo historica sin cambios; implementacion pendiente",
+  "files": [
+    {
+      "path": "AGENTS.md",
+      "bytes": 1527,
+      "sha256": "8d7087f423f169b255a4b415b073cd81abf20e77d2773525fb516ec161a79a70"
+    },
+    {
+      "path": "README.md",
+      "bytes": 4913,
+      "sha256": "8bcc0a6196bd783ae1c7b3d701d28a000fe24333deeb68ea1c1dbe213f5d0feb"
+    },
+    {
+      "path": "docs/DISCREPANCIAS_Y_ESTADO.md",
+      "bytes": 5118,
+      "sha256": "8fb201a3fb83ba393b6f74f58ab8781fffc8b91dbceec67e5fc4f7a8ee36c2b0"
+    },
+    {
+      "path": "docs/DISENO_MAESTRO.md",
+      "bytes": 8019,
+      "sha256": "91c2c0fb5b6fdd2ace4bd20b4bbc794b467a555aa6d262fce78cbe84aa93fcec"
+    },
+    {
+      "path": "docs/INTEGRACION.md",
+      "bytes": 5401,
+      "sha256": "1674b86dd730438320249b463c041bc67401b0e5675728ccd0f5124c4cef5116"
+    },
+    {
+      "path": "docs/MAPA_DE_PANTALLAS.md",
+      "bytes": 19655,
+      "sha256": "0a860e723d2b7f8e17eb93f21e9a6692f0d637d08a2a9fb0c26ef8387733dbd1"
+    },
+    {
+      "path": "docs/PLAN_DE_FLUJO_VIGENTE.md",
+      "bytes": 18079,
+      "sha256": "80152e5ca2dc9697e17dd2d80a27580c3b9f08b620400fd6e632cab533dfec9a"
+    },
+    {
+      "path": "docs/PROMPT_CODEX.md",
+      "bytes": 5630,
+      "sha256": "9c2ccda8da252513a947d3d27bed35bffbf6f023a0b294a760a2e5c2a9a976f8"
+    },
+    {
+      "path": "docs/REFERENCIAS_VISUALES.md",
+      "bytes": 3079,
+      "sha256": "5b4009e159948267d1c955cbf0570e91d3b94736fb1e0ddaa9bb7cf4dc824472"
+    },
+    {
+      "path": "docs/VALIDACION.md",
+      "bytes": 2364,
+      "sha256": "1b91ab27528b418a7694fb403166550490c26dd94e4944b3d60c5d439de49919"
+    },
+    {
+      "path": "docs/validacion-documental-v2.json",
+      "bytes": 1193,
+      "sha256": "797dbc72b14ec827fc39aada08357ca4cc9c9bf185426ce5f14ea07808d8a875"
+    },
+    {
+      "path": "legacy/LEEME.md",
+      "bytes": 560,
+      "sha256": "865e81f4f3fb88275764a90726937b379a1211c90f492ccbc3c06953cf8436bd"
+    },
+    {
+      "path": "legacy/demo-v1/.gitignore",
+      "bytes": 30,
+      "sha256": "3a3bcf768c25d0483b1e4b81f5a2879def4f8160c994929ae3a997511dbd84ae"
+    },
+    {
+      "path": "legacy/demo-v1/AGENTS.md",
+      "bytes": 1205,
+      "sha256": "a869bad3dfc78e58cb7e619b2926fde110abe0f608a3f4b811586bffadee44e0"
+    },
+    {
+      "path": "legacy/demo-v1/MANIFEST.json",
+      "bytes": 9348,
+      "sha256": "31220f499590a986ce12376caf302f277455c25a255cb9d89029056820eb275c"
+    },
+    {
+      "path": "legacy/demo-v1/README.md",
+      "bytes": 6314,
+      "sha256": "8ed6926b0bd84adb2a70512977edbb721603e9ad5bb1d7bbb87258be7504bed3"
+    },
+    {
+      "path": "legacy/demo-v1/ScoryDesign-preview.html",
+      "bytes": 160418,
+      "sha256": "9a0a122870fecb71e0cb45821a816d5c79d09b25a6d2215e2d2a7d5c88ff335b"
+    },
+    {
+      "path": "legacy/demo-v1/docs/DISENO_MAESTRO.md",
+      "bytes": 6877,
+      "sha256": "fef4fe8f35c4d0efcd6c880c99070bdaaf59c97c2fa35a0a0e5b53b2059424da"
+    },
+    {
+      "path": "legacy/demo-v1/docs/INTEGRACION.md",
+      "bytes": 5452,
+      "sha256": "46ae85dddfd7cd4c465288596843fa4ac46ea2e93e4f0fcf1b1101658ee12b23"
+    },
+    {
+      "path": "legacy/demo-v1/docs/MAPA_DE_PANTALLAS.md",
+      "bytes": 6738,
+      "sha256": "a9cfaabcb7766ce0d3be17093ee76f2b395d250467378830e52769b19bb29316"
+    },
+    {
+      "path": "legacy/demo-v1/docs/PROMPT_CODEX.md",
+      "bytes": 6596,
+      "sha256": "f322adb3d0eb8909532160de67c85fc257d28243fe851fd7e0c54245a9baedaf"
+    },
+    {
+      "path": "legacy/demo-v1/docs/VALIDACION.md",
+      "bytes": 4174,
+      "sha256": "1d8dc49a97df75dcb5eaed40f3354f6e671ddd17df5e911a07a654232254ce4f"
+    },
+    {
+      "path": "legacy/demo-v1/docs/qa-results.json",
+      "bytes": 3894,
+      "sha256": "b132277c935c62ec52965322fc542b5c4c0eeb8afe05782a3902456b1bea67e1"
+    },
+    {
+      "path": "legacy/demo-v1/index.html",
+      "bytes": 319,
+      "sha256": "a11bf259fce0eae4a0f8dbd5d0ff3172f0f58562ebb0b37d855d43523761b3db"
+    },
+    {
+      "path": "legacy/demo-v1/package.json",
+      "bytes": 609,
+      "sha256": "55a789090422381e2aec50eea213a65cc6fdfedb70384dca48533a4f1d7dea0d"
+    },
+    {
+      "path": "legacy/demo-v1/preview-captures/brand-1440.png",
+      "bytes": 278161,
+      "sha256": "e2eb4a14548346744a82e23f1d625ed4b22689564d36e57057fc52672db62f1a"
+    },
+    {
+      "path": "legacy/demo-v1/preview-captures/create-1440.png",
+      "bytes": 379571,
+      "sha256": "7220a80b012a70b8a4a0028d820bb35148c82a984904199572a5fc8a0fd8d5d2"
+    },
+    {
+      "path": "legacy/demo-v1/preview-captures/editor-1440.png",
+      "bytes": 487547,
+      "sha256": "8bca8a1ea89b9815346cfd81ce78546cc7b438f2d25279d08aae80a5577c8313"
+    },
+    {
+      "path": "legacy/demo-v1/preview-captures/home-1440.png",
+      "bytes": 700630,
+      "sha256": "14c39cec794ca5fe8397fc35f5020543b023e62992319d428968219420a282ea"
+    },
+    {
+      "path": "legacy/demo-v1/preview-captures/home-390.png",
+      "bytes": 337856,
+      "sha256": "7068ed950a3992cfb9be4e650a034c4e4b127d55b8d30a4d3e2fcca922fb6a0d"
+    },
+    {
+      "path": "legacy/demo-v1/preview-captures/icons-1440.png",
+      "bytes": 413727,
+      "sha256": "1e097ac2095eb4947a1893f79f7db463b46a5ba2575e1b34bd45c62ffe5ed21b"
+    },
+    {
+      "path": "legacy/demo-v1/preview-captures/library-1440.png",
+      "bytes": 577359,
+      "sha256": "bd832c6027daf8ad1cbba73ac0c2e5ceca9251fbeb1e3b7913832921c07f3a70"
+    },
+    {
+      "path": "legacy/demo-v1/scripts/build-offline.mjs",
+      "bytes": 7272,
+      "sha256": "529669597dda0e51fd2c54baf3fd64f46bb5cbc7a68bd80ce0811877c0a0b74a"
+    },
+    {
+      "path": "legacy/demo-v1/src/App.tsx",
+      "bytes": 2157,
+      "sha256": "0a2f8b04023d30de5757eb5febdf7623347225b894abf153316718039c5b93d6"
+    },
+    {
+      "path": "legacy/demo-v1/src/DesignView.tsx",
+      "bytes": 729,
+      "sha256": "91ed5dfd459d91d1b8f2755ea3047633ec8ff108b87609b00b9ceefdb476a02d"
+    },
+    {
+      "path": "legacy/demo-v1/src/assets/ASSETS.md",
+      "bytes": 659,
+      "sha256": "c557b66fe6a093bd1d98e112e89e71d1d72563e8e4b686ee5903ff48b44db3bf"
+    },
+    {
+      "path": "legacy/demo-v1/src/assets/building.webp",
+      "bytes": 1368,
+      "sha256": "fcb460ebc25bd1ca60b3e096d4a2003b313e0ffae7c590cb6e150c9afcd596aa"
+    },
+    {
+      "path": "legacy/demo-v1/src/assets/cable.webp",
+      "bytes": 6524,
+      "sha256": "857a37ea2ac72150efdd0bc5ab5e081b6ff149f212cb6290df84353c4c1d7ca5"
+    },
+    {
+      "path": "legacy/demo-v1/src/assets/campaign.webp",
+      "bytes": 5628,
+      "sha256": "f25035a80e0b14da9b8e6494f47f0964fb76e2a28796a8d548629b135b20ed22"
+    },
+    {
+      "path": "legacy/demo-v1/src/assets/hero.webp",
+      "bytes": 17918,
+      "sha256": "cb2afbc00472c2a7afe0d76264b0ee92b9e2b4c82f5043bc27a99fbbad073c19"
+    },
+    {
+      "path": "legacy/demo-v1/src/assets/reel.webp",
+      "bytes": 4606,
+      "sha256": "7404671b1b9961cef41da03666749e8f0f05f157c137c6f27380b47151b3b038"
+    },
+    {
+      "path": "legacy/demo-v1/src/data.ts",
+      "bytes": 3490,
+      "sha256": "4fb7cd5f444a1e8a49a071e080d2779d94c9df6f3f51647c3b575d86c5513767"
+    },
+    {
+      "path": "legacy/demo-v1/src/demo-assets.ts",
+      "bytes": 48365,
+      "sha256": "bf509c14dd4bfafa7d4c9a7e6d41208527d89269976e2b6ea18c13767d19fd61"
+    },
+    {
+      "path": "legacy/demo-v1/src/demo-controller.ts",
+      "bytes": 8550,
+      "sha256": "5bc0b3befbc7e18305e37a52d2cc677d7d0b27b3dade5a43a6e2fdebdd6ae3ae"
+    },
+    {
+      "path": "legacy/demo-v1/src/integration-contract.ts",
+      "bytes": 617,
+      "sha256": "10972eb1fedc24e700f888b02fe02418c89674e3db9205e1d1f799e5bf7dc74b"
+    },
+    {
+      "path": "legacy/demo-v1/src/main.tsx",
+      "bytes": 299,
+      "sha256": "0cb41f42a8c957f4f8e437855b979ab79acae608e1a530cc0b35dfdb5437fd6f"
+    },
+    {
+      "path": "legacy/demo-v1/src/pages/Create.tsx",
+      "bytes": 9294,
+      "sha256": "a9c7dd7168c7e8ca8c15203102c50bd94c43dd2d7ec37fef5e7cf2bdf927923e"
+    },
+    {
+      "path": "legacy/demo-v1/src/pages/Editor.tsx",
+      "bytes": 3384,
+      "sha256": "8a8773d452a1f668e96d9a7223cee4c2854d333f9cc179fc401aaf17ec99c6bf"
+    },
+    {
+      "path": "legacy/demo-v1/src/pages/Home.tsx",
+      "bytes": 3431,
+      "sha256": "e08e5a3ee2e8d3aecd8a9a46d4eb3f953907ce1545b1aa2c27f17490876ce8c7"
+    },
+    {
+      "path": "legacy/demo-v1/src/pages/Library.tsx",
+      "bytes": 2966,
+      "sha256": "193daa47bb89251e18fed541f7c4fa059615c1c37f691979646c2055ad543747"
+    },
+    {
+      "path": "legacy/demo-v1/src/pages/System.tsx",
+      "bytes": 4049,
+      "sha256": "593e7b998a41006d2a1b5e59bee1148c452b33c5248bdaa1798abf85211ac7df"
+    },
+    {
+      "path": "legacy/demo-v1/src/styles/demo-page.css",
+      "bytes": 151,
+      "sha256": "ff965509ea70b15ceaa46453c8937fcc7ba97b71d5b9e1388fd79bd040897273"
+    },
+    {
+      "path": "legacy/demo-v1/src/styles/design.css",
+      "bytes": 36806,
+      "sha256": "fe395da7c05fe8e8a7b9a974f26693fcac4ce37bd420944d2d378e8d8070900d"
+    },
+    {
+      "path": "legacy/demo-v1/src/styles/tokens.css",
+      "bytes": 778,
+      "sha256": "1b2363a3e85af9cd2f41ebc7e93cf0940ded60128c0cc045dde30b7ac064b06a"
+    },
+    {
+      "path": "legacy/demo-v1/src/types.ts",
+      "bytes": 1298,
+      "sha256": "4fae58f5e44123f4b14b38e753ac36c3f019864ee8dcb6c50f9a481a41305d2b"
+    },
+    {
+      "path": "legacy/demo-v1/src/ui/Icons.tsx",
+      "bytes": 4411,
+      "sha256": "b15af6cba277b632c8c54eda0b0a95b36f43d02f783fb5e7ac169f73e17140f2"
+    },
+    {
+      "path": "legacy/demo-v1/src/ui/Shell.tsx",
+      "bytes": 4142,
+      "sha256": "f27e638633a9cac4efe72a1ca26b70c934c2671d231dcb49fb6b0de98db34610"
+    },
+    {
+      "path": "legacy/demo-v1/tests/demo-controller.test.mjs",
+      "bytes": 3373,
+      "sha256": "0f0681e5a6249dce4d859595cfd64d4663cddd2e1b0fc44998258d8fcee15d4b"
+    },
+    {
+      "path": "legacy/demo-v1/tsconfig.json",
+      "bytes": 398,
+      "sha256": "92e5396cc735e536da9b093a78f65d21b28b2d94f5191f8ec31bb32049bb2071"
+    },
+    {
+      "path": "reference/aprobado/01-encargo-iconos-y-chat.jpeg",
+      "bytes": 391480,
+      "sha256": "cc14167ed146c8c837cb7b816ca312238fc8aefa85c403c23e281275478ab91a"
+    },
+    {
+      "path": "reference/aprobado/02-formatos-iconos-y-detalles.jpeg",
+      "bytes": 384755,
+      "sha256": "a44fe92992a93dba243b9fbd19594ef0aeaace6adbca6cf3f9a54c2a3c33857f"
+    },
+    {
+      "path": "reference/aprobado/03-encargo-reconfirmado.png",
+      "bytes": 1667898,
+      "sha256": "5ad3cbfed1dfae1804887e4e6b4704793240785f3026f2ce42dc4534514081e8"
+    },
+    {
+      "path": "reference/historico-v1/00-base-estetica.png",
+      "bytes": 1576621,
+      "sha256": "9cc04d63f8b0710fbb74e067e39efcfaa79a095a61550558beaab6cbc1ad090d"
+    },
+    {
+      "path": "reference/historico-v1/01-inicio-anotado.png",
+      "bytes": 1729989,
+      "sha256": "e6f6eaaa0f616518975f8c6df76b9eb89c0f2320f8f15b4ae9222c770b6597b7"
+    },
+    {
+      "path": "reference/historico-v1/02-encargo.png",
+      "bytes": 1670937,
+      "sha256": "be8ddefe8ef5f56216c129245f2082cc6820e206f222c4fee8910c3b8abdaed4"
+    },
+    {
+      "path": "reference/historico-v1/03-formatos.png",
+      "bytes": 1651991,
+      "sha256": "cea4f6b16f8b6a642c46eb805dbfdc5cbaa5748fe37127f7080fe1c2a87b3468"
+    },
+    {
+      "path": "reference/historico-v1/04-texto.png",
+      "bytes": 1659088,
+      "sha256": "401328540967d57d419cf6f93a5c7239be6a867eef3537b5b5b356fcf2309972"
+    },
+    {
+      "path": "reference/historico-v1/05-marca.png",
+      "bytes": 1602425,
+      "sha256": "13b33bd8e2ba0f35fae740c87c0f4516cd39fd6ca817c820e2b7c8de51376698"
+    },
+    {
+      "path": "reference/historico-v1/06-referencias.png",
+      "bytes": 1643898,
+      "sha256": "fe5545f3adaa9ec4ca67df956fe68e4bca3b816e632f2ba695301e198d624367"
+    },
+    {
+      "path": "reference/historico-v1/07-propuesta.png",
+      "bytes": 1780433,
+      "sha256": "ce309c7bf077faacd5dd5c1e391ab51829fc9ca597f48219fe7100a62d0651ca"
+    },
+    {
+      "path": "reference/historico-v1/08-variantes.png",
+      "bytes": 1689658,
+      "sha256": "92b2b664668afa21f72b7d4c56eb13574d7a3e183a2be3740c3d6a9cf081ec51"
+    },
+    {
+      "path": "reference/historico-v1/09-edicion.png",
+      "bytes": 1750539,
+      "sha256": "d6778fb95d89964ca378f1bd9146b40a09822085c9b3ad84a62355e840f4bfa2"
+    },
+    {
+      "path": "reference/historico-v1/10-biblioteca.png",
+      "bytes": 1753135,
+      "sha256": "f2c646e3de330a864f506d3cff77f44c5541173aadafc650fd36ad0526d999d6"
+    },
+    {
+      "path": "reference/historico-v1/11-editor.png",
+      "bytes": 1739971,
+      "sha256": "d9befed59288ffc8ef2a33ef16bb895ac187495bdd3debea62f7e7f8123618ad"
+    },
+    {
+      "path": "reference/historico-v1/flujo-original.pdf",
+      "bytes": 39114234,
+      "sha256": "dbd9e66d26677f26fcb3119fbfe5b928771461cfd31513451e258030c2bfc786"
+    },
+    {
+      "path": "reference/propuestas-por-revisar/01-inicio-y-entrada-creativa.png",
+      "bytes": 1762190,
+      "sha256": "3159d0c1c544dd1ad06955ea775d9e7df5db0a889dc06e38fbb51d80147f2004"
+    },
+    {
+      "path": "reference/propuestas-por-revisar/12-preparacion-de-carrusel.png",
+      "bytes": 1775226,
+      "sha256": "0405f9603abb0046ba6638d2885bee4459ccf2bccef740a3290a6529c5c007a0"
+    },
+    {
+      "path": "reference/propuestas-por-revisar/13-resultados-del-carrusel.png",
+      "bytes": 1821779,
+      "sha256": "9e612f48712a2e7a7a0f6f8d88fd0cfcc7d3580e504c283e1feba8ecb48092ec"
+    },
+    {
+      "path": "reference/propuestas-por-revisar/14-estructura-de-presentacion.png",
+      "bytes": 1772142,
+      "sha256": "0a2a74d56ce82b33c0d460927e7dd03699ca54ff0681bd7916cd53b04404f70c"
+    },
+    {
+      "path": "reference/propuestas-por-revisar/15-editor-de-presentacion.png",
+      "bytes": 1813002,
+      "sha256": "0fc46162bfc6e7e516753ccbe178972ae1ec9858923dda745f2e8154b3b75dd5"
+    },
+    {
+      "path": "reference/propuestas-por-revisar/16-portada-linkedin.png",
+      "bytes": 1705035,
+      "sha256": "66101e407b50cb20eb98d6f0e6f4c3e1bdbdbfe40636f838991a71bfc02c7df9"
+    },
+    {
+      "path": "reference/propuestas-por-revisar/17-crear-estilo-nuevo.png",
+      "bytes": 1825217,
+      "sha256": "4578c81ea0a0ffafe039a793814fe37a8881f42a558e59058912cc5734aa4101"
+    },
+    {
+      "path": "reference/propuestas-por-revisar/18-guardar-y-retomar.png",
+      "bytes": 1823590,
+      "sha256": "2c08878932df40bac6c863aa68462220cba8496ff1b1f4eac5827e317dfac050"
+    },
+    {
+      "path": "reference/propuestas-por-revisar/19-adaptacion-movil.png",
+      "bytes": 1714916,
+      "sha256": "627b76a579a180668885e426e8491dd4976bd8a6dfad75b875bd1197dbb797f6"
+    }
+  ]
+}

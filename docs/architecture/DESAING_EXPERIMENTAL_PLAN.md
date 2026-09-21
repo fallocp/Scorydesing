@@ -1,16 +1,22 @@
 # DesAIng — Plan maestro adaptado a la arquitectura real de ScoryDesign
 
-**Versión:** 2.2  
-**Fecha:** 18 de septiembre de 2026  
+**Versión:** 2.3
+
+**Fecha:** 19 de septiembre de 2026
 **Rama prevista del experimento:** `experimental/desaing`; checkout observado en 15.31: `experimental/desaing`, mismo commit `7829a2f`, cambios sin commit. Se conservó el checkout encontrado durante esta etapa.  
 **Base verificada:** `7829a2f` (`feat/xending-usa`)  
 **Documento base:** `docs/ScoryDesign_Plan_Integracion_Experimental_v2.md`, versión interna 2.0, conservado sin cambios.  
-**Alcance vigente:** documento base más los acuerdos posteriores de Fai consolidados en esta versión 2.2.  
-**Estado:** implementación compartida y administración del prompt maestro entregadas hasta **15.32**; validación real en curso en **15.33**. El acceso normal de Fai pasó siete comprobaciones JWT de lectura. Una llamada real produjo cinco ideas guardadas; repetir la solicitud confirmada recuperó el mismo resultado sin otro intento ni consumo. Su estimación registrada es **US$0.008366**, no una factura. Fai aprobó B medium y esa decisión quedó registrada en revisión 12, conservando tres imágenes y US$3 reservados. Se mantienen **US$5 totales**, sublímite de texto/visión de US$1, una salida de imagen y los vencimientos existentes. La prueba HTML está preparada y pendiente de la confirmación explícita de envío a OpenAI exigida por la revisión automática de permisos. Siguen abiertas visión/HTML reales, concurrencia remota y conciliación histórica de imagen de Responses. El frontend de producción no se desplegó.
+**Alcance vigente:** documento base más los acuerdos posteriores de Fai consolidados en esta versión 2.3.
 
-**Último hito:** login normal y lecturas reales, seguidos por cinco ideas textuales en una sola llamada y recuperación idempotente. La prueba no generó imágenes, modificó HTML ni publicó prompts. La consulta de onboarding y la prueba del planificador no acreditan todavía todos los recorridos visuales completos. Alcance y evidencia en **15.33** y [DAI-22: validación real](./DESAING_DAI22_REAL_VALIDATION.md).
+**Estado:** controles de modelo/calidad implementados en **15.35**, conversación visual, texto resuelto y marca en **15.36**, y generación inicial/feedback de Design Studio conectados localmente al motor compartido en **15.38**. **15.39** conecta carruseles, News y FX; adapta los generadores de biblioteca y la compatibilidad del pipeline al mismo ejecutor. Image Stock se retira por decisión de Fai, conservando biblioteca y recursos guardados. **15.40** integra el editor completo en conversión y creación HTML y conecta piezas aprobadas reutilizables. **15.41** reúne conversación, generación/corrección de imágenes y HTML en un espacio compartido por Presentaciones y diseño libre. La implementación nueva es local: falta despliegue coordinado y validación real.
 
-> **Objetivo:** mejorar los módulos que ScoryDesign ya tiene mediante capacidades compartidas de comprensión de materiales, exploración, generación/edición de imágenes y composición HTML. Onboarding, Presentaciones y diseño libre usan esas capacidades con sus propios contextos. Se reutilizan Design Studio, carruseles, Image Stock, biblioteca, editor y el patrón de composición de Xending News.
+**Última decisión de producto:** reutilizar el editor completo de Presentaciones; crear imágenes o HTML desde texto y conversación, con referencias opcionales que pueden añadirse después; conservar GPT Image 2, Flare 2.5 y Sunburst para comparación real. Fai confirmó Low, Medium y High seleccionables en UI, junto al modelo, mediante desplegables arriba de cada proceso. Flare/Medium es la selección inicial prevista. Elegir un modelo en una comparación no cambia el predeterminado global.
+
+**Prioridad acordada posteriormente:** terminar la transición de Design Studio al núcleo compartido de generación y edición. Los selectores comunes no equivalen a un motor unificado. Se conservan las pantallas y sus opciones; si permanecen varias funciones de entrada, deben delegar la ejecución al mismo núcleo. Acuerdo registrado en **15.37** y tarea concreta en **14.2**.
+
+**Evidencia histórica:** el login normal, cinco ideas reales con recuperación y aprobación de B medium constan en **15.33** y [DAI-22](./DESAING_DAI22_REAL_VALIDATION.md). Los importes, reservas y ventanas allí registrados corresponden a aquellos recibos. La auditoría local posterior encontró cambios en la configuración de generación manual; no consultó de nuevo la política remota ni acredita saldo o vigencia actuales. Esta revisión documental no modifica servicios, presupuesto ni autorización de envíos.
+
+> **Objetivo:** mejorar los módulos que ScoryDesign ya tiene mediante capacidades compartidas de comprensión de materiales, exploración, generación/edición de imágenes y composición HTML. Onboarding, Presentaciones y diseño libre usan esas capacidades con sus propios contextos. Se reutilizan Design Studio, carruseles, biblioteca, editor y el patrón de composición de Xending News. Image Stock deja de ser un destino del producto según el acuerdo de 15.39.
 
 ## 0. Alcance confirmado y estado de inventario
 
@@ -36,6 +42,18 @@ El laboratorio valida por separado modelos de imagen y calidad del flujo HTML. L
 - Tareas reordenadas por dependencias, manteniendo IDs DAI, y pruebas por recorrido.
 
 Los acuerdos posteriores de Fai prevalecen sobre diferencias con el documento base. El número 2.2 corresponde al plan técnico; no implica que el archivo base haya cambiado de versión.
+
+### Cambios consolidados en 2.3
+
+- El editor completo de Presentaciones es la base compartida: texto, tipografía, imágenes, capas, biblioteca, HTML, revisión y exportación. El conversor experimental reducido no define el límite visual del producto.
+- Se puede empezar desde cero con una conversación, sin adjuntos ni copy aprobado inicial. Las imágenes de ejemplo son opcionales y pueden añadirse sin reiniciar la sesión.
+- Crear una imagen y crear HTML son resultados distintos dentro de la misma experiencia de referencias, instrucciones, vista y feedback. Se mantiene el camino directo existente.
+- GPT Image 2 permanece seleccionable para comparar con Flare 2.5 y Sunburst. Flare medium es el perfil habitual previsto; Sunburst es una elección manual que también puede usarse en una comparación, sin exigir un fallo previo.
+- Modelo y calidad son controles independientes: Low / Medium / High y GPT Image 2 / Flare 2.5 / Sunburst, en desplegables compartidos arriba de cada proceso. Medium es la selección inicial de calidad; el usuario puede cambiarla antes de generar.
+- La comparación real congela el mismo encargo por modelo y calidad; no genera automáticamente todas las combinaciones ni sustituye las cinco direcciones creativas por cinco pruebas de modelo.
+- Se conservan las opciones de los flujos activos. Los componentes antiguos retirados de navegación no se reactivan por cambiar el backend compartido.
+
+La revisión de 2.3 corrige el diagnóstico de «sólo falta validación real»: hay trabajo funcional pendiente. Las cifras y conclusiones de entregas anteriores se conservan como evidencia histórica, no como acreditación del recorrido completo solicitado ahora.
 
 ### DAI-00 — Inventario y rama experimental
 
@@ -124,6 +142,10 @@ Aprobar una imagen no publica un prompt. Publicar un prompt no altera piezas apr
 ### 1.5 Diseño libre: portadas, páginas y diseños especiales
 
 El usuario aporta una idea, texto, documentos o imágenes y elige ejecutar un encargo o explorar. Puede solicitar cinco propuestas, combinar aspectos, crear piezas y terminar en imagen o composición HTML editable. Se reutilizan la sesión, galería de propuestas, referencias, biblioteca, generación, editor y exportación de los otros espacios.
+
+Se permite comenzar sólo con texto y plática: «quiero una portada para…», «crea un mundo sin texto» o «ayúdame a definir la composición». No se exige una imagen de entrada. El contenido puede estar pendiente, ser propuesto por el agente o proceder de fuentes; antes de producir una pieza con texto se identifica qué contenido es literal y qué redacción fue autorizada. «Sin texto» es un resultado válido. «Lo que viene en las referencias» se resuelve como instrucción para leer esas fuentes, nunca como copy que deba dibujarse.
+
+Añadir ejemplos visuales después conserva conversación, marca, lienzo y decisiones. Un ejemplo puede aportar composición, objeto, estilo o contenido. La sesión permite pasar de idear a generar imagen, editar una pieza o crear HTML sin volver a copiar el encargo entre formularios.
 
 Una página o portada tiene su propio documento, lienzo y versión; no se fuerza a pertenecer a una presentación. Publicar una web no forma parte implícita de generar su diseño/HTML. Aprobar una portada tampoco modifica el perfil de marca ni el prompt maestro.
 
@@ -247,13 +269,17 @@ Aceptar el cambio conserva documento/slide, imagen y versión, elementos selecci
 
 | Capacidad/perfil conceptual | Modelo | Política inicial |
 |---|---|---|
-| `baseline` de imagen | `gpt-image-2` | Default vigente hasta aprobación; conservar request actual. |
-| `flare_candidate` | `gpt-image-2.5-flare` | Candidato estándar; calidad separada del perfil. |
-| `sunburst_rescue` | `gpt-image-2.5-sunburst` | Rescate manual; calidad y presupuesto explícitos. |
+| `baseline` de imagen | `gpt-image-2` | Conservar como opción y referencia de comparación real; no retirarlo al adoptar Flare. |
+| `flare_candidate` | `gpt-image-2.5-flare` | Perfil habitual previsto con calidad medium; selección y despliegue efectivos deben verificarse por flujo. |
+| `sunburst_rescue` | `gpt-image-2.5-sunburst` | Alternativa manual para comparación o trabajo exigente; conserva acción, base y calidad elegidas. |
 | HTML inicial/refinamiento | Configuración `SLIDE_MODEL`/`SLIDE_FIX_MODEL` | Fallback actual de código `gpt-5.4-mini`; verificar configuración desplegada. |
 | Conversación Responses | Modelo compatible a validar | Elegir mediante pruebas de comprensión, herramientas, costo y continuidad. |
 
 El catálogo declara acciones, calidades, tamaños, formatos, transparencia y límites por modelo y snapshot. Los nombres son conceptuales, no configuración ya implementada. El frontend nunca manda un modelo libre. Un perfil no disponible se bloquea; no hay sustitución silenciosa.
+
+**Controles de producto:** desplegables arriba de cada proceso con GPT Image 2 / Flare 2.5 / Sunburst 2.5 y Low / Medium / High independientes. Flare/Medium es la selección inicial prevista. Las elecciones explícitas de calidad ya disponibles se conservan. La preferencia se guarda por negocio/proceso; no altera otros negocios ni trabajos ya enviados. Cambiar selección no genera imágenes ni cambia de API. La UI muestra la combinación efectiva antes de enviar y en cada resultado; las opciones no disponibles se identifican sin sustituirlas silenciosamente.
+
+**Integración:** la implementación local de **15.35** conecta los controles con los generadores habituales y el experimental, valida perfiles/calidades y preserva las operaciones guardadas. La activación del servidor y la comparación real siguen pendientes. Reutilizar una escena FX/News o mover una imagen en HTML sigue sin invocar al generador. Los modelos de HTML y conversación permanecen configurados por su propia capacidad.
 
 El modelo de visión/código ya interpreta píxeles para construir HTML. GPT Image 2.5 también interpreta referencias, pero su resultado es una imagen: sirve para assets y propuestas visuales, no para devolver HTML o recuperar las capas originales de un bitmap. Mejorar la fidelidad HTML exige evaluar su modelo, instrucciones, contexto y composición.
 
@@ -366,7 +392,7 @@ Solicitar una corrección no vuelve a generar cinco propuestas. Si una falla, co
 
 ### 3.9 Borrador, dirección y resultado final
 
-Flujo de exploración: **low → aprobar dirección → autorizar medium → revisar resultado final**. La calidad es independiente del modelo y de las dimensiones. El camino directo conserva su perfil autorizado; no se impone un borrador cuando el encargo ya está definido.
+Flujo de exploración por etapas: **low → aprobar dirección → autorizar medium → revisar resultado final**. La calidad es independiente del modelo y de las dimensiones. El camino directo permite el modelo y calidad elegidos desde el primer resultado; no se impone un borrador cuando el encargo ya está definido. Low, Medium y High se seleccionan explícitamente y se validan contra las capacidades del servidor; elegir Sunburst o aprobar una dirección no cambia calidad. Los trabajos históricos conservan la promoción medium y su base exacta.
 
 | Acción visible | Efecto | Generaciones nuevas |
 |---|---|---|
@@ -413,6 +439,8 @@ Regenerar crea otro candidato desde el brief/prompt. No usa edición sobre la an
 
 ### 4.3 Sunburst
 
+Sunburst puede elegirse manualmente para ejecutar o comparar un encargo aunque no exista un intento anterior fallido. Selección de modelo, comparación y cambio del default son decisiones distintas. Esta ampliación no habilita fallback automático.
+
 Antes de escalar, descartar archivo ausente, copy incorrecto, formato inválido, exportación defectuosa o referencia no transmitida.
 
 - No escalar por timeout, rate limit o bloqueo de seguridad.
@@ -438,6 +466,23 @@ Comparar solo operaciones/configuraciones compatibles. Si el flujo actual no tra
 
 ### 5.3 Corrida
 
+**Primera comparación de producto solicitada en 2.3:** elegir un caso concreto, preferentemente el de dos referencias de Fai con su texto ya resuelto, y preparar la misma entrada para los tres modelos. La tabla es un protocolo propuesto; no representa generaciones ejecutadas.
+
+| Calidad | GPT Image 2 | Flare 2.5 | Sunburst 2.5 |
+|---|---|---|---|
+| Medium | Una salida | Una salida | Una salida |
+| High, opcional | Una salida | Una salida | Una salida |
+
+Una fila completa supone tres imágenes; ambas, seis. Se ejecutan sólo las celdas seleccionadas dentro de la capacidad y alcance vigentes. No se multiplica automáticamente por las cinco ideas ni por ambas APIs. Los tamaños deben ser compatibles con todos los perfiles comparados y preservar el formato del encargo.
+
+Low también es seleccionable y puede compararse como una tercera fila independiente. Las nueve combinaciones posibles no constituyen un lote automático ni un permiso para nueve renders.
+
+Cada celda parte de las mismas entradas originales: encargo efectivo, copy, marca y versión, archivos/bytes y roles, acción, base/máscara si corresponde, tamaño, formato y fondo. No se reescribe el prompt por modelo. Para comparar Medium con High, ambas parten de ese mismo origen; generar High desde la imagen Medium mediría otra operación. El resultado del caso de texto sin referencias se prueba por separado del caso con imágenes y del caso de edición.
+
+Mantener una sola API compatible por ronda. Para comparar Image API con Responses, fijar primero modelo y calidad y registrar la ruta como otra variable. Reutilizar preparación, journal, assets y recuperación; el comparador administrativo de prompt anterior/propuesto sigue siendo otro experimento, porque allí se compara el prompt y aquí el modelo.
+
+La galería comparativa muestra resultados originales, modelo/calidad, duración, consumo informado, costo estimado o pendiente y elección de Fai. Permite inspección con nombres ocultos antes de revelar métricas. Ganar un caso no demuestra superioridad general ni cambia el default. Las reservas técnicas o un uso ausente no son precios de imagen. Las siguientes cantidades describen ampliaciones históricamente propuestas del benchmark, no un lote automático para esta comparación:
+
 - Inicial por pista/protocolo: 5 casos × 3 modelos × 1 repetición = 15 resultados.
 - Dos pistas completas con ese tamaño suman 30 resultados; no caben en un presupuesto de 15. Aprobar casos y outputs de cada pista antes de ejecutarlos.
 - Si se autoriza ampliar una pista: 5 × 3 × 3 = 45 totales en esa pista, reutilizando sus 15 solo si el protocolo fue idéntico.
@@ -449,7 +494,7 @@ Congelar prompt, copy, referencias/orden, input/máscara, tamaño, formato, cali
 
 ### 5.4 Adopción
 
-Flare solo sustituye al baseline con evidencia. Sunburst queda manual. Una imagen bonita no habilita producción.
+Flare medium es el perfil habitual previsto, conservando GPT Image 2 como alternativa y baseline de comparación. La adopción por flujo requiere comprobar referencias, calidad y resultado; debe quedar registrada separadamente de elegir una imagen ganadora. Sunburst permanece manual y disponible para las comparaciones seleccionadas. Una imagen bonita no acredita el resto de los flujos ni activa despliegues.
 
 ### 5.5 Evaluación HTML y composición, independiente del benchmark de imagen
 
@@ -561,6 +606,12 @@ Aprobar dirección, aprobar una imagen final y guardar el perfil son decisiones 
 
 Presentaciones conserva `PresentationsPage`, `SlideGeneratorPanel`, `generate-design-html` y `VisualDesignEditor`. Extraer las capacidades necesarias para que diseño libre use los mismos contratos, herramientas y editor, con un documento/lienzo propio. La composición no exige un `presentation_id` ficticio para una portada.
 
+**Editor completo como base:** reutilizar las capacidades actuales de tipografía, contenido, geometría, capas, imágenes, biblioteca, uploads, HTML, formatos, guardado y exportación. Los documentos existentes se abren sin reconvertirlos ni generar imágenes. Mantener el preset Xending y parametrizar marca/destino donde corresponda.
+
+El conversor experimental `DesignToHtmlPanel`/`presentationComposition` aporta recuperación, texto exacto por ID, referencias versionadas, espacios para assets y revisión. Esas garantías se conservan al integrarlo. Su esquema actual de cuatro fuentes, doce textos y formas básicas no debe limitar todo el editor: no reproduce siquiera Montserrat/Poppins del flujo anterior. Mantener compatibilidad con composiciones guardadas y ampliar o combinar estrategias de generación según sus capacidades, conservando sanitización, revisión, copy y manifiestos. HTML editable no significa recuperar las capas originales de un bitmap.
+
+**Una experiencia común:** conversación visible junto al lienzo, contexto compacto de marca/formato/modelo/calidad y referencias opcionales. Acciones sobre la misma selección: crear imagen desde texto o ejemplos, crear HTML, explorar ideas, editar/reutilizar una pieza, comparar y hacer editable el diseño elegido. La galería muestra una sola tarjeta por dirección con sus versiones. Las funciones avanzadas existentes siguen accesibles sin duplicar chats ni obligar a trasladar prompts entre paneles.
+
 Una nueva entrada de diseño libre es posible; reutiliza sesión, propuestas, assets y composición. El patrón de News aporta separación entre escena y contenido, reuso de imágenes y exportación. Sus reglas editoriales y estilo se mantienen como preset de Xending, sin heredarlas a otras marcas.
 
 ### 8.2 Nueva presentación conversacional
@@ -583,18 +634,21 @@ El contenido aprobado manda. El texto visto en un bitmap no sustituye cifras/cop
 
 Conservar el flujo directo y su entrada actual. Cuando el feedback requiere comparar visualmente, enviar la referencia relevante, la captura del HTML actual y el HTML de esa misma revisión. Cambios concretos de texto/posición pueden resolverse con el editor sin imagen nueva. No llamar GPT Image para mejorar únicamente el análisis de referencia o para escribir HTML.
 
+Reutilizar carga, pegado, captura y corrección contra referencia de `SlideGeneratorPanel`, incluyendo el caso sin imagen. Añadir múltiples referencias con roles y captura acorde a las dimensiones reales del documento. El refinamiento visual conserva los archivos relevantes; el ajuste de contenido conserva el copy autorizado. Generación de imagen usa esa misma experiencia de encargo/vista/feedback, enviando los bytes correspondientes al generador elegido y mostrando una versión nueva, sin convertir cada comentario en un render.
+
 Evaluar las restricciones del prompt HTML y su modelo por separado. Una corrección visual no debe forzar otra propuesta ni reabrir exploración. El mismo camino directo está disponible para portadas, páginas y diseños especiales.
 
 ### 8.4 Diseño primero
 
 ```text
-contenido + referencias
+contenido y conversación + referencias opcionales
         ↓
-Explorar diseño: propuestas visuales (cinco cuando se solicita el conjunto)
+encargo definido: generar con modelo/calidad elegidos
+o explorar: propuestas visuales (cinco cuando se solicita el conjunto)
         ↓
 Responses coordina análisis, selección, combinación o edición
         ↓
-aprobar dirección low → autorizar medium → revisar versión resultante
+revisar resultado; si se eligió low por etapas, aprobar dirección y generar medium
         ↓
 Usar diseño para HTML
         ↓
@@ -838,6 +892,58 @@ Esta versión conserva los IDs DAI para dar continuidad al trabajo anterior; su 
 
 Cada tarea se divide en cambios revisables con archivos previstos, dependencias, pruebas y evidencia. Las dependencias pueden usar servicios simulados durante desarrollo; pasar a datos/proveedores reales exige las puertas de la sección 12. Seguridad e idempotencia se aplican desde el primer flujo, aunque la verificación final del piloto tenga otro ID.
 
+### 14.1 Cierre de experiencia y comparación definido en 2.3
+
+Los IDs y entregas anteriores conservan su historial. El trabajo se organiza por resultados de producto. **15.35** implementa localmente los selectores y su transporte; **15.36** conecta conversación visual, texto literal y marca. **15.40** implementa localmente el editor completo en los dos caminos HTML y la reutilización de piezas aprobadas. **15.41** conecta esos caminos con una conversación común en Presentaciones y diseño libre. La activación remota y comparación real continúan abiertas. La tabla describe el alcance completo de cada bloque.
+
+| Bloque | Cambio concreto sobre lo existente | Resultado revisable |
+|---|---|---|
+| Modelos, calidad y referencias | Conectar catálogo/capacidades con `generate-design-image`, `generate-design-mockups` y el worker compartido; selección por operación de GPT Image 2, Flare o Sunburst y Low/Medium/High. Corregir rutas que reciben archivos pero sólo envían descripciones. | Cada consumidor activo registra el modelo/calidad reales y conserva sus opciones. Comparación preparada con las mismas entradas y sin perder baseline ni cambiar defaults al seleccionar ganador. |
+| Conversación y editor de Presentaciones | Reutilizar `SlideGeneratorPanel`, `VisualDesignEditor`, captura, biblioteca y persistencia; integrar lo útil del conversor nuevo. Contexto único de negocio/marca/perfil, archivos, copy, conversación, documento, selección y versiones. | Crear desde texto, añadir ejemplos después, producir imagen o HTML y dar feedback en la misma sesión. Conservar opciones de edición y evitar tarjetas/chats duplicados. |
+| Comparación real y reutilización entre destinos | Ejecutar las celdas seleccionadas del protocolo 5.3; validar una edición y paso a HTML; trasladar piezas entre portada, presentación y otros destinos con el patrón de escena/contenido de News. Conectar entradas pendientes de decks y prompt administrativo. | Evidencia visual y de llamadas por recorrido, archivos reutilizados, HTML editable y referencias recuperables. La aceptación de una pieza no publica marca, prompt ni otro documento. |
+
+**Aceptación centrada en los casos de Fai:**
+
+1. Empezar con una idea escrita sin adjuntos ni copy final obligatorio; conversar y crear una imagen, incluida una imagen sin texto, o un documento HTML editable según el encargo.
+2. Añadir dos imágenes después sin reiniciar. «Hazla igual: usa la composición y el texto de la primera y el mundo de la segunda» conserva composición/jerarquía, ambas fuentes y contenido real; ninguna instrucción de extracción aparece como texto dibujado. Distinguir esta intención de crear una variante o explorar alternativas.
+3. Cambiar sólo el mundo conserva copy y demás piezas. Moverlo o redimensionarlo en HTML usa el editor y no llama al generador de imágenes.
+4. Abrir un documento existente conserva capacidades del editor, tipografías, proporciones, imágenes y exportación; la comparación visual usa el tamaño real del lienzo. Marca y contexto no se trasladan a otro negocio por defecto.
+5. Comparar los tres modelos en Medium conserva las mismas entradas; las filas Low y High, si se seleccionan, cambian sólo esa calidad. Cada salida tiene solicitud y recibo propios. Recuperar, comparar o seleccionar un resultado no genera nuevamente ni cambia el modelo habitual.
+6. El caso completo dos referencias → imagen → feedback → HTML → reutilización en otra portada mantiene texto editable, archivos/versiones y conversación. Las pruebas de modelo y las de fidelidad/editabilidad HTML se registran por separado.
+
+Usar comprobaciones dirigidas de parámetros, referencias y recuperación, más estos recorridos visuales. El número acumulado de tests no acredita comprensión, fidelidad ni facilidad de uso. Un fallo local corregible no exige repetir todos los renders de una comparación.
+
+### 14.2 Próximo trabajo prioritario: terminar la unificación del motor
+
+**Estado: implementación local en 15.38–15.39; despliegue y prueba real pendientes.** Fai pidió esta unificación después de detectar que actualizar `desaing-server` no actualizaba la generación inicial de Design Studio. La separación era transitoria según 2.1. Image Stock fue retirado por su indicación posterior; la biblioteca y sus recursos permanecen.
+
+**Punto de partida histórico verificado en código (estado actualizado en 15.39):**
+
+| Entrada | Camino actual | Trabajo pendiente |
+|---|---|---|
+| Generación inicial y feedback del flujo habitual de Design Studio | `useGenerateMockups` → `generate-design-mockups` | Conectar ambos al núcleo común, conservando opciones y resultados guardados. |
+| Editar/comparar imágenes guardadas en el panel nuevo de Studio | `StudioImagePanel` → `ServerDesignPanel` → `desaing-server` | Reutilizar esta conexión y su contexto; evitar un segundo historial desconectado. |
+| Panel compartido de Presentaciones, diseño libre y onboarding | `ServerDesignPanel` → `desaing-server` | Mantener conversación, referencias, cinco propuestas, revisión y recuperación. |
+| Otras entradas de imágenes: carruseles, News y FX | Generaban mediante `generate-design-image` | Conectadas localmente al núcleo en 15.39. Image Stock se retira; se conserva la biblioteca. |
+
+**Alcance del siguiente encargo:**
+
+1. Completar el mapa de consumidor → función → adaptador → persistencia, incluyendo generación inicial, regeneración por feedback y edición de imágenes guardadas. Identificar qué lógica ya es compartida y dónde siguen existiendo dos implementaciones.
+2. Reutilizar el catálogo, contratos, adaptadores y gestión de trabajos/versiones de DesAIng como núcleo común. Adaptar los contextos y las respuestas de los consumidores existentes; conservar banco de copy, ramas, prompts editables, referencias, biblioteca e integración con carruseles. No requiere concentrar conversación, imagen y HTML en una única función.
+3. Conectar primero la generación inicial y el feedback habitual de Studio. Mantener `generate-design-mockups` sólo si hace falta para compatibilidad, delegando al núcleo y sin una segunda implementación del render. Llevar los demás consumidores activos al mismo contrato y registrar expresamente los que aún falten; no declarar terminada la unificación global mientras queden rutas independientes.
+4. Conservar GPT Image 2, Flare 2.5 y Sunburst, las calidades Low/Medium/High y la selección vigente por negocio/proceso. Mantener Image API y Responses como ejecutores disponibles, con un solo ejecutor elegido por operación. El usuario no tiene que decidir qué función interna usar.
+5. Compartir identidad de marca, archivos/versiones, solicitud efectiva, consumo y recuperación. Una misma acción tiene una única identidad de trabajo aunque pase por una entrada de compatibilidad; reintentar o recuperar no crea otro render. Los resultados existentes siguen accesibles y conservan su procedencia.
+
+**Criterio de cierre:**
+
+- [x] Generación inicial, feedback habitual y edición guardada de Studio usan el núcleo común en código local; ninguna conserva un render independiente oculto. Activación remota pendiente.
+- [ ] Los consumidores activos consultan las mismas capacidades y respetan el modelo/calidad elegido; no hay sustituciones silenciosas ni listas de modelos que diverjan entre rutas.
+- [ ] Las mismas referencias reales, copy literal y contexto de marca llegan al ejecutor desde Studio y el panel compartido. Se conservan las opciones anteriores y las versiones guardadas.
+- [ ] Doble clic, error de red, recuperación y reapertura no repiten la ejecución ni el cobro; los recibos identifican modelo, calidad, referencias y consumo de la operación real.
+- [ ] Pruebas dirigidas cubren las rutas de usuario anteriores y las nuevas. El plan de despliegue enumera cada función/frontend afectado y comprueba sus capacidades después de activarlos; desplegar una sola función no acredita toda la integración.
+
+**Orden de los trabajos pendientes:** (1) unificar el motor, (2) integrar el editor completo de Presentaciones y la reutilización de piezas entre destinos, (3) completar y verificar la activación coordinada en Supabase y frontend, (4) comprobar el caso real de Xending y la comparación de modelos. La preparación del despliegue y las pruebas locales acompañan cada cambio; la validación real final no se sustituye por pruebas con proveedores simulados.
+
 ### Fase A — Contratos, referencias y ejecución recuperable
 
 | Tarea | Dependencias | Entrega y aceptación |
@@ -853,7 +959,7 @@ Cada tarea se divide en cambios revisables con archivos previstos, dependencias,
 
 | Tarea | Dependencias | Entrega y aceptación |
 |---|---|---|
-| **DAI-04 — Laboratorio local y registro comparativo** | DAI-01/02/03/06/09/18 mínimos | Reutilizar `ImageConceptStudio`; fixtures, inputs congelados, captura de requests, costo y resultados. Empieza con proveedores simulados; habilita protocolos de imagen y HTML por separado. |
+| **DAI-04 — Laboratorio local y registro comparativo** | DAI-01/02/03/06/09/18 mínimos | Reutilizar el laboratorio DesAIng y los controles compartidos; fixtures, inputs congelados, captura de requests, costo y resultados. `ImageConceptStudio` se retira en 15.39. Empieza con proveedores simulados; habilita protocolos de imagen y HTML por separado. |
 | **DAI-05 — Pruebas reales y benchmark por etapas** | DAI-04 + destino/cuenta/presupuesto aprobados | **05a:** comprobar transporte y resultado con un alcance pequeño autorizado. **05b:** comparación de modelos de imagen y, al disponer de DAI-16/20, de los tres caminos HTML. Reportar outputs por pista, fidelidad, editabilidad, costo y límites de la muestra. No cambia el default por sí sola. |
 | **DAI-16 — Base HTML estable y reutilizable** | DAI-01/03/06 y referencias DAI-18 | Conservar imagen + feedback → HTML, referencias en corrección visual, IDs/revisiones, exportación del documento activo, biblioteca/uploads y HTML seguro. Parametrizar lo común sin perder el preset Xending. |
 
@@ -1295,6 +1401,223 @@ Después se ejecutó **una llamada textual real**: cinco ideas, un único intent
 
 Fai aprobó B medium y autorizó continuar la prueba HTML. Se registró la revisión final del asset mediante el piloto administrativo existente: HTTP 200, `approved`, revisión 12, sin otro render ni consumo. [Recibo](../../artifacts/desaing-lab/real-html-medium-review-result.json). La prueba preparada usa la captura completa de la portada, diez bloques de texto exacto y el avión medium original. El inicio fue rechazado por la revisión automática de permisos, que exige consentimiento explícito para ese contenido hacia OpenAI y su registro como referencia en Supabase; se pidió al usuario. No se inició la importación ni la llamada de visión. [Preparación concreta](../../artifacts/desaing-lab/real-html-preparation.json).
 
+### 15.34 Auditoría de experiencia y alcance de modelos
+
+El 18 de septiembre se revisaron las capturas aportadas por Fai y el código de los flujos activos. El MD original de Downloads y la copia base del repositorio tienen el mismo SHA-256; ambos conservan su versión interna 2.0. La auditoría inicial modificó únicamente el plan técnico a 2.3. Los cambios de implementación posteriores se registran en **15.35**.
+
+Hallazgos al momento de la auditoría, antes de los cambios de **15.35**:
+
+- La generación inicial de Design Studio (`generate-design-mockups`) y las rutas habituales de `generate-design-image` siguen fijando GPT Image 2. Carruseles, News y generación de objetos FX usan ese backend. El experimental fija Flare y low inicial/promoción medium. Sunburst aparece en catálogo, pero no es ejecutable en esos controles/worker. El cambio transversal y la comparativa siguen pendientes.
+- El modo referencia de `generate-design-mockups` exige una imagen, pero su render construye un prompt textual sin adjuntar esos píxeles. El analizador de materiales sí recibe archivos; su transferencia posterior a diseño conserva principalmente `selection.text`, perdiendo la conexión estructurada de fuentes y contenido.
+- `usePresentationExploration` construye referencias vacías y el planificador declara que sólo ve texto/metadatos. La discusión responde con texto; refinar una idea concatena feedback. Esto no completa la conversación de diseño con interpretación visual y acciones que Fai espera.
+- `approvedCopy` admite cualquier cadena no vacía y la fija como literal. Así puede dibujar «lo que viene en las referencias» y transmitirlo a HTML. Falta distinguir instrucciones, fuente del contenido y copy resuelto. La misma corrección debe permitir ideación sin copy final e imágenes sin texto.
+- `FreeDesignPage` usa `brand_id: 'free-design'`; Presentaciones tiene un identificador genérico. Hay datos de marca existentes que deben cargarse y versionarse en el contexto compartido, no sólo sustituir esa etiqueta.
+- Presentaciones conserva imagen/texto → HTML y corrección visual con referencia + render + HTML + feedback. El conversor nuevo está separado, admite sólo Arial/Georgia/Trebuchet/Verdana y carece de un refinamiento equivalente. `VisualDesignEditor` ya existe y es compartido en parte: lo pendiente es integrar el recorrido completo conservando su expresividad y controles, no construir otro editor.
+- La galería visual y el panel de exploración muestran las mismas direcciones en dos bloques. El contexto de recuperación sigue repartido entre servidor y navegador. El deck reutilizable actual usa una plantilla; no acredita planificación conversacional de un deck variado. News conserva compositor propio y la administración del prompt aún carece de la entrada contextual desde la pieza aprobada.
+- La configuración local reciente de generación manual usa reserva de un microdólar y desactiva el cupo del piloto. Ese marcador no representa costo real. No se consultó la política remota en esta auditoría; los valores financieros históricos de 15.33 no deben presentarse como capacidad actual verificada.
+
+Las capturas acreditan lo visible en la UI, no los parámetros completos enviados al proveedor. Los hallazgos de modelos describen código local; la comparación real de GPT Image 2, Flare y Sunburst no está ejecutada. Fai confirmó después los tres modelos y Low/Medium/High seleccionables en desplegables superiores de cada proceso, y autorizó continuar la implementación.
+
+### 15.35 Selectores compartidos y primera corrección de experiencia
+
+Implementación local tras la autorización de Fai:
+
+- Un componente de modelo/calidad arriba de cada proceso: GPT Image 2, GPT Image 2.5 Flare y GPT Image 2.5 Sunburst; Low, Medium y High independientes. Preferencia por negocio/proceso, inicialmente Flare/Medium, sin generar al cambiarla ni sustituir selecciones no habilitadas.
+- Design Studio, Carrusel, News y generación del kit FX envían la selección a los endpoints existentes. Los clientes antiguos que omiten ambos campos conservan GPT Image 2/Medium. `generate-design-mockups` transmite los píxeles de la referencia mediante `images/edits`, también al solicitar feedback desde Design Studio.
+- Las nuevas imágenes de Design Studio conservan los parámetros devueltos por el endpoint en `selections.image_generation`, con etiquetas en galería, biblioteca y vista ampliada. Los históricos sin metadatos quedan sin etiqueta; no se les atribuye el selector actual. Esta trazabilidad adicional se limita a Mockups/Design Studio, no acredita todavía un comparador histórico común de Carousel/News/FX.
+- El panel compartido de Presentaciones, diseño libre, onboarding y producción consulta `profiles`/`qualities` del servidor. Nuevas operaciones pueden pedir Medium o High y pasar a revisión final. La promoción histórica Low→Medium conserva el modelo, padre, referencias y aprobación originales. Los resultados muestran sus parámetros originales aunque se cambien los selectores para otra imagen.
+- Vista previa primero, conversación accesible en la columna lateral, una galería visual y comparación/combinación detallada desplegable. Encargo/referencias y biblioteca se agrupan; controles superiores y acciones finales permanecen accesibles mientras se desplaza el contenido. Diseño adaptable a escritorio y tablet.
+- Se impide enviar como copy literal expresiones directas como «lo que viene en las referencias». Se muestra una corrección junto al campo, sin modificar el contenido. Esto previene el error reproducido; no sustituye la extracción visual de texto ni resuelve todavía todas las formas de instrucciones conversacionales.
+- Las reservas simbólicas de un microdólar dejan de presentarse como precio estimado en la galería. El consumo real continúa pendiente hasta su contabilización.
+
+Validación local: pruebas dirigidas de parámetros, referencias reales en multipart, aislamiento de preferencias, recuperación y revisión de Medium/High; TypeScript y build. Los controles se verificaron en Chrome de escritorio, tablet y móvil mediante un [harness sin servicios remotos](../../experiments/image-generation-controls.html), con [reporte](../../artifacts/desaing-lab/image-generation-controls-smoke-result.json). Los mocks validan transporte y estados; no acreditan calidad visual de los proveedores ni latencia real.
+
+El [recorrido del panel completo](../../artifacts/desaing-lab/image-choices-panel-smoke-result.json) pasa cinco comprobaciones con dos renders simulados y una planificación: Sunburst/High por Image API con referencia y GPT Image 2/Medium por Responses. La aprobación no vuelve a generar; High y el copy literal llegan al panel/almacenamiento de composición HTML. No se ejecutó conversión HTML en este smoke. Se inspeccionaron capturas de [escritorio](../../artifacts/desaing-lab/image-choices-panel-desktop-high-review.png) y [tablet](../../artifacts/desaing-lab/image-choices-panel-ipad-proposals.png) sin desbordamiento; tablet significa emulación en Chrome, no Safari físico. Cero llamadas externas y ninguna modificación del slide. El script reproducible es `node scripts/desaing/image-choices-panel-smoke.mjs` y usa configuración/transportes locales aislados.
+
+**Activación pendiente:** desplegar las funciones cambiadas y aplicar la [migración 008 preparada](../../supabase/migrations/202609180008_desaing_image_choices.sql) junto con la configuración `DESAING_PILOT_POLICY_ID` correspondiente. La migración conserva los límites/reservas actuales y rechaza estados pendientes o inciertos; no se ejecutó en esta entrega. Hasta activar esa política, las capacidades remotas pueden mantener GPT Image 2 y Sunburst deshabilitados en el experimental. No se renovaron ventanas ni aumentaron presupuestos. Los generadores síncronos habituales conservan sus límites de tiempo; la estabilidad real de High debe validarse antes de acreditar ese recorrido.
+
+**Siguiente bloque funcional:** lectura visual y copy resuelto, contexto real de marca, conversación con acciones y continuidad al añadir referencias, creación sin texto explícita y reutilización completa del editor de Presentaciones. La prueba real comparativa y el caso dos imágenes→imagen→feedback→HTML siguen abiertos.
+
+### 15.36 Conversación visual, texto resuelto y marca — bloque 1
+
+Implementación local autorizada por Fai, comprobada el 18 de septiembre de 2026:
+
+- El chat puede empezar sin encargo prellenado ni texto final. «Usa el texto de la primera imagen y el mundo de la segunda» se transmite con los PNG reales, orden e identidades de las referencias. El servidor valida negocio, versión SHA256, dimensiones y límites antes de reservar la conversación. El journal guarda solicitud, fuentes y respuesta; los píxeles/base64 sólo existen en el transporte al proveedor.
+- `design_brief` separa texto pendiente, literal y explícitamente ausente; `design_understanding` devuelve intención, encargo resuelto, fuentes del texto, función de cada referencia, restricciones y preguntas. Una indicación de extracción no se trata como copy. El texto literal queda visible y editable para revisarlo antes de pulsar Generar. Conversar no genera imágenes ni aprueba resultados.
+- La identidad se lee del `businessId` de la sesión y del último perfil publicado de onboarding: nombre, paleta, tipografías y contexto creativo. El snapshot incorpora versión/fingerprint. No se heredan valores Xending a otro negocio, no se descargan logos por URL y no se modifica el perfil ni el prompt maestro.
+- El feedback semántico conserva texto, referencias, marca e historial. Actualiza el encargo editable sin exigir cinco ideas nuevas. Si se piden cinco direcciones con texto pendiente, la misma respuesta puede resolver el texto respaldado por fuentes y mantener las cinco ideas seleccionables; se deriva su contexto de forma verificable sin alterar la solicitud registrada ni simular otra llamada.
+- «Ajustar este diseño con el agente», o comentar el resultado visible, conserva la pieza anterior y añade sus píxeles al siguiente encargo. La captura permanece visible y guardada con el borrador. Cerrar, reabrir o recuperar conserva el ajuste; no vuelve a imponer el trabajo anterior ni repite llamadas. Las ideas de un encargo anterior siguen visibles como historial y no se pueden generar como si fueran actuales.
+- La materialización de propuestas admite contexto visual ya registrado. Comprueba los mismos píxeles de captura aunque el upload tenga otro ID, las referencias adicionales exactas, la región y la marca. Producción `edit_image` incluye su fuente para conversar y sigue utilizando una sola base en generación; regenerar desde cero no añade esa fuente automáticamente.
+- Los diseños completos admiten una opción explícita «Sin texto». Su contrato distingue ausencia intencional de copy pendiente. La conversión HTML de composiciones sin texto queda para el bloque del editor; no se presenta como terminada.
+
+**Validación:** TypeScript estricto, build y pruebas dirigidas de contratos, aislamiento, conservación del historial, cinco ideas con copy resuelto, referencias cambiadas, recuperación y ausencia explícita de texto. El [smoke de conversación](../../scripts/desaing/conversation-panel-smoke.mjs) recorrió UI → servidor → adaptadores con transportes simulados: tres conversaciones con 2 → 2 → 3 imágenes, un render Flare/Medium con las dos referencias originales, feedback y reapertura. [Reporte](../../artifacts/desaing-lab/conversation-panel-smoke-result.json), [escritorio](../../artifacts/desaing-lab/conversation-panel-desktop-reference-understanding.png) y [tablet](../../artifacts/desaing-lab/conversation-panel-ipad-feedback.png). Cero llamadas externas, cargos o conversiones HTML. Tablet corresponde a emulación Chrome.
+
+**Límite de esta evidencia:** la extracción y las respuestas del smoke son fixtures; comprueban que llegan los archivos y se conserva el estado, no la exactitud OCR, semejanza visual o latencia de un modelo real. Esas comprobaciones siguen en el bloque de resultados reales.
+
+La variante `node scripts/desaing/conversation-panel-smoke.mjs --direct-feedback` también pasó: escribir sobre el resultado visible incorpora su imagen al contexto sin exigir pulsar antes «Ajustar». [Reporte de feedback directo](../../artifacts/desaing-lab/conversation-panel-direct-smoke-result.json). La regresión `image-choices-panel-smoke.mjs` volvió a pasar con el nuevo contexto visual: cinco propuestas → Sunburst/High → revisión → entrega de imagen y texto al panel HTML, y otra propuesta con GPT Image 2/Medium por Responses. Son renders simulados; el smoke no ejecuta conversión HTML.
+
+**Activación:** este bloque requiere desplegar `desaing-server` actualizado y publicar/ejecutar el frontend correspondiente. No añade migración SQL, no renueva ventanas ni cambia cuotas. El cliente usa `supports_visual_context` para distinguir el servidor actualizado; si falta, explica que la lectura visual todavía no está activa. No se desplegó Supabase en esta entrega. La política de tres modelos descrita en 15.35 mantiene su activación independiente.
+
+**Siguiente trabajo, actualizado por el acuerdo posterior:** cerrar primero la unificación del motor de **14.2**; después integrar el editor completo de Presentaciones, verificar la activación y comprobar el caso real referencias → imagen → feedback → HTML → reutilización y la comparación de modelos.
+
+### 15.37 Unificación de Design Studio: pendiente priorizado
+
+Fai reportó que `generate-design-mockups` estaba desactualizada y que quedó desplegada como **ACTIVE, versión 44**, con soporte para Sunburst. No se volvió a consultar Supabase durante esta anotación; se conserva como reporte del usuario y no como comprobación remota nueva.
+
+La revisión del código confirmó que la generación inicial y el feedback habitual de Studio siguen usando esa función, mientras que el panel nuevo para editar imágenes guardadas utiliza `desaing-server`. El plan 2.1 ya definía esa separación como transitoria. Compartir selectores no completó la migración al adaptador común.
+
+**Acuerdo:** dejar la unificación anotada como siguiente trabajo prioritario, con el alcance y la aceptación de **14.2**. No depende de eliminar ninguna de las dos APIs de OpenAI ni de retirar las opciones existentes. Esta actualización modifica únicamente el plan; no implementa la migración ni despliega servicios.
+
+### 15.38 Generación inicial y feedback de Studio conectados al motor compartido
+
+**Entrega local:** las tres entradas de imagen individual —generar, corregir el resultado y corregir una imagen guardada— preparan el encargo en `desaing-server/studio/prepare` y ejecutan mediante `serverGeneration.enqueue`, el worker, los adaptadores y el registro de trabajos compartidos. La preparación conserva el banco de copy, ramas, idea propia, selecciones visuales, reglas actuales de composición y preferencias del negocio; no genera imágenes. El hook ya no invoca `generate-design-mockups`.
+
+`generate-design-mockups` queda como entrada compatible de preparación sin credenciales ni llamadas al proveedor de imágenes. Una petición antigua que intente generar recibe `studio_client_upgrade_required`; no hay fallback de pago. El cliente nuevo consulta `supports_studio_generation` y utiliza una ruta propia de `desaing-server`, por lo que un despliegue mixto no puede interpretar la preparación como una generación antigua.
+
+**Contexto y opciones:** GPT Image 2, Flare y Sunburst conservan Low/Medium/High explícitos, sujetos a la política compartida. El ejecutor configurado puede ser Image API o Responses; cada operación tiene uno solo. Los tamaños históricos de Studio se mantienen. El contrato nativo de Studio admite su prompt completo sin etiquetar el copy libre como texto aprobado. Sus límites de encargo no cambian los límites de los otros flujos ni las cuotas, ventanas o identidades autorizadas.
+
+Las referencias PNG/JPEG/WebP se normalizan a PNG conservando composición y proporción, dentro del límite compartido de 1024 píxeles por lado. El feedback envía tanto el resultado seleccionado como la referencia original cuando existe; el servidor resuelve archivos registrados, no descripciones que sustituyan sus píxeles. Cada resultado conserva modelo/calidad e identidad del activo; el guardado comercial conserva el vínculo con el mockup padre.
+
+**Recuperación y biblioteca:** antes de enviar el trabajo se guarda su operación completa y una identidad estable, por usuario y negocio. Un bloqueo entre pestañas evita enviar dos generaciones simultáneas desde el mismo flujo. La recuperación consulta el trabajo y el archivo existente; no vuelve a ejecutar el proveedor ni reconstruye aleatoriamente el prompt. Un resultado incierto conserva su barrera hasta que pueda confirmarse. La galería ofrece «Recuperar generación pendiente» y deduplica por operación.
+
+El guardado en `design_mockups` utiliza un ID y una ruta estables, espera almacenamiento y registro antes de confirmar la recuperación y verifica bytes/propiedad ante duplicados. Un fallo de guardado permite recuperar la misma imagen. Los cambios de usuario o negocio no redirigen escrituras ni actualizan la galería de otra sesión. La copia pública de biblioteca mantiene la integración existente; el original del motor sigue registrado en su almacenamiento privado.
+
+| Entrada | Ruta local después de esta entrega | Pendiente |
+| --- | --- | --- |
+| Studio: generación individual y feedback habitual | Preparación y trabajos de `desaing-server` | Despliegue coordinado y prueba real |
+| Studio: panel nuevo de edición guardada | `desaing-server`, ya compartido | Validación conjunta del recorrido |
+| Presentaciones, onboarding y diseño libre del panel compartido | `desaing-server`, ya compartido | Editor completo y validación real |
+| Carruseles, News y FX | `generate-design-image` desde sus hooks actuales | Migrar generación conservando plantillas, composiciones y reuso |
+| Image Stock | Ruta actual de `useGenerateImage` / `generate-design-image` | Migrar generación y reconciliar biblioteca |
+
+**Verificación:** pruebas dirigidas de ambos ejecutores, modelo/calidad efectivos, referencias reales registradas, doble envío, respuesta perdida, recuperación tras reabrir, rechazo previo a admisión, cambio de sesión y persistencia idempotente. Se comprobaron TypeScript, los dos entrypoints Deno y el build del proyecto. Los proveedores y almacenamiento de las pruebas son simulados; no acreditan fidelidad visual, OCR ni funcionamiento del despliegue remoto.
+
+**Activación pendiente:** no se ejecutó despliegue ni llamada de imagen de pago. No requiere una migración SQL nueva. Publicar `desaing-server` y el frontend compatibles, comprobar los flags/política/ventana vigentes y retirar el render antiguo desplegando también el wrapper de `generate-design-mockups`. Hasta completar esas versiones no declarar el servidor remoto unificado. La habilitación de modelos de 15.35 mantiene sus requisitos previos. No renovar ventanas ni modificar presupuesto como efecto de esta migración.
+
+**Siguiente tramo:** migrar `generate-design-image` y sus consumidores indicados arriba al mismo núcleo, retirando sus reintentos de generación independientes. Después continúan el editor completo de Presentaciones y el recorrido real Xending referencias → imagen → feedback → HTML → reutilización, con comparación de modelos y consumo.
+
+### 15.39 Carruseles, News y FX en el mismo motor; retiro de Image Stock
+
+**Acuerdo de producto, 19 de septiembre:** Fai confirmó que Image Stock ya no se utiliza y autorizó eliminarlo. Ya no tenía ruta ni tarjeta activa; se retiran su página, componentes, catálogos y hooks exclusivos. No se borran imágenes, objetos de Storage, tablas ni registros existentes. La biblioteca, `saveImageToLibrary` y la generación usada por otras pantallas permanecen. Crear desde texto, conversación o referencias sigue siendo parte de Studio y diseño libre; no depende de conservar aquella pantalla.
+
+**Entrega local:** `assetGeneration` adapta los encargos existentes a `desaing-server` con una operación por imagen, el worker y los adaptadores comunes. Se conservan prompt completo, negativos, referencias registradas, modelo/calidad explícitos y tamaño solicitado. El cliente exige `supports_asset_generation`; un servidor antiguo no provoca un fallback de render. El nombre interno `stock` permanece como contrato de los consumidores de biblioteca; no representa una pantalla activa.
+
+| Consumidor | Ejecución y guardado | Recuperación y reuso |
+| --- | --- | --- |
+| Carruseles | La preparación de anchor/copy/prompts permanece; cada pieza se genera mediante el núcleo, con variante, grupo y destino congelados | Recuperar restaura el encargo y la pieza originales. Se confirma después de guardar mockup y referencia del carrusel |
+| News | Guarda primero la edición y la identidad del artículo; genera una escena, conserva su archivo y monta el texto mediante el compositor existente | Recupera la escena y composición guardadas. Editar y volver a montar texto reutiliza la escena sin otro render |
+| Kit FX | Genera cada objeto mediante el núcleo; conserva versión inmutable y actualiza la ruta compatible que consume el reporte | Recuperación completa el guardado. Los reportes reutilizan el kit existente |
+| Generadores de biblioteca (`CopyWorkstation`, `ImageGeneratorPanel`) | Preparación textual existente y operación compartida; ID/ruta de biblioteca derivados de la operación | Guardar antes de reconocer el trabajo. Aprobación y recuperación disponibles; rechazar libera sólo el pendiente confirmado |
+| Pipeline anterior, como compatibilidad | `generate-design-image` verifica usuario/pipeline y delega en `desaing-server`, conservando la respuesta esperada | Un ID persistido distingue una nueva versión explícita de un reintento. La recuperación conserva trabajo y registro de catálogo |
+
+`generate-design-image` conserva la construcción de prompts y sus opciones. Su render independiente se elimina: una petición antigua fuera del pipeline recibe un error explícito de actualización. La preparación de texto y la ejecución de imagen pueden tener funciones de entrada diferentes; toda generación de este recorrido acaba en el mismo núcleo. `generate-design-mockups` mantiene únicamente la preparación compatible descrita en 15.38.
+
+**Opciones:** los controles comunes conservan GPT Image 2, Flare y Sunburst, junto a Low/Medium/High. Las capacidades habilitadas por el servidor siguen siendo la autoridad. Image API y Responses continúan disponibles como ejecutores configurados, uno por operación. No se cambia silenciosamente modelo/calidad ni se amplían cuotas, permisos o ventanas.
+
+**Formatos:** el contrato separa lienzo comercial y resolución válida del proveedor. Un lienzo de 1080×1350 conserva esa medida para la composición y usa un raster de 1088×1360 con la misma proporción; no introduce recorte. Los demás formatos históricos conservan sus medidas. No se promete equivalencia pixel a pixel entre renders.
+
+**Continuidad:** antes de despachar se persiste la operación por usuario, negocio, proceso y pieza. Una respuesta perdida, cambio del formulario o reapertura recupera esa operación por lectura; no vuelve a preparar el prompt ni ejecutar una imagen. El guardado verifica conflictos de archivo y registro y sólo reconoce el pendiente cuando termina la persistencia correspondiente. Si el resultado es incierto, se conserva el bloqueo. En `CopyWorkstation`, ambas bibliotecas se guardan antes de reconocer; su autoguardado histórico de campaña sigue sin confirmación de éxito, por lo que no se afirma que ese puntero esté reconciliado.
+
+**Verificación:** pasaron las pruebas dirigidas con proveedores simulados de recuperación, respuestas perdidas, referencias, formatos, ambos ejecutores, selección de modelo/calidad, guardado idempotente, cambios de sesión y versiones explícitas del pipeline. Pasaron TypeScript estricto, build de producción y Deno check de `generate-design-image` y `pipeline-orchestrator`; revisión de diferencias sin errores. Vite conserva avisos de tamaño de bundle e imports estáticos/dinámicos. No equivalen a una evaluación visual ni a comprobar el servidor remoto.
+
+**Activación pendiente:** publicar conjuntamente frontend, `desaing-server`, `generate-design-mockups`, `generate-design-image` y `pipeline-orchestrator` compatibles. Comprobar las capacidades `supports_studio_generation` y `supports_asset_generation`, política de modelos de 15.35, flags y vigencia; no renovar ni ampliar autorización como efecto del despliegue. Esta entrega no añade una migración SQL. No se desplegó ni se generaron imágenes de pago durante el desarrollo.
+
+**Siguiente bloque:** integrar el editor completo de Presentaciones y reutilizar piezas en portadas/páginas; verificar activación y ejecutar el recorrido real Xending referencias → imagen → feedback → HTML → reutilización, con comparación de modelos y consumo. Las tablas previas conservan el inventario histórico; Image Stock ya no forma parte de los pendientes de migración.
+
+### 15.40 Editor completo compartido, creación HTML y piezas reutilizables
+
+**Entrega local, 19 de septiembre:** se reutiliza `VisualDesignEditor` en los dos caminos: crear HTML directamente desde un encargo y convertir una imagen elegida en un documento editable. Presentaciones y las portadas/páginas de diseño libre usan el mismo `SlideGeneratorPanel`; el destino y las dimensiones pertenecen al documento actual. No se crea otro editor reducido.
+
+| Recorrido | Comportamiento implementado |
+| --- | --- |
+| Texto/referencias → HTML | Encargo libre, hasta tres referencias reales, contenido según indicaciones, literal o sin texto; nueva propuesta revisable antes de aplicar. Se pueden añadir referencias después y pedir ajustes |
+| Corrección visual de HTML | Conserva HTML y referencias; «Comparar con referencias» añade una captura del lienzo a sus dimensiones reales. Usa el modelo de visión/código existente; no ejecuta generación de imágenes |
+| Imagen → HTML | Conserva origen y copy aprobados; añade modo explícito sin texto, hasta 64 bloques/32.000 caracteres y catálogo de fuentes compartido con el editor. Las capacidades del servidor bloquean contratos nuevos en servidores anteriores |
+| Editor completo | Disponible antes de aplicar ambos resultados. Permite modificar texto, tipografías, capas e imágenes. En conversión, guarda los cambios manuales separados de la solicitud y composición originales |
+| Piezas reutilizables | «Añadir imágenes montadas» incorpora activos aprobados del servidor junto a los locales. Descarga píxeles al elegir; conserva identidad, versión y procedencia. La extracción manual conserva el grafo de origen y reutiliza sus archivos sin generar imágenes |
+
+**Marca y servidor:** `generate-design-html` incorpora el contrato `design-canvas`, con autorización del usuario y lectura de negocio/perfil mediante RLS. Utiliza la identidad del negocio seleccionado; el camino anterior `xending-slide` permanece compatible. Los bytes de las referencias llegan al modelo de visión. Las imágenes ya montadas se sustituyen por identificadores estables dentro del texto enviado al modelo y se restauran byte a byte en la respuesta, evitando reenviar base64 como texto. El servidor verifica contenido literal, dimensiones e identidad de las piezas conservadas. Una instrucción breve como «lo que viene en las referencias» se rechaza en el campo literal de la UI y puede expresarse como encargo de lectura.
+
+**Continuidad y guardado:** el espacio HTML guarda referencias PNG, encargo, feedback y propuesta en IndexedDB por usuario, marca, documento y diapositiva. Comprueba bytes, revisiones y conflictos entre pestañas. La propuesta conserva su destino; cambiar de diapositiva o modificar el documento no permite sobrescribirlo con un resultado antiguo. Los paneles esperan el guardado del destino antes de cerrar; si falla, mantienen la propuesta. El editor de Presentaciones conserva su persistencia y autoguardado existentes; esta entrega no los convierte en una transacción remota nueva.
+
+Los ajustes HTML vuelven a medir las posiciones de las piezas en el navegador, manteniendo sólo identidades y bytes verificados. Una normalización CSS ya no borra el vínculo con la biblioteca. Si no se puede medir, se guarda el HTML recibido y su origen; «Comprobar piezas sin regenerar» reintenta únicamente esa medición antes de aplicar. No repite la llamada al modelo.
+
+**Límites explícitos:** los borradores de este espacio son locales al navegador. La conversión por `desaing-server` conserva su recuperación por journal; el HTML directo por `generate-design-html` todavía no tiene ese journal remoto. Una respuesta incierta no se reintenta automáticamente: se conserva la propuesta guardada y preparar otra solicitud exige una acción explícita, que puede consumir otra llamada HTML. Los mensajes del espacio HTML registran encargos y estado del resultado; todavía no constituyen un agente conversacional único que decida entre conversar, generar imagen y componer HTML. Los activos IA pendientes no se autoaprueban por entrar en la caché local; la biblioteca histórica sigue disponible desde el editor.
+
+**Verificación local:** pasan las pruebas dirigidas de contratos/copy, fuentes, referencias, ámbitos, conflictos, procedencia, recuperación y aplicación; TypeScript, build de producción y Deno check. Vite mantiene sus avisos conocidos de bundle e imports estáticos/dinámicos. Los recorridos de navegador usan proveedores simulados: [HTML directo](../../scripts/desaing/html-workspace-smoke.mjs) prueba el bloqueo del copy sin resolver, dos referencias, feedback con captura, editor completo, reapertura y guardado fallido; [conversión y editor](../../scripts/desaing/composition-editor-smoke.mjs) prueba respuesta perdida, recuperación, edición manual, extracción, revisión obsoleta, reutilización en una segunda página y modo sin texto. Se inspeccionan las capturas de escritorio/tablet. Estos controles verifican integración; la fidelidad visual real y la comparación de modelos continúan pendientes.
+
+La [comprobación de piezas](../../scripts/desaing/mounted-layout-smoke.mjs) verifica posición/tamaño después de cambiar CSS, rechazo de identidades con píxeles distintos o IDs ambiguos, timeout que conserva el HTML y recuperación por medición local. Los tres recorridos pasan sin llamadas reales al proveedor.
+
+**Activación pendiente:** desplegar frontend, `generate-design-html` y `desaing-server` compatibles, incluido `composition_version: 2`. Debe coordinarse con las funciones/consumidores de 15.39 si todavía no están desplegados. No se añade SQL, se cambia presupuesto ni se renueva política por esta entrega. No se hicieron llamadas de imagen o LLM reales durante su desarrollo.
+
+**Siguiente comprobación de producto:** activar las funciones compatibles y recorrer el caso Xending con sus dos referencias reales: intención/texto → imagen elegida → feedback → HTML → editor completo → reutilización en otra portada. Registrar fidelidad, editabilidad, modelo/calidad y consumo por separado. Después cerrar la coordinación en una sola conversación usando estas capacidades existentes.
+
+### 15.41 Una conversación para referencias, imagen y HTML
+
+**Encargo:** completar el bloque 2 utilizando los motores y el editor existentes. `UnifiedDesignWorkspace` sustituye las entradas separadas de diseño completo y HTML en Presentaciones y diseño libre. Los diseños parciales por región conservan su herramienta actual. Las utilidades independientes de conversión y los demás consumidores no se presentan como migrados a esta interfaz.
+
+**Experiencia integrada:**
+
+- Un chat junto a la vista previa, con marca, dimensiones y selectores de modelo/calidad arriba. Referencias y texto resuelto se consultan en un panel desplegable. El mismo espacio admite empezar desde texto, añadir hasta tres referencias después y continuar con feedback sin reiniciar.
+- El agente distingue responder, explorar cinco ideas, crear/corregir imagen y crear/ajustar/convertir HTML. Una pregunta produce conversación; un encargo explícito puede ejecutar la acción correspondiente. Las sugerencias presentan su botón. Pedir cinco ideas devuelve cinco propuestas textuales en la misma llamada; sólo la idea elegida se renderiza.
+- La selección conserva el resultado concreto sobre el que se trabaja. Corregir una imagen envía su archivo original como base junto con las referencias, copy y marca. La operación técnica puede ser edición aunque la intención sea crear otra versión basada en esa imagen.
+- Aprobar una imagen, generar Medium desde una dirección Low y aplicar al documento siguen siendo acciones explícitas. Convertir a HTML exige una imagen aprobada. Cambiar modelo/calidad, seleccionar versiones o editar manualmente no genera imágenes.
+- El HTML directo y la composición utilizan los controladores de `SlideGeneratorPanel` y `DesignToHtmlPanel`, con `VisualDesignEditor`, captura, biblioteca y montaje de piezas existentes. Los controles duplicados de conversación se ocultan al integrarlos; el editor completo sigue disponible dentro del mismo recorrido.
+
+**Contexto y ejecución:** `useDesignConversation` conserva marca del negocio, copy pendiente/literal/sin texto, interpretación, mensajes, referencias reales, acción propuesta y versiones. El planificador utiliza el endpoint y journal de exploración existentes; el contrato opcional `conversation` devuelve `next_action` validada contra el contexto y las acciones disponibles. No se crea otra función de generación ni un segundo ejecutor. El núcleo y worker compartidos admiten la edición de un diseño completo sobre su base exacta, con validación del documento, lienzo y negocio.
+
+Para conversar sobre HTML, el planificador recibe un resumen acotado de estructura, estilos y contenido de la revisión actual; no se describe como una captura visual. Al solicitar un ajuste HTML, el camino de refinamiento existente sí captura el lienzo y envía sus píxeles. El contexto estructural elimina scripts, recursos y base64 antes de formar el prompt.
+
+**Persistencia:** conversación y versiones se guardan mediante IndexedDB y revisión comparada, por usuario/negocio/documento/diapositiva. Cada acción registra su identidad y solicitud antes del envío; una respuesta incierta conserva el pendiente. Recuperar consulta el journal; si aún no existe la solicitud, una recuperación explícita puede enviar exactamente su misma identidad. Recuperar una conversación nunca autoejecuta el render que proponga su respuesta. El historial local conserva los archivos preparados; no implica sincronización entre dispositivos. Los datos de los paneles anteriores no se borran ni se migran automáticamente a este nuevo historial.
+
+**Límite heredado:** el HTML directo sigue sin journal remoto. La recuperación no atribuye una propuesta antigua a una solicitud perdida ni repite automáticamente una llamada de resultado desconocido. La conversión imagen→HTML mantiene su journal existente. Las pruebas simuladas acreditan el recorrido técnico; la comprensión y fidelidad reales se validan después con el caso Xending.
+
+**Versiones:** el selector muestra el archivo elegido, sin cargar silenciosamente otra composición. Las composiciones anteriores cuyo editor de piezas ya avanzó se muestran como vistas de historial; para continuar con ese editor se selecciona su versión actual. Aplicar y reabrir conserva el historial y trabaja sobre la revisión nueva del documento. Los límites locales son explícitos: 20 versiones y 200 mensajes/acciones; llegar al límite conserva los resultados y evita iniciar otra llamada que no pueda registrarse.
+
+**Verificación:** pruebas dirigidas de contratos, fuentes reales, copia literal, aislamiento, acciones sin render, edición con base exacta, guardado previo al envío y recuperación; TypeScript estricto, build de producción y Deno check. El [recorrido de navegador unificado](../../scripts/desaing/unified-design-smoke.mjs) comprueba dos referencias y marca → conversación → cinco ideas → imagen → feedback → aprobación → composición → extracción/editor → reapertura, además de HTML directo → ajustes → fallo de guardado → aplicación → reapertura y nuevo ajuste en la revisión siguiente. El [reporte local](../../artifacts/desaing-lab/unified-design-smoke-result.json) registra sólo proveedores simulados y cero solicitudes externas. Capturas de [escritorio](../../artifacts/desaing-lab/unified-design-html-pieces-desktop.png) y [tablet emulada](../../artifacts/desaing-lab/unified-design-reopened-tablet.png), inspeccionadas visualmente. El HTML independiente y la conversión conservan sus pruebas de regresión; no se repiten renders reales para esta comprobación de integración.
+
+**Activación:** publicar frontend y `desaing-server` compatibles con `supports_conversation_actions: 1` y `supports_full_design_edit`, además del `generate-design-html` preparado en 15.40. Coordinar con los consumidores de 15.39 y verificar la política vigente de modelos. Esta etapa no añade migraciones SQL, no despliega servicios ni realiza llamadas de imagen/LLM de pago.
+
+### 15.42. Corrección de disponibilidad de la conversación — 19 de septiembre de 2026
+
+La pantalla mostraba «Actualiza el servidor para activar la conversación unificada de diseño». La inspección remota confirmó el servidor y la exploración habilitados, la política `xending-image-choices-2026-09-18` activa y los tres perfiles disponibles, pero ambas fechas de disponibilidad conservaban `1789793283836`, ya vencido. Las capacidades nulas por configuración se confundían en la interfaz con una versión antigua del contrato.
+
+Se desplegó `desaing-server` y se verificó ACTIVE v24 con JWT habilitado. Se renovaron únicamente `DESAING_EXPLORATION_EXPIRES_AT_MS` y `DESAING_UI_EXPIRES_AT_MS` a `1790488799000`: **26 de septiembre de 2026, 23:59:59 CDMX**. Los consumidores existentes comparten esas ventanas; se conservaron sus flags, negocio, actor, política, modelos, presupuestos e historial. No hubo cambios SQL ni despliegue de frontend u otras funciones en esta corrección.
+
+La interfaz distingue ahora capacidades nulas (conversación no habilitada; revisar configuración) del contrato antiguo (actualizar servidor). Ambas situaciones conservan el mensaje sin enviarlo y no llaman al planificador ni a generación. El hook pasó 13 pruebas, incluidas dos específicas del incidente. También pasaron Deno check, 111 pruebas dirigidas previas al despliegue y 16 comprobaciones remotas de CORS/autenticación. La consulta de sólo lectura del journal encontró tres intentos textuales y US$0.027296 comprometidos; renovar la ventana no reinicia reservas ni consumo.
+
+Evidencia operativa: `artifacts/desaing-lab/conversation-rollout-status.json` y `exploration-server-endpoint-checks.json`. **Cero llamadas a proveedores durante esta corrección.** Sigue pendiente reenviar el encargo con la sesión del usuario y evaluar la interpretación visual y el resultado real; las comprobaciones negativas de acceso no equivalen a esa prueba positiva. El resto de la activación y comparación de modelos conserva su alcance pendiente.
+
+### 15.43. Activación del guardado remoto pendiente — 19 de septiembre de 2026
+
+La siguiente prueba de uso mostró «Guardado remoto sin confirmar» y las herramientas de Diseño libre deshabilitadas. El frontend ya incorporaba continuidad en Supabase, pero la inspección remota confirmó ausentes la tabla `desaing_continuity`, ambos RPC, su bucket privado y el registro de migración. Las dependencias de negocios y autorización sí existían. La página conservaba la copia local y bloqueaba cambios mientras el guardado remoto no pudiera confirmarse.
+
+Se revisó la migración `202609190001_desaing_continuity.sql` y se aplicó únicamente ésta, junto con su registro de historial y `NOTIFY pgrst, 'reload schema'`, en una transacción. El instalador comprueba dependencias, ausencia de una instalación previa/parcial y serializa intentos concurrentes. No se modificaron políticas de generación, modelos, presupuestos, funciones Edge ni diseños existentes.
+
+**Verificación:** 26 pruebas aprobadas en `designConversationRemote.test.ts` y `useDesignConversation.test.ts`, incluyendo PostgreSQL local mediante PGlite, conservación de identidad del lienzo, recuperación, conflictos e aislamiento. La comprobación remota confirmó RLS, escritura sólo mediante RPC autenticados, ausencia de acceso anónimo, bucket privado PNG de 8 MiB y siete políticas de Storage. Ambas rutas REST reconocen sus funciones y rechazan peticiones anónimas con 401/42501; no devuelven el error de función inexistente.
+
+Scripts: `continuity-install-preflight.sql`, `prepare-continuity-install.mjs`, `continuity-verify.sql` y `continuity-endpoint-check.mjs` en `scripts/desaing/`. Evidencia en `artifacts/desaing-lab/continuity-rollout-status.json` y `continuity-endpoint-checks.json`. La verificación inicial encontró cero registros remotos; la copia previa debe incorporarse desde el navegador de origen con **Sincronizar**. La prueba positiva con la sesión real y la recuperación PC–iPad siguen pendientes. No se hicieron llamadas a modelos ni renders durante esta corrección.
+
+### 15.44. Cierre de código de tarea A — continuidad entre dispositivos
+
+**Encargo:** preparar código, migraciones y pruebas de conversaciones, referencias, versiones y acciones pendientes, conservando cambios locales. Esta tarea no ejecutó despliegues, no implementó el journal nuevo de HTML directo (B) y no importó historias antiguas (D). Mientras estaba en curso, otra tarea actualizó 15.42–15.43 e instaló la primera migración; esas notas y cambios se conservaron.
+
+**Persistencia y permisos:** `202609190001_desaing_continuity.sql` crea snapshots de conversación y workspace de Diseño libre con clave usuario/negocio/tipo/documento/slide. Los RPC comprueban JWT, identidad esperada y membresía activa; owner/admin/editor escriben mediante revisión comparada y `mutation_id`. La tabla usa RLS y no permite escritura directa del cliente o service_role. SQL conserva historia y pendiente; el cliente conserva todos los validadores tipados anteriores. Los PNG se guardan en un bucket privado por usuario/negocio/ámbito/hash, con objetos inmutables y políticas restrictivas frente a permisos heredados; el snapshot guarda su manifiesto y la recuperación verifica bytes/hash. No se persisten credenciales ni URLs firmadas.
+
+**Recuperación y conflictos:** `src/lib/desaing/continuityStore.ts` conserva el intento antes del RPC en una base IndexedDB separada. Un guardado interrumpido mantiene identidad, revisión base y contenido; al reconectar se confirma o se reintenta sólo ese guardado. Si otra revisión avanzó, se carga lo vigente y se conserva aparte el intento local; no se fusionan ni sobrescriben versiones. Las bases anteriores permanecen intactas y sólo se copia la conversación unificada actual a un ámbito remoto vacío. Los respaldos pueden incluir guardados interrumpidos que el servidor sí incorporó antes de avanzar nuevamente. «Sincronizar» y «Descargar copia local» permiten revisar esta situación. Sin confirmar Supabase se consulta el respaldo y se bloquean nuevas ejecuciones.
+
+**Integración:** `designConversationRemote.ts` utiliza el cliente Supabase existente, inyectado desde `PresentationDesignContext`. `useDesignConversation` conserva el guardado previo al despacho y la recuperación mediante las identidades originales de los journals de imagen/exploración. Reabrir/sincronizar nunca genera; recuperar una conversación no autoejecuta la imagen sugerida. Una revisión antigua del lienzo no rebaja el estado guardado y aprobar/aplicar comprueba la revisión remota. El HTML completo de la última composición puede hidratarse en el editor completo existente cuando falta la composición local; la siguiente edición conserva su padre. Las composiciones antiguas o incompletas siguen como historial cuando no está disponible su editor de piezas original.
+
+Diseño libre reutiliza sus documentos y validadores con `kind=free_workspace`; preserva IDs de documento/canvas y selección para abrir la misma conversación en otro dispositivo. Presentaciones continúa usando proyectos remotos existentes. El borrador de presentación sin proyecto y las historias de otro ID no se publican ni migran automáticamente: guardar el proyecto antes de iniciar trabajo destinado a otro dispositivo. La biblioteca local completa y el estado interno de extracción/piezas quedan fuera de este encargo.
+
+**Migración incremental:** al detectar la instalación de 15.43 se comparó `202609190001` con el SQL registrado en `artifacts/desaing-lab/continuity-install.sql` y se conservó exactamente, byte por byte. Los cambios finales se prepararon en `202609190002_desaing_continuity_guards.sql`: trigger que rechaza retroceder la revisión del lienzo y validación completa de UUID antes del cast en cuatro políticas de Storage. No cambia datos ni cuotas. **Esta segunda migración no se aplicó; corresponde a C**, junto con verificar la versión final del frontend y la sesión real.
+
+**Validación local:** 272 pruebas en 25 suites (`src/lib/presentations/__tests__` y `freeDesignDocument.test.ts`), TypeScript global, los proyectos estrictos `tsconfig.presentations-test.json`/`tsconfig.desaing.json` y build. La suite remota ejecuta PostgreSQL/RLS con PGlite y prueba referencias reales, copy, HTML, selección, pérdida de confirmación, concurrencia, JWT, aislamiento, negocio inactivo, Storage privado y restauración del canvas. El hook comprueba recuperación desde una sesión limpia sin otro render, bloqueo si se pierde la confirmación del guardado y edición/aplicación del HTML recuperado.
+
+El nuevo `scripts/desaing/continuity-smoke.mjs` comprueba seis escenarios con dos contextos Chrome aislados e IndexedDB real: referencias y pendiente; pérdida de confirmación del despacho; mensajes concurrentes; recuperación de una respuesta de imagen perdida; reconexión; y contexto de Diseño libre. `unified-design-smoke.mjs` mantiene sus doce comprobaciones de imagen, HTML y editor. Evidencia: `artifacts/desaing-lab/continuity-smoke-result.json`, capturas `continuity-desktop.png`/`continuity-ipad.png` inspeccionadas y reporte unificado. Transporte/Storage de navegador y proveedores simulados; cero solicitudes externas/de pago. Safari/iPad físico y uso positivo con la cuenta real siguen pendientes.
+
+**Límites vigentes:** B sigue pendiente para el HTML directo incierto. Se conservan 20 versiones, 200 mensajes/acciones y tres referencias; snapshot remoto de hasta 64 MiB. No hay borrado automático de referencias huérfanas ni importación/fusión de respaldos; definir esas políticas por separado, conservando el trabajo existente.
+
 ## 16. Detención, fallback y reversión
 
 Detener ante:
@@ -1360,17 +1683,19 @@ La base técnica contiene componentes aprovechables, pero parte de ellos está d
 
 **Ampliación de referencias y piezas:** **15.26** añade captura más tres referencias reales en el flujo directo y la galería, recreación con solicitud de transparencia y extracción manual con procedencia. La suite conjunta alcanza **983 pruebas en 37 suites**; las cifras del párrafo anterior describen el cierre histórico de la galería. La composición con varias referencias ya tiene integración y pruebas simuladas en Presentaciones; su calidad real sigue por validar. El siguiente bloque aborda diseño completo antes del HTML, seguido por los demás consumidores del motor y la validación real. Consultar 15.26 para el estado operativo final de esta entrega.
 
-**Estado actual de implementación:** las ampliaciones 15.27–15.32 completan los consumidores compartidos, materiales durables, onboarding, imágenes/carruseles y administración del maestro. [DAI-21](./DESAING_DAI21_PROMPT_GOVERNANCE.md) conserva su cierre técnico; **15.33** acredita el login normal y siete comprobaciones JWT reales. La aceptación visual y las demás validaciones reales siguen abiertas. Los párrafos y cifras anteriores conservan los estados históricos de sus entregas.
+**Estado actual de implementación:** las ampliaciones 15.27–15.32 aportan consumidores compartidos, materiales, onboarding, imágenes/carruseles y administración del maestro. [DAI-21](./DESAING_DAI21_PROMPT_GOVERNANCE.md) conserva su cierre técnico; **15.33** registra evidencia real parcial. **15.34** identifica brechas funcionales, **15.35** implementa localmente selectores/transporte y **15.36** incorpora conversación visual, texto resuelto y marca. **15.37** prioriza la unificación; **15.38–15.39** conectan localmente Studio, carruseles, News, FX y compatibilidad anterior al núcleo. Image Stock queda retirado, con biblioteca conservada. **15.40** incorpora el editor completo compartido, creación HTML y reutilización de piezas aprobadas; **15.41** integra localmente conversación, imágenes y HTML en Presentaciones y diseño libre. El cierre completo sigue en **14.1–14.2**: verificar activación y comparar resultados reales. Los párrafos y cifras anteriores conservan los estados históricos de sus entregas.
 
 ## 19. Referencias
 
 - Documento base conservado: [ScoryDesign — Plan de integración experimental, versión interna 2.0](../ScoryDesign_Plan_Integracion_Experimental_v2.md).
 - Acuerdos posteriores de Fai en esta conversación: onboarding inicial, propuestas compartidas, HTML en varios destinos, reuso de News, separación de responsabilidades de modelos y caso del avión. Base de la actualización documental 2.2.
+- Aclaraciones de Fai para 2.3: usar el editor completo de Presentaciones; crear desde texto/plática con ejemplos visuales opcionales; conservar GPT Image 2, Flare 2.5 y Sunburst para comparación real; Low/Medium/High seleccionables mediante desplegables arriba de cada proceso.
 - Código contrastado: `src/components/onboarding/useConversationalOnboarding.ts`, `src/components/brand-onboarding/BrandOnboardingWizard.tsx`, `supabase/functions/_shared/documentExtractor.ts`, `src/components/presentations/SlideGeneratorPanel.tsx`, `src/hooks/useGenerateSlide.ts`, `supabase/functions/generate-design-html/index.ts`, `src/hooks/useNewsEdition.ts` y `src/utils/design-studio/buildNewsSlideHtml.ts`.
 - [OpenAI — GPT Image 2](https://developers.openai.com/api/docs/models/gpt-image-2)
 - [OpenAI — GPT Image 2.5 Flare](https://developers.openai.com/api/docs/models/gpt-image-2.5-flare)
 - [OpenAI — GPT Image 2.5 Sunburst](https://developers.openai.com/api/docs/models/gpt-image-2.5-sunburst)
 - [OpenAI — Image generation](https://developers.openai.com/api/docs/guides/image-generation)
+- [OpenAI — Create image: modelos y calidad](https://developers.openai.com/api/reference/cli/resources/images/methods/generate)
 - [OpenAI — Image generation tool](https://developers.openai.com/api/docs/guides/tools-image-generation)
 - [OpenAI — File inputs](https://developers.openai.com/api/docs/guides/file-inputs)
 

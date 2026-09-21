@@ -1,0 +1,210 @@
+{
+  "cases": 40,
+  "overflows": [],
+  "browser_errors": [],
+  "external_requests": [],
+  "valid_upload": true,
+  "corrupt_image_rejected": true,
+  "results": [
+    {
+      "width": 1920,
+      "view": "home",
+      "horizontal_overflow": false
+    },
+    {
+      "width": 1920,
+      "view": "create",
+      "horizontal_overflow": false
+    },
+    {
+      "width": 1920,
+      "view": "library",
+      "horizontal_overflow": false
+    },
+    {
+      "width": 1920,
+      "view": "editor",
+      "horizontal_overflow": false
+    },
+    {
+      "width": 1920,
+      "view": "brand",
+      "horizontal_overflow": false
+    },
+    {
+      "width": 1920,
+      "view": "icons",
+      "horizontal_overflow": false
+    },
+    {
+      "width": 1920,
+      "view": "create-1",
+      "horizontal_overflow": false
+    },
+    {
+      "width": 1920,
+      "view": "create-2",
+      "horizontal_overflow": false
+    },
+    {
+      "width": 1920,
+      "view": "create-3",
+      "horizontal_overflow": false
+    },
+    {
+      "width": 1920,
+      "view": "create-4",
+      "horizontal_overflow": false
+    },
+    {
+      "width": 1440,
+      "view": "home",
+      "horizontal_overflow": false
+    },
+    {
+      "width": 1440,
+      "view": "create",
+      "horizontal_overflow": false
+    },
+    {
+      "width": 1440,
+      "view": "library",
+      "horizontal_overflow": false
+    },
+    {
+      "width": 1440,
+      "view": "editor",
+      "horizontal_overflow": false
+    },
+    {
+      "width": 1440,
+      "view": "brand",
+      "horizontal_overflow": false
+    },
+    {
+      "width": 1440,
+      "view": "icons",
+      "horizontal_overflow": false
+    },
+    {
+      "width": 1440,
+      "view": "create-1",
+      "horizontal_overflow": false
+    },
+    {
+      "width": 1440,
+      "view": "create-2",
+      "horizontal_overflow": false
+    },
+    {
+      "width": 1440,
+      "view": "create-3",
+      "horizontal_overflow": false
+    },
+    {
+      "width": 1440,
+      "view": "create-4",
+      "horizontal_overflow": false
+    },
+    {
+      "width": 1024,
+      "view": "home",
+      "horizontal_overflow": false
+    },
+    {
+      "width": 1024,
+      "view": "create",
+      "horizontal_overflow": false
+    },
+    {
+      "width": 1024,
+      "view": "library",
+      "horizontal_overflow": false
+    },
+    {
+      "width": 1024,
+      "view": "editor",
+      "horizontal_overflow": false
+    },
+    {
+      "width": 1024,
+      "view": "brand",
+      "horizontal_overflow": false
+    },
+    {
+      "width": 1024,
+      "view": "icons",
+      "horizontal_overflow": false
+    },
+    {
+      "width": 1024,
+      "view": "create-1",
+      "horizontal_overflow": false
+    },
+    {
+      "width": 1024,
+      "view": "create-2",
+      "horizontal_overflow": false
+    },
+    {
+      "width": 1024,
+      "view": "create-3",
+      "horizontal_overflow": false
+    },
+    {
+      "width": 1024,
+      "view": "create-4",
+      "horizontal_overflow": false
+    },
+    {
+      "width": 390,
+      "view": "home",
+      "horizontal_overflow": false
+    },
+    {
+      "width": 390,
+      "view": "create",
+      "horizontal_overflow": false
+    },
+    {
+      "width": 390,
+      "view": "library",
+      "horizontal_overflow": false
+    },
+    {
+      "width": 390,
+      "view": "editor",
+      "horizontal_overflow": false
+    },
+    {
+      "width": 390,
+      "view": "brand",
+      "horizontal_overflow": false
+    },
+    {
+      "width": 390,
+      "view": "icons",
+      "horizontal_overflow": false
+    },
+    {
+      "width": 390,
+      "view": "create-1",
+      "horizontal_overflow": false
+    },
+    {
+      "width": 390,
+      "view": "create-2",
+      "horizontal_overflow": false
+    },
+    {
+      "width": 390,
+      "view": "create-3",
+      "horizontal_overflow": false
+    },
+    {
+      "width": 390,
+      "view": "create-4",
+      "horizontal_overflow": false
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+/* ScoryDesign — proposed implementation tokens for the approved light/cobalt direction.
+   Scoped under .sd-root; never overwrite global tokens in the host application. */
+.sd-root {
+ --sd-bg:#f1f6fd; --sd-surface:#fff; --sd-ink:#101b3b; --sd-muted:#60718c;
+ --sd-blue:#0866ff; --sd-blue-dark:#004dd8; --sd-blue-pale:#e9f2ff;
+ --sd-line:#dae5f5; --sd-line-soft:#e6edf8; --sd-violet:#7955f8;
+ --sd-green:#18af8e; --sd-orange:#ff8a3c;
+ --sd-radius-sm:10px; --sd-radius-md:16px; --sd-radius-lg:22px; --sd-radius-xl:28px;
+ --sd-shadow:0 10px 32px rgba(29,67,120,.055); --sd-shadow-blue:0 7px 17px rgba(8,102,255,.22);
+ --sd-font:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;
+ --sd-sidebar:220px; --sd-gap:18px;
+ font-family:var(--sd-font); color:var(--sd-ink);
+}
