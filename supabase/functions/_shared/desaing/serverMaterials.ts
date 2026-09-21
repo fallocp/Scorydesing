@@ -9,6 +9,7 @@ import { canonicalExploration } from './explorationRepository.ts';
 import { MaterialsProviderError } from './materialsProvider.ts';
 import { inspectMaterialBytes, MaterialBytesError } from './materialBytes.ts';
 import { PILOT_LIMITS } from './pilotHttp.ts';
+import { isGenerationProfilePolicy } from './catalog.ts';
 import { ServerBoundaryError, type ServerRepository, type ServerRead } from './serverRepository.ts';
 import type { ServerHtmlConfig } from './serverHtml.ts';
 import { assertBusinessId } from './serverRequest.ts';
@@ -51,7 +52,7 @@ export function createServerMaterials(settings: ServerHtmlConfig, deps: ServerMa
     requireValue(businessId === config.businessId && actorId === config.actorId && ['owner', 'admin'].includes(read.role), 'business_write_denied', 403);
     const p = read.policy; requireValue(p.business_id === businessId && p.policy_id === config.policyId && p.limit_micro_usd === PILOT_LIMITS.budgetMicroUsd
       && p.max_image_outputs === PILOT_LIMITS.maxOutputs && p.reservation_per_output_micro_usd === PILOT_LIMITS.reservationMicroUsd
-      && p.enabled_image_profiles.length === 1 && p.enabled_image_profiles[0] === PILOT_LIMITS.imageProfile && p.responses_image_enabled === true, 'server_policy_changed', 409);
+      && isGenerationProfilePolicy(p.enabled_image_profiles) && p.responses_image_enabled === true, 'server_policy_changed', 409);
   }
   async function gate(businessId: string, actorId: string, paid = true) { const read = await deps.repository.read(businessId, actorId); assertScope(businessId, actorId, read);
     if (paid) { assertWindow(); requireValue(read.policy.enabled, 'server_feature_disabled', 503); } return read; }

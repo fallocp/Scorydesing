@@ -3,7 +3,7 @@ import type { ExplorationSession, ExplorationScope, IdeaSelection } from '../../
 import type { DesignServerClient } from '../desaing/serverClient';
 import { openVisualProposalStore } from '../desaing/visualProposalStore';
 import { createVisualProposalController, type VisualProposalControllerState, type VisualProposalServerRead } from '../desaing/visualProposalController';
-import { assertDesignRegion, buildPresentationImageOperation, prepareServerCapture, presentationGenerationCapabilities, type DesignRegion } from './presentationServerDesign';
+import { assertDesignRegion, buildPresentationImageOperation, prepareServerCapture, presentationGenerationCapabilities, type DesignRegion, type PresentationImageSelection } from './presentationServerDesign';
 import type { PresentationSlide } from './presentationDocument';
 import type { DesignReference } from '../../../supabase/functions/_shared/desaing/contracts';
 import type { RegisteredAssetVersion } from '../../../supabase/functions/_shared/desaing/assets';
@@ -20,6 +20,8 @@ export interface PresentationVisualProposalOptions {
   region: DesignRegion;
   scope?: ExplorationScope;
   approvedCopy?: string;
+  copyMode?: 'literal' | 'none';
+  imageSelection?: PresentationImageSelection;
   destination?: DesignSurfaceDestination;
   productionSource?: RegisteredAssetVersion;
   productionCopyVersion?: string;
@@ -36,6 +38,8 @@ const empty: VisualProposalControllerState = { sets: [], currentSet: null, views
 const codeOf = (error: unknown) => error && typeof error === 'object' && 'code' in error ? String(error.code)
   : error instanceof Error ? error.message : '';
 const messages: Record<string, string> = {
+  reference_copy_unresolved: 'Pega el texto exacto de la referencia en Texto aprobado; una indicación como “lo que viene en las referencias” no es el contenido final.',
+  unsupported_image_selection: 'El modelo o calidad elegidos no están habilitados en el servidor. Conservamos tu selección y las propuestas.',
   job_quota_exceeded: 'No hay cupo para todos los borradores seleccionados. Elige menos propuestas antes de generar.',
   capture_required: 'Añade la captura de esta diapositiva antes de generar borradores.',
   visual_proposal_unresolved: 'Hay una solicitud pendiente de confirmar. Recupera sus resultados antes de generar otra.',
@@ -54,7 +58,8 @@ const messages: Record<string, string> = {
 const inputKey = (options: PresentationVisualProposalOptions) => JSON.stringify([
   options.businessId, options.documentId, options.slide.id, options.slide.revision, options.slide.html,
   options.region.x, options.region.y, options.region.width, options.region.height,
-  options.referenceKey, options.recreateReferenceId, options.scope, options.approvedCopy, options.destination, options.productionSource?.identity, options.productionCopyVersion,
+  options.referenceKey, options.recreateReferenceId, options.scope, options.approvedCopy, options.copyMode, options.destination, options.productionSource?.identity, options.productionCopyVersion,
+  options.imageSelection?.profile, options.imageSelection?.quality,
 ]);
 const contextKey = (session: ExplorationSession) => JSON.stringify({ ...session.context, interaction_mode: 'explore_design' });
 
@@ -103,7 +108,7 @@ export function usePresentationVisualProposals(options: PresentationVisualPropos
             },
             async prepareCapture(maxReferenceEdge) {
               if (!capture) {
-                if (value.scope === 'full_design' && frozenSession.context.instruction.includes('Sin captura de lienzo. La planificación inicial es textual.')) return null;
+                if (value.scope === 'full_design' && frozenSession.context.instruction.includes('Sin captura de lienzo.')) return null;
                 throw new Error('capture_required');
               }
               assertDesignRegion(slide, region);
@@ -121,8 +126,8 @@ export function usePresentationVisualProposals(options: PresentationVisualPropos
               const additionalReferences = await value.prepareReferences?.(generation) ?? [];
               return buildPresentationImageOperation({ businessId: value.businessId, actorId: frozenSession.context.actor_id,
                 documentId: value.documentId, slide, reference, region, instruction: candidate.instruction,
-                operationKey, generation, interactionMode: 'explore_design', additionalReferences, recreateReferenceId: value.recreateReferenceId,
-                scope: value.scope, approvedCopy: value.approvedCopy, destination: value.destination,
+                operationKey, generation, imageSelection: value.imageSelection, interactionMode: 'explore_design', additionalReferences, recreateReferenceId: value.recreateReferenceId,
+                scope: value.scope, approvedCopy: value.approvedCopy, copyMode: value.copyMode, destination: value.destination,
                 productionSource: value.productionSource, productionCopyVersion: value.productionCopyVersion });
             },
           };

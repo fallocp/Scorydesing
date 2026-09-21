@@ -1,17 +1,15 @@
 /**
  * Hook para generar slides de presentación con IA.
  *
- * Reutiliza la edge function `generate-design-html` (rama `design_system:
- * 'xending-slide'`), con modelo configurable por env var (SLIDE_MODEL /
- * SLIDE_FIX_MODEL) + el sistema de diseño "Xending Light Editorial". Soporta:
- *  - texto → slide
- *  - imagen de referencia (base64 o URL) → slide
- *  - refinamiento por feedback (current_html + iteration_feedback → slide)
- *  - corrección visual: compara la referencia con el render actual y arregla
+ * Reutiliza `generate-design-html` con SLIDE_MODEL / SLIDE_FIX_MODEL.
+ * `design-canvas` conserva negocio, dimensiones y múltiples referencias para
+ * Presentaciones y diseño libre; `xending-slide` mantiene el contrato anterior.
+ * Ambos permiten creación y refinamiento visual del HTML. No generan imágenes.
  */
 
 import { useMutation } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import type { DesignCanvasHtmlRequest } from '../../supabase/functions/_shared/designCanvasHtml';
 
 export interface GenerateSlideRequest {
   /** Intención / texto del usuario (opcional si se manda imagen). */
@@ -39,16 +37,25 @@ export interface GenerateSlideResponse {
 }
 
 async function generateSlide(
-  request: GenerateSlideRequest,
+  request: GenerateSlideRequest | (DesignCanvasHtmlRequest & { expectedActorId?: string }),
 ): Promise<GenerateSlideResponse> {
+  const canvasRequest = 'canvas' in request;
+  const expectedActorId = canvasRequest ? request.expectedActorId : undefined;
+  const assertActor = async () => {
+    if (!expectedActorId) return;
+    const { data, error } = await supabase.auth.getSession();
+    if (error || data.session?.user.id !== expectedActorId) throw Error('La sesión cambió. Vuelve a abrir el diseño con el usuario original.');
+  };
+  await assertActor();
+  const body = { ...request } as Record<string, unknown>; delete body.expectedActorId;
   const { data, error } = await supabase.functions.invoke('generate-design-html', {
-    body: { design_system: 'xending-slide', ...request },
+    body: { ...body, design_system: canvasRequest ? 'design-canvas' : 'xending-slide' },
   });
 
   if (error) throw new Error(error.message || 'Error generando el slide');
   if (data?.error) throw new Error(data.message || data.error);
   if (!data?.html) throw new Error('La IA no devolvió HTML del slide');
-
+  await assertActor();
   return { html: data.html };
 }
 
@@ -56,5 +63,6 @@ export function useGenerateSlide() {
   return useMutation({
     mutationFn: generateSlide,
     mutationKey: ['generate-slide'],
+    retry: false,
   });
 }

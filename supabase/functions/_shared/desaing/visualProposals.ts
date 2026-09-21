@@ -51,23 +51,30 @@ function check(value: unknown, code = 'invalid_visual_proposal_set'): asserts va
 const selectionKey = (selection: IdeaSelection) => canonical([selection.set_id, selection.idea_id, selection.version]);
 const contextKey = (context: DesignContext) => { const { interaction_mode: _, ...rest } = context; return canonical(rest); };
 const candidateId = (selection: IdeaSelection) => `visual:${selectionKey(selection)}`;
-/** Existing presentation exploration stores capture identity as text until upload.
- * Materialization may add only that capture and its exact recorded placement. */
-function localPresentationScope(context: DesignContext): { brief: string; region: Record<string, number>; width: number; height: number; hasCapture: boolean; references: PresentationReferenceScope } | null {
-  if (!['presentations', 'free_design', 'onboarding', 'production'].includes(context.workspace) || context.references.length || context.placement) return null;
+/** Older sessions hold local identities; visual conversations additionally pin uploaded versions.
+ * Materialization may add placement metadata and re-upload the same capture pixels only. */
+function localPresentationScope(context: DesignContext): { brief: string; region: Record<string, number>; width: number; height: number;
+  hasCapture: boolean; captureHash?: string; references: PresentationReferenceScope } | null {
+  if (!['presentations', 'free_design', 'onboarding', 'production'].includes(context.workspace) || context.placement) return null;
   try {
     const local = parsePresentationReferenceScope(context.instruction);
+    const brandMarker = '\n\nIdentidad de la marca de este proyecto:\n', brandAt = local.instruction.lastIndexOf(brandMarker);
+    const brand = brandAt < 0 ? '' : local.instruction.slice(brandAt);
+    if (brand && !record(JSON.parse(brand.slice(brandMarker.length)))) return null;
+    const body = brandAt < 0 ? local.instruction : local.instruction.slice(0, brandAt);
     const full = readPresentationFullDesign(context);
     if (full) {
-      const match = /\n\nAlcance: diseño completo del lienzo (\d+)×(\d+)\.\n(?:Identidad de la captura local: ([a-zA-Z0-9_-]+)\.|Sin captura de lienzo\.) La planificación inicial es textual\.$/.exec(local.instruction);
+      const match = /\n\nAlcance: diseño completo del lienzo (\d+)×(\d+)\.\n(?:Identidad de la captura local: ([a-zA-Z0-9_-]+)\.|Sin captura de lienzo\.)(?: La planificación inicial es textual\.)?$/.exec(body);
       if (!match || Number(match[1]) !== full.canvas.width || Number(match[2]) !== full.canvas.height) return null;
-      return { brief: local.instruction.slice(0, match.index), region: { x: 0, y: 0, ...full.canvas }, ...full.canvas, hasCapture: !!match[3], references: local.scope };
+      return { brief: body.slice(0, match.index) + brand, region: { x: 0, y: 0, ...full.canvas }, ...full.canvas,
+        hasCapture: !!match[3], ...(match[3] ? { captureHash: match[3] } : {}), references: local.scope };
     }
-    const match = /\n\nAlcance: una pieza independiente para la región (\{[^\n]+\}) del lienzo (\d+)×(\d+)\.\nIdentidad de la captura local: ([a-zA-Z0-9_-]+)\. La planificación inicial es textual\.$/.exec(local.instruction);
+    const match = /\n\nAlcance: una pieza independiente para la región (\{[^\n]+\}) del lienzo (\d+)×(\d+)\.\nIdentidad de la captura local: ([a-zA-Z0-9_-]+)\.(?: La planificación inicial es textual\.)?$/.exec(body);
     if (!match) return null;
     const region = JSON.parse(match[1]);
     if (!keys(region, ['x', 'y', 'width', 'height']) || !Object.values(region).every(value => typeof value === 'number' && Number.isFinite(value))) return null;
-    return { brief: context.instruction.slice(0, match.index), region: region as Record<string, number>, width: Number(match[2]), height: Number(match[3]), hasCapture: true, references: local.scope };
+    return { brief: body.slice(0, match.index) + brand, region: region as Record<string, number>, width: Number(match[2]), height: Number(match[3]),
+      hasCapture: true, captureHash: match[4], references: local.scope };
   } catch { return null; }
 }
 function renderInstructionVariants(instruction: string, context: DesignContext): string[] {
@@ -89,20 +96,41 @@ function assertOperation(operation: unknown, candidate: VisualProposalCandidate,
   const expected = { ...context, instruction: candidate.instruction }, actual = operation.context as DesignContext;
   const materialized = localPresentationScope(context);
   const full = readPresentationFullDesign(context);
-  if (materialized && actual.references.length === Number(materialized.hasCapture) + materialized.references.references.length
-    && !!actual.placement === materialized.hasCapture) {
+  if (materialized) {
+    const referenceCount = Number(materialized.hasCapture) + materialized.references.references.length;
+    const pinnedCaptures = context.references.filter(reference => reference.reference_id.startsWith('capture:'));
+    const pinnedSources = full?.production?.action === 'edit_image' && context.base_asset
+      ? context.references.filter(reference => reference.reference_id.startsWith('source:')) : [];
+    check(pinnedSources.length <= 1 && pinnedSources.every(reference => reference.reference_id === `source:${context.base_asset!.asset_id}`
+      && reference.business_id === context.base_asset!.business_id && reference.asset_id === context.base_asset!.asset_id
+      && reference.version_id === context.base_asset!.version_id && reference.mime_type === 'image/png'
+      && canonical(reference.roles) === canonical(['target_render'])), 'visual_proposal_context_changed');
+    const pinnedExtras = context.references.filter(reference => !pinnedCaptures.includes(reference) && !pinnedSources.includes(reference));
+    check(actual.references.length === referenceCount && !!actual.placement === materialized.hasCapture
+      && (!context.references.length || context.references.length === referenceCount + pinnedSources.length
+        && pinnedCaptures.length === Number(materialized.hasCapture)), 'visual_proposal_context_changed');
     if (materialized.hasCapture) {
       const reference = actual.references[0];
       check(reference.mime_type === 'image/png' && canonical(reference.roles) === canonical(full ? ['layout_reference', 'placement_context'] : ['target_render', 'placement_context'])
         && actual.placement!.capture_reference_id === reference.reference_id && actual.placement!.document_revision === context.target.revision
         && canonical(actual.placement!.canvas) === canonical({ width: materialized.width, height: materialized.height })
         && canonical(actual.placement!.region) === canonical({ ...materialized.region, units: 'px' }), 'visual_proposal_context_changed');
+      if (/^[a-f0-9]{64}$/.test(materialized.captureHash ?? '')) check(reference.version_id === materialized.captureHash, 'visual_proposal_context_changed');
+      if (context.references.length) {
+        const pinned = pinnedCaptures[0];
+        check(/^[a-f0-9]{64}$/.test(materialized.captureHash ?? '') && pinned.version_id === materialized.captureHash
+          && pinned.mime_type === 'image/png' && pinned.business_id === reference.business_id
+          && pinned.reference_id === `capture:${pinned.asset_id}` && reference.reference_id === `capture:${reference.asset_id}`
+          && (canonical(pinned.roles) === canonical(['layout_reference']) || canonical(pinned.roles) === canonical(['target_render', 'layout_reference'])
+            || canonical(pinned.roles) === canonical(reference.roles)), 'visual_proposal_context_changed');
+      }
     } else check(full, 'visual_proposal_context_changed');
     for (let index = 0; index < materialized.references.references.length; index++) {
       const expectedReference = materialized.references.references[index], supplied = actual.references[index + Number(materialized.hasCapture)];
       check(supplied.reference_id === expectedReference.reference_id && supplied.mime_type === 'image/png'
         && supplied.version_id === expectedReference.reference_id.slice('reference:'.length)
         && canonical(supplied.roles) === canonical([expectedReference.role]), 'visual_proposal_context_changed');
+      if (context.references.length) check(canonical(supplied) === canonical(pinnedExtras[index]), 'visual_proposal_context_changed');
     }
     const source = materialized.references.recreate_reference_id
       ? actual.references.find(ref => ref.reference_id === materialized.references.recreate_reference_id) : undefined;
@@ -115,7 +143,7 @@ function assertOperation(operation: unknown, candidate: VisualProposalCandidate,
   } else check(contextKey(actual) === contextKey(expected), 'visual_proposal_context_changed');
   const image = operation.image;
   check(keys(image, ['profile', 'quality', 'size', 'output_format', 'background', 'output_count', 'executor'])
-    && keys(image.size, ['width', 'height']) && image.quality === 'low' && image.output_count === 1,
+    && keys(image.size, ['width', 'height']) && ['low', 'medium', 'high'].includes(String(image.quality)) && image.output_count === 1,
   'invalid_visual_proposal_operation');
   if (full) check(operation.action === (full.production?.action ?? 'generate_image') && canonical(image.size) === canonical(fullDesignImageSize(full.canvas, !!full.production))
     && image.background === 'opaque', 'invalid_visual_proposal_operation');

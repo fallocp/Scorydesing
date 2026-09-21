@@ -10,13 +10,14 @@ export interface PresentationReferencePickerProps {
   disabled?: boolean;
   maxReferences?: number;
   onBusyChange?(busy: boolean): void;
+  conversationReadsImages?: boolean;
 }
 const labels: Record<PresentationReferenceRole, string> = {
   object_reference: 'Objeto o persona', image_style_reference: 'Estilo visual', layout_reference: 'Composición',
   content_source: 'Contenido', brand_reference: 'Marca',
 };
 /** Local files only; previews and roles never upload or call an image/text model. */
-export function PresentationReferencePicker({ items, onChange, disabled = false, maxReferences = 3, onBusyChange }: PresentationReferencePickerProps) {
+export function PresentationReferencePicker({ items, onChange, disabled = false, maxReferences = 3, onBusyChange, conversationReadsImages }: PresentationReferencePickerProps) {
   const [busy, setBusy] = useState(false), [error, setError] = useState('');
   const [previews, setPreviews] = useState<Record<string, string>>({});
   const latest = useRef({ items, onChange, disabled, maxReferences }); latest.current = { items, onChange, disabled, maxReferences };
@@ -48,9 +49,9 @@ export function PresentationReferencePicker({ items, onChange, disabled = false,
         onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; if (file) void change(async () =>
           addPresentationReference(latest.current.items, await preparePresentationReference(file), limit)); }} />
     </label>
-    {items.length > 0 && <ul className="prp-list">{items.map(item => <li key={item.id} data-testid="presentation-reference-item" data-reference-id={item.id}>
+    {items.length > 0 && <ul className="prp-list">{items.map((item, index) => <li key={item.id} data-testid="presentation-reference-item" data-reference-id={item.id}>
       {previews[item.id] && <img src={previews[item.id]} alt={`Referencia: ${item.name}`} />}
-      <div className="prp-detail"><span className="prp-name" title={item.name}>{item.name}</span>
+      <div className="prp-detail"><span className="prp-name" title={item.name}>Imagen {index + 1} · {item.name}</span>
         <select aria-label={`Uso de ${item.name}`} value={item.role} disabled={blocked} onChange={event => {
           const role = event.target.value as PresentationReferenceRole;
           void change(async () => latest.current.items.map(value => value.id === item.id ? { ...value, role } : value));
@@ -58,7 +59,7 @@ export function PresentationReferencePicker({ items, onChange, disabled = false,
       <button type="button" className="prp-remove" aria-label={`Quitar ${item.name}`} disabled={blocked}
         onClick={() => void change(async () => latest.current.items.filter(value => value.id !== item.id))}><X size={15} aria-hidden="true" /></button>
     </li>)}</ul>}
-    <p className="prp-note">Las imágenes se envían al generar el diseño. La exploración de ideas no analiza sus píxeles.</p>
+    <p className="prp-note">{conversationReadsImages ? 'Al enviar un mensaje, el agente lee estas imágenes. Puedes decir «el texto de la primera y el mundo de la segunda».' : 'Estas imágenes se usan al generar el diseño.'}</p>
     {error && <p role="alert" className="prp-error">{error}</p>}
   </section>;
 }

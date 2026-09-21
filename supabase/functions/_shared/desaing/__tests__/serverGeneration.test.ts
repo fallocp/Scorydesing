@@ -16,13 +16,15 @@ import { fullDesignImmutables, fullDesignImageSize, presentationDesignSessionId 
 import { designSurfaceSessionId, designSurfaceTarget } from '../designSurface.ts';
 import { createLiveImageProvider } from '../liveImageProvider.ts';
 import { buildPromptAdminTestOperations } from '../promptAdminComparison.ts';
+import { IMAGE_PROFILES, SELECTABLE_IMAGE_PROFILES, SELECTABLE_IMAGE_QUALITIES } from '../catalog.ts';
 
 const business = '80000000-0000-4000-8000-000000000001', actor = '80000000-0000-4000-8000-000000000002';
 const upload = '80000000-0000-4000-8000-000000000003', foreign = '80000000-0000-4000-8000-000000000099';
 const config: ServerGenerationConfig = { enabled: true, executor: 'responses_image', businessId: business, actorId: actor,
   policyId: 'ui-pilot-policy', expectedSupabaseOrigin: 'https://project.supabase.co', actualSupabaseOrigin: 'https://project.supabase.co', expiresAt: 100000 };
-const policy: ServerPolicy = { business_id: business, enabled: true, policy_id: config.policyId, limit_micro_usd: 5000000,
-  reservation_per_output_micro_usd: 1000000, max_image_outputs: 4, enabled_image_profiles: ['flare_candidate'], responses_image_enabled: true };
+const policy: ServerPolicy = { business_id: business, enabled: true, policy_id: config.policyId, limit_micro_usd: PILOT_LIMITS.budgetMicroUsd,
+  reservation_per_output_micro_usd: PILOT_LIMITS.reservationMicroUsd, max_image_outputs: PILOT_LIMITS.maxOutputs,
+  enabled_image_profiles: ['flare_candidate'], responses_image_enabled: true };
 function operation(key = 'ui-first'): DesignOperation {
   return { operation_key: key, action: 'generate_image', context: { actor_id: actor, business_id: business, brand_id: 'presentation', project_id: 'deck',
     session_id: 'session', workspace: 'presentations', interaction_mode: 'execute_change',
@@ -147,7 +149,8 @@ describe('authenticated UI capabilities and disabled generation', () => {
     const f = fixture(), read = await send(f, { kind: 'read' });
     expect(read.body.enabled).toBe(true);
     expect(read.body.generation).toEqual({ profile: 'flare_candidate', executor: 'responses_image', max_reference_edge: 1024, max_brief_bytes: 4000,
-      remaining_outputs: 4, max_references: 4, supports_recreation: true, supports_full_design: true });
+      profiles: ['flare_candidate'], qualities: ['low', 'medium', 'high'],
+      remaining_outputs: 4, max_references: 4, supports_recreation: true, supports_full_design: true, supports_full_design_edit: true, supports_studio_generation: true, supports_asset_generation: true });
     expect(f.repository.read).toHaveBeenCalledTimes(1); expect(f.createProvider).not.toHaveBeenCalled(); expect(f.repository.commit).not.toHaveBeenCalled();
   });
   it.each(['flag', 'expiry', 'origin', 'actor', 'policy', 'budget', 'outputs', 'reserve', 'profile', 'responses', 'role', 'paused'])
@@ -156,10 +159,10 @@ describe('authenticated UI capabilities and disabled generation', () => {
       : field === 'actor' ? { actorId: foreign } : {});
     if (field === 'expiry') f.setTime(config.expiresAt);
     if (field === 'policy') f.repository.policy.policy_id = 'changed';
-    if (field === 'budget') f.repository.policy.limit_micro_usd++;
+    if (field === 'budget') f.repository.policy.limit_micro_usd--;
     if (field === 'outputs') f.repository.policy.max_image_outputs++;
     if (field === 'reserve') f.repository.policy.reservation_per_output_micro_usd--;
-    if (field === 'profile') f.repository.policy.enabled_image_profiles.push('baseline');
+    if (field === 'profile') f.repository.policy.enabled_image_profiles = [];
     if (field === 'responses') f.repository.policy.responses_image_enabled = false;
     if (field === 'role') f.repository.role = 'editor';
     if (field === 'paused') f.repository.policy.enabled = false;
@@ -171,6 +174,57 @@ describe('authenticated UI capabilities and disabled generation', () => {
   });
 });
 
+describe('explicit model and quality choices', () => {
+  it('exposes only policy-enabled profiles and validates old capabilities without implying Sunburst support', async () => {
+    const f = fixture(); f.repository.policy.enabled_image_profiles = [...SELECTABLE_IMAGE_PROFILES];
+    const read = await f.generation.read(business, actor), caps = read.generation!;
+    expect(caps.profiles).toEqual(SELECTABLE_IMAGE_PROFILES); expect(caps.qualities).toEqual(SELECTABLE_IMAGE_QUALITIES);
+    expect(caps.profile).toBe('flare_candidate'); expect(isServerGenerationCapabilities(caps)).toBe(true);
+    const { profiles: _profiles, qualities: _qualities, ...legacy } = caps;
+    expect(isServerGenerationCapabilities(legacy)).toBe(true);
+    expect(isServerGenerationCapabilities({ ...legacy, profile: 'sunburst_rescue' })).toBe(false);
+    for (const invalid of [
+      { ...caps, profiles: ['flare_candidate', 'flare_candidate'] }, { ...caps, profiles: ['sunburst_rescue'] },
+      { ...caps, qualities: ['auto'] }, { ...caps, qualities: ['medium', 'medium'] },
+      { ...caps, profiles: undefined }, { ...caps, permit: 'not-a-capability' },
+    ]) expect(isServerGenerationCapabilities(invalid)).toBe(false);
+    expect(f.createProvider).not.toHaveBeenCalled(); expect(f.repository.commit).not.toHaveBeenCalled();
+  });
+
+  it.each(SELECTABLE_IMAGE_PROFILES.flatMap(profile => SELECTABLE_IMAGE_QUALITIES.map(quality => ({ profile, quality }))))
+ ('dispatches $profile / $quality exactly once and retains direct provenance and final review', async ({ profile, quality }) => {
+    const f = fixture(); f.repository.policy.enabled_image_profiles = [...SELECTABLE_IMAGE_PROFILES];
+    const op = operation(`selected-${profile}-${quality}`); op.image!.profile = profile; op.image!.quality = quality;
+    const result = await enqueue(f, op); expect(result.response.status).toBe(200); expect(f.dispatches).toBe(1);
+    expect(f.generate.mock.calls[0][0].operation).toEqual(op);
+    const state = f.repository.snapshot!, job = state.jobs.jobs[0], asset = state.assets.versions[0];
+    expect(asset.provenance).toMatchObject({ action: 'generate_image', model_id: IMAGE_PROFILES[profile].model_id, quality });
+    expect(asset.provenance).not.toHaveProperty('parent'); expect(asset.provenance).not.toHaveProperty('direction_approval_id');
+    expect((await send(f, { kind: 'review', operation_key: op.operation_key, call_key: job.calls[0].call_key, decision: 'approved' })).response.status).toBe(200);
+    expect((await enqueue(f, op)).body.reused).toBe(true); expect(f.dispatches).toBe(1);
+    const changed = structuredClone(op); changed.image!.quality = quality === 'high' ? 'medium' : 'high';
+    expect((await enqueue(f, changed)).response.status).toBe(409); expect(f.dispatches).toBe(1);
+    expect(f.repository.snapshot!.jobs.jobs).toHaveLength(1);
+  });
+
+  it('refuses Sunburst when unavailable without reserving or falling back to Flare', async () => {
+    const f = fixture(), op = operation(); op.image!.profile = 'sunburst_rescue';
+    expect((await enqueue(f, op)).response.status).toBe(400);
+    expect(f.createProvider).not.toHaveBeenCalled(); expect(f.repository.commit).not.toHaveBeenCalled();
+  });
+
+  it('preserves a selected Sunburst low direction when promoted to medium', async () => {
+    const f = fixture(); f.repository.policy.enabled_image_profiles = [...SELECTABLE_IMAGE_PROFILES];
+    const low = operation('sunburst-direction'); low.image!.profile = 'sunburst_rescue';
+    await enqueue(f, low); const medium = await approvedMedium(f, low);
+    const other = structuredClone(medium); other.image!.profile = 'flare_candidate';
+    expect((await enqueue(f, other)).response.status).toBe(400); expect(f.dispatches).toBe(1);
+    expect((await enqueue(f, medium)).response.status).toBe(200); expect(f.dispatches).toBe(2);
+    expect(f.repository.snapshot!.assets.versions[1].provenance).toMatchObject({ action: 'generate_medium',
+      model_id: 'gpt-image-2.5-sunburst', quality: 'medium', parent: f.repository.snapshot!.assets.versions[0].identity });
+  });
+});
+
 describe('bounded explicit UI admission, claims and recovery', () => {
   it.each(['actor', 'baseline', 'executor', 'quality', 'outputs', 'size', 'background', 'brief', 'constraints', 'refs', 'combined'])
   ('rejects changed %s before reserving or dispatching', async field => {
@@ -178,7 +232,7 @@ describe('bounded explicit UI admission, claims and recovery', () => {
     if (field === 'actor') op.context.actor_id = foreign;
     if (field === 'baseline') op.image!.profile = 'baseline';
     if (field === 'executor') op.image!.executor = 'image_api';
-    if (field === 'quality') op.image!.quality = 'high';
+    if (field === 'quality') op.image!.quality = 'auto';
     if (field === 'outputs') op.image!.output_count = 5;
     if (field === 'size') op.image!.size.width = 2048;
     if (field === 'background') op.image!.background = 'transparent';
@@ -202,16 +256,14 @@ describe('bounded explicit UI admission, claims and recovery', () => {
     expect(events.indexOf('call_started')).toBeGreaterThan(events.indexOf('job_enqueued'));
     expect(f.repository.snapshot!.jobs.jobs[0].calls[0].settlement).toBeNull();
   });
-  it('admits only the fourth image over three existing reservations and preserves all five-dollar policy limits', async () => {
+  it('enforces the four-output pilot cap for manual generation', async () => {
     const f = fixture();
-    for (let index = 0; index < 3; index++) expect((await enqueue(f, operation(`prior-${index}`))).response.status).toBe(200);
-    expect(getQuotaUsage(f.repository.snapshot!.jobs)).toEqual({ committed_micro_usd: 3000000, image_outputs: 3, unsettled_calls: 3 });
-    expect((await send(f, { kind: 'read' })).body.generation.remaining_outputs).toBe(1);
-    expect((await enqueue(f, operation('fourth'))).response.status).toBe(200);
-    const fifth = await enqueue(f, operation('fifth'));
-    expect(fifth.response.status).toBe(429); expect(fifth.body.error).toBe('job_quota_exceeded'); expect(f.dispatches).toBe(4);
-    const read = await send(f, { kind: 'read' }); expect(read.body.enabled).toBe(false); expect(read.body.generation.remaining_outputs).toBe(0);
-    expect(f.repository.policy).toEqual(policy); expect(f.repository.snapshot!.jobs.jobs).toHaveLength(4);
+    for (let index = 0; index < 4; index++) expect((await enqueue(f, operation(`manual-${index}`))).response.status).toBe(200);
+    expect((await enqueue(f, operation('manual-over-limit'))).response.status).toBe(429);
+    expect(getQuotaUsage(f.repository.snapshot!.jobs)).toEqual({ committed_micro_usd: 4_000_000, image_outputs: 4, unsettled_calls: 4 });
+    const read = await send(f, { kind: 'read' });
+    expect(read.body.enabled).toBe(false); expect(read.body.generation.remaining_outputs).toBe(0);
+    expect(f.dispatches).toBe(4); expect(f.repository.policy).toEqual(policy); expect(f.repository.snapshot!.jobs.jobs).toHaveLength(4);
   });
   it('same-key concurrent requests claim once; replay and recovery never dispatch', async () => {
     const f = fixture();
@@ -251,7 +303,7 @@ describe('bounded explicit UI admission, claims and recovery', () => {
     const first = await enqueue(f);
     expect(first.response.status).toBe(503); expect(first.body.error).toBe('server_generation_outcome_unknown');
     expect(JSON.stringify(first.body)).not.toContain('private-database-error');
-    expect(f.repository.snapshot!.jobs.jobs[0].calls[0].reserved_micro_usd).toBe(1000000);
+    expect(f.repository.snapshot!.jobs.jobs[0].calls[0].reserved_micro_usd).toBe(PILOT_LIMITS.reservationMicroUsd);
     expect((await enqueue(f)).body.reused).toBe(true); expect(f.dispatches).toBe(0);
   });
   it('a missing registered file after enqueue produces an unknown response instead of a definitive rejection', async () => {
@@ -283,7 +335,7 @@ describe('bounded explicit UI admission, claims and recovery', () => {
     expect((await enqueue(f)).body.execution.status).toBe('uncertain');
     expect((await enqueue(f, operation('next'))).response.status).toBe(409);
     await send(f, { kind: 'recover' }); await send(f, { kind: 'read' }); await enqueue(f);
-    expect(f.generate).toHaveBeenCalledTimes(1); expect(getQuotaUsage(f.repository.snapshot!.jobs).committed_micro_usd).toBe(1000000);
+    expect(f.generate).toHaveBeenCalledTimes(1); expect(getQuotaUsage(f.repository.snapshot!.jobs).committed_micro_usd).toBe(PILOT_LIMITS.reservationMicroUsd);
     expect(f.repository.snapshot!.jobs.jobs[0].calls[0].settlement).toBeNull();
   });
   it('a saved failed call prevents a new dispatch while read and final review remain available', async () => {
@@ -312,7 +364,7 @@ describe('real visual references and explicit recreation', () => {
     op.context.references = await references(f);
     expect((await enqueue(f, op)).body.execution.status).toBe('completed');
     expect(f.generate.mock.calls[0][0].operation.context.references).toEqual(op.context.references);
-    expect(getQuotaUsage(f.repository.snapshot!.jobs)).toEqual({ committed_micro_usd: 1000000, image_outputs: 1, unsettled_calls: 1 });
+    expect(getQuotaUsage(f.repository.snapshot!.jobs)).toEqual({ committed_micro_usd: PILOT_LIMITS.reservationMicroUsd, image_outputs: 1, unsettled_calls: 1 });
     expect(f.repository.policy).toEqual(policy); expect(PILOT_LIMITS.maxReferences).toBe(2);
     expect((await send(f, { kind: 'read' })).body.generation.remaining_outputs).toBe(3);
   });
@@ -338,7 +390,7 @@ describe('real visual references and explicit recreation', () => {
     const version = f.repository.snapshot!.assets.versions.find(item => item.identity.version_id === mediumIdentity.version_id)!;
     expect(version.provenance).toMatchObject({ kind: 'image_operation', action: 'generate_medium', parent: lowIdentity, references: low.context.references });
     expect(f.generate.mock.calls[1][0].operation.image).toMatchObject({ quality: 'medium', background: 'transparent', output_format: 'png' });
-    expect(f.dispatches).toBe(2); expect(getQuotaUsage(f.repository.snapshot!.jobs).committed_micro_usd).toBe(2000000);
+    expect(f.dispatches).toBe(2); expect(getQuotaUsage(f.repository.snapshot!.jobs).committed_micro_usd).toBe(2 * PILOT_LIMITS.reservationMicroUsd);
     expect((await enqueue(f, low)).body.reused).toBe(true); expect((await enqueue(f, medium)).body.reused).toBe(true); expect(f.dispatches).toBe(2);
   });
   it.each(['missing', 'wrong_version', 'wrong_role', 'foreign_business', 'opaque', 'selected_candidate', 'direction'])
@@ -395,6 +447,65 @@ describe('standalone full designs without invented captures', () => {
     op.context.immutable_elements = fullDesignImmutables('Portada aprobada\nTexto exacto', { width: 1024, height: 1024 });
     op.image!.executor = executor; return op;
   }
+  it('edits an exact selected canvas version once and rejects a different destination before dispatch', async () => {
+    const f = fixture(), original = freeOperation();
+    expect((await enqueue(f, original)).body.execution.status).toBe('completed');
+    const source = f.repository.snapshot!.jobs.jobs[0].calls[0].receipt!.outputs[0].asset;
+    const edit = structuredClone(original); edit.operation_key = 'conversation-edit'; edit.action = 'edit_image';
+    edit.context.base_asset = source; edit.context.instruction = 'Mueve el mundo a la derecha y conserva el texto.'; edit.image!.quality = 'medium';
+    const wrong = structuredClone(edit); wrong.context.target.page_id = 'page-2';
+    wrong.context.session_id = designSurfaceSessionId('deck', 'page-2', 'full_design', { document_type: 'cover', page_id: 'page-2' });
+    expect((await enqueue(f, wrong)).response.status).toBe(400); expect(f.dispatches).toBe(1);
+    const otherKind = structuredClone(edit); otherKind.context.target.document_type = 'special';
+    otherKind.context.session_id = designSurfaceSessionId('deck', 'page-1', 'full_design', { document_type: 'special', page_id: 'page-1' });
+    expect((await enqueue(f, otherKind)).response.status).toBe(400);
+    const otherCanvas = structuredClone(edit);
+    otherCanvas.context.immutable_elements = fullDesignImmutables('Portada aprobada\nTexto exacto', { width: 1200, height: 1200 });
+    expect((await enqueue(f, otherCanvas)).response.status).toBe(400);
+    for (const field of ['brand_id', 'project_id'] as const) {
+      const changed = structuredClone(edit); changed.context[field] = 'other';
+      expect((await enqueue(f, changed)).response.status).toBe(400);
+    }
+    expect(f.dispatches).toBe(1);
+    // Saving the previous visual may increment the document revision. The exact
+    // selected asset remains a valid base on that same canvas, never another page.
+    edit.context.target.revision = '2';
+    expect((await enqueue(f, edit)).body).toMatchObject({ execution: { status: 'completed' } });
+    expect(f.generate.mock.calls.at(-1)![0].operation.context.base_asset).toEqual(source);
+    expect((await enqueue(f, edit)).body.reused).toBe(true); expect(f.dispatches).toBe(2);
+    await send(f, { kind: 'recover' }); await send(f, { kind: 'read' }); expect(f.dispatches).toBe(2);
+    const result = f.repository.snapshot!.assets.versions.at(-1)!;
+    expect(result.provenance).toMatchObject({ kind: 'image_operation', action: 'edit_image', parent: source });
+  });
+  it.each(['image_api', 'responses_image'] as const)('edits a full design through %s with the exact parent PNG and no second dispatch on recovery', async executor => {
+    const f = fixture({ executor }), original = freeOperation('cover', executor);
+    expect((await enqueue(f, original)).body.execution.status).toBe('completed');
+    const source = f.repository.snapshot!.jobs.jobs[0].calls[0].receipt!.outputs[0].asset;
+    const edit = structuredClone(original); edit.operation_key = `canvas-edit-${executor}`; edit.action = 'edit_image';
+    edit.context.base_asset = source; edit.context.instruction = 'Haz el mundo más grande y conserva el texto.';
+    const transport = vi.fn<typeof fetch>(async () => new Response(JSON.stringify(executor === 'image_api'
+      ? { data: [{ b64_json: b64(mediumImage) }] }
+      : { id: 'resp_edit', status: 'completed', error: null, incomplete_details: null,
+        output: [{ id: 'ig_edit', type: 'image_generation_call', status: 'completed', result: b64(mediumImage) }] }), { status: 200 }));
+    f.createProvider.mockImplementation(() => createLiveImageProvider({ apiKey: 'local-test-only', responsesModel: PILOT_LIMITS.responsesModel, fetch: transport }));
+    expect((await enqueue(f, edit)).body).toMatchObject({ execution: { status: 'completed' } });
+    const [url, input] = transport.mock.calls[0];
+    if (executor === 'image_api') {
+      expect(url).toBe('https://api.openai.com/v1/images/edits');
+      const body = input!.body as FormData;
+      expect(body.getAll('image')).toHaveLength(1); expect(body.getAll('image[]')).toHaveLength(0);
+      expect(new Uint8Array(await (body.get('image') as Blob).arrayBuffer())).toEqual(image);
+    } else {
+      expect(url).toBe('https://api.openai.com/v1/responses');
+      const body = JSON.parse(input!.body as string);
+      expect(body.input[0].content.filter((part: { type: string }) => part.type === 'input_image'))
+        .toEqual([{ type: 'input_image', image_url: `data:image/png;base64,${b64(image)}`, detail: 'high' }]);
+      expect(body.tools[0].action).toBe('edit');
+    }
+    expect((await enqueue(f, edit)).body.reused).toBe(true); await send(f, { kind: 'recover' });
+    expect(transport).toHaveBeenCalledTimes(1);
+    expect(f.repository.snapshot!.assets.versions.at(-1)!.provenance).toMatchObject({ action: 'edit_image', parent: source });
+  });
   it.each(['image_api', 'responses_image'] as const)('runs %s through its actual adapter with zero inputs, one claim and no upload', async executor => {
     const f = fixture({ executor }), op = freeOperation('cover', executor), canvas = { width: 800, height: 450 };
     op.context.immutable_elements = fullDesignImmutables('Portada aprobada\nTexto exacto', canvas); op.image!.size = fullDesignImageSize(canvas);
@@ -414,7 +525,7 @@ describe('standalone full designs without invented captures', () => {
     expect(f.storage.get).not.toHaveBeenCalled();
     expect(f.repository.snapshot!.assets.versions.every(version => version.provenance.kind === 'image_operation')).toBe(true);
     expect((await enqueue(f, op)).body.reused).toBe(true); await send(f, { kind: 'recover' }); expect(transport).toHaveBeenCalledTimes(1);
-    expect(getQuotaUsage(f.repository.snapshot!.jobs)).toEqual({ committed_micro_usd: 1000000, image_outputs: 1, unsettled_calls: 1 });
+    expect(getQuotaUsage(f.repository.snapshot!.jobs)).toEqual({ committed_micro_usd: PILOT_LIMITS.reservationMicroUsd, image_outputs: 1, unsettled_calls: 1 });
     expect(f.repository.policy).toEqual(policy);
   });
   it.each(['cover', 'page', 'special'] as const)('promotes an approved %s with exact page/copy/parent and rejects another destination', async document_type => {
@@ -431,7 +542,7 @@ describe('standalone full designs without invented captures', () => {
     const asset = state.jobs.jobs[1].calls[0].receipt!.outputs[0].asset;
     expect(state.assets.versions.find(version => version.identity.version_id === asset.version_id)?.provenance)
       .toMatchObject({ kind: 'image_operation', action: 'generate_medium', parent: medium.context.base_asset });
-    expect(f.generate).toHaveBeenCalledTimes(2); expect(getQuotaUsage(state.jobs).committed_micro_usd).toBe(2000000);
+    expect(f.generate).toHaveBeenCalledTimes(2); expect(getQuotaUsage(state.jobs).committed_micro_usd).toBe(2 * PILOT_LIMITS.reservationMicroUsd);
     expect(f.repository.policy).toEqual(policy);
   });
   it('accepts a real optional style reference without declaring it a canvas capture', async () => {

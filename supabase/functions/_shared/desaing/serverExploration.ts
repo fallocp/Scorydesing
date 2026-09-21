@@ -1,18 +1,22 @@
 import { assertExplorationRequest, assertExplorationResult } from './exploration.ts';
-import type { ExplorationAttempt, ExplorationPlanner, ExplorationRequest, ExplorationResult, ExplorationUsage } from './explorationContracts.ts';
-import { ExplorationProviderError, prepareExplorationRequest } from './explorationProvider.ts';
+import type { ExplorationAttempt, ExplorationRequest, ExplorationResult, ExplorationUsage } from './explorationContracts.ts';
+import { EXPLORATION_VISUAL_LIMITS, ExplorationProviderError, prepareExplorationRequest, type ExplorationImageInput, type ExplorationProvider } from './explorationProvider.ts';
 import { canonicalExploration, type ExplorationJournalEntry, type ExplorationRepository } from './explorationRepository.ts';
 import type { ServerExplorationCapabilities } from './serverExplorationContract.ts';
 import type { ServerGenerationConfig } from './serverGeneration.ts';
-import { ServerBoundaryError, type ServerRead, type ServerRepository } from './serverRepository.ts';
+import { readServerState, ServerBoundaryError, type ServerRead, type ServerRepository } from './serverRepository.ts';
 import { assertBusinessId } from './serverRequest.ts';
 import { PILOT_LIMITS } from './pilotHttp.ts';
+import { isGenerationProfilePolicy } from './catalog.ts';
+import { getAssetVersion } from './assets.ts';
+import { inspectServerPng } from './serverPng.ts';
 
 export type ServerExplorationConfig = Omit<ServerGenerationConfig, 'executor'>;
 export interface ServerExplorationDependencies {
   repository: ServerRepository;
   explorationRepository: ExplorationRepository;
-  createProvider(): ExplorationPlanner;
+  createProvider(): ExplorationProvider;
+  storage?: { get(key: string): Promise<Uint8Array> };
   now?: () => number;
 }
 export interface ServerExplorationBoundary {
@@ -53,7 +57,7 @@ export function createServerExploration(settings: ServerExplorationConfig, deps:
     const policy = read.policy;
     requireValue(policy.business_id === businessId && policy.policy_id === config.policyId && policy.limit_micro_usd === PILOT_LIMITS.budgetMicroUsd
       && policy.max_image_outputs === PILOT_LIMITS.maxOutputs && policy.reservation_per_output_micro_usd === PILOT_LIMITS.reservationMicroUsd
-      && policy.enabled_image_profiles.length === 1 && policy.enabled_image_profiles[0] === PILOT_LIMITS.imageProfile
+      && isGenerationProfilePolicy(policy.enabled_image_profiles)
       && policy.responses_image_enabled === true, 'server_policy_changed', 409);
   }
   function assertWindow() {
@@ -73,7 +77,28 @@ export function createServerExploration(settings: ServerExplorationConfig, deps:
     return { model: EXPLORATION_LIMITS.model, remaining_micro_usd: available,
       remaining_attempts: Math.max(0, Math.min(EXPLORATION_LIMITS.maxAttempts - budget.attempts, Math.floor(available / EXPLORATION_LIMITS.reservationMicroUsd))),
       reservation_micro_usd: EXPLORATION_LIMITS.reservationMicroUsd, max_output_tokens: EXPLORATION_LIMITS.maxOutputTokens,
-      max_request_bytes: EXPLORATION_LIMITS.maxRequestBytes };
+      max_request_bytes: EXPLORATION_LIMITS.maxRequestBytes, supports_conversation_actions: 1,
+      ...(deps.storage ? { supports_visual_context: true as const, max_references: 4 as const } : {}) };
+  }
+  async function referenceVersions(request: ExplorationRequest, actorId: string, read: ServerRead) {
+    if (!request.context.references.length) return [];
+    requireValue(!!deps.storage && request.context.references.length <= EXPLORATION_VISUAL_LIMITS.maxReferences, 'exploration_visual_context_unavailable');
+    const value = await readServerState({ ...deps.repository, read: async () => read }, request.context.business_id, actorId);
+    let total = 0;
+    return request.context.references.map(reference => {
+      let version;
+      try { version = getAssetVersion(value.state.assets, { business_id: reference.business_id, asset_id: reference.asset_id, version_id: reference.version_id }); }
+      catch { throw new ServerBoundaryError('exploration_reference_unavailable', 404); }
+      requireValue(reference.mime_type === 'image/png' && version.storage.mime_type === reference.mime_type
+        && version.identity.business_id === request.context.business_id
+        && version.storage.width <= EXPLORATION_VISUAL_LIMITS.maxReferenceEdge && version.storage.height <= EXPLORATION_VISUAL_LIMITS.maxReferenceEdge
+        && version.storage.width * version.storage.height <= EXPLORATION_VISUAL_LIMITS.maxReferencePixels
+        && version.storage.size_bytes <= EXPLORATION_VISUAL_LIMITS.maxImageBytes
+        && /^[a-f0-9]{64}$/.test(version.identity.version_id), 'exploration_reference_invalid');
+      total += version.storage.size_bytes;
+      requireValue(total <= EXPLORATION_VISUAL_LIMITS.maxTotalImageBytes, 'exploration_reference_limit', 413);
+      return version;
+    });
   }
   return {
     async capabilities(businessId, actorId) {
@@ -102,9 +127,22 @@ export function createServerExploration(settings: ServerExplorationConfig, deps:
       if (previous) return replay(previous, request);
       const read = await deps.repository.read(businessId, actorId);
       assertScope(businessId, actorId, read); assertWindow(); requireValue(read.policy.enabled, 'server_feature_disabled', 503);
-      const preparedBytes = encoder.encode(JSON.stringify(prepareExplorationRequest(request, EXPLORATION_LIMITS.maxOutputTokens))).length;
-      requireValue(preparedBytes <= EXPLORATION_LIMITS.maxRequestBytes, 'exploration_request_too_large', 413);
+      const textBytes = encoder.encode(JSON.stringify(prepareExplorationRequest(request, EXPLORATION_LIMITS.maxOutputTokens))).length;
+      requireValue(textBytes <= EXPLORATION_LIMITS.maxRequestBytes, 'exploration_request_too_large', 413);
       requireValue((await remaining(businessId, actorId)).remaining_attempts > 0, 'exploration_quota_exceeded', 429);
+      const versions = await referenceVersions(request, actorId, read), images: ExplorationImageInput[] = [];
+      for (const [index, version] of versions.entries()) {
+        try {
+          const bytes = (await deps.storage!.get(version.storage.storage_key)).slice();
+          requireValue(bytes.length === version.storage.size_bytes && bytes.length <= EXPLORATION_VISUAL_LIMITS.maxImageBytes, 'exploration_reference_invalid');
+          const dimensions = await inspectServerPng(bytes);
+          const hash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new Uint8Array(bytes))), value => value.toString(16).padStart(2, '0')).join('');
+          requireValue(dimensions.width === version.storage.width && dimensions.height === version.storage.height && hash === version.identity.version_id, 'exploration_reference_invalid');
+          images.push({ reference_id: request.context.references[index].reference_id, bytes });
+        } catch { throw new ServerBoundaryError('exploration_reference_invalid'); }
+      }
+      const preparedBytes = images.length ? encoder.encode(JSON.stringify(prepareExplorationRequest(request, EXPLORATION_LIMITS.maxOutputTokens, images))).length : textBytes;
+      requireValue(preparedBytes <= (images.length ? EXPLORATION_VISUAL_LIMITS.maxWireBytes : EXPLORATION_LIMITS.maxRequestBytes), 'exploration_request_too_large', 413);
       const provider = deps.createProvider();
       let claimed: Awaited<ReturnType<ExplorationRepository['claim']>>;
       try { claimed = await journal.claim({ businessId, actorId, request, expectedPolicyId: config.policyId,
@@ -120,10 +158,17 @@ export function createServerExploration(settings: ServerExplorationConfig, deps:
       if (!claimed.claim_token) throw new ServerBoundaryError('server_exploration_outcome_unknown', 503);
       let result: ExplorationResult | null = null, errorCode: string | null = null, usage: ExplorationUsage | null = null, responseId: string | null = null;
       try {
-        assertWindow();
-        result = await provider.plan(request);
+        const verifyDispatch = async () => {
+          assertWindow();
+          const fresh = await deps.repository.read(businessId, actorId);
+          assertScope(businessId, actorId, fresh); requireValue(fresh.policy.enabled, 'server_feature_disabled', 503);
+          requireValue(canonicalExploration(await referenceVersions(request, actorId, fresh)) === canonicalExploration(versions), 'exploration_reference_invalid');
+        };
+        await verifyDispatch();
+        result = await provider.plan(request, images, verifyDispatch);
         // Validate again at the durable boundary even when a custom injected provider bypasses the Responses adapter.
         assertExplorationResult(result, request); usage = result.usage; responseId = result.response_id;
+        requireValue(!request.design_brief || !!result.design_understanding, 'exploration_provider_invalid_result');
       } catch (error) {
         result = null;
         errorCode = error instanceof ExplorationProviderError && providerErrors.has(error.code) ? error.code : 'exploration_provider_unknown';

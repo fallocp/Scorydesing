@@ -1,14 +1,15 @@
 import type { AssetVersion, DesignContext, DesignTarget } from './contracts.ts';
 import type { ExplorationUsage } from './explorationContracts.ts';
 import { assertExplorationRequest } from './exploration.ts';
+import { DESIGN_FONT_OPTIONS } from './compositionFonts.ts';
 
 /** Editable compositions contain approved copy IDs, native shapes and unresolved image slots. */
-export const COMPOSITION_FONTS = ['Arial', 'Georgia', 'Trebuchet MS', 'Verdana'] as const;
+export const COMPOSITION_FONTS = DESIGN_FONT_OPTIONS.map(font => font.family);
 export const COMPOSITION_WEIGHTS = [400, 500, 600, 700, 800] as const;
-export const COMPOSITION_LIMITS = Object.freeze({ texts: 12, shapes: 12, slots: 6, copy_chars: 16000, request_bytes: 98304 });
+export const COMPOSITION_LIMITS = Object.freeze({ texts: 64, shapes: 12, slots: 6, copy_chars: 32000, request_bytes: 98304 });
 export interface CompositionBox { x: number; y: number; width: number; height: number }
 export interface CompositionCopyBlock { id: string; role: 'title' | 'body' | 'stat' | 'caption'; text: string }
-export interface ApprovedCompositionCopy { version_id: string; blocks: CompositionCopyBlock[] }
+export interface ApprovedCompositionCopy { version_id: string; blocks: CompositionCopyBlock[]; mode?: 'none' }
 export interface HtmlCompositionRequest {
   request_key: string;
   context: DesignContext;
@@ -53,8 +54,8 @@ function assertCanvas(value: unknown): asserts value is { width: number; height:
   fields(value, ['width', 'height']);
   check(integer(value.width, 64, 4096) && integer(value.height, 64, 4096), 'invalid_composition_canvas');
 }
-function assertCopyBlocks(value: unknown): asserts value is CompositionCopyBlock[] {
-  check(Array.isArray(value) && value.length >= 1 && value.length <= COMPOSITION_LIMITS.texts, 'invalid_composition_copy');
+function assertCopyBlocks(value: unknown, withoutText = false): asserts value is CompositionCopyBlock[] {
+  check(Array.isArray(value) && (withoutText ? value.length === 0 : value.length >= 1 && value.length <= COMPOSITION_LIMITS.texts), 'invalid_composition_copy');
   const ids = new Set<string>(); let chars = 0;
   for (const block of value) {
     fields(block, ['id', 'role', 'text']);
@@ -64,9 +65,11 @@ function assertCopyBlocks(value: unknown): asserts value is CompositionCopyBlock
   check(chars <= COMPOSITION_LIMITS.copy_chars, 'composition_copy_too_large');
 }
 function assertCopy(value: unknown): asserts value is ApprovedCompositionCopy {
-  fields(value, ['version_id', 'blocks']);
+  const withoutText = !!value && typeof value === 'object' && 'mode' in value;
+  fields(value, withoutText ? ['version_id', 'blocks', 'mode'] : ['version_id', 'blocks']);
+  check(!withoutText || value.mode === 'none', 'invalid_composition_copy');
   check(typeof value.version_id === 'string' && /^sha256:[0-9a-f]{64}$/.test(value.version_id), 'invalid_composition_copy_version');
-  assertCopyBlocks(value.blocks);
+  assertCopyBlocks(value.blocks, withoutText);
 }
 function canonicalCopy(blocks: CompositionCopyBlock[]): string {
   return JSON.stringify(blocks.map(({ id, role, text }) => ({ id, role, text })));
@@ -80,7 +83,12 @@ export async function makeApprovedCompositionCopy(blocks: CompositionCopyBlock[]
 }
 export async function verifyApprovedCompositionCopy(copy: ApprovedCompositionCopy): Promise<void> {
   assertCopy(copy);
-  check((await makeApprovedCompositionCopy(copy.blocks)).version_id === copy.version_id, 'composition_copy_changed');
+  check((await (copy.mode === 'none' ? makeTextlessCompositionCopy() : makeApprovedCompositionCopy(copy.blocks))).version_id === copy.version_id, 'composition_copy_changed');
+}
+/** Empty copy must be intentional; its hash cannot stand in for pending/missing content. */
+export async function makeTextlessCompositionCopy(): Promise<ApprovedCompositionCopy> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('{"mode":"none","blocks":[]}'));
+  return { mode: 'none', blocks: [], version_id: `sha256:${Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('')}` };
 }
 export function htmlCompositionSessionId(target: DesignTarget): string {
   return `html:${target.document_type}:${target.document_id}:${target.slide_id ?? target.page_id ?? 'canvas'}`;
@@ -184,7 +192,7 @@ export function htmlCompositionJsonSchema(request: HtmlCompositionRequest): Reco
   return object({ schema_version: { type: 'integer', enum: [1] },
     canvas: object({ width: { type: 'integer', enum: [request.canvas.width] }, height: { type: 'integer', enum: [request.canvas.height] } }), background: color,
     texts: { type: 'array', minItems: request.copy.blocks.length, maxItems: request.copy.blocks.length,
-      items: object({ ...common, copy_id: enumValue(request.copy.blocks.map(block => block.id)), font_family: enumValue(COMPOSITION_FONTS),
+      items: object({ ...common, copy_id: request.copy.blocks.length ? enumValue(request.copy.blocks.map(block => block.id)) : identifier, font_family: enumValue(COMPOSITION_FONTS),
         font_size: number(8, 240), font_weight: enumValue(COMPOSITION_WEIGHTS), color, align: enumValue(['left', 'center', 'right']) }) },
     shapes: { type: 'array', maxItems: COMPOSITION_LIMITS.shapes, items: object({ ...common, shape: enumValue(['rectangle', 'ellipse']),
       fill: color, border_color: { anyOf: [color, { type: 'null' }] }, border_width: number(0, 20), radius: number(0, Math.min(request.canvas.width, request.canvas.height) / 2) }) },

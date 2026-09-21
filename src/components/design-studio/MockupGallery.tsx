@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Plus, Trash2, Download, Maximize2 } from 'lucide-react'
 import type { GeneratedMockup } from '@/types/design-studio'
+import { mockupGenerationLabel, readMockupGeneration } from '@/lib/mockupImageGeneration'
 import { MockupSlideViewer, type MockupSlideItem } from './MockupSlideViewer'
 
 export interface MockupGalleryProps {
@@ -57,6 +58,7 @@ export function MockupGallery({
   const slideItems: MockupSlideItem[] = mockups.map((mockup) => ({
     id: String(mockup.index),
     src: `data:image/png;base64,${mockup.image_base64}`,
+    label: mockupGenerationLabel(readMockupGeneration(mockup)),
     downloadName: `mockup-${mockup.index + 1}.png`,
   }))
 
@@ -119,6 +121,10 @@ export function MockupGallery({
                   className="w-full object-cover"
                 />
               </button>
+
+              {mockupGenerationLabel(readMockupGeneration(mockup)) && <p className="bg-background px-3 py-2 text-xs text-muted-foreground">
+                {mockupGenerationLabel(readMockupGeneration(mockup))}
+              </p>}
 
               {/* Overlay actions — visible on hover */}
               <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">

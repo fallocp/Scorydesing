@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { renderHtmlComposition, type CompositionSlotBindings } from '../presentationComposition';
-import { makeApprovedCompositionCopy } from '../../../../supabase/functions/_shared/desaing/composition';
+import { makeApprovedCompositionCopy, makeTextlessCompositionCopy } from '../../../../supabase/functions/_shared/desaing/composition';
 import { compositionRequest, compositionResult } from '../../../../supabase/functions/_shared/desaing/__tests__/fixtures/compositionFixture';
 import { getSlideDimensions } from '../presentationDocument';
 
@@ -8,6 +8,29 @@ const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJA
 const bindings = (): CompositionSlotBindings => ({ 'object-piece': { asset: { business_id: 'biz-a', asset_id: 'piece', version_id: 'piece-v1' }, dataUrl: png, altText: 'Pieza aprobada' } });
 
 describe('deterministic editable composition renderer', () => {
+  it('loads controlled fonts with correct fallback and keeps the preview non-executable', async () => {
+    const request = await compositionRequest(), result = compositionResult(request);
+    result.composition.texts[0].font_family = 'Raleway';
+    result.composition.texts[1].font_family = 'Fraunces';
+    result.composition.texts[2].font_family = 'JetBrains Mono';
+    const html = renderHtmlComposition(request, result, bindings()).html;
+    expect(html).toContain('href="https://fonts.googleapis.com/css2?family=Raleway');
+    expect(html).toContain('family=Fraunces');
+    expect(html).toContain("font-family:'Fraunces',serif");
+    expect(html).toContain("font-family:'JetBrains Mono',monospace");
+    expect(html).toContain("font-src https://fonts.gstatic.com");
+    expect(html).toContain("script-src 'none'");
+    expect(html).toContain("connect-src 'none'");
+  });
+  it('renders intentional textless designs as independent shapes and pieces', async () => {
+    const request = await compositionRequest(); request.copy = await makeTextlessCompositionCopy(); request.context.copy_version_id = request.copy.version_id;
+    const result = compositionResult(request); result.composition.texts = [];
+    const rendered = renderHtmlComposition(request, result, bindings());
+    expect(rendered.html).not.toContain('data-composition-kind="text"');
+    expect(rendered.html).not.toContain('<link');
+    expect(rendered.mountedAssets).toHaveLength(1);
+    expect(rendered.html).toContain('data-composition-kind="shape"');
+  });
   it('compiles approved copy, CSS shapes and independent versioned images with matching manifest', async () => {
     const request = await compositionRequest(), result = compositionResult(request);
     const rendered = renderHtmlComposition(request, result, bindings());

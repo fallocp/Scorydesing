@@ -68,7 +68,7 @@ const MODE_OPTIONS = [
     title: 'Biblioteca de Assets',
     description: 'Explora y administra tu biblioteca de imágenes',
     icon: Library,
-    route: '/library',
+    route: '/assets',
   },
   {
     key: 'presentations',

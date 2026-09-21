@@ -13,7 +13,7 @@
  * Requirements: 1.1, 1.2, 2.1, 13.1, 13.2, 13.3, 13.4, 13.5
  */
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Loader2, Sparkles, Save, Newspaper, TrendingUp } from 'lucide-react';
@@ -50,6 +50,9 @@ import { TemplateSaveDialog } from '@/components/design-studio/TemplateSaveDialo
 import { useDesignStudioStore } from '@/store/designStudioStore';
 import { useDesignSession } from '@/hooks/useDesignStudioSession';
 import { useGenerateMockups } from '@/hooks/useGenerateMockups';
+import { useImageGenerationSettings } from '@/hooks/useImageGenerationSettings';
+import { mockupGenerationRequestFields } from '@/lib/imageGenerationSettings';
+import { ImageGenerationControls } from '@/components/image-generation/ImageGenerationControls';
 import { useGenerateDesignHtmlFromMockup } from '@/hooks/useGenerateDesignHtmlFromMockup';
 import { useSaveCustomTemplate } from '@/hooks/useSaveCustomTemplate';
 import { useSaveMockup, useSavedMockups } from '@/hooks/useDesignMockups';
@@ -85,9 +88,11 @@ import {
   type BrandPalette,
   type CarouselMeta,
   type DesignImageType,
+  type GenerateMockupsResponse,
   type PlatformFormat,
 } from '@/types/design-studio';
 import type { SavedMockup } from '@/hooks/useDesignMockups';
+import { mergeGeneratedMockups, savedMockupGenerationFields, withMockupGenerationMetadata } from '@/lib/mockupImageGeneration';
 
 // Platform options for Mode B (reference image). Mirrors the "Plataforma base"
 // options from VisualSelector so reference mode can set store.selectedPlatform.
@@ -123,6 +128,7 @@ export default function DesignStudioPage() {
   const { user } = useAuth();
   const designService = usePresentationDesignService(), queryClient = useQueryClient();
   const { activeBusiness, activeBusinessId } = useActiveBusiness();
+  const { settings: imageSettings, setSettings: setImageSettings } = useImageGenerationSettings(activeBusinessId, 'design-studio');
   const { data: businessConfig, isLoading: isLoadingConfig } = useBusinessConfig();
 
   // --- Zustand store ---
@@ -181,7 +187,12 @@ export default function DesignStudioPage() {
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [selectedSavedId, setSelectedSavedId] = useState<string | null>(null);
   const [reviewedImage, setReviewedImage] = useState<{ businessId: string; actorId: string; mockupId: string; action: StudioImageAction } | null>(null);
-  useEffect(() => { setReviewedImage(null); }, [activeBusinessId, user?.id]);
+  const currentScope = useRef({ businessId: activeBusinessId, actorId: user?.id });
+  currentScope.current = { businessId: activeBusinessId, actorId: user?.id };
+  useEffect(() => {
+    setReviewedImage(null);
+    useDesignStudioStore.getState().setGeneratingMockups(false);
+  }, [activeBusinessId, user?.id]);
 
   // --- Carousel subject -----------------------------------------------------
   // The carousel reads the v1 CopyBankItem shape. For a v2 row we adapt it, and
@@ -274,7 +285,7 @@ export default function DesignStudioPage() {
   }, [activeSource, activeV2Row, updateBankV2ImageMeta]);
 
   // --- Derived state ---
-  const isAnyLoading = store.isGeneratingMockups || store.isGeneratingHtml || store.isSaving;
+  const isAnyLoading = store.isGeneratingMockups || generateMockups.busy || store.isGeneratingHtml || store.isSaving;
   const canGenerate =
     store.inputMode === 'visual'
       ? store.selections.platform !== null
@@ -669,8 +680,70 @@ export default function DesignStudioPage() {
     }
   }, [store]);
 
+  // Generation and recovery share the same completion path. A result remains
+  // recoverable until every library write succeeds; recovering never renders.
+  const saveGeneratedResponse = useCallback(async (response: GenerateMockupsResponse, actorId: string, selectResult = false) => {
+    const businessId = response.business_id;
+    const platform = response.platform;
+    if (!businessId || !platform || (response.actor_id && response.actor_id !== actorId) || response.mockups.some(mockup => !mockup.operation_key)) {
+      throw new Error('Falta la identidad de la generación. Recupera la operación para guardarla.');
+    }
+    const stillInScope = () => currentScope.current.businessId === businessId && currentScope.current.actorId === actorId;
+    if (stillInScope()) {
+      const state = useDesignStudioStore.getState();
+      const merged = mergeGeneratedMockups(state.mockups, response.mockups);
+      state.setMockups(merged);
+      state.setPlatform(platform);
+      setSelectedSavedId(null);
+      if (selectResult && response.mockups[0]) {
+        state.selectMockup(merged.findIndex(mockup => mockup.operation_key === response.mockups[0].operation_key));
+        useDesignStudioStore.setState({ currentHtml: null, htmlHistory: [], iterationCount: 0 });
+      }
+    }
+    try {
+      for (const mockup of response.mockups) {
+        await saveMockup.mutateAsync({
+          mockupId: mockup.operation_key,
+          businessId,
+          actorId,
+          imageBase64: mockup.image_base64,
+          platform,
+          selections: withMockupGenerationMetadata(response.selections, mockup),
+          promptUsed: mockup.prompt_used,
+          parentMockupId: response.parent_mockup_id,
+          iterationFeedback: response.iteration_feedback,
+        });
+      }
+      for (const mockup of response.mockups) await generateMockups.ackAsync(mockup.operation_key!);
+    } catch (error) {
+      throw new Error(`Imagen generada, guardado pendiente. Usa «Recuperar generación pendiente». ${error instanceof Error ? error.message : ''}`);
+    }
+    return stillInScope();
+  }, [saveMockup.mutateAsync, generateMockups.ackAsync]);
+
+  const handleRecoverMockups = useCallback(async () => {
+    if (!user?.id || !activeBusinessId || generateMockups.busy || store.isGeneratingMockups) return;
+    const actorId = user.id;
+    store.setGeneratingMockups(true);
+    store.setError(null);
+    try {
+      const response = await generateMockups.recoverAsync();
+      if (response && await saveGeneratedResponse(response, actorId, true)) {
+        toast({ title: 'Imagen recuperada y guardada', description: 'Se conservó el resultado de la generación original.' });
+      }
+    } catch (error) {
+      if (currentScope.current.actorId !== actorId || currentScope.current.businessId !== activeBusinessId) return;
+      const message = error instanceof Error ? error.message : 'No se pudo recuperar la generación.';
+      store.setError(message);
+      toast({ title: 'Generación pendiente', description: message, variant: 'destructive' });
+    } finally {
+      if (currentScope.current.actorId === actorId && currentScope.current.businessId === activeBusinessId) store.setGeneratingMockups(false);
+    }
+  }, [user?.id, activeBusinessId, generateMockups.busy, generateMockups.recoverAsync, saveGeneratedResponse, toast]);
+
   const handleGenerateMockups = useCallback(async () => {
-    if (!store.brandPalette || !activeBusinessId) return;
+    if (!store.brandPalette || !activeBusinessId || !user?.id || generateMockups.pending || generateMockups.busy) return;
+    const actorId = user.id;
 
     const platform =
       store.inputMode === 'visual'
@@ -684,16 +757,17 @@ export default function DesignStudioPage() {
 
     try {
       const request: Parameters<typeof generateMockups.mutateAsync>[0] = {
+        ...mockupGenerationRequestFields(imageSettings),
         business_id: activeBusinessId,
         brand_palette: store.brandPalette,
         mode: store.inputMode,
         platform,
         count: 1,
-        business_name: activeBusiness?.name || 'Xending',
+        business_name: activeBusiness?.name,
         business_context: businessConfig?.industry
           ? `Industry: ${businessConfig.industry}. ${businessConfig.disclaimer ? `Disclaimer: ${businessConfig.disclaimer}` : ''}`
           : undefined,
-      } as any;
+      };
 
       if (store.inputMode === 'visual') {
         request.selections = store.selections;
@@ -731,31 +805,14 @@ export default function DesignStudioPage() {
         request.reference_description = store.referenceDescription || undefined;
       }
 
-      const response = await generateMockups.mutateAsync(request);
-      // Accumulate mockups — append new ones to existing
-      const existingMockups = store.mockups;
-      const newMockups = response.mockups.map((m, i) => ({
-        ...m,
-        index: existingMockups.length + i,
-      }));
-      store.setMockups([...existingMockups, ...newMockups]);
-      store.setPlatform(platform);
-
-      // Auto-save to Storage (fire and forget)
-      for (const mockup of response.mockups) {
-        saveMockup.mutate({
-          imageBase64: mockup.image_base64,
-          platform,
-          selections: store.inputMode === 'visual' ? (store.selections as any) : undefined,
-          promptUsed: mockup.prompt_used,
-        });
-      }
-
-      toast({
+      if (currentScope.current.actorId !== actorId || currentScope.current.businessId !== request.business_id) return;
+      const response = await generateMockups.mutateAsync(structuredClone(request));
+      if (await saveGeneratedResponse(response, actorId)) toast({
         title: 'Imagen individual generada',
-        description: `${existingMockups.length + newMockups.length} opción(es). Guardado automáticamente.`,
+        description: 'Guardada en tu biblioteca.',
       });
     } catch (error) {
+      if (currentScope.current.actorId !== actorId || currentScope.current.businessId !== activeBusinessId) return;
       const message = error instanceof Error ? error.message : 'Error generando mockups';
       store.setError(message);
       toast({
@@ -764,12 +821,13 @@ export default function DesignStudioPage() {
         variant: 'destructive',
       });
     } finally {
-      store.setGeneratingMockups(false);
+      if (currentScope.current.actorId === actorId && currentScope.current.businessId === activeBusinessId) store.setGeneratingMockups(false);
     }
-  }, [store.brandPalette, activeBusinessId, store.inputMode, store.selections, store.referenceImage, store.referenceDescription, store.selectedPlatform]);
+  }, [store.brandPalette, activeBusinessId, store.inputMode, store.selections, store.referenceImage, store.referenceDescription, store.selectedPlatform, imageSettings, user?.id, generateMockups, saveGeneratedResponse]);
 
   const handleRegenerateWithFeedback = useCallback(async (feedback: string) => {
-    if (!store.brandPalette || !activeBusinessId) return;
+    if (!store.brandPalette || !activeBusinessId || !user?.id || generateMockups.pending || generateMockups.busy) return;
+    const actorId = user.id;
 
     const platform =
       store.inputMode === 'visual'
@@ -783,6 +841,8 @@ export default function DesignStudioPage() {
       ? store.mockups[store.selectedMockupIndex]
       : store.mockups[store.mockups.length - 1];
 
+    if (!lastMockup) return;
+
     const previousPrompt = lastMockup?.prompt_used || '';
 
     store.setGeneratingMockups(true);
@@ -790,40 +850,38 @@ export default function DesignStudioPage() {
 
     try {
       const request: Parameters<typeof generateMockups.mutateAsync>[0] = {
+        ...mockupGenerationRequestFields(imageSettings),
         business_id: activeBusinessId,
         brand_palette: store.brandPalette,
         mode: store.inputMode,
         platform,
         count: 1,
-        business_name: activeBusiness?.name || 'Xending',
+        business_name: activeBusiness?.name,
         iteration_feedback: feedback,
         previous_prompt: previousPrompt,
-      } as any;
+        previous_image_base64: lastMockup?.image_base64,
+        parent_mockup_id: lastMockup?.saved_mockup_id ?? lastMockup?.operation_key,
+      };
 
       // Keep selections for context
       if (store.inputMode === 'visual') {
         request.selections = store.selections;
+      } else if (store.referenceImage) {
+        request.reference_image_base64 = await fileToBase64(store.referenceImage);
+        request.reference_description = store.referenceDescription || undefined;
       }
 
-      const response = await generateMockups.mutateAsync(request);
-
-      // Append new mockup to gallery
-      const existingMockups = store.mockups;
-      const newMockups = response.mockups.map((m, i) => ({
-        ...m,
-        index: existingMockups.length + i,
-      }));
-      store.setMockups([...existingMockups, ...newMockups]);
-      // Auto-select the new one
-      store.selectMockup(existingMockups.length);
+      if (currentScope.current.actorId !== actorId || currentScope.current.businessId !== request.business_id) return;
+      const response = await generateMockups.mutateAsync(structuredClone(request));
+      const visible = await saveGeneratedResponse(response, actorId, true);
 
       // Save feedback to design_feedback
-      if (user?.id) {
+      if (currentScope.current.actorId === actorId) {
         supabase
           .from('design_feedback' as any)
           .insert({
             business_id: activeBusinessId,
-            mockup_id: null,
+            mockup_id: request.parent_mockup_id ?? null,
             feedback_type: 'chat',
             message: feedback,
             interpreted_changes: { increase: [], decrease: [] },
@@ -833,22 +891,12 @@ export default function DesignStudioPage() {
           .then(() => {});
       }
 
-      // Auto-save new mockup
-      for (const mockup of response.mockups) {
-        saveMockup.mutate({
-          imageBase64: mockup.image_base64,
-          platform,
-          selections: store.inputMode === 'visual' ? (store.selections as any) : undefined,
-          promptUsed: mockup.prompt_used,
-          iterationFeedback: feedback,
-        });
-      }
-
-      toast({
+      if (visible) toast({
         title: 'Mockup regenerado',
         description: 'Nueva versión con tu feedback aplicado.',
       });
     } catch (error) {
+      if (currentScope.current.actorId !== actorId || currentScope.current.businessId !== activeBusinessId) return;
       const message = error instanceof Error ? error.message : 'Error regenerando mockup';
       store.setError(message);
       toast({
@@ -857,9 +905,60 @@ export default function DesignStudioPage() {
         variant: 'destructive',
       });
     } finally {
-      store.setGeneratingMockups(false);
+      if (currentScope.current.actorId === actorId && currentScope.current.businessId === activeBusinessId) store.setGeneratingMockups(false);
     }
-  }, [store.brandPalette, activeBusinessId, store.inputMode, store.selections, store.selectedPlatform, store.mockups, store.selectedMockupIndex, user?.id, activeBusiness]);
+  }, [store.brandPalette, activeBusinessId, store.inputMode, store.selections, store.selectedPlatform, store.mockups, store.selectedMockupIndex, store.referenceImage, store.referenceDescription, user?.id, activeBusiness, imageSettings, generateMockups, saveGeneratedResponse]);
+
+  const handleIterateSavedMockup = useCallback(async (mockup: SavedMockup, feedback: string) => {
+    if (!store.brandPalette || !activeBusinessId || !user?.id || generateMockups.pending || generateMockups.busy) return;
+    const actorId = user.id;
+    const sourceUrl = mockup.image_url;
+    const referenceImage = store.inputMode === 'reference' ? store.referenceImage : null;
+    const request: Parameters<typeof generateMockups.mutateAsync>[0] = structuredClone({
+      ...mockupGenerationRequestFields(imageSettings),
+      business_id: activeBusinessId,
+      brand_palette: store.brandPalette,
+      mode: 'visual',
+      platform: (mockup.platform || store.selections.platform || 'instagram-post') as PlatformFormat,
+      count: 1,
+      business_name: activeBusiness?.name,
+      iteration_feedback: feedback,
+      previous_prompt: mockup.prompt_used || '',
+      parent_mockup_id: mockup.id,
+      selections: { ...store.selections, ...mockup.selections },
+      reference_description: referenceImage ? store.referenceDescription : undefined,
+    });
+    store.setGeneratingMockups(true);
+    store.setError(null);
+    try {
+      const previousResponse = await fetch(sourceUrl);
+      if (!previousResponse.ok) throw new Error('No se pudo cargar la imagen original para aplicar tu feedback.');
+      request.previous_image_base64 = await fileToBase64(await previousResponse.blob());
+      if (referenceImage) request.reference_image_base64 = await fileToBase64(referenceImage);
+      if (currentScope.current.actorId !== actorId || currentScope.current.businessId !== request.business_id) return;
+      const response = await generateMockups.mutateAsync(request);
+      const visible = await saveGeneratedResponse(response, actorId, true);
+      if (currentScope.current.actorId === actorId) {
+        void supabase.from('design_feedback' as any).insert({
+          business_id: request.business_id,
+          mockup_id: request.parent_mockup_id,
+          feedback_type: 'chat',
+          message: feedback,
+          interpreted_changes: { increase: [], decrease: [] },
+          prompt_used: request.previous_prompt,
+          created_by: actorId,
+        }).then(() => {});
+      }
+      if (visible) toast({ title: 'Mockup regenerado', description: 'Nueva versión guardada con tu feedback aplicado.' });
+    } catch (error) {
+      if (currentScope.current.actorId !== actorId || currentScope.current.businessId !== request.business_id) return;
+      const message = error instanceof Error ? error.message : 'Error regenerando';
+      store.setError(message);
+      toast({ title: 'Error', description: message, variant: 'destructive' });
+    } finally {
+      if (currentScope.current.actorId === actorId && currentScope.current.businessId === request.business_id) store.setGeneratingMockups(false);
+    }
+  }, [store.brandPalette, store.selections, store.inputMode, store.referenceImage, store.referenceDescription, activeBusinessId, activeBusiness?.name, user?.id, imageSettings, generateMockups, saveGeneratedResponse, toast]);
 
   const handleConvertToHtml = useCallback(async () => {
     if (!store.brandPalette || !activeBusinessId || store.selectedMockupIndex === null) return;
@@ -1057,6 +1156,17 @@ export default function DesignStudioPage() {
           </TabsContent>
 
           <TabsContent value="studio" className="mt-6 space-y-8">
+
+        {generateMockups.pending && (
+          <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 flex flex-wrap items-center justify-between gap-3" role="status">
+            <p className="text-sm">Hay una generación pendiente de recuperar o guardar en tu biblioteca.</p>
+            <Button variant="outline" onClick={handleRecoverMockups} disabled={isAnyLoading}>
+              {generateMockups.busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Recuperar generación pendiente
+            </Button>
+          </div>
+        )}
+        <ImageGenerationControls value={imageSettings} onChange={setImageSettings} disabled={isAnyLoading} />
 
         {/* Mode Selection Tabs */}
         <Tabs
@@ -1400,7 +1510,7 @@ export default function DesignStudioPage() {
         {store.mockups.length === 0 && !store.currentHtml && (
           <Button
             onClick={handleGenerateMockups}
-            disabled={!canGenerate || isAnyLoading || validationErrors.length > 0}
+            disabled={!canGenerate || isAnyLoading || generateMockups.pending || validationErrors.length > 0}
             className="w-full"
             size="lg"
           >
@@ -1425,8 +1535,8 @@ export default function DesignStudioPage() {
             selectedIndex={store.selectedMockupIndex}
             onSelect={(index) => store.selectMockup(index)}
             onConvert={handleConvertToHtml}
-            onRegenerate={handleGenerateMockups}
-            onRegenerateWithFeedback={handleRegenerateWithFeedback}
+            onRegenerate={generateMockups.pending ? undefined : handleGenerateMockups}
+            onRegenerateWithFeedback={generateMockups.pending ? undefined : handleRegenerateWithFeedback}
             onDiscard={() => { useDesignStudioStore.setState({ mockups: [], selectedMockupIndex: null, error: null }); }}
             isLoading={store.isGeneratingMockups}
             disabled={store.isGeneratingHtml}
@@ -1516,7 +1626,7 @@ export default function DesignStudioPage() {
                 const reader = new FileReader();
                 reader.onload = () => {
                   const base64 = (reader.result as string).split(',')[1];
-                  store.setMockups([{ index: 0, image_base64: base64, prompt_used: mockup.prompt_used || '' }]);
+                  store.setMockups([{ index: 0, image_base64: base64, prompt_used: mockup.prompt_used || '', saved_mockup_id: mockup.id, ...savedMockupGenerationFields(mockup.selections) }]);
                   store.selectMockup(0);
                   store.setPlatform(mockup.platform as PlatformFormat);
                   // Clear HTML state so mockup gallery shows
@@ -1528,77 +1638,7 @@ export default function DesignStudioPage() {
                 toast({ title: 'Error cargando mockup', variant: 'destructive' });
               });
           }}
-          onIterateFrom={(mockup: SavedMockup, feedback: string) => {
-            // Use the saved mockup's prompt as the base for iteration
-            if (!store.brandPalette || !activeBusinessId) return;
-
-            const platform = (mockup.platform || store.selections.platform || 'instagram-post') as PlatformFormat;
-
-            store.setGeneratingMockups(true);
-            store.setError(null);
-
-            generateMockups.mutateAsync({
-              business_id: activeBusinessId,
-              brand_palette: store.brandPalette,
-              mode: 'visual',
-              platform,
-              count: 1,
-              business_name: activeBusiness?.name || 'Xending',
-              iteration_feedback: feedback,
-              previous_prompt: mockup.prompt_used || '',
-              selections: store.selections,
-            } as any).then((response) => {
-              const existingMockups = store.mockups;
-              const newMockups = response.mockups.map((m, i) => ({
-                ...m,
-                index: existingMockups.length + i,
-              }));
-              store.setMockups([...existingMockups, ...newMockups]);
-              store.selectMockup(existingMockups.length);
-              store.setPlatform(platform);
-              // Clear HTML so mockup gallery shows
-              useDesignStudioStore.setState({ currentHtml: null, htmlHistory: [], iterationCount: 0 });
-
-              // Save feedback
-              if (user?.id) {
-                supabase
-                  .from('design_feedback' as any)
-                  .insert({
-                    business_id: activeBusinessId,
-                    mockup_id: mockup.id,
-                    feedback_type: 'chat',
-                    message: feedback,
-                    interpreted_changes: { increase: [], decrease: [] },
-                    prompt_used: mockup.prompt_used || '',
-                    created_by: user.id,
-                  })
-                  .then(() => {});
-              }
-
-              // Auto-save new mockup
-              for (const m of response.mockups) {
-                saveMockup.mutate({
-                  imageBase64: m.image_base64,
-                  platform,
-                  selections: store.selections as any,
-                  promptUsed: m.prompt_used,
-                  parentMockupId: mockup.id,
-                  iterationFeedback: feedback,
-                });
-              }
-
-              toast({
-                title: 'Mockup regenerado',
-                description: 'Nueva versión basada en tu feedback.',
-              });
-            }).catch((error) => {
-              const message = error instanceof Error ? error.message : 'Error regenerando';
-              store.setError(message);
-              toast({ title: 'Error', description: message, variant: 'destructive' });
-            }).finally(() => {
-              store.setGeneratingMockups(false);
-            });
-          }}
+          onIterateFrom={generateMockups.pending ? undefined : handleIterateSavedMockup}
         />
           </TabsContent>
         </Tabs>
@@ -1639,7 +1679,7 @@ function StageHeader({
   );
 }
 
-function fileToBase64(file: File): Promise<string> {
+function fileToBase64(file: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {

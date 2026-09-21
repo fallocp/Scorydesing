@@ -2,6 +2,7 @@ import type { RegisteredAssetVersion } from '../../../supabase/functions/_shared
 import type { HtmlCompositionRequest, HtmlCompositionResult } from '../../../supabase/functions/_shared/desaing/composition';
 import type { DesignServerUpload } from './serverClient';
 export interface HtmlCapabilities {
+  composition_version?: 2;
   model: 'gpt-5.4-mini'; remaining_micro_usd: number; remaining_attempts: number;
   reservation_micro_usd: number; max_output_tokens: number; max_request_bytes: number; max_reference_edge: number;
 }
@@ -16,7 +17,8 @@ export interface HtmlCompositionClient {
 export function isHtmlCapabilities(value: unknown): value is HtmlCapabilities {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const v = value as Record<string, unknown>;
-  return Object.keys(v).length === 7 && v.model === 'gpt-5.4-mini' && v.reservation_micro_usd === 250000
+  return (Object.keys(v).length === 7 && v.composition_version === undefined || Object.keys(v).length === 8 && v.composition_version === 2)
+    && v.model === 'gpt-5.4-mini' && v.reservation_micro_usd === 250000
     && ['remaining_micro_usd', 'remaining_attempts', 'max_output_tokens', 'max_request_bytes', 'max_reference_edge']
       .every(key => Number.isSafeInteger(v[key]) && Number(v[key]) >= 0)
     && Number(v.remaining_micro_usd) <= 1000000 && Number(v.remaining_attempts) <= 20

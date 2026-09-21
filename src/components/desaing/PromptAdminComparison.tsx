@@ -72,7 +72,7 @@ export function PromptAdminComparison({ client, test, review, onReview, disabled
     <div className="pac-actions"><button type="button" disabled={locked || !state?.canGenerate || done}
       onClick={() => void run(control => control.generate())}>{state?.needed === 1 ? 'Generar lado pendiente (1)' : 'Generar comparación (2)'}</button>
       <button type="button" disabled={locked} onClick={() => void run(control => control.load())}>Recuperar resultados</button></div>
-    {state?.ready && state.needed > 0 && state.remaining < state.needed && <p role="status">La comparación necesita {state.needed} generaciones; quedan {state.remaining}. No se inició ningún envío nuevo.</p>}
+    {state?.ready && state.needed > 0 && state.remaining !== null && state.remaining < state.needed && <p role="status">La comparación necesita {state.needed} generaciones; quedan {state.remaining}. No se inició ningún envío nuevo.</p>}
     <div className="pac-grid">{state?.items.map(item => <article key={item.side} data-testid={`prompt-comparison-${item.side}`}>
       <h4>{item.side === 'before' ? 'Prompt base' : 'Prompt propuesto'}</h4>
       {images[item.side] ? <img src={images[item.side]} alt={item.side === 'before' ? 'Resultado del prompt base' : 'Resultado del prompt propuesto'} /> : <div className="pac-placeholder">{item.status === 'saved' ? 'Sin generar' : 'Resultado pendiente'}</div>}

@@ -16,6 +16,7 @@
  */
 
 import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.53.0";
+import { pipelineImageRequest } from './pipelineImageRequest.ts';
 import { validateTransition } from "./stateMachine.ts";
 import { executeStep } from "./executeStep.ts";
 import { compose, type ComposedPrompt, type CampaignContext } from "../../_shared/promptComposer.ts";
@@ -284,7 +285,15 @@ export async function runPipeline(ctx: RunContext): Promise<PipelineRunRow> {
 
     // Build payload and execute
     const composedPrompt = await composePromptForAgent(supabase, run, stepDef.agentName);
-    const payload = buildAgentPayload(run, stepDef, composedPrompt);
+    let payload = buildAgentPayload(run, stepDef, composedPrompt);
+    if (stepDef.agentName === 'generate-design-image-generate') {
+      const { data: saved, error } = await supabase.from('pipeline_steps').select('input')
+        .eq('pipeline_run_id', run.id).eq('step_number', stepDef.stepNumber).eq('agent_name', stepDef.agentName).maybeSingle();
+      // Never overwrite a saved explicit version with the generic empty prompt.
+      // Database or malformed-input failures must stop before executing a render.
+      if (error) throw new Error('No se pudo recuperar el encargo de imagen guardado.');
+      payload = pipelineImageRequest(payload, saved?.input, run.business_id, run.id);
+    }
     const result = await executeStep(supabase, {
       pipelineRunId: run.id,
       stepNumber: stepDef.stepNumber,

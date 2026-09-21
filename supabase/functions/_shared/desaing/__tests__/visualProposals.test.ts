@@ -74,7 +74,7 @@ describe('reusable visual directions as individual immutable drafts', () => {
     const second = operation(session, 1, op.operation_key);
     expect(() => bindVisualProposalOperation(set, set.candidates[1].id, second, session, session.context)).toThrow('visual_proposal_operation_key_conflict');
     for (const changed of [{ ...op, action: 'generate_proposals' as const }, { ...op, image: { ...op.image!, output_count: 5 } },
-      { ...op, image: { ...op.image!, quality: 'medium' as const } }, { ...op, context: { ...op.context, instruction: 'Other image' } },
+      { ...op, image: { ...op.image!, quality: 'auto' as const } }, { ...op, context: { ...op.context, instruction: 'Other image' } },
       { ...op, image: { ...op.image!, arbitrary: true } }]) {
       expect(() => bindVisualProposalOperation(make(), make().candidates[0].id, changed, session, session.context)).toThrow();
     }

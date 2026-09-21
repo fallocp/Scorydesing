@@ -26,6 +26,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
 
 import { ImageLightbox } from '@/components/ImageLightbox';
+import { ImageGenerationControls } from '@/components/image-generation/ImageGenerationControls';
 import { useFxDaily } from '@/hooks/useFxDaily';
 import { useFxKit } from '@/hooks/useFxKit';
 import { FX_KIT } from '@/utils/design-studio/fxDailyKit';
@@ -114,6 +115,9 @@ export function FxDailyPanel() {
         </Button>
       </div>
 
+      <ImageGenerationControls value={kit.imageSettings} onChange={kit.setImageSettings}
+        disabled={kit.isBusy || Object.values(kit.statuses).includes('generating')} />
+
       {/* Kit de objetos (una sola vez, se reutiliza) */}
       <Card>
         <CardContent className="space-y-3 pt-6">
@@ -152,6 +156,7 @@ export function FxDailyPanel() {
                       type="file"
                       accept="image/png,image/jpeg,image/webp"
                       className="hidden"
+                      disabled={kit.statuses[o.id] === 'generating'}
                       onChange={(e) => {
                         const f = e.target.files?.[0];
                         if (f) kit.replaceObject(o.id, f);
@@ -166,9 +171,10 @@ export function FxDailyPanel() {
                     onClick={() => kit.generateObject(o.id)}
                     disabled={kit.statuses[o.id] === 'generating'}
                   >
-                    {kit.urls[o.id] ? 'IA' : 'IA'}
+                    {kit.statuses[o.id] === 'error' ? 'Recuperar resultado' : kit.urls[o.id] ? 'Regenerar con IA' : 'Generar con IA'}
                   </button>
                 </div>
+                {kit.errors[o.id] && <p role="alert" className="text-[10px] text-destructive">{kit.errors[o.id]}</p>}
               </div>
             ))}
           </div>

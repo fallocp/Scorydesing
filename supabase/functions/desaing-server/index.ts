@@ -20,6 +20,7 @@ import { createServerProduction } from '../_shared/desaing/serverProduction.ts';
 import { createSupabaseProductionRepository } from '../_shared/desaing/productionRepository.ts';
 import { createSupabasePromptAdminRepository } from '../_shared/desaing/promptAdminRepository.ts';
 import { createServerPromptAdmin } from '../_shared/desaing/serverPromptAdmin.ts';
+import { prepareAuthorizedStudioMockup } from '../_shared/studioMockupPrompt.ts';
 
 // JWT-authenticated application boundary. New paid work additionally needs the
 // separate server-only UI gate, exact owner/project/policy pins and unspent quota.
@@ -69,6 +70,11 @@ const exploration = createServerExploration({
 }, {
   repository,
   explorationRepository: createSupabaseExplorationRepository((name, args) => backend().rpc(name, args)),
+  storage: { async get(key) {
+    const { data, error } = await bucket().download(key);
+    if (error || !data || data.size > 8388608) throw new ServerBoundaryError('asset_storage_unavailable', 503);
+    return new Uint8Array(await data.arrayBuffer());
+  } },
   createProvider: () => createExplorationProvider({ apiKey: Deno.env.get('OPENAI_API_KEY') ?? '',
     model: 'gpt-5.4-mini', maxOutputTokens: 4096, fetch }),
 });
@@ -165,4 +171,23 @@ Deno.serve(createServerHandler({
     return error || !data.user ? null : { id: data.user.id };
   },
   repository, storage, generation, exploration, html, materials, onboarding, production, promptAdmin,
+  studioPrepare: (actorId, input) => prepareAuthorizedStudioMockup(actorId, input, {
+    async authorize(actor, businessId) {
+      const access = await repository.read(businessId, actor);
+      if (access.policy.business_id !== businessId || !['owner', 'admin'].includes(access.role)) {
+        throw new ServerBoundaryError('business_access_denied', 403);
+      }
+      if (!access.policy.enabled) throw new ServerBoundaryError('server_policy_disabled', 503);
+    },
+    feedback: { async read(businessId, type, limit, background) {
+      // The explicit repository authorization above precedes this service-role read.
+      let query = backend().from('design_feedback').select('interpreted_changes')
+        .eq('business_id', businessId).eq('feedback_type', type);
+      if (background) query = query.eq('selections->>background', background);
+      const { data, error } = await query.order('created_at', { ascending: false }).limit(limit);
+      if (error) throw new Error('Feedback preferences unavailable');
+      return data ?? [];
+    } },
+    variationIndex: () => Math.floor(Math.random() * 3),
+  }),
 }));

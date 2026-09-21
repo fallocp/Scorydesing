@@ -45,13 +45,17 @@ const mockupsTable = () =>
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase.from('design_mockups' as any) as any;
 
-interface SaveMockupParams {
+export interface SaveMockupParams {
   imageBase64: string;
   platform: string;
   selections?: Record<string, unknown>;
   promptUsed?: string;
   parentMockupId?: string;
   iterationFeedback?: string;
+  /** A shared job keeps these stable through reload, recovery and tenant switches. */
+  mockupId?: string;
+  businessId?: string;
+  actorId?: string;
   /** Carousel slides pass both: the group they belong to and their position. */
   carouselGroupId?: string;
   carouselIndex?: number;
@@ -76,7 +80,17 @@ export function useSaveMockup() {
 
   return useMutation({
     mutationFn: async (params: SaveMockupParams) => {
-      if (!activeBusinessId || !user?.id) throw new Error('No business or user');
+      const businessId = params.businessId ?? activeBusinessId;
+      const actorId = params.actorId ?? user?.id;
+      if (!businessId || !actorId) throw new Error('No business or user');
+      if (params.mockupId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(params.mockupId)) {
+        throw new Error('Identidad de generación inválida.');
+      }
+      const assertActor = async () => {
+        const { data, error } = await supabase.auth.getSession();
+        if (error || data.session?.user.id !== actorId) throw new Error('La sesión cambió. Vuelve a tu sesión original para recuperar esta imagen.');
+      };
+      await assertActor();
 
       // 1. Convert base64 to blob
       const byteChars = atob(params.imageBase64);
@@ -87,12 +101,24 @@ export function useSaveMockup() {
       const blob = new Blob([byteArray], { type: 'image/png' });
 
       // 2. Upload to Storage
-      const fileName = `${activeBusinessId}/mockups/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.png`;
+      const fileName = `${businessId}/mockups/${params.mockupId ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`}.png`;
       const { error: uploadError } = await supabase.storage
         .from('design-images')
         .upload(fileName, blob, { contentType: 'image/png', upsert: false });
 
-      if (uploadError) throw new Error(`Upload failed: ${uploadError.message}`);
+      if (uploadError) {
+        // A completed upload can lose its HTTP acknowledgement. Only reuse the
+        // immutable object when its bytes are exactly the generated output.
+        const status = String((uploadError as { statusCode?: string | number }).statusCode ?? '');
+        const duplicate = status === '409' || /already exists|duplicate/i.test(uploadError.message);
+        if (!params.mockupId || !duplicate) throw new Error(`Upload failed: ${uploadError.message}`);
+        const { data: stored, error: downloadError } = await supabase.storage.from('design-images').download(fileName);
+        if (downloadError || !stored) throw new Error('No se pudo verificar el archivo guardado. Recupera la generación para volver a comprobarlo.');
+        const previousBytes = new Uint8Array(await stored.arrayBuffer());
+        if (previousBytes.length !== byteArray.length || previousBytes.some((value, index) => value !== byteArray[index])) {
+          throw new Error('El archivo guardado no coincide con esta generación. No se reemplazó.');
+        }
+      }
 
       // 3. Get public URL
       const { data: urlData } = supabase.storage
@@ -103,8 +129,9 @@ export function useSaveMockup() {
 
       // 4. Insert row in design_mockups.
       const row = {
-        business_id: activeBusinessId,
-        created_by: user.id,
+        ...(params.mockupId ? { id: params.mockupId } : {}),
+        business_id: businessId,
+        created_by: actorId,
         image_url: imageUrl,
         platform: params.platform,
         selections: params.selections || null,
@@ -126,14 +153,25 @@ export function useSaveMockup() {
 
       // The id is returned so callers can link the row to what produced it
       // (a carousel slot keeps the mockup id instead of the base64).
+      await assertActor();
       const { data: inserted, error: insertError } = await mockupsTable()
         .insert(row)
         .select('id')
         .single();
 
-      if (insertError) throw new Error(`Insert failed: ${insertError.message}`);
-
-      const mockupId = (inserted as { id: string }).id;
+      let mockupId = (inserted as { id: string } | null)?.id;
+      if (insertError) {
+        if (!params.mockupId || insertError.code !== '23505') throw new Error(`Insert failed: ${insertError.message}`);
+        const { data: existing, error: readError } = await mockupsTable()
+          .select('id, image_url, platform, parent_mockup_id, iteration_feedback')
+          .eq('id', params.mockupId).eq('business_id', businessId).eq('created_by', actorId).single();
+        if (readError || !existing || existing.image_url !== imageUrl || existing.platform !== params.platform ||
+          existing.parent_mockup_id !== (params.parentMockupId || null) || existing.iteration_feedback !== (params.iterationFeedback || null)) {
+          throw new Error('El registro guardado no coincide con esta generación. No se reemplazó.');
+        }
+        mockupId = existing.id;
+      }
+      if (!mockupId) throw new Error('No se recibió el identificador de la imagen guardada.');
 
       /**
        * Close the loop with the catalogue entry.
@@ -167,10 +205,10 @@ export function useSaveMockup() {
         }
       }
 
-      return { imageUrl, mockupId };
+      return { imageUrl, mockupId, businessId };
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['design-mockups', activeBusinessId] });
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['design-mockups', result.businessId] });
     },
   });
 }

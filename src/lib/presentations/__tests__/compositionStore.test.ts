@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { assertCompositionDraft, assertCompositionTransition, emptyCompositionDraft, verifyCompositionDraft, type CompositionDraft } from '../compositionStore';
 import { htmlPng, htmlRequest, htmlResult } from '../../../../supabase/functions/_shared/desaing/__tests__/fixtures/htmlCompositionFixture';
-import { makeApprovedCompositionCopy } from '../../../../supabase/functions/_shared/desaing/composition';
+import { makeApprovedCompositionCopy, makeTextlessCompositionCopy } from '../../../../supabase/functions/_shared/desaing/composition';
 
 async function fixture() {
   const request = await htmlRequest(), bytes = htmlPng();
@@ -13,6 +13,31 @@ async function fixture() {
   return { scope, value };
 }
 describe('persisted editable composition boundaries', () => {
+  it('recovers manual editor changes separately from the immutable approved copy and result', async () => {
+    const { value, scope } = await fixture(); const original = structuredClone(value);
+    const piece = { ...value.request!.design_reference, asset_id: 'plane' };
+    value.bindings = { hero: { origin: 'local', asset: { ...piece }, altText: 'Avión' } };
+    value.edit = { request_key: value.request!.request_key, copy_version_id: value.request!.copy.version_id,
+      html: '<h1>Texto ajustado por el usuario</h1>', mounted_assets: [{ element_id: 'plane', asset: { ...piece },
+        region: { x: 100, y: 40, width: 200, height: 300 }, fit: 'contain', z_index: 4, alt_text: 'Avión' }] };
+    await expect(verifyCompositionDraft(structuredClone(value), scope)).resolves.toBeUndefined();
+    expect(value.request).toEqual(original.request); expect(value.result).toEqual(original.result);
+    expect(() => assertCompositionTransition(original, value)).not.toThrow();
+    const wrongRevision = structuredClone(value); wrongRevision.edit!.request_key = 'another-conversion';
+    expect(() => assertCompositionDraft(wrongRevision, scope)).toThrow('invalid_composition_edit');
+    const foreign = structuredClone(value); foreign.edit!.mounted_assets[0].asset.business_id = 'other';
+    expect(() => assertCompositionDraft(foreign, scope)).toThrow('composition_scope_mismatch');
+    const missingPiece = structuredClone(value); missingPiece.edit!.mounted_assets[0].asset.asset_id = 'invented';
+    expect(() => assertCompositionDraft(missingPiece, scope)).toThrow('composition_scope_mismatch');
+  });
+  it('persists explicit textless intent and keeps legacy text drafts readable', async () => {
+    const { value, scope } = await fixture(); await expect(verifyCompositionDraft(value, scope)).resolves.toBeUndefined();
+    value.request!.copy = await makeTextlessCompositionCopy(); value.request!.context.copy_version_id = value.request!.copy.version_id;
+    value.copy_text = ''; value.copy_mode = 'no_text'; value.result = htmlResult(value.request!);
+    await expect(verifyCompositionDraft(value, scope)).resolves.toBeUndefined();
+    delete value.copy_mode;
+    expect(() => assertCompositionDraft(value, scope)).toThrow('composition_copy_changed');
+  });
   it('verifies exact approved copy and actual PNG bytes without issuing any calls', async () => {
     const { value, scope } = await fixture(), fetch = vi.spyOn(globalThis, 'fetch');
     try { await expect(verifyCompositionDraft(value, scope)).resolves.toBeUndefined(); expect(fetch).not.toHaveBeenCalled(); }

@@ -1,13 +1,21 @@
 import type { RegisteredAssetVersion } from '../../../supabase/functions/_shared/desaing/assets';
 import type { HtmlCompositionRequest, HtmlCompositionResult } from '../../../supabase/functions/_shared/desaing/composition';
-import { assertHtmlCompositionRequest, assertHtmlCompositionResult, verifyHtmlCompositionRequest } from '../../../supabase/functions/_shared/desaing/composition';
+import { assertHtmlCompositionRequest, assertHtmlCompositionResult, verifyHtmlCompositionRequest, COMPOSITION_LIMITS } from '../../../supabase/functions/_shared/desaing/composition';
 import { inspectServerPng } from '../../../supabase/functions/_shared/desaing/serverPng';
 import type { AssetVersion } from '../../../supabase/functions/_shared/desaing/contracts';
+import { assertPresentationSlides, type PresentationMountedAsset } from './presentationDocument';
 
 export interface CompositionSource { blob: Blob; name: string; upload_id: string; version?: RegisteredAssetVersion }
 export type SavedCompositionBinding = { omitted: true } | { asset: AssetVersion; origin: 'local' | 'server'; altText: string };
+export interface CompositionEditorDraft {
+  html: string; mounted_assets: PresentationMountedAsset[];
+  request_key: string; copy_version_id: string;
+}
 export interface CompositionDraft {
   copy_text: string; source: CompositionSource | null;
+  /** Optional fields preserve drafts saved before the full editor was integrated. */
+  copy_mode?: 'approved_text' | 'no_text'; edit?: CompositionEditorDraft | null;
+  instruction?: string;
   request: HtmlCompositionRequest | null; result: HtmlCompositionResult | null;
   status: 'draft' | 'saved' | 'submitting' | 'uncertain' | 'completed';
   bindings: Record<string, SavedCompositionBinding>;
@@ -20,7 +28,9 @@ const canonical = (value: unknown): string => Array.isArray(value) ? `[${value.m
   : value && typeof value === 'object' ? `{${Object.entries(value).filter(([, entry]) => entry !== undefined).sort(([a], [b]) => a.localeCompare(b))
     .map(([key, entry]) => `${JSON.stringify(key)}:${canonical(entry)}`).join(',')}}` : JSON.stringify(value) ?? '';
 export function assertCompositionDraft(value: CompositionDraft, scope: CompositionStoreScope) {
-  if (!value || typeof value.copy_text !== 'string' || value.copy_text.length > 12000 || value.copy_text.includes('\0')
+  if (!value || typeof value.copy_text !== 'string' || value.copy_text.length > COMPOSITION_LIMITS.copy_chars || value.copy_text.includes('\0')
+    || (value.copy_mode !== undefined && !['approved_text', 'no_text'].includes(value.copy_mode))
+    || (value.instruction !== undefined && (typeof value.instruction !== 'string' || value.instruction.length > 12000 || value.instruction.includes('\0')))
     || !['draft', 'saved', 'submitting', 'uncertain', 'completed'].includes(value.status)
     || !value.bindings || typeof value.bindings !== 'object' || Array.isArray(value.bindings) || Object.keys(value.bindings).length > 6) throw new Error('invalid_composition_draft');
   if (value.source && (!(value.source.blob instanceof Blob) || value.source.blob.type !== 'image/png'
@@ -35,6 +45,7 @@ export function assertCompositionDraft(value: CompositionDraft, scope: Compositi
     const lines = value.copy_text.split(/\r?\n/).filter(line => line.trim().length > 0);
     const approvedLines = value.request.copy.blocks.map(block => block.text).join('\n').split(/\r?\n/).filter(line => line.trim().length > 0);
     if (canonical(lines) !== canonical(approvedLines)) throw new Error('composition_copy_changed');
+    if ((value.copy_mode === 'no_text') !== (value.request.copy.mode === 'none')) throw new Error('composition_copy_changed');
   }
   if (value.result) { if (!value.request) throw new Error('invalid_composition_draft'); assertHtmlCompositionResult(value.result, value.request); }
   if ((value.status === 'completed') !== !!value.result || (value.status !== 'draft' && !value.request)
@@ -47,6 +58,16 @@ export function assertCompositionDraft(value: CompositionDraft, scope: Compositi
       || Object.keys(binding).some(key => !['asset', 'origin', 'altText'].includes(key))
       || !['local', 'server'].includes(binding.origin) || typeof binding.altText !== 'string' || binding.altText.length > 500 || binding.altText.includes('\0')
       || (value.request && sameAsset(binding.asset, value.request.design_reference))) throw new Error('composition_scope_mismatch');
+  }
+  if (value.edit) {
+    if (!value.result || !value.request || value.edit.request_key !== value.request.request_key
+      || value.edit.copy_version_id !== value.request.copy.version_id || typeof value.edit.html !== 'string'
+      || value.edit.html.length > 96 * 1024 * 1024) throw new Error('invalid_composition_edit');
+    assertPresentationSlides([{ id: 'composition-edit', revision: 1, title: '', html: value.edit.html, mounted_assets: value.edit.mounted_assets }]);
+    for (const item of value.edit.mounted_assets) {
+      if (item.asset.business_id !== scope.business || !Object.values(value.bindings).some(binding =>
+        !('omitted' in binding) && sameAsset(binding.asset, item.asset))) throw new Error('composition_scope_mismatch');
+    }
   }
 }
 /** Pure async verification, outside the short IndexedDB transaction. */

@@ -186,7 +186,7 @@ export function createVisualProposalController(options: VisualProposalController
       if (unresolved()) throw new Error('visual_proposal_unresolved');
       const settings = generation();
       if (!response!.enabled || !settings) throw new Error('server_generation_unavailable');
-      if (settings.remaining_outputs < newCandidates.length) throw new Error('job_quota_exceeded');
+      if (settings.remaining_outputs !== null && settings.remaining_outputs < newCandidates.length) throw new Error('job_quota_exceeded');
       // Validate every selected instruction before normalizing or uploading anything.
       for (const candidate of newCandidates) {
         if (new TextEncoder().encode([candidate.instruction, ...source.session.context.immutable_elements].join('\n')).length > settings.max_brief_bytes) {
@@ -226,8 +226,11 @@ export function createVisualProposalController(options: VisualProposalController
         if (unresolved()) throw new Error('visual_proposal_unresolved');
         const available = generation();
         if (!response!.enabled || !available) throw new Error('server_generation_unavailable');
-        if (available.remaining_outputs < 1) throw new Error('job_quota_exceeded');
-        if (available.profile !== operation.image?.profile || available.executor !== operation.image?.executor) throw new Error('server_generation_changed');
+        if (available.remaining_outputs !== null && available.remaining_outputs < 1) throw new Error('job_quota_exceeded');
+        const profiles = available.profiles ?? [available.profile], qualities = available.qualities ?? ['low'];
+        if (!operation.image || !profiles.includes(operation.image.profile)
+          || !qualities.some(quality => quality === operation.image!.quality)
+          || available.executor !== operation.image.executor) throw new Error('server_generation_changed');
         await options.onBind?.(candidate.selection, operation.operation_key); ensureOpen(); await source.assertCurrent();
         await setSubmission(operation.operation_key, 'submitting');
         try { ensureOpen(); await source.assertCurrent(); }

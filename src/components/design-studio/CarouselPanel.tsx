@@ -78,6 +78,7 @@ import { CarouselStoryboardPreview } from './CarouselStoryboardPreview';
 import { StudioImagePanel } from './StudioImagePanel';
 import { usePresentationDesignService } from '@/components/presentations/PresentationDesignContext';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
+import { ImageGenerationControls } from '@/components/image-generation/ImageGenerationControls';
 import { useAuth } from '@/hooks/useAuth';
 import type { StudioImageAction, StudioCarouselContext } from '@/lib/desaing/studioImageState';
 import type { ProductionSource } from '../../../supabase/functions/_shared/desaing/production';
@@ -645,6 +646,7 @@ export function CarouselPanel({
       }
       bodyClassName="space-y-5 p-4"
     >
+      <ImageGenerationControls value={queue.imageSettings} onChange={queue.setImageSettings} disabled={busy} />
       {error && (
         <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3">
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
@@ -1341,6 +1343,7 @@ export function CarouselPanel({
               isRendering={renderingIndex === slot.index}
               onPromptChange={(text) => queue.updateSlotPrompt(slot.index, text)}
               onGenerate={() => queue.generateSlot(slot.index)}
+              onRecover={() => queue.recoverSlot(slot.index)}
               onDesign={designService?.client.production && activeBusinessId && user && queue.groupId && queue.productionCarousel && slot.imageUrl && slot.mockupId ? action => {
                 setReviewedImage({ businessId: activeBusinessId, actorId: user.id, action,
                   source: { kind: 'carousel', source_table: sourceTable, row_id: bankItem.row.id, group_id: queue.groupId!, slide_id: slot.id },
@@ -1680,6 +1683,7 @@ function SlotRenderCard({
   isRendering,
   onPromptChange,
   onGenerate,
+  onRecover,
   onDesign,
 }: {
   slot: CarouselSlotRuntime;
@@ -1688,6 +1692,7 @@ function SlotRenderCard({
   isRendering: boolean;
   onPromptChange: (text: string) => void;
   onGenerate: () => void;
+  onRecover: () => void;
   onDesign?: (action: StudioImageAction) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -1756,6 +1761,16 @@ function SlotRenderCard({
                     Generar
                   </>
                 )}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={onRecover}
+                disabled={disabled}
+                title="Recupera la imagen pendiente y restaura el texto y prompt usados al generarla, sin generar otra imagen."
+              >
+                Recuperar pendiente
               </Button>
               <Button
                 type="button"

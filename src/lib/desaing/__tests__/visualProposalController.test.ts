@@ -53,23 +53,25 @@ function initialSession(full = false) {
       render_instruction: `Un avión distinto ${i + 1}.`, reference_ids: full ? [] : ['capture'],
       aspects: { subject: 'Avión', composition: `Diagonal ${i + 1}`, style: 'Editorial', palette: 'Azul' } })) });
 }
-function fixture(full = false) {
-  let session = initialSession(full), server = createServerSnapshot(scope.business_id, policy), ids = 0;
+function fixture(full = false, selection?: { profile: 'sunburst_rescue'; quality: 'high' }) {
+  const activePolicy: ServerPolicy = selection ? { ...policy, enabled_image_profiles: ['baseline', 'sunburst_rescue'] } : policy;
+  let session = initialSession(full), server = createServerSnapshot(scope.business_id, activePolicy), ids = 0;
   const storeScope = { ...scope, session_id: session.context.session_id };
   let enabled = true, available = 10, stale = false;
   const storage = new MemoryStorage();
   const prepareCapture = vi.fn(async (): Promise<Blob | null> => full ? null : new Blob([new Uint8Array([1, 2, 3])], { type: 'image/png' }));
   const settings = (): ServerGenerationCapabilities => ({ profile: 'baseline', executor: 'image_api',
-    max_reference_edge: 1024, max_brief_bytes: 64000, remaining_outputs: available });
+    max_reference_edge: 1024, max_brief_bytes: 64000, remaining_outputs: available,
+    ...(selection ? { profiles: ['baseline', 'sunburst_rescue'], qualities: ['low', 'medium', 'high'] } : {}) });
   function finish(operation: DesignOperation) {
     const job = server.jobs.jobs.find(item => item.operation_key === operation.operation_key)!;
     const key = job.calls[0].call_key;
-    server = claimServerCall(server, policy, operation.operation_key, key, `attempt:${operation.operation_key}`, 10, 100);
+    server = claimServerCall(server, activePolicy, operation.operation_key, key, `attempt:${operation.operation_key}`, 10, 100);
     const output: RegisteredAssetVersion = { ...capture,
       identity: { business_id: scope.business_id, asset_id: `asset:${operation.operation_key}`, version_id: 'low' },
       storage: { ...capture.storage, storage_key: `${scope.business_id}/${operation.operation_key}.png` },
       provenance: { kind: 'image_operation', operation_key: operation.operation_key, output_index: 0,
-        action: 'generate_image', quality: 'low', model_id: job.calls[0].planned.model_id!,
+        action: 'generate_image', quality: operation.image!.quality, model_id: job.calls[0].planned.model_id!,
         effective_prompt: operation.context.instruction, revised_prompt: null,
         immutable_elements: operation.context.immutable_elements, references: operation.context.references } };
     const normalized = normalizeImageResponse({ status: 200, body: { data: [{ b64_json: 'AQID' }] }, expected_outputs: 1, duration_ms: 1 });
@@ -77,14 +79,14 @@ function fixture(full = false) {
     server = validateServerCall(server, operation.operation_key, key, true, 12);
   }
   function enqueue(operation: DesignOperation, complete = true) {
-    server = applyServerCommand(server, policy, scope.actor_id, { kind: 'enqueue', operation }, 2).state;
+    server = applyServerCommand(server, activePolicy, scope.actor_id, { kind: 'enqueue', operation }, 2).state;
     available--;
     if (complete) finish(operation);
   }
   const client = {
     session: vi.fn(async () => ({ actorId: scope.actor_id })),
     read: vi.fn(async () => ({ revision: 1, state: structuredClone(server), enabled, generation: enabled ? settings() : null })),
-    upload: vi.fn<DesignServerClient['upload']>(async () => { server = applyServerCommand(server, policy, scope.actor_id, { kind: 'register_import', version: capture }, 1).state;
+    upload: vi.fn<DesignServerClient['upload']>(async () => { server = applyServerCommand(server, activePolicy, scope.actor_id, { kind: 'register_import', version: capture }, 1).state;
       return structuredClone(capture); }),
     command: vi.fn<DesignServerClient['command']>(async (_business, command) => {
       if (command.kind !== 'enqueue') throw new Error('unexpected_command');
@@ -97,7 +99,7 @@ function fixture(full = false) {
     async assertCurrent() { if (stale) throw new Error('visual_proposal_context_changed'); },
     buildOperation(candidate, _reference, _generation, key) {
       return { operation_key: key, action: 'generate_image', context: { ...structuredClone(session.context), instruction: candidate.instruction },
-        image: full ? { ...imageOptions(), background: 'opaque' } : imageOptions() };
+        image: { ...imageOptions(), ...(full ? { background: 'opaque' as const } : {}), ...selection } };
     },
   }));
   const onBind = vi.fn(async (selection, key) => { session = bindIdeaRender(session, selection, key); });
@@ -112,6 +114,15 @@ function fixture(full = false) {
 }
 
 describe('explicit visual proposal admission', () => {
+  it('uses an explicitly selected Sunburst high without replacing it with the advertised default or regenerating on reopen', async () => {
+    const f = fixture(true, { profile: 'sunburst_rescue', quality: 'high' }); await f.controller.load();
+    await f.controller.generate(f.candidates().slice(0, 1));
+    expect(f.client.command).toHaveBeenCalledTimes(1);
+    expect(f.server().jobs.jobs[0].plan.operation.image).toMatchObject({ profile: 'sunburst_rescue', quality: 'high' });
+    f.controller.close(); const reopened = f.open(); await reopened.load();
+    await reopened.generate(reopened.snapshot().views.slice(0, 1).map(view => view.candidate.id));
+    expect(f.client.command).toHaveBeenCalledTimes(1);
+  });
   it('generates standalone full directions without creating or uploading fictitious captures and reuses them after reopen', async () => {
     const f = fixture(true); await f.controller.load();
     await f.controller.generate(f.candidates().slice(0, 2));

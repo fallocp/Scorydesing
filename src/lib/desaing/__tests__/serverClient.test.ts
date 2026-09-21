@@ -90,6 +90,8 @@ describe('authenticated exploration journal client', () => {
     expect(isExplorationAdmissionRefusal(new DesignServerClientError('exploration_previous_unresolved', 409))).toBe(true);
     expect(isExplorationAdmissionRefusal(new DesignServerClientError('exploration_previous_unresolved', 503))).toBe(false);
     expect(isExplorationAdmissionRefusal(new DesignServerClientError('exploration_quota_exceeded', 502))).toBe(false);
+    expect(isExplorationAdmissionRefusal(new DesignServerClientError('exploration_reference_invalid', 400))).toBe(true);
+    expect(isExplorationAdmissionRefusal(new DesignServerClientError('exploration_reference_invalid', 502))).toBe(false);
     expect(isExplorationAdmissionRefusal({ code: 'exploration_quota_exceeded', httpStatus: 429 })).toBe(false);
   });
   it('dispatches exactly one authenticated plan with the bound business and validates all five ideas', async () => {

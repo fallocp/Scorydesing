@@ -86,7 +86,7 @@ export async function resumePipeline(
         .eq("id", runId);
 
       // Store selection in a pipeline_step for the image generation step
-      await supabase.from("pipeline_steps").upsert(
+      const { error: generationSaveError } = await supabase.from("pipeline_steps").upsert(
         {
           pipeline_run_id: runId,
           step_number: 5,
@@ -94,13 +94,14 @@ export async function resumePipeline(
           status: "pending",
           input: {
             pipelineRunId: runId,
+            generationRequestId: crypto.randomUUID(),
             mode: "generate",
             business_id: run.business_id,
             imageType: action.imageType,
             // Editable prompt gate: when the user reviewed/edited the prompt in
             // the UI, render THAT verbatim; otherwise use the selected variant's
             // prompt as-is. Same "approve/edit before generate" behaviour as the
-            // shared image engine in the stock generator.
+            // shared image engine.
             promptFinal: action.editedPrompt?.trim() || (selectedPrompt?.prompt_final ?? ""),
             negativeInstructions: action.editedNegative?.trim() || (selectedPrompt?.negative_instructions ?? ""),
             aspectRatio: selectedPrompt?.aspect_ratio ?? "1:1",
@@ -108,6 +109,7 @@ export async function resumePipeline(
         },
         { onConflict: "pipeline_run_id,step_number" },
       );
+      if (generationSaveError) return { success: false, error: 'No se pudo guardar el encargo de imagen. Vuelve a seleccionar la propuesta.' };
       break;
     }
 
@@ -184,18 +186,8 @@ export async function resumePipeline(
         const refinedPrompt = iterResult.refined?.prompt_final ?? originalPrompt;
         const negativeInstructions = iterResult.refined?.negative_instructions ?? "";
 
-        // Reset current_step to 4 so runPipeline picks up step 5 again
-        await supabase
-          .from("pipeline_runs")
-          .update({
-            status: "running_image_generation",
-            current_step: 4,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", runId);
-
         // Store the refined prompt in the step input for the image agent
-        await supabase.from("pipeline_steps").upsert(
+        const { error: generationSaveError } = await supabase.from("pipeline_steps").upsert(
           {
             pipeline_run_id: runId,
             step_number: 5,
@@ -203,6 +195,7 @@ export async function resumePipeline(
             status: "pending",
             input: {
               pipelineRunId: runId,
+              generationRequestId: crypto.randomUUID(),
               mode: "generate",
               business_id: run.business_id,
               feedback: action.feedback,
@@ -213,18 +206,10 @@ export async function resumePipeline(
           },
           { onConflict: "pipeline_run_id,step_number" },
         );
+        if (generationSaveError) return { success: false, error: 'No se pudo guardar la nueva versión de imagen.' };
       } else {
-        // No piece found — fallback to original behavior (just pass feedback)
-        await supabase
-          .from("pipeline_runs")
-          .update({
-            status: "running_image_generation",
-            current_step: 4,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", runId);
-
-        await supabase.from("pipeline_steps").upsert(
+        // No piece found — retain the existing feedback-only fallback.
+        const { error: generationSaveError } = await supabase.from("pipeline_steps").upsert(
           {
             pipeline_run_id: runId,
             step_number: 5,
@@ -232,6 +217,7 @@ export async function resumePipeline(
             status: "pending",
             input: {
               pipelineRunId: runId,
+              generationRequestId: crypto.randomUUID(),
               mode: "generate",
               business_id: run.business_id,
               feedback: action.feedback,
@@ -240,7 +226,15 @@ export async function resumePipeline(
           },
           { onConflict: "pipeline_run_id,step_number" },
         );
+        if (generationSaveError) return { success: false, error: 'No se pudo guardar la nueva versión de imagen.' };
       }
+
+      // Persist the exact version first. A failed save must leave the existing
+      // approval gate intact so the caller can safely retry the explicit action.
+      const { error: transitionError } = await supabase.from('pipeline_runs').update({
+        status: 'running_image_generation', current_step: 4, updated_at: new Date().toISOString(),
+      }).eq('id', runId);
+      if (transitionError) return { success: false, error: 'No se pudo continuar con la versión de imagen guardada.' };
 
       run = await fetchRun(supabase, runId);
       // Continue execution from image generation

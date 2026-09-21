@@ -11,6 +11,7 @@ import { MaterialsPanel } from '@/components/desaing/MaterialsPanel';
 import { appendReviewedMaterialsBrief } from '@/lib/desaing/materialBrief';
 import { PresentationCanvas } from '@/components/presentations/PresentationCanvas';
 import { VisualDesignEditor } from '@/components/VisualDesignEditor';
+import { UnifiedDesignWorkspace } from '@/components/presentations/UnifiedDesignWorkspace';
 import { HtmlSectionEditor } from '@/components/HtmlSectionEditor';
 import { sanitizePresentationHtml } from '@/lib/presentations/presentationHtml';
 import { detachUnverifiedMountedImages, reconcileMountedAssets } from '@/lib/presentations/presentationManifest';
@@ -18,16 +19,21 @@ import { reviseSlide, type PresentationSlide } from '@/lib/presentations/present
 import { assertFreeDesignDocument, createFreeDesignDocument, duplicateFreeDesignDocument, updateFreeDesignCanvas,
   type FreeDesignDocument, type FreeDesignKind, type FreeDesignWorkspace } from '@/lib/desaing/freeDesignDocument';
 import { openFreeDesignStore, type FreeDesignRecord } from '@/lib/desaing/freeDesignStore';
+import type { ContinuityStatus, ContinuityStore } from '@/lib/desaing/continuityStore';
+import { downloadContinuityBackup } from '@/lib/presentations/designConversationRemote';
 import { prepareReviewedPresentation, saveReviewedPresentation } from '@/lib/presentations/reviewedPresentationProject';
 import { presentationProjectPort } from '@/lib/presentations/presentationProjectPort';
 import type { RegisteredAssetVersion } from '../../supabase/functions/_shared/desaing/assets';
 import './FreeDesignPage.css';
 
-type Panel = { kind: 'design' | 'piece' | 'html' | 'mount' | 'visual' | 'code' | 'deck' | 'materials'; document: FreeDesignDocument; asset?: RegisteredAssetVersion; copy?: string };
-type Life = { active: boolean; actor: string; store: Awaited<ReturnType<typeof openFreeDesignStore>> | null; record: FreeDesignRecord | null; work: Promise<unknown>; blocked: boolean };
+type Panel = { kind: 'design' | 'piece' | 'html' | 'direct_html' | 'mount' | 'visual' | 'code' | 'deck' | 'materials'; document: FreeDesignDocument; asset?: RegisteredAssetVersion; copy?: string; copyMode?: 'approved_text' | 'no_text' };
+type Life = { active: boolean; actor: string; store: (Awaited<ReturnType<typeof openFreeDesignStore>> & Partial<Pick<ContinuityStore<FreeDesignWorkspace>, 'status' | 'backups'>>) | null; record: FreeDesignRecord | null; work: Promise<unknown>; blocked: boolean };
 const kinds: Record<FreeDesignKind, string> = { cover: 'Portada', page: 'Página', special: 'Diseño especial' };
 const errorMessage = (error: unknown) => ({
   free_revision_conflict: 'Otra pestaña modificó tus diseños. Recarga para recuperar esa versión.',
+  conversation_revision_conflict: 'Otra sesión modificó tus diseños. Sincroniza para cargar su revisión. Tu copia local se conserva.',
+  conversation_sync_unavailable: 'No se pudo confirmar el guardado remoto. Tu copia local se conserva; sincroniza antes de continuar.',
+  conversation_forbidden: 'Tu sesión no tiene acceso a este trabajo. Revisa la cuenta y el negocio.',
   free_document_scope_mismatch: 'El documento pertenece a otro negocio o usuario.',
   slide_revision_conflict: 'El lienzo cambió. El resultado de diseño se conserva; vuelve a abrirlo desde la versión actual.',
   free_canvas_size_changed: 'El HTML debe conservar las dimensiones de este lienzo.',
@@ -45,7 +51,8 @@ export function FreeDesignWorkspacePage({ businessId, service }: { businessId: s
   const navigate = useNavigate(), lifeRef = useRef<Life | null>(null);
   const [record, setRecord] = useState<FreeDesignRecord | null>(null), [writing, setBusy] = useState(false), [error, setError] = useState('');
   const [importing, setImporting] = useState(false);
-  const busy = writing || importing;
+  const [syncStatus, setSyncStatus] = useState<ContinuityStatus>('loading'), [localCopies, setLocalCopies] = useState(false);
+  const busy = writing || importing || !!service.continuity && syncStatus !== 'synced';
   const [sessionEpoch, setSessionEpoch] = useState(0);
   const [panel, setPanel] = useState<Panel | null>(null), [creating, setCreating] = useState(false);
   const panelRef = useRef(panel); panelRef.current = panel;
@@ -57,13 +64,16 @@ export function FreeDesignWorkspacePage({ businessId, service }: { businessId: s
   const active = (life: Life) => life.active && lifeRef.current === life;
   useEffect(() => {
     const life: Life = { active: true, actor: '', store: null, record: null, work: Promise.resolve(), blocked: false }; lifeRef.current = life;
-    setBusy(true); setImporting(false); setError('');
+    setBusy(true); setImporting(false); setError(''); setSyncStatus('loading'); setLocalCopies(false);
     const work = (async () => {
       life.actor = (await service.client.session()).actorId;
-      await service.client.read(businessId);
-      const store = await openFreeDesignStore({ actor_id: life.actor, business_id: businessId });
+      if (!service.continuity) await service.client.read(businessId);
+      const scope = { actor_id: life.actor, business_id: businessId };
+      const store: NonNullable<Life['store']> = service.continuity ? await service.continuity.openFreeWorkspace(scope, status => { if (active(life)) setSyncStatus(status); })
+        : await openFreeDesignStore(scope);
       if (!active(life)) { store.close(); return; } life.store = store; life.record = await store.read();
       if (active(life)) { setRecord(life.record); setCreating(!life.record.value.documents.length); }
+      if (store.backups && active(life)) setLocalCopies((await store.backups()).length > 0);
     })().catch(problem => { if (active(life)) setError(errorMessage(problem)); }).finally(() => { if (active(life)) setBusy(false); });
     life.work = work;
     return () => { life.active = false; void life.work.finally(() => life.store?.close()); };
@@ -85,6 +95,7 @@ export function FreeDesignWorkspacePage({ businessId, service }: { businessId: s
     setBusy(true); setError('');
     const work = life.work.then(async () => {
       if (!active(life) || !life.store || !life.record) throw new Error('free_store_unavailable');
+      if (life.store.status && life.store.status() !== 'synced') throw new Error('conversation_sync_unavailable');
       if ((await service.client.session()).actorId !== life.actor) {
         life.blocked = true; setRecord(null); setPanel(null); setBrief(''); setCopy(''); setSessionEpoch(value => value + 1); throw new Error('server_session_changed');
       }
@@ -144,7 +155,28 @@ export function FreeDesignWorkspacePage({ businessId, service }: { businessId: s
     }}><ArrowLeft size={16} />Inicio</button><h1><Palette />Diseño libre</h1><p>Portadas, páginas y diseños especiales con piezas reutilizables y HTML editable.</p></div>
       <button className="fd-button fd-primary" disabled={busy || !record} onClick={() => setCreating(true)}><Plus size={16} />Nuevo diseño</button></header>
     {error && <p className="fd-error" role="alert">{error}</p>}
-    <div className="fd-layout"><aside className="fd-sidebar"><h2>Mis diseños</h2><p className="fd-note">Guardados en este dispositivo. Exporta un respaldo para llevarlos a otro navegador.</p>
+    {service.continuity && <div className="fd-note" aria-live="polite"><p>{syncStatus === 'synced' ? 'Diseños guardados en Supabase para continuar en otro dispositivo.'
+      : syncStatus === 'conflict' ? 'Otra sesión guardó cambios. Tu copia local se conserva.'
+      : syncStatus === 'offline' ? 'Guardado remoto sin confirmar. Puedes consultar la copia local.' : 'Cargando los diseños guardados…'}</p>
+      {localCopies && <p>Hay copias locales conservadas de guardados interrumpidos o en conflicto.</p>}
+      <button className="fd-button" disabled={writing || importing || !!panel} onClick={() => {
+        void (async () => {
+          if (syncStatus === 'synced' && document && (brief !== document.brief || copy !== document.approved_copy)) {
+            try { await change(updateBrief); } catch { /* Failed CAS is preserved before loading the winner. */ }
+          }
+          setSessionEpoch(value => value + 1);
+        })();
+      }}>Sincronizar</button>
+      <button className="fd-button" disabled={writing || importing} onClick={() => {
+        const life = lifeRef.current; if (!life?.store) return;
+        void (async () => {
+          if ((await service.client.session()).actorId !== life.actor) throw Error('server_session_changed');
+          const local = await openFreeDesignStore({ actor_id: life.actor, business_id: businessId });
+          try { await downloadContinuityBackup({ current: life.record, attempts: await life.store?.backups?.() ?? [], legacy: await local.read() }, 'disenos-copia-local.json'); }
+          finally { local.close(); }
+        })().catch(problem => { if (active(life)) setError(errorMessage(problem)); });
+      }}>Descargar copia local</button></div>}
+    <div className="fd-layout"><aside className="fd-sidebar"><h2>Mis diseños</h2><p className="fd-note">{service.continuity ? 'Tus diseños y conversaciones se recuperan con la misma cuenta y negocio.' : 'Guardados en este dispositivo. Exporta un respaldo para llevarlos a otro navegador.'}</p>
       {record?.value.documents.map(item => <button className={`fd-document ${item.id === document?.id ? 'fd-selected' : ''}`} key={item.id} disabled={busy}
         onClick={() => void change(value => ({ ...updateBrief(value), selected_id: item.id })).catch(() => {})}>
         <strong>{item.name}</strong><span>{kinds[item.kind]} · {item.width} × {item.height}</span></button>)}
@@ -177,7 +209,8 @@ export function FreeDesignWorkspacePage({ businessId, service }: { businessId: s
           const duplicate = duplicateFreeDesignDocument(source); return { documents: [...updateBrief(value).documents, duplicate], selected_id: duplicate.id }; }).catch(() => {})}><Copy size={15} />Duplicar</button></div>
         <div className="fd-canvas"><PresentationCanvas html={document.canvas.html} title={`Lienzo: ${document.name}`} /></div>
         <div className="fd-toolbar"><button className="fd-button fd-primary" disabled={busy} onClick={() => void open('design')}>Diseñar con IA</button>
-          <button className="fd-button" disabled={busy} onClick={() => void open('html')}>Usar diseño para HTML</button>
+          <button className="fd-button" disabled={busy} onClick={() => void open('direct_html')}>Diseñar HTML con IA</button>
+          <button className="fd-button" disabled={busy} onClick={() => void open('html')}>Hacer editable una imagen</button>
           <button className="fd-button" disabled={busy} onClick={() => void open('piece')}>Crear pieza</button>
           <button className="fd-button" disabled={busy} onClick={() => void open('mount')}>Añadir imágenes montadas</button>
           <button className="fd-button" disabled={busy} onClick={() => void open('visual')}>Editor Visual</button>
@@ -199,16 +232,20 @@ export function FreeDesignWorkspacePage({ businessId, service }: { businessId: s
         await change(value => ({ ...value, documents: value.documents.map(item => item.id === panel.document.id ? { ...item, brief: nextBrief } : item) }));
         if (panelRef.current === panel) { setBrief(nextBrief); setPanel(null); }
       }} />}
-    {panel && ['design', 'piece'].includes(panel.kind) && <ServerDesignPanel key={`${panel.document.id}:${panel.kind}`} service={service} businessId={businessId}
-      documentId={panel.document.id} slide={panel.document.canvas} destination={destination} initialScope={panel.kind === 'design' ? 'full_design' : 'asset_in_region'}
+    {panel && ['design', 'direct_html'].includes(panel.kind) && <UnifiedDesignWorkspace key={`conversation:${panel.document.id}`} service={service}
+      businessId={businessId} documentId={panel.document.id} slide={panel.document.canvas} destination={destination}
+      initialView={panel.kind === 'direct_html' ? 'html' : 'image'} initialInstruction={panel.document.brief} initialCopy={panel.document.approved_copy}
+      onClose={() => setPanel(null)} onApply={async next => { await apply(next, panel.document); }} />}
+    {panel?.kind === 'piece' && <ServerDesignPanel key={`${panel.document.id}:${panel.kind}`} service={service} businessId={businessId}
+      documentId={panel.document.id} slide={panel.document.canvas} destination={destination} initialScope="asset_in_region"
       initialCopy={panel.document.approved_copy} initialInstruction={panel.document.brief}
-      onClose={() => setPanel(null)} onApply={next => { void apply(next, panel.document).catch(() => {}); }}
-      onUseDesignForHtml={(asset, approvedCopy) => setPanel({ ...panel, kind: 'html', asset, copy: approvedCopy })} />}
+      onClose={() => setPanel(null)} onApply={async next => { await apply(next, panel.document); }}
+      onUseDesignForHtml={(asset, approvedCopy, copyMode) => setPanel({ ...panel, kind: 'html', asset, copy: approvedCopy, copyMode })} />}
     {panel?.kind === 'html' && <DesignToHtmlPanel service={service} businessId={businessId} documentId={panel.document.id} slide={panel.document.canvas}
-      destination={destination} initialAsset={panel.asset} initialCopy={panel.copy ?? panel.document.approved_copy}
-      onApply={next => { void apply(next, panel.document).catch(() => {}); }} onClose={() => setPanel(null)} />}
-    {panel?.kind === 'mount' && <MountedImagesPanel businessId={businessId} documentId={panel.document.id} slide={panel.document.canvas}
-      onApply={next => { void apply(next, panel.document).catch(() => {}); }} onClose={() => setPanel(null)} />}
+      destination={destination} initialAsset={panel.asset} initialCopy={panel.copy ?? panel.document.approved_copy} initialCopyMode={panel.copyMode}
+      onApply={async next => { await apply(next, panel.document); }} onClose={() => setPanel(null)} />}
+    {panel?.kind === 'mount' && <MountedImagesPanel businessId={businessId} client={service.client} documentId={panel.document.id} slide={panel.document.canvas}
+      onApply={async next => { await apply(next, panel.document); }} onClose={() => setPanel(null)} />}
     {panel?.kind === 'deck' && <DeckComposerPanel businessId={businessId} documentId={panel.document.id} source={panel.document.canvas}
       client={service.client} onClose={() => { setPanel(null); if (createdPresentation.current) { createdPresentation.current = null; navigate('/presentations'); } }} onApply={async (slides, name, draftId) => {
         const life = lifeRef.current; if (!life || !active(life)) throw new Error('server_session_changed');

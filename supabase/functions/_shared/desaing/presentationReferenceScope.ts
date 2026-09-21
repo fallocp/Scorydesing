@@ -21,13 +21,14 @@ export function assertPresentationReferenceScope(value: unknown): asserts value 
 export function presentationReferenceScopeSuffix(value?: PresentationReferenceScope): string {
   if (!value) return '';
   assertPresentationReferenceScope(value);
-  return value.references.length ? `\nReferencias locales para generar (la planificación no inspecciona sus píxeles): ${JSON.stringify(value)}` : '';
+  return value.references.length ? `\nReferencias del diseño: ${JSON.stringify(value)}` : '';
 }
 export function parsePresentationReferenceScope(instruction: string): { instruction: string; scope: PresentationReferenceScope } {
-  const marker = '\nReferencias locales para generar (la planificación no inspecciona sus píxeles): ';
-  const at = instruction.lastIndexOf(marker);
-  if (at === -1) return { instruction, scope: { references: [] } };
-  const scope: unknown = JSON.parse(instruction.slice(at + marker.length));
+  const markers = ['\nReferencias del diseño: ', '\nReferencias locales para generar (la planificación no inspecciona sus píxeles): '];
+  const found = markers.map(marker => ({ marker, at: instruction.lastIndexOf(marker) })).sort((a, b) => b.at - a.at)[0];
+  if (found.at === -1) return { instruction, scope: { references: [] } };
+  const start = found.at + found.marker.length, lineEnd = instruction.indexOf('\n', start);
+  const scope: unknown = JSON.parse(instruction.slice(start, lineEnd === -1 ? undefined : lineEnd));
   assertPresentationReferenceScope(scope);
-  return { instruction: instruction.slice(0, at), scope };
+  return { instruction: instruction.slice(0, found.at) + (lineEnd === -1 ? '' : instruction.slice(lineEnd)), scope };
 }

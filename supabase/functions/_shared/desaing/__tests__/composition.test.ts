@@ -1,9 +1,34 @@
 import { describe, expect, it } from 'vitest';
 import { assertHtmlCompositionRequest, assertHtmlCompositionResult, assertHtmlCompositionSpec, htmlCompositionJsonSchema,
-  htmlCompositionSessionId, makeApprovedCompositionCopy, verifyApprovedCompositionCopy, verifyHtmlCompositionRequest } from '../composition.ts';
+  htmlCompositionSessionId, makeApprovedCompositionCopy, makeTextlessCompositionCopy, verifyApprovedCompositionCopy, verifyHtmlCompositionRequest } from '../composition.ts';
 import { compositionRequest, compositionResult } from './fixtures/compositionFixture.ts';
 
 describe('approved composition copy', () => {
+  it('requires intentional textless content and rejects adding words under its saved hash', async () => {
+    const copy = await makeTextlessCompositionCopy();
+    await expect(verifyApprovedCompositionCopy(copy)).resolves.toBeUndefined();
+    await expect(makeApprovedCompositionCopy([])).rejects.toThrow();
+    await expect(verifyApprovedCompositionCopy({ ...copy, blocks: [{ id: 'title', role: 'title', text: 'Inventado' }] })).rejects.toThrow();
+    const request = await compositionRequest(); request.copy = copy; request.context.copy_version_id = copy.version_id;
+    const result = compositionResult(request); result.composition.texts = [];
+    expect(() => assertHtmlCompositionResult(result, request)).not.toThrow();
+    const schema = htmlCompositionJsonSchema(request) as any;
+    expect(schema.properties.texts.maxItems).toBe(0);
+    expect(schema.properties.texts.items.properties.copy_id.enum).toBeUndefined();
+    result.composition.texts = [{ id: 'invented', copy_id: 'title', box: { x: 0, y: 0, width: 20, height: 20 },
+      font_family: 'Inter', font_size: 12, font_weight: 400, color: '#000000', align: 'left', z_index: 1 }];
+    expect(() => assertHtmlCompositionResult(result, request)).toThrow('invalid_composition_elements');
+  });
+  it('supports 64 exact blocks while preserving copy length and typography bounds', async () => {
+    const blocks = Array.from({ length: 64 }, (_, index) => ({ id: `copy_${index}`, role: 'body' as const, text: `  Literal ${index}  ` }));
+    await expect(makeApprovedCompositionCopy(blocks)).resolves.toMatchObject({ blocks });
+    await expect(makeApprovedCompositionCopy([...blocks, { ...blocks[0], id: 'extra' }])).rejects.toThrow();
+    await expect(makeApprovedCompositionCopy(blocks.map(block => ({ ...block, text: 'x'.repeat(501) })))).rejects.toThrow('composition_copy_too_large');
+    const request = await compositionRequest(), result = compositionResult(request);
+    result.composition.texts[0].font_family = 'Raleway';
+    result.composition.texts[1].font_family = 'Fraunces';
+    expect(() => assertHtmlCompositionResult(result, request)).not.toThrow();
+  });
   it('hashes exact ordered blocks with stable field order and immutable input snapshot', async () => {
     const blocks = [{ id: 'title', role: 'title' as const, text: '45 días\nUS$5 & más' }];
     const pending = makeApprovedCompositionCopy(blocks);

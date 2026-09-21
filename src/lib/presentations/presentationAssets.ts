@@ -32,7 +32,9 @@ function store(businessId: string) {
 export async function listPresentationAssets(businessId: string): Promise<PresentationLibraryAsset[]> {
   const state = await store(businessId).read();
   const blobs = openLabBlobStore();
-  return Promise.all(state.assets.versions.map(async version => ({ version, dataUrl: await imageDataUrl(await blobs.get(version.storage.storage_key)) })));
+  const visible = state.assets.versions.filter(version => version.provenance.kind !== 'image_operation'
+    || getAssetReviewStatus(state.assets, version.identity) === 'approved');
+  return Promise.all(visible.map(async version => ({ version, dataUrl: await imageDataUrl(await blobs.get(version.storage.storage_key)) })));
 }
 
 export async function importPresentationAsset(businessId: string, file: File): Promise<PresentationLibraryAsset> {
@@ -84,6 +86,8 @@ export async function mountPresentationAsset(businessId: string, slide: Presenta
   if (slide.revision !== expectedRevision) throw new Error('El slide cambió. Vuelve a abrir el montaje.');
   const metadata = store(businessId);
   const registered = getAssetVersion((await metadata.read()).assets, asset.identity);
+  if (registered.provenance.kind === 'image_operation'
+    && getAssetReviewStatus((await metadata.read()).assets, registered.identity) !== 'approved') throw new Error('unapproved_asset');
   const bytes = await openLabBlobStore().get(registered.storage.storage_key);
   const actualUrl = await imageDataUrl(bytes);
   if (actualUrl !== dataUrl) throw new Error('La vista previa no coincide con la versión guardada.');

@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Check, Layers3, MessageSquare, RefreshCw, Sparkles } from 'lucide-react';
-import type { ExplorationSession, IdeaAspect, IdeaSelection, IdeaSource, TextIdea } from '../../../supabase/functions/_shared/desaing/explorationContracts';
+import type { ExplorationSession, IdeaAspect, IdeaSelection, IdeaSource, TextIdea, DesignUnderstanding } from '../../../supabase/functions/_shared/desaing/explorationContracts';
+import { canonicalExploration } from '../../../supabase/functions/_shared/desaing/explorationRepository';
 import './DesignExplorationPanel.css';
 
 const aspects: Array<{ key: IdeaAspect; label: string }> = [
@@ -15,8 +16,11 @@ export interface DesignExplorationPanelProps {
   busy: boolean;
   error: string;
   simulation?: boolean;
+  compact?: boolean;
   canPlan?: boolean;
   remainingAttempts?: number;
+  understanding?: DesignUnderstanding | null;
+  references?: { id: string; name: string }[];
   onPlanFive(): void;
   onDiscuss(message: string): void;
   onSelect(selection: IdeaSelection): void;
@@ -30,15 +34,25 @@ export interface DesignExplorationPanelProps {
 export function DesignExplorationPanel(props: DesignExplorationPanelProps) {
   const { session, busy, error } = props;
   const [comment, setComment] = useState('');
+  const submitted = useRef<{ text: string; after: number } | null>(null);
+  const history = useRef<HTMLOListElement>(null);
+  useEffect(() => { if (history.current) history.current.scrollTop = history.current.scrollHeight; }, [session?.messages.length]);
+  useEffect(() => {
+    const sent = submitted.current;
+    if (sent && session?.messages.slice(sent.after).some(message => message.role === 'user' && message.text === sent.text)) {
+      setComment(current => current.trim() === sent.text ? '' : current); submitted.current = null;
+    }
+  }, [session]);
   const [feedback, setFeedback] = useState<Record<string, string>>({});
   const [picked, setPicked] = useState<IdeaSource[]>([]);
   const cards = useMemo(() => (session?.sets ?? []).flatMap(set => {
+    const current = canonicalExploration({ ...set.context, interaction_mode: 'explore_design' }) === canonicalExploration({ ...session!.context, interaction_mode: 'explore_design' });
     const groups = new Map<string, TextIdea[]>();
     for (const idea of set.ideas) groups.set(idea.idea_id, [...(groups.get(idea.idea_id) ?? []), idea]);
     return [...groups.values()].map(versions => {
       const latest = versions.reduce((value, idea) => idea.version > value.version ? idea : value);
       const selected = versions.find(idea => same(session?.selected ?? null, { set_id: set.set_id, idea_id: idea.idea_id, version: idea.version }));
-      return { set, versions, idea: selected ?? latest, latest };
+      return { set, versions, idea: selected ?? latest, latest, current };
     });
   }), [session]);
   const selected = cards.find(card => same(session?.selected ?? null,
@@ -46,6 +60,7 @@ export function DesignExplorationPanel(props: DesignExplorationPanelProps) {
   const unresolved = session?.attempts.some(attempt => attempt.status === 'running' || attempt.status === 'uncertain') ?? false;
   const working = busy || unresolved;
   const validPicks = picked.filter(source => session?.sets.some(set => set.set_id === source.set_id
+    && cards.some(card => card.set.set_id === set.set_id && card.current)
     && set.ideas.some(idea => idea.idea_id === source.idea_id && idea.version === source.version)));
   const pickedAspects = new Set(validPicks.flatMap(source => source.aspects));
   const canCombine = validPicks.length >= 2 && pickedAspects.size === 4 && new Set(validPicks.map(source => source.set_id)).size === 1;
@@ -63,34 +78,57 @@ export function DesignExplorationPanel(props: DesignExplorationPanelProps) {
   }
   const sourceTitle = (source: IdeaSelection) => session?.sets.find(set => set.set_id === source.set_id)?.ideas
     .find(idea => idea.idea_id === source.idea_id && idea.version === source.version)?.title ?? 'Idea guardada';
-  return <section className="dep-panel" data-testid="exploration-panel" aria-label="Explorar ideas de diseño" aria-busy={busy}>
-    <div className="dep-heading"><div><h3>Exploremos la dirección</h3>
-      <p>{props.simulation ? 'Prueba simulada · ' : ''}Ideas de texto; no se generan imágenes al explorar.</p></div><Sparkles size={18} aria-hidden="true" /></div>
-    {!props.simulation && <p className="dep-note">El servidor conserva las solicitudes y respuestas de esta conversación. La captura, la selección y los ajustes de ideas se guardan en este navegador. Para usar una idea recuperada en otro dispositivo, vuelve a añadir la captura, el encargo y la zona originales.</p>}
+  return <section className={`dep-panel${props.compact ? ' dep-panel-compact' : ''}`} data-testid="exploration-panel" aria-label="Explorar ideas de diseño" aria-busy={busy}>
+    <div className="dep-heading"><div><h3>Hablemos del diseño</h3>
+      <p>{props.simulation ? 'Prueba simulada · ' : ''}Describe lo que quieres, añade referencias y ajusta el diseño conversando.</p></div><Sparkles size={18} aria-hidden="true" /></div>
+    <div className="dep-discussion" data-testid="exploration-discussion"><h4><MessageSquare size={16} aria-hidden="true" />Conversación sobre el diseño</h4>
+      <ol ref={history} aria-label="Historial de exploración">{session?.messages.map((message, index) => <li key={`${message.request_key}:${index}`} className={`dep-message dep-message-${message.role}`}>
+        <strong>{message.role === 'user' ? 'Tú' : 'Asistente'}</strong><p>{message.text}</p></li>)}</ol>
+      <form onSubmit={event => { event.preventDefault(); if (!working && props.canPlan !== false && comment.trim()) { submitted.current = { text: comment.trim(), after: session?.messages.length ?? 0 }; props.onDiscuss(comment.trim()); } }}>
+        <label className="dep-field">Tu comentario<textarea aria-label="Mensaje sobre el diseño" rows={3} maxLength={4000} value={comment}
+          onChange={event => setComment(event.target.value)} disabled={working} placeholder="Usa el texto de la primera imagen y el mundo de la segunda. Conserva la composición y la marca…" /></label>
+        <button type="submit" className="mip-button" disabled={working || props.canPlan === false || !comment.trim()}>Enviar comentario</button>
+      </form><p className="dep-note">La conversación prepara el encargo. Cuando te guste, pulsa Generar imagen. También puedes pedir cinco ideas para comparar.</p>
+    </div>
+    {props.understanding && <section className="dep-understanding" aria-label="Lo que entendió el agente">
+      <h4>{props.understanding.intent === 'recreate' ? 'Recrear tus referencias' : props.understanding.intent === 'variation' ? 'Ajustar el diseño' : 'Explorar una dirección'}</h4>
+      <p>{props.understanding.resolved_instruction}</p>
+      {props.understanding.copy.status === 'literal' && <details><summary>Texto leído y preparado</summary><p className="dep-literal">{props.understanding.copy.text}</p>
+        {!!props.understanding.copy.source_reference_ids.length && <p className="dep-note">Fuente: {props.understanding.copy.source_reference_ids.map(id => {
+          const index = props.references?.findIndex(ref => ref.id === id) ?? -1;
+          return index >= 0 ? `imagen ${index + 1}` : 'captura del diseño';
+        }).join(', ')}. Revisa las letras antes de generar.</p>}</details>}
+      {props.understanding.copy.status === 'none' && <p className="dep-note">Diseño sin texto.</p>}
+      {props.understanding.copy.status === 'pending' && <p className="dep-note">Todavía falta resolver el texto. Puedes aclararlo en el siguiente mensaje.</p>}
+      {!!props.understanding.pending_questions.length && <ul>{props.understanding.pending_questions.map((question, index) => <li key={index}>{question}</li>)}</ul>}
+    </section>}
     {props.remainingAttempts !== undefined && <p className="dep-note" role="status">Conversaciones disponibles: {props.remainingAttempts}.</p>}
     {props.canPlan === false && <p className="dep-note" role="status">La conversación de diseño está pausada o sin presupuesto disponible. Puedes recuperar y ajustar tus ideas guardadas.</p>}
-    <p className="dep-intro">Compara cinco propuestas, conserva lo que te gusta y prepara una idea para convertirla en un borrador.</p>
+    {!props.compact && <p className="dep-intro">Compara cinco propuestas y conserva lo que te gusta.</p>}
     <div className="dep-toolbar"><button type="button" className="mip-button mip-button-primary" disabled={working || props.canPlan === false} onClick={props.onPlanFive}>
       <Layers3 size={15} aria-hidden="true" />Proponer cinco ideas</button>
       {session && <button type="button" className="mip-button" disabled={busy} onClick={props.onRecover}>
         <RefreshCw size={15} aria-hidden="true" />Recuperar exploración</button>}</div>
     {error && <p className="dep-error" role="alert">{error}</p>}
     {unresolved && <p className="dep-note" role="status">Hay una respuesta pendiente de confirmar. Conservamos tu exploración; recuperarla no envía otra solicitud.</p>}
-    {!cards.length && <div className="dep-empty">Tus cinco ideas aparecerán aquí. Elegir una o ajustar sus aspectos no crea imágenes.</div>}
-    <div className="dep-ideas" data-testid="exploration-ideas">{cards.map(({ set, idea, latest, versions }) => {
+    {!cards.length && !props.compact && <div className="dep-empty">Si pides alternativas, tus ideas aparecerán aquí.</div>}
+    {!!cards.length && <details className="dep-idea-details" open={!props.compact}>
+    <summary>Comparar y combinar ideas ({cards.length})</summary>
+    <div className="dep-ideas" data-testid="exploration-ideas">{cards.map(({ set, idea, latest, versions, current }) => {
       const selection: IdeaSelection = { set_id: set.set_id, idea_id: idea.idea_id, version: idea.version };
       const chosen = same(session?.selected ?? null, selection), combined = idea.sources.length > 1;
       return <article className={`dep-card${chosen ? ' dep-card-selected' : ''}`} key={`${set.set_id}:${idea.idea_id}`}
         data-testid={`exploration-card-${idea.idea_id}`} data-idea-id={idea.idea_id} data-idea-version={idea.version}>
         <div className="dep-card-meta"><span>{combined ? 'Idea combinada' : 'Idea de diseño'}</span><span>Versión {idea.version}</span></div>
         <h4>{idea.title}</h4><p>{idea.rationale}</p>
+        {!current && <p className="dep-note">Guardada con una versión anterior del encargo.</p>}
         {versions.length > 1 && <label className="dep-version">Versión de la idea
-          <select aria-label={`Versión de ${latest.title}`} value={idea.version} disabled={working}
+          <select aria-label={`Versión de ${latest.title}`} value={idea.version} disabled={working || !current}
             onChange={event => props.onSelect({ ...selection, version: Number(event.target.value) })}>
             {[...versions].sort((a, b) => b.version - a.version).map(value => <option key={value.version} value={value.version}>
               Versión {value.version}{value.version === latest.version ? ' · más reciente' : ''}</option>)}
           </select></label>}
-        <fieldset className="dep-aspects" disabled={working}><legend>Aspectos para combinar</legend>
+        <fieldset className="dep-aspects" disabled={working || !current}><legend>Aspectos para combinar</legend>
           {aspects.map(aspect => <label key={aspect.key}><input type="checkbox"
             aria-label={`${aspect.label} de ${idea.title}`} checked={validPicks.some(source => same(source, selection) && source.aspects.includes(aspect.key))}
             onChange={() => toggle(selection, aspect.key)} /><span><strong>{aspect.label}</strong>{idea.aspects[aspect.key]}</span></label>)}
@@ -100,7 +138,7 @@ export function DesignExplorationPanel(props: DesignExplorationPanelProps) {
             .map(value => aspects.find(aspect => aspect.key === value)!.label.toLowerCase()).join(', ')}</li>)}</ul></div>}
         {idea.feedback.length > 0 && <details className="dep-feedback-history"><summary>Ajustes guardados ({idea.feedback.length})</summary>
           <ul>{idea.feedback.map((value, index) => <li key={index}>{value}</li>)}</ul></details>}
-        <button type="button" className={`mip-button${chosen ? ' mip-button-primary' : ''}`} disabled={working} aria-pressed={chosen}
+        <button type="button" className={`mip-button${chosen ? ' mip-button-primary' : ''}`} disabled={working || !current} aria-pressed={chosen}
           onClick={() => props.onSelect(selection)}>{chosen && <Check size={15} aria-hidden="true" />}{chosen ? 'Idea seleccionada' : 'Seleccionar idea'}</button>
       </article>;
     })}</div>
@@ -108,6 +146,7 @@ export function DesignExplorationPanel(props: DesignExplorationPanelProps) {
       <button type="button" className="mip-button" disabled={working || !canCombine}
         onClick={() => props.onCombine(validPicks.map(source => ({ ...source, aspects: [...source.aspects] })))}>
         <Layers3 size={15} aria-hidden="true" />Combinar aspectos elegidos</button></div>}
+    </details>}
     {selected && session?.selected && <div className="dep-selected" data-testid="exploration-selected">
       <h4>Desarrollar: {selected.idea.title}</h4>
       <p className="dep-note">Versión {selected.idea.version}. Ajusta esta idea o pásala al encargo editable.</p>
@@ -116,19 +155,11 @@ export function DesignExplorationPanel(props: DesignExplorationPanelProps) {
         onChange={event => setFeedback(previous => ({ ...previous, [key(session.selected!)]: event.target.value }))}
         placeholder="Conserva el estilo y prueba una composición con más espacio…" /></label>
       <div className="dep-toolbar"><button type="button" className="mip-button" disabled={working || !(feedback[key(session.selected)] ?? '').trim()}
-        onClick={() => props.onRefine({ ...session.selected! }, feedback[key(session.selected!)]!.trim())}>Guardar ajuste</button>
+        onClick={() => props.onRefine({ ...session.selected! }, feedback[key(session.selected!)]!.trim())}>Ajustar con el agente</button>
         <button type="button" className="mip-button mip-button-primary" disabled={working}
           onClick={() => props.onUseIdea({ ...session.selected! })}>Usar esta idea</button></div>
       <p className="dep-note">Usar la idea prepara el encargo. Después podrás generar un borrador con un botón separado.</p>
     </div>}
-    <div className="dep-discussion" data-testid="exploration-discussion"><h4><MessageSquare size={16} aria-hidden="true" />Conversación sobre el diseño</h4>
-      <ol aria-label="Historial de exploración">{session?.messages.map((message, index) => <li key={`${message.request_key}:${index}`} className={`dep-message dep-message-${message.role}`}>
-        <strong>{message.role === 'user' ? 'Tú' : 'Asistente'}</strong><p>{message.text}</p></li>)}</ol>
-      <form onSubmit={event => { event.preventDefault(); if (!working && props.canPlan !== false && comment.trim()) props.onDiscuss(comment.trim()); }}>
-        <label className="dep-field">Hablemos de las ideas<textarea aria-label="Mensaje sobre el diseño" rows={2} maxLength={4000} value={comment}
-          onChange={event => setComment(event.target.value)} disabled={working} placeholder="¿Qué cambiarías para que se vea más editorial?" /></label>
-        <button type="submit" className="mip-button" disabled={working || props.canPlan === false || !comment.trim()}>Enviar comentario</button>
-      </form><p className="dep-note">La conversación responde con texto. No genera ni publica imágenes.</p>
-    </div>
+    {!props.simulation && <details className="dep-persistence"><summary>Cómo se guarda este trabajo</summary><p className="dep-note">La conversación se guarda en el servidor. La captura, la selección y los ajustes se conservan en este navegador. Para continuar en otro dispositivo, vuelve a añadir el encargo y las referencias originales.</p></details>}
   </section>;
 }

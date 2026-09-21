@@ -1,8 +1,12 @@
 import type { DesignContext } from './contracts.ts';
-import { readPresentationFullDesign } from './presentationFullDesign.ts';
-import type { ExplorationRequest, ExplorationResult, ExplorationScope, ExplorationSession, IdeaContent, IdeaSelection, IdeaSource, TextIdea, TextIdeaSet } from './explorationContracts.ts';
+import { assertConversationNextAction, assertConversationTurn } from './conversationActions.ts';
+import type { ConversationNextAction } from './conversationActions.ts';
+import { FULL_DESIGN_MARKER, fullDesignImmutables, readPresentationFullDesign } from './presentationFullDesign.ts';
+import type { DesignCopy, DesignUnderstanding, ExplorationDesignBrief, ExplorationRequest, ExplorationResult, ExplorationScope, ExplorationSession, IdeaContent, IdeaSelection, IdeaSource, TextIdea, TextIdeaSet } from './explorationContracts.ts';
 
 export const IDEA_ASPECTS = ['subject', 'composition', 'style', 'palette'] as const;
+export const EXPLORATION_REFERENCE_ROLES = ['layout_reference', 'image_style_reference', 'object_reference', 'content_source', 'brand_reference', 'target_render', 'placement_context'] as const;
+export const PENDING_EXPLORATION_COPY_MARKER = 'Pendiente de resolver el texto literal del diseño. Las indicaciones sobre referencias no son texto para imprimir.';
 export class ExplorationError extends Error {
   constructor(public readonly code: string) { super(code); this.name = 'ExplorationError'; }
 }
@@ -20,6 +24,47 @@ const canonical = (value: unknown): string => Array.isArray(value) ? `[${value.m
 const selectionKey = (selection: IdeaSelection) => canonical([selection.set_id, selection.idea_id, selection.version]);
 const identity = (context: DesignContext) => canonical([context.actor_id, context.business_id, context.session_id]);
 const contextKey = (context: DesignContext) => { const { interaction_mode: _, ...rest } = context; return canonical(rest); };
+function assertDesignCopy(value: unknown, context: DesignContext): asserts value is DesignCopy {
+  check(keys(value, ['status', 'text', 'source_reference_ids']) && ['pending', 'literal', 'none'].includes(String(value.status))
+    && text(value.text, 4000, true), 'invalid_exploration_copy');
+  check(value.status === 'literal' ? !!String(value.text).trim() : value.text === '', 'invalid_exploration_copy');
+  check(Array.isArray(value.source_reference_ids) && value.source_reference_ids.length <= 4
+    && new Set(value.source_reference_ids).size === value.source_reference_ids.length
+    && value.source_reference_ids.every(ref => context.references.some(reference => reference.reference_id === ref)), 'invalid_exploration_copy');
+  check(value.status !== 'none' || !value.source_reference_ids.length, 'invalid_exploration_copy');
+}
+export function assertDesignUnderstanding(value: unknown, context: DesignContext): asserts value is DesignUnderstanding {
+  check(keys(value, ['intent', 'resolved_instruction', 'copy', 'references', 'preserve', 'pending_questions'])
+    && ['recreate', 'variation', 'explore'].includes(String(value.intent)) && text(value.resolved_instruction, 6000), 'invalid_design_understanding');
+  assertDesignCopy(value.copy, context);
+  check(Array.isArray(value.references) && value.references.length <= 4, 'invalid_design_understanding');
+  const seen = new Set<string>();
+  for (const reference of value.references) {
+    check(keys(reference, ['reference_id', 'roles', 'instruction']) && id(reference.reference_id)
+      && context.references.some(ref => ref.reference_id === reference.reference_id) && !seen.has(reference.reference_id)
+      && text(reference.instruction, 1200) && Array.isArray(reference.roles) && reference.roles.length > 0 && reference.roles.length <= 7
+      && new Set(reference.roles).size === reference.roles.length
+      && reference.roles.every(role => EXPLORATION_REFERENCE_ROLES.includes(role as typeof EXPLORATION_REFERENCE_ROLES[number])), 'invalid_design_understanding');
+    seen.add(reference.reference_id);
+  }
+  check(Array.isArray(value.preserve) && value.preserve.length <= 30 && value.preserve.every(item => text(item, 1200))
+    && Array.isArray(value.pending_questions) && value.pending_questions.length <= 8 && value.pending_questions.every(item => text(item, 1200)), 'invalid_design_understanding');
+}
+function assertDesignBrief(value: unknown, context: DesignContext): asserts value is ExplorationDesignBrief {
+  check(keys(value, ['copy', 'brand', 'selected_instruction', 'preserve', 'previous_understanding'], ['copy', 'brand', 'selected_instruction', 'preserve'])
+    && text(value.selected_instruction, 6000, true) && Array.isArray(value.preserve) && value.preserve.length <= 30
+    && value.preserve.every(item => text(item, 1200)), 'invalid_exploration_brief');
+  assertDesignCopy(value.copy, context);
+  if (value.brand !== null) {
+    const brand = value.brand;
+    check(keys(brand, ['brand_id', 'name', 'summary', 'palette', 'typography']) && brand.brand_id === context.brand_id
+      && text(brand.name, 200) && text(brand.summary, 6000, true)
+      && Array.isArray(brand.palette) && brand.palette.length <= 16 && brand.palette.every(item => text(item, 200))
+      && Array.isArray(brand.typography) && brand.typography.length <= 16 && brand.typography.every(item => text(item, 200)), 'invalid_exploration_brand');
+  }
+  if (value.previous_understanding !== undefined) assertDesignUnderstanding(value.previous_understanding, context);
+  check(context.references.length <= 4, 'exploration_reference_limit');
+}
 function assertContext(value: unknown): asserts value is DesignContext {
   check(keys(value, ['actor_id', 'business_id', 'brand_id', 'project_id', 'session_id', 'workspace', 'interaction_mode', 'target', 'instruction',
     'immutable_elements', 'copy_version_id', 'base_asset', 'references', 'placement', 'direction_approval'],
@@ -92,25 +137,67 @@ function changed(session: ExplorationSession): ExplorationSession { assertExplor
 function finish(next: ExplorationSession) { assertExplorationSession(next); return next; }
 
 export function assertExplorationRequest(value: unknown): asserts value is ExplorationRequest {
-  check(keys(value, ['request_key', 'kind', 'scope', 'context', 'message', 'history']), 'invalid_exploration_request');
+  check(keys(value, ['request_key', 'kind', 'scope', 'context', 'message', 'history', 'design_brief', 'conversation'], ['request_key', 'kind', 'scope', 'context', 'message', 'history']), 'invalid_exploration_request');
   check(id(value.request_key) && String(value.request_key).length <= 200 && ['directions', 'discussion'].includes(String(value.kind))
     && ['asset_in_region', 'full_design'].includes(String(value.scope)) && text(value.message), 'invalid_exploration_request');
   assertContext(value.context);
+  if (value.design_brief !== undefined) assertDesignBrief(value.design_brief, value.context);
+  if (value.conversation !== undefined) {
+    check(value.design_brief !== undefined, 'invalid_conversation_turn');
+    assertConversationTurn(value.conversation, value.context);
+  }
   check(Array.isArray(value.history) && value.history.length <= 40 && value.history.every(entry => keys(entry, ['role', 'text'])
     && ['user', 'assistant'].includes(String(entry.role)) && text(entry.text, 6000)), 'invalid_exploration_request');
   check(new TextEncoder().encode(JSON.stringify(value)).length <= 65536, 'exploration_request_too_large');
 }
 export function assertExplorationResult(value: unknown, request: ExplorationRequest): asserts value is ExplorationResult {
   assertExplorationRequest(request);
-  check(keys(value, ['request_key', 'message', 'ideas', 'response_id', 'usage']) && value.request_key === request.request_key
+  check(keys(value, ['request_key', 'message', 'ideas', 'response_id', 'usage', 'design_understanding', 'next_action'], ['request_key', 'message', 'ideas', 'response_id', 'usage']) && value.request_key === request.request_key
     && text(value.message, 6000) && (value.response_id === null || id(value.response_id)), 'invalid_exploration_result');
   check(value.usage === null || keys(value.usage, ['input_tokens', 'output_tokens', 'total_tokens']) && Object.values(value.usage).every(count)
     && value.usage.total_tokens === Number(value.usage.input_tokens) + Number(value.usage.output_tokens), 'invalid_exploration_usage');
-  check(Array.isArray(value.ideas) && value.ideas.length === (request.kind === 'directions' ? 5 : 0), 'invalid_exploration_ideas');
+  if (request.conversation) {
+    check(value.design_understanding !== undefined && value.next_action !== undefined, 'invalid_conversation_action');
+    assertDesignUnderstanding(value.design_understanding, request.context);
+    assertConversationNextAction(value.next_action, request, value.design_understanding);
+  } else check(value.next_action === undefined, 'invalid_conversation_action');
+  const nextAction = value.next_action as ConversationNextAction | undefined;
+  const ideaCount = request.conversation
+    ? (nextAction?.kind === 'explore_ideas' && nextAction.intent === 'requested' ? 5 : 0)
+    : (request.kind === 'directions' ? 5 : 0);
+  check(Array.isArray(value.ideas) && value.ideas.length === ideaCount, 'invalid_exploration_ideas');
   value.ideas.forEach(idea => assertContent(idea, request.context));
   const normalized = (v: string) => v.trim().toLocaleLowerCase().replace(/\s+/g, ' ');
   for (const field of ['title', 'render_instruction'] as const) check(new Set(value.ideas.map(idea => normalized(idea[field]))).size === value.ideas.length, 'duplicate_exploration_ideas');
   check(new Set(value.ideas.map(idea => canonical(idea.aspects))).size === value.ideas.length, 'duplicate_exploration_ideas');
+  if (value.design_understanding !== undefined) assertDesignUnderstanding(value.design_understanding, request.context);
+}
+/** The admitted request stays immutable. A directions response may resolve its pending literal copy
+ * for the returned idea set, using only the exact referenced images and an explicitly bound canvas. */
+export function expectedExplorationContext(request: ExplorationRequest, result: ExplorationResult): DesignContext {
+  assertExplorationResult(result, request);
+  const original = structuredClone(request.context), copy = result.design_understanding?.copy;
+  if (request.kind !== 'directions' || request.scope !== 'full_design' || !['presentations', 'free_design'].includes(original.workspace)
+    || request.design_brief?.copy.status !== 'pending' || copy?.status !== 'literal' || !copy.source_reference_ids.length
+    || original.copy_version_id !== undefined || original.direction_approval !== undefined
+    || original.immutable_elements.includes(FULL_DESIGN_MARKER)
+    || original.immutable_elements.filter(item => item === PENDING_EXPLORATION_COPY_MARKER).length !== 1
+    || copy.source_reference_ids.some(id => !original.references.some(reference => reference.reference_id === id
+      && reference.mime_type === 'image/png' && /^[a-f0-9]{64}$/.test(reference.version_id)))) return original;
+  const canvasMarkers = original.immutable_elements.filter(item => item.startsWith('Lienzo completo: '));
+  const dimensions = canvasMarkers.length === 1 && /^Lienzo completo: (\d+)×(\d+)\.$/.exec(canvasMarkers[0]);
+  if (!dimensions) return original;
+  const canvas = { width: Number(dimensions[1]), height: Number(dimensions[2]) };
+  // Do not reinterpret pre-existing copy locks or any other immutable constraint.
+  if (original.immutable_elements.some(item => item.startsWith('Texto aprobado, conservar literalmente:')
+    || item.startsWith('ScoryDesign: modo de texto del diseño '))) return original;
+  try {
+    const resolved = { ...original, immutable_elements: [...fullDesignImmutables(copy.text, canvas), ...original.immutable_elements
+      .filter(item => item !== PENDING_EXPLORATION_COPY_MARKER && item !== canvasMarkers[0])] };
+    assertContext(resolved);
+    if (!readPresentationFullDesign(resolved)) return original;
+    return resolved;
+  } catch { return original; }
 }
 export function assertExplorationSession(value: unknown): asserts value is ExplorationSession {
   check(keys(value, ['schema_version', 'revision', 'context', 'scope', 'messages', 'sets', 'attempts', 'selected', 'render_bindings'])
@@ -132,7 +219,7 @@ export function assertExplorationSession(value: unknown): asserts value is Explo
   for (const set of session.sets) {
     check(keys(set, ['set_id', 'request_key', 'context', 'scope', 'ideas', 'response_id', 'usage']) && set.set_id === set.request_key && !sets.has(set.set_id));
     const attempt = attempts.get(set.request_key);
-    check(attempt?.status === 'completed' && attempt.request.kind === 'directions' && canonical(attempt.request.context) === canonical(set.context)
+    check(attempt?.status === 'completed' && attempt.request.kind === 'directions' && canonical(expectedExplorationContext(attempt.request, attempt.result!)) === canonical(set.context)
       && set.scope === attempt.request.scope && canonical(set.usage) === canonical(attempt.result!.usage) && set.response_id === attempt.result!.response_id);
     sets.add(set.set_id); check(Array.isArray(set.ideas) && set.ideas.length >= 5 && set.ideas.length <= 100);
     const versions = new Map<string, number>();
@@ -196,9 +283,15 @@ export function finishExploration(session: ExplorationSession, result: Explorati
   const next = changed(session), saved = next.attempts.find(item => item.request.request_key === result.request_key)!;
   saved.status = 'completed'; saved.result = structuredClone(result);
   next.messages.push({ role: 'assistant', text: result.message, request_key: result.request_key });
-  if (saved.request.kind === 'directions') next.sets.push({ set_id: result.request_key, request_key: result.request_key, context: structuredClone(saved.request.context),
-    scope: saved.request.scope, ideas: result.ideas.map((idea, index) => ({ ...structuredClone(idea), idea_id: `${result.request_key}:idea:${index + 1}`, version: 1, sources: [], feedback: [] })),
-    response_id: result.response_id, usage: structuredClone(result.usage) });
+  if (saved.request.kind === 'directions') {
+    const context = expectedExplorationContext(saved.request, result);
+    next.sets.push({ set_id: result.request_key, request_key: result.request_key, context,
+      scope: saved.request.scope, ideas: result.ideas.map((idea, index) => ({ ...structuredClone(idea), idea_id: `${result.request_key}:idea:${index + 1}`, version: 1, sources: [], feedback: [] })),
+      response_id: result.response_id, usage: structuredClone(result.usage) });
+    if (contextKey(next.context) === contextKey(saved.request.context) && contextKey(context) !== contextKey(next.context)) {
+      next.context = { ...structuredClone(context), interaction_mode: next.context.interaction_mode }; next.selected = null;
+    }
+  }
   return finish(next);
 }
 export function markExplorationUncertain(session: ExplorationSession, requestKey: string): ExplorationSession {
@@ -327,8 +420,11 @@ export function fullDesignRenderInstruction(session: ExplorationSession, selecti
   assertExplorationSession(session); assertContext(currentContext); const { set, idea } = currentIdea(session, selection);
   check(session.scope === 'full_design' && set.scope === 'full_design', 'exploration_scope_mismatch');
   check(contextKey(session.context) === contextKey(currentContext), 'exploration_context_changed');
-  check(readPresentationFullDesign(currentContext), 'exploration_full_design_requires_composition');
-  return [currentContext.workspace === 'production'
+  const full = readPresentationFullDesign(currentContext);
+  check(full, 'exploration_full_design_requires_composition');
+  return [full.copyMode === 'none'
+    ? 'Diseñar el lienzo completo sin texto: no añadir titulares, etiquetas, letras, URLs ni marcas de agua.'
+    : currentContext.workspace === 'production'
     ? 'Diseñar la imagen completa conservando su formato y el texto aprobado literal. Si el texto aprobado está vacío, no incluir texto. No inventar ni omitir texto.'
     : currentContext.workspace === 'onboarding'
     ? 'Diseñar un tablero completo de dirección de marca, con composición, paleta y jerarquía. Conservar literalmente el texto aprobado. No inventar textos ni presentar la propuesta como un perfil de marca publicado.'

@@ -5,7 +5,7 @@
  *
  *   1. `generatePlan`     raw input → slide_plan   (edge: generate-news-plan)
  *   2. `resolveVisuals`   slide_plan → prompts      (edge: generate-news-visuals)
- *   3. `generateSlide`    prompt → imagen           (edge: generate-design-image, mode generate)
+ *   3. `generateSlide`    prompt → imagen           (motor compartido DesAIng)
  *      `generateAll`      corre el paso 3 slide por slide, en orden
  *
  * NO usa `useCarouselQueue` a propósito: esa cola importa scene-kits comerciales,
@@ -18,9 +18,13 @@
  *   - Vía B: no genera; el prompt queda listo para pegarse en GPT-Image.
  */
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useActiveBusiness } from './useActiveBusiness';
+import { useAuth } from './useAuth';
+import { useImageGenerationSettings } from './useImageGenerationSettings';
+import { imageGenerationRequestFields } from '@/lib/imageGenerationSettings';
+import { acknowledgeSharedDesignImage, generateSharedDesignImage, recoverSharedDesignImage, type SharedDesignImageResult } from '@/lib/desaing/sharedImageGeneration';
 import { useSaveMockup } from './useDesignMockups';
 import {
   useLoadNewsEdition,
@@ -42,6 +46,8 @@ import type {
 
 /** Un slide con su prompt resuelto más el resultado de imagen (en memoria). */
 export interface NewsSlideRuntime extends NewsSlideVisual {
+  /** Stable through prompt edits and slide reordering; persisted with the visual. */
+  generationSlotId?: string;
   status: 'idle' | 'generating' | 'done' | 'error';
   /** base64 de la pieza COMPUESTA (con texto) en memoria hasta recargar. */
   imageBase64?: string;
@@ -113,11 +119,28 @@ function formatEditionDate(): string {
 
 export function useNewsEdition() {
   const { activeBusinessId } = useActiveBusiness();
+  const { user } = useAuth();
+  const actorId = user?.id;
+  const scopeKey = JSON.stringify([activeBusinessId, actorId]);
+  const currentScope = useRef(scopeKey); currentScope.current = scopeKey;
+  const [stateScope, setStateScope] = useState(scopeKey);
+  const assertScope = useCallback(async () => {
+    const { data, error } = await supabase.auth.getSession();
+    if (!actorId || error || data.session?.user.id !== actorId || currentScope.current !== scopeKey) {
+      throw new Error('La sesión o el negocio cambiaron. Abre la edición desde su contexto original.');
+    }
+  }, [actorId, scopeKey]);
+  const { settings: imageSettings, setSettings: setImageSettings } = useImageGenerationSettings(activeBusinessId, 'news');
   const saveMockup = useSaveMockup();
   const saveEditionMutation = useSaveNewsEdition();
   const loadEditionMutation = useLoadNewsEdition();
 
   const [editionId, setEditionId] = useState<string | null>(null);
+  const editionIdentity = useRef<{ id: string; isNew: boolean; businessId: string } | null>(null);
+  const persistEdition = useRef<() => Promise<boolean>>(async () => false);
+  const saving = useRef<Promise<boolean> | null>(null);
+  const currentBusiness = useRef(activeBusinessId);
+  currentBusiness.current = activeBusinessId;
   const [rawInput, setRawInput] = useState('');
   const [editionType, setEditionType] = useState<NewsEditionType>('daily');
   const [targetSlides, setTargetSlides] = useState<number>(7);
@@ -168,10 +191,13 @@ export function useNewsEdition() {
    * se acabe de editar. Devuelve lo necesario para actualizar el slide.
    */
   const composeAndSave = useCallback(
-    async (slideNumber: number, sceneBase64: string) => {
-      const slide = slidesRef.current.find((s) => s.slide_number === slideNumber);
-      if (!slide) throw new Error('slide no encontrado');
-      const plan = slidePlanRef.current.find((p) => p.slide_number === slideNumber);
+    async (slideNumber: number, sceneBase64: string, generation?: SharedDesignImageResult) => {
+      await assertScope();
+      const currentSlide = slidesRef.current.find((s) => s.slide_number === slideNumber);
+      if (!currentSlide) throw new Error('slide no encontrado');
+      const frozen = generation?.scope.consumerContext;
+      const slide = (frozen?.newsVisual as NewsSlideVisual | undefined) ?? currentSlide;
+      const plan = (frozen?.newsPlan as NewsSlidePlan | undefined) ?? slidePlanRef.current.find((p) => p.slide_number === slideNumber);
 
       const html = buildNewsSlideHtml({
         imageUrl: `data:image/png;base64,${sceneBase64}`,
@@ -184,9 +210,9 @@ export function useNewsEdition() {
         dataLabel: plan?.data_label ?? '',
         delta: plan?.secondary_data ?? '',
         source: (plan?.source ?? []).join(' · '),
-        dateLabel: formatEditionDate(),
-        slideNumber,
-        totalSlides: slidesRef.current.length,
+        dateLabel: typeof frozen?.dateLabel === 'string' ? frozen.dateLabel : formatEditionDate(),
+        slideNumber: typeof frozen?.slideNumber === 'number' ? frozen.slideNumber : slideNumber,
+        totalSlides: typeof frozen?.totalSlides === 'number' ? frozen.totalSlides : slidesRef.current.length,
         textSafeArea: slide.text_safe_area,
         // El tratamiento Executive View (texto a la izquierda, L4) se dispara por
         // el ARQUETIPO resuelto, no solo por la bandera del plan: el resolver
@@ -196,23 +222,47 @@ export function useNewsEdition() {
         isExecutiveWrap: plan?.is_executive_wrap || slide.archetype === 'executive_wrap',
       });
 
-      const composedDataUrl = await renderHtmlToPng(
+      // If saving lost its acknowledgement, reuse the already composed bytes.
+      // Rebuilding with an edited headline/date would conflict with this job's immutable file.
+      const previous = generation ? await supabase.storage.from(NEWS_IMAGE_BUCKET)
+        .download(`${generation.business_id}/mockups/${generation.operation_key}.png`) : null;
+      let composedBase64: string;
+      if (previous?.data) {
+        const bytes = new Uint8Array(await previous.data.arrayBuffer());
+        let binary = '';
+        for (const byte of bytes) binary += String.fromCharCode(byte);
+        composedBase64 = btoa(binary);
+      } else {
+        if (previous?.error) {
+          const status = String((previous.error as { statusCode?: string | number }).statusCode ?? '');
+          if (!['400', '404'].includes(status) && !/not found|does not exist/i.test(previous.error.message)) throw new Error('No se pudo comprobar si la pieza ya estaba guardada. Recupera el resultado para continuar.');
+        }
+        const composedDataUrl = await renderHtmlToPng(
         html,
         'xending-news',
         CAROUSEL_DIMENSIONS.width,
         CAROUSEL_DIMENSIONS.height,
       );
-      const composedBase64 = composedDataUrl.split(',')[1] ?? sceneBase64;
+        composedBase64 = composedDataUrl.split(',')[1] ?? sceneBase64;
+      }
 
+      await assertScope();
       const saved = await saveMockup.mutateAsync({
+        businessId: activeBusinessId!, actorId,
         imageBase64: composedBase64,
         platform: NEWS_PLATFORM,
         promptUsed: slide.image_prompt,
+        ...(generation ? {
+          mockupId: generation.operation_key, businessId: generation.business_id, actorId: generation.actor_id,
+          promptUsed: generation.promptUsed.promptFinal,
+          selections: { image_generation: { model: generation.image_model, quality: generation.image_quality,
+            operation_key: generation.operation_key, asset_identity: generation.asset_identity }, scene_url: currentSlide.sceneUrl },
+        } : {}),
       });
 
       return { composedBase64, imageUrl: saved.imageUrl, mockupId: saved.mockupId };
     },
-    [saveMockup],
+    [saveMockup, assertScope, activeBusinessId, actorId],
   );
 
   /**
@@ -221,25 +271,33 @@ export function useNewsEdition() {
    * recargar y reusar la misma escena en el próximo release sin regenerarla.
    */
   const uploadScene = useCallback(
-    async (base64: string): Promise<string> => {
-      if (!activeBusinessId) throw new Error('No hay negocio activo');
+    async (base64: string, generation?: SharedDesignImageResult): Promise<string> => {
+      await assertScope();
+      const businessId = generation?.business_id ?? activeBusinessId;
+      if (!businessId) throw new Error('No hay negocio activo');
       const byteChars = atob(base64);
       const bytes = new Uint8Array(byteChars.length);
       for (let i = 0; i < byteChars.length; i++) bytes[i] = byteChars.charCodeAt(i);
       const blob = new Blob([bytes], { type: 'image/png' });
 
-      const path = `${activeBusinessId}/${NEWS_SCENE_FOLDER}/${Date.now()}-${Math.random()
+      const path = generation ? `${businessId}/${NEWS_SCENE_FOLDER}/${generation.operation_key}.png` : `${businessId}/${NEWS_SCENE_FOLDER}/${Date.now()}-${Math.random()
         .toString(36)
         .slice(2, 8)}.png`;
       const { error: uploadError } = await supabase.storage
         .from(NEWS_IMAGE_BUCKET)
         .upload(path, blob, { contentType: 'image/png', upsert: false });
-      if (uploadError) throw new Error(`No se pudo subir la escena: ${uploadError.message}`);
+      if (uploadError) {
+        const duplicate = String((uploadError as { statusCode?: string | number }).statusCode) === '409' || /already exists|duplicate/i.test(uploadError.message);
+        if (!generation || !duplicate) throw new Error(`No se pudo subir la escena: ${uploadError.message}`);
+        const { data: existing, error } = await supabase.storage.from(NEWS_IMAGE_BUCKET).download(path);
+        const stored = existing && new Uint8Array(await existing.arrayBuffer());
+        if (error || !stored || stored.length !== bytes.length || stored.some((byte, i) => byte !== bytes[i])) throw new Error('La escena guardada no coincide con esta generación.');
+      }
 
       const { data } = supabase.storage.from(NEWS_IMAGE_BUCKET).getPublicUrl(path);
       return data.publicUrl;
     },
-    [activeBusinessId],
+    [activeBusinessId, assertScope],
   );
 
   /**
@@ -257,9 +315,11 @@ export function useNewsEdition() {
     async (slideNumber: number, source: { dataUrl?: string; url?: string }): Promise<boolean> => {
       const slide = slidesRef.current.find((s) => s.slide_number === slideNumber);
       if (!slide) return false;
+      const identity = editionIdentity.current;
 
       patchSlide(slideNumber, { status: 'generating', error: undefined });
       try {
+        await assertScope();
         let sceneBase64: string;
         let sceneUrl: string;
         if (source.dataUrl) {
@@ -273,8 +333,12 @@ export function useNewsEdition() {
           throw new Error('No se proporcionó imagen');
         }
 
+        await assertScope();
+        if (editionIdentity.current !== identity) return false;
         patchSlide(slideNumber, { sceneBase64, sceneUrl });
         const composed = await composeAndSave(slideNumber, sceneBase64);
+        await assertScope();
+        if (editionIdentity.current !== identity) return false;
         patchSlide(slideNumber, {
           status: 'done',
           imageBase64: composed.composedBase64,
@@ -284,22 +348,24 @@ export function useNewsEdition() {
         });
         return true;
       } catch (err) {
-        patchSlide(slideNumber, {
+        if (currentScope.current === scopeKey && editionIdentity.current === identity) patchSlide(slideNumber, {
           status: 'error',
           error: err instanceof Error ? err.message : 'Error montando la imagen',
         });
         return false;
       }
     },
-    [uploadScene, composeAndSave, patchSlide],
+    [uploadScene, composeAndSave, patchSlide, assertScope, scopeKey],
   );
 
   // --- Paso 1: plan -------------------------------------------------------
   const generatePlan = useCallback(async (): Promise<boolean> => {
-    if (!activeBusinessId || !rawInput.trim()) return false;
+    if (!activeBusinessId || !rawInput.trim() || slidesRef.current.some(s => s.status === 'generating')) return false;
     setIsPlanning(true);
     setError(null);
+    const identity = editionIdentity.current;
     try {
+      await assertScope();
       const { data, error: fnError } = await supabase.functions.invoke('generate-news-plan', {
         body: {
           business_id: activeBusinessId,
@@ -309,6 +375,8 @@ export function useNewsEdition() {
         },
       });
       const res = data as GenerateNewsPlanResponse | undefined;
+      await assertScope();
+      if (editionIdentity.current !== identity) return false;
       if (fnError || !res?.slide_plan?.length) {
         throw new Error((data as { message?: string })?.message ?? fnError?.message ?? 'No se generó el plan');
       }
@@ -319,19 +387,21 @@ export function useNewsEdition() {
       applySlides([]);
       return true;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error generando el plan de News');
+      if (currentScope.current === scopeKey && editionIdentity.current === identity) setError(err instanceof Error ? err.message : 'Error generando el plan de News');
       return false;
     } finally {
-      setIsPlanning(false);
+      if (currentScope.current === scopeKey) setIsPlanning(false);
     }
-  }, [activeBusinessId, rawInput, targetSlides, editionType, applySlides, applyNormalized, applySlidePlan]);
+  }, [activeBusinessId, rawInput, targetSlides, editionType, applySlides, applyNormalized, applySlidePlan, assertScope, scopeKey]);
 
   // --- Paso 2: visuales ---------------------------------------------------
   const resolveVisuals = useCallback(async (): Promise<boolean> => {
-    if (!activeBusinessId || slidePlan.length === 0) return false;
+    if (!activeBusinessId || slidePlan.length === 0 || slidesRef.current.some(s => s.status === 'generating')) return false;
     setIsResolving(true);
     setError(null);
+    const identity = editionIdentity.current;
     try {
+      await assertScope();
       const { data, error: fnError } = await supabase.functions.invoke('generate-news-visuals', {
         body: {
           business_id: activeBusinessId,
@@ -340,18 +410,20 @@ export function useNewsEdition() {
         },
       });
       const res = data as GenerateNewsVisualsResponse | undefined;
+      await assertScope();
+      if (editionIdentity.current !== identity) return false;
       if (fnError || !res?.slides?.length) {
         throw new Error((data as { message?: string })?.message ?? fnError?.message ?? 'No se resolvieron los visuales');
       }
-      applySlides(res.slides.map((s) => ({ ...s, status: 'idle' as const })));
+      applySlides(res.slides.map((s) => ({ ...s, generationSlotId: crypto.randomUUID(), status: 'idle' as const })));
       return true;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error resolviendo la dirección visual');
+      if (currentScope.current === scopeKey && editionIdentity.current === identity) setError(err instanceof Error ? err.message : 'Error resolviendo la dirección visual');
       return false;
     } finally {
-      setIsResolving(false);
+      if (currentScope.current === scopeKey) setIsResolving(false);
     }
-  }, [activeBusinessId, slidePlan, editionType, applySlides]);
+  }, [activeBusinessId, slidePlan, editionType, applySlides, assertScope, scopeKey]);
 
   // --- Paso 3: imagen por slide (Vía A) -----------------------------------
   // Genera la ESCENA (IA), la guarda en memoria, hornea el texto encima y guarda
@@ -359,22 +431,40 @@ export function useNewsEdition() {
   // volver a llamar a la IA (ver recomposeSlide).
   const generateSlide = useCallback(
     async (slideNumber: number): Promise<boolean> => {
-      if (!activeBusinessId) return false;
+      if (!activeBusinessId || !actorId || currentScope.current !== scopeKey) return false;
       const slide = slidesRef.current.find((s) => s.slide_number === slideNumber);
-      if (!slide) return false;
+      if (!slide || slide.status === 'generating') return false;
+      const businessId = activeBusinessId;
+      if (editionIdentity.current && editionIdentity.current.businessId !== businessId) return false;
+      const generationSlotId = slide.generationSlotId ?? crypto.randomUUID();
+      let identity = editionIdentity.current;
 
-      patchSlide(slideNumber, { status: 'generating', error: undefined });
+      patchSlide(slideNumber, { status: 'generating', generationSlotId, error: undefined });
 
       try {
-        // `generate-design-image` exige userRequest y brand al entrar, antes de
-        // mirar el mode. En mode generate no se usan para construir la imagen
-        // (esa sale del promptFinal verbatim), pero deben venir o responde 400.
+        await assertScope();
+        // Save the draft and stable article id BEFORE starting a paid job, so a
+        // browser restart can reopen this exact destination and recover it.
+        const persisted = await persistEdition.current();
+        identity = editionIdentity.current;
+        if (!persisted) throw new Error('Guarda la edición antes de generar para poder recuperar el resultado.');
+        await assertScope();
+        if (!identity || !slidesRef.current.some(s => s.generationSlotId === generationSlotId)) throw new Error('Cambió la edición. Vuelve a la original para continuar.');
         const planHeadline =
           slidePlanRef.current.find((p) => p.slide_number === slideNumber)?.headline ??
           slide.visual_subject ??
           'xending news';
-        const { data, error: fnError } = await supabase.functions.invoke('generate-design-image', {
-          body: {
+        const scope = { businessId, actorId, process: 'news' as const, slotKey: `${identity.id}:${generationSlotId}`,
+          consumerContext: {
+            newsPlan: slidePlanRef.current.find(p => p.slide_number === slideNumber) ?? null,
+            newsVisual: { domain: slide.domain, visual_subject: slide.visual_subject, text_safe_area: slide.text_safe_area,
+              archetype: slide.archetype, image_prompt: slide.image_prompt },
+            dateLabel: formatEditionDate(), slideNumber, totalSlides: slidesRef.current.length,
+          },
+        };
+        const recovered = await recoverSharedDesignImage(scope);
+        await assertScope();
+        const generation = recovered ?? await generateSharedDesignImage({
             business_id: activeBusinessId,
             userRequest: planHeadline,
             brand: 'xending',
@@ -383,23 +473,24 @@ export function useNewsEdition() {
             // inyecta estilo comercial).
             promptFinal: slide.image_prompt,
             imageType: 'fotografia',
-            // Mismo ratio, tamaño y calidad que el carrusel: reusar sus
-            // constantes evita que News vuelva a divergir. 'medium' porque
-            // 'high' a 1024² no vuelve dentro del timeout del gateway.
+            // Preserve this request's explicit model and quality for the whole render.
             aspectRatio: CAROUSEL_ASPECT_RATIO,
             imageSize: NEWS_IMAGE_SIZE,
-            imageQuality: 'medium',
-          },
-        });
-
-        const sceneBase64: string | undefined = (data as { imageBase64?: string })?.imageBase64;
-        if (fnError || !sceneBase64) {
-          throw new Error((data as { message?: string })?.message ?? fnError?.message ?? 'No se generó la imagen');
-        }
+            ...imageGenerationRequestFields(imageSettings),
+        }, scope);
+        await assertScope();
+        if (generation.actor_id !== actorId || generation.business_id !== businessId) throw new Error('La imagen pertenece a otra sesión.');
+        if (editionIdentity.current !== identity) throw new Error('Cambió la edición. Abre la edición original para recuperar el resultado.');
+        const sceneBase64 = generation.imageBase64;
+        const sceneUrl = await uploadScene(sceneBase64, generation);
+        await assertScope();
+        if (editionIdentity.current !== identity) throw new Error('Abre la edición original para recuperar el resultado.');
 
         // Guarda la escena en memoria (para re-hornear texto) y compone el texto.
-        patchSlide(slideNumber, { sceneBase64 });
-        const composed = await composeAndSave(slideNumber, sceneBase64);
+        patchSlide(slideNumber, { sceneBase64, sceneUrl });
+        const composed = await composeAndSave(slideNumber, sceneBase64, generation);
+        await assertScope();
+        if (editionIdentity.current !== identity) throw new Error('Abre la edición original para recuperar el resultado.');
 
         patchSlide(slideNumber, {
           status: 'done',
@@ -408,16 +499,18 @@ export function useNewsEdition() {
           mockupId: composed.mockupId,
           error: undefined,
         });
+        if (!(await persistEdition.current())) throw new Error('La imagen ya está guardada. Recupera el resultado para terminar de guardar la edición.');
+        await acknowledgeSharedDesignImage(generation);
         return true;
       } catch (err) {
-        patchSlide(slideNumber, {
+        if (currentScope.current === scopeKey && editionIdentity.current === identity && slidesRef.current.some(s => s.generationSlotId === generationSlotId)) patchSlide(slideNumber, {
           status: 'error',
           error: err instanceof Error ? err.message : 'Error generando la imagen',
         });
         return false;
       }
     },
-    [activeBusinessId, patchSlide, composeAndSave],
+    [activeBusinessId, actorId, scopeKey, assertScope, patchSlide, composeAndSave, imageSettings, uploadScene],
   );
 
   /** Edita el texto de un slide (headline/dato/subcopy/fuente) en el plan. */
@@ -483,6 +576,7 @@ export function useNewsEdition() {
    */
   const moveSlide = useCallback(
     (slideNumber: number, direction: -1 | 1): number[] => {
+      if (slidesRef.current.some(s => s.status === 'generating')) return [];
       const plan = slidePlanRef.current;
       const from = plan.findIndex((p) => p.slide_number === slideNumber);
       const to = from + direction;
@@ -514,6 +608,7 @@ export function useNewsEdition() {
    */
   const removeSlide = useCallback(
     (slideNumber: number): number[] => {
+      if (slidesRef.current.some(s => s.status === 'generating')) return [];
       const plan = slidePlanRef.current;
       if (!plan.some((p) => p.slide_number === slideNumber)) return [];
 
@@ -548,15 +643,19 @@ export function useNewsEdition() {
     async (slideNumber: number): Promise<boolean> => {
       const slide = slidesRef.current.find((s) => s.slide_number === slideNumber);
       if (!slide) return false;
+      const identity = editionIdentity.current;
 
       patchSlide(slideNumber, { status: 'generating', error: undefined });
       try {
+        await assertScope();
         // Escena en memoria (recién generada/montada) o, si no, la escena
         // persistida en Storage (tras recargar o al reusar una imagen). Solo si
         // no hay ninguna se pide regenerar.
         let sceneBase64 = slide.sceneBase64;
         if (!sceneBase64 && slide.sceneUrl) {
           sceneBase64 = await fetchImageAsBase64(slide.sceneUrl);
+          await assertScope();
+          if (editionIdentity.current !== identity) return false;
           patchSlide(slideNumber, { sceneBase64 });
         }
         if (!sceneBase64) {
@@ -569,6 +668,8 @@ export function useNewsEdition() {
         }
 
         const composed = await composeAndSave(slideNumber, sceneBase64);
+        await assertScope();
+        if (editionIdentity.current !== identity) return false;
         patchSlide(slideNumber, {
           status: 'done',
           imageBase64: composed.composedBase64,
@@ -578,30 +679,35 @@ export function useNewsEdition() {
         });
         return true;
       } catch (err) {
-        patchSlide(slideNumber, {
+        if (currentScope.current === scopeKey && editionIdentity.current === identity) patchSlide(slideNumber, {
           status: 'error',
           error: err instanceof Error ? err.message : 'Error actualizando el texto',
         });
         return false;
       }
     },
-    [patchSlide, composeAndSave],
+    [patchSlide, composeAndSave, assertScope, scopeKey],
   );
 
   const generateAll = useCallback(async (): Promise<void> => {
-    if (slidesRef.current.length === 0) return;
+    if (slidesRef.current.length === 0 || currentScope.current !== scopeKey) return;
+    const identity = editionIdentity.current;
     setIsGeneratingAll(true);
     setError(null);
     try {
       for (const slide of slidesRef.current) {
+        await assertScope();
+        if (identity && editionIdentity.current !== identity) return;
         // Un slide ya generado no se regenera en el "generar todo".
         if (slide.status === 'done') continue;
         await generateSlide(slide.slide_number);
       }
+    } catch (error) {
+      if (currentScope.current === scopeKey) setError(error instanceof Error ? error.message : 'La sesión cambió.');
     } finally {
-      setIsGeneratingAll(false);
+      if (currentScope.current === scopeKey) setIsGeneratingAll(false);
     }
-  }, [generateSlide]);
+  }, [generateSlide, assertScope, scopeKey]);
 
   // --- Persistencia -------------------------------------------------------
 
@@ -611,11 +717,23 @@ export function useNewsEdition() {
    * que es lo que permite reabrirla.
    */
   const saveEdition = useCallback(async (): Promise<boolean> => {
+    const targetEdition = editionIdentity.current;
+    // Serialize draft saves: generation of another article may finish while
+    // this write is pending. The next writer reads the latest synchronous refs.
+    while (saving.current) await saving.current;
+    const write = async (): Promise<boolean> => {
     if (!rawInput.trim()) return false;
     try {
+      await assertScope();
+      const businessId = activeBusinessId;
+      if (!businessId || !actorId) throw new Error('No hay una sesión activa para guardar la edición.');
+      if (targetEdition && editionIdentity.current !== targetEdition) throw new Error('La edición cambió antes de guardar.');
+      if (!editionIdentity.current) editionIdentity.current = { id: crypto.randomUUID(), isNew: true, businessId };
+      const identity = editionIdentity.current;
+      if (identity.businessId !== businessId) throw new Error('Esta edición pertenece a otro negocio.');
       // visual_plan: los NewsSlideVisual sin los campos de runtime.
       const visualPlan: NewsSlideVisual[] = slidesRef.current.map(
-        ({ status: _s, imageBase64: _b, imageUrl: _u, mockupId: _m, error: _e, ...visual }) => visual,
+        ({ status: _s, imageBase64: _b, sceneBase64: _scene, sceneUrl: _sceneUrl, imageUrl: _u, mockupId: _m, error: _e, ...visual }) => visual,
       );
       const slidesState = slidesRef.current.map((s) => ({
         slide_number: s.slide_number,
@@ -633,30 +751,42 @@ export function useNewsEdition() {
 
       const anyDone = slidesState.some((s) => s.status === 'done');
       const { id } = await saveEditionMutation.mutateAsync({
-        id: editionId ?? undefined,
+        id: identity.id, createIfMissing: identity.isNew, businessId, actorId,
         title,
         editionType,
         rawInput,
         inputFormat: detectedFormat,
-        normalized,
-        slidePlan,
+        normalized: normalizedRef.current,
+        slidePlan: slidePlanRef.current,
         visualPlan,
         slides: slidesState,
         status: anyDone && slidesState.every((s) => s.status === 'done') ? 'completed' : 'draft',
       });
-      setEditionId(id);
+      if (currentScope.current === scopeKey && editionIdentity.current === identity) {
+        identity.isNew = false;
+        setEditionId(id);
+      }
       return true;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error guardando la edición');
+      if (currentScope.current === scopeKey && (!targetEdition || editionIdentity.current === targetEdition)) setError(err instanceof Error ? err.message : 'Error guardando la edición');
       return false;
     }
-  }, [rawInput, editionType, detectedFormat, normalized, slidePlan, editionId, saveEditionMutation]);
+    };
+    const task = write(); saving.current = task;
+    try { return await task; } finally { if (saving.current === task) saving.current = null; }
+  }, [rawInput, editionType, detectedFormat, activeBusinessId, actorId, scopeKey, assertScope, saveEditionMutation]);
+  persistEdition.current = saveEdition;
 
   /** Reabre una edición guardada: repuebla el estado desde su fila. */
   const loadEdition = useCallback(
     async (id: string): Promise<boolean> => {
+      if (slidesRef.current.some(s => s.status === 'generating')) return false;
       try {
+        await assertScope();
         const row: NewsEditionRow = await loadEditionMutation.mutateAsync(id);
+        await assertScope();
+        if (row.business_id !== currentBusiness.current) throw new Error('Esta edición pertenece a otro negocio.');
+        editionIdentity.current = { id: row.id, isNew: false, businessId: row.business_id };
         setEditionId(row.id);
         setRawInput(row.raw_input ?? '');
         setEditionType(row.edition_type);
@@ -670,7 +800,8 @@ export function useNewsEdition() {
           const st = stateByNumber.get(v.slide_number);
           return {
             ...v,
-            status: (st?.status as NewsSlideRuntime['status']) ?? (st?.imageUrl ? 'done' : 'idle'),
+            status: st?.status === 'generating' ? 'error' : (st?.status as NewsSlideRuntime['status']) ?? (st?.imageUrl ? 'done' : 'idle'),
+            error: st?.status === 'generating' ? 'Hay una generación pendiente. Recupera su resultado para continuar.' : undefined,
             imageUrl: st?.imageUrl,
             mockupId: st?.mockupId,
             sceneUrl: st?.sceneUrl,
@@ -679,14 +810,16 @@ export function useNewsEdition() {
         applySlides(runtime);
         return true;
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Error cargando la edición');
+        if (currentScope.current === scopeKey) setError(err instanceof Error ? err.message : 'Error cargando la edición');
         return false;
       }
     },
-    [loadEditionMutation, applySlides, applyNormalized, applySlidePlan],
+    [loadEditionMutation, applySlides, applyNormalized, applySlidePlan, assertScope, scopeKey],
   );
 
   const reset = useCallback(() => {
+    if (slidesRef.current.some(s => s.status === 'generating')) return;
+    editionIdentity.current = null;
     setEditionId(null);
     setRawInput('');
     applySlidePlan([]);
@@ -696,26 +829,37 @@ export function useNewsEdition() {
     setError(null);
   }, [applySlides, applySlidePlan, applyNormalized]);
 
+  useEffect(() => {
+    // A generation belongs to its original edition/business. A late result is
+    // recovered there; never mix its draft with the newly selected business.
+    editionIdentity.current = null;
+    setEditionId(null); setRawInput(''); applySlidePlan([]); applySlides([]);
+    applyNormalized(null); setDetectedFormat(null); setError(null);
+    setIsGeneratingAll(false); setIsPlanning(false); setIsResolving(false); setStateScope(scopeKey);
+  }, [scopeKey, applySlidePlan, applySlides, applyNormalized]);
+
+  const visible = stateScope === scopeKey;
   return {
+    imageSettings, setImageSettings,
     // input
-    editionId,
-    rawInput,
+    editionId: visible ? editionId : null,
+    rawInput: visible ? rawInput : '',
     setRawInput,
     editionType,
     setEditionType,
     targetSlides,
     setTargetSlides,
     // state
-    detectedFormat,
-    normalized,
-    slidePlan,
-    slides,
-    isPlanning,
-    isResolving,
-    isGeneratingAll,
+    detectedFormat: visible ? detectedFormat : null,
+    normalized: visible ? normalized : null,
+    slidePlan: visible ? slidePlan : [],
+    slides: visible ? slides : [],
+    isPlanning: visible && isPlanning,
+    isResolving: visible && isResolving,
+    isGeneratingAll: visible && isGeneratingAll,
     isSaving: saveEditionMutation.isPending,
     isLoadingEdition: loadEditionMutation.isPending,
-    error,
+    error: visible ? error : null,
     // actions
     generatePlan,
     resolveVisuals,

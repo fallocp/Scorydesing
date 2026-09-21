@@ -10,6 +10,7 @@ import { assertBusinessId } from './serverRequest.ts';
 import { importServerAsset, type PrivateAssetStorage } from './serverStorage.ts';
 import { inspectServerPng } from './serverPng.ts';
 import { PILOT_LIMITS } from './pilotHttp.ts';
+import { isGenerationProfilePolicy } from './catalog.ts';
 import type { ServerHtmlCapabilities } from './serverHtmlContract.ts';
 
 export const HTML_LIMITS = { model: 'gpt-5.4-mini', reservationMicroUsd: 250000, textLimitMicroUsd: 1000000,
@@ -55,7 +56,7 @@ export function createServerHtml(settings: ServerHtmlConfig, deps: ServerHtmlDep
     const p = read.policy;
     requireValue(p.business_id === businessId && p.policy_id === config.policyId && p.limit_micro_usd === PILOT_LIMITS.budgetMicroUsd
       && p.max_image_outputs === PILOT_LIMITS.maxOutputs && p.reservation_per_output_micro_usd === PILOT_LIMITS.reservationMicroUsd
-      && p.enabled_image_profiles.length === 1 && p.enabled_image_profiles[0] === PILOT_LIMITS.imageProfile
+      && isGenerationProfilePolicy(p.enabled_image_profiles)
       && p.responses_image_enabled === true, 'server_policy_changed', 409);
   }
   function assertWindow() {
@@ -82,7 +83,7 @@ export function createServerHtml(settings: ServerHtmlConfig, deps: ServerHtmlDep
     const b = await journal.budget(businessId, actorId);
     const available = Math.max(0, Math.min(HTML_LIMITS.textLimitMicroUsd - b.committed_micro_usd,
       PILOT_LIMITS.budgetMicroUsd - b.image_committed_micro_usd - b.committed_micro_usd));
-    return { model: HTML_LIMITS.model, remaining_micro_usd: available,
+    return { composition_version: 2, model: HTML_LIMITS.model, remaining_micro_usd: available,
       remaining_attempts: Math.max(0, Math.min(HTML_LIMITS.maxAttempts - b.attempts, Math.floor(available / HTML_LIMITS.reservationMicroUsd))),
       reservation_micro_usd: HTML_LIMITS.reservationMicroUsd, max_output_tokens: HTML_LIMITS.maxOutputTokens,
       max_request_bytes: HTML_LIMITS.maxRequestBytes, max_reference_edge: HTML_LIMITS.maxReferenceEdge };

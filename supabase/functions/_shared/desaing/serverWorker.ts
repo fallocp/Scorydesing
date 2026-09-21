@@ -6,7 +6,8 @@ import { inspectServerPng } from './serverPng.ts';
 import type { ServerRead, ServerRepository } from './serverRepository.ts';
 import type { ImageInputManifest, ImageResolver } from './imageRequest.ts';
 import { assertLiveExecutionPermit, type LiveExecutionPermit, type LiveExecutionTarget } from './liveExecution.ts';
-import { IMAGE_PROFILES } from './catalog.ts';
+import { IMAGE_PROFILES, SELECTABLE_IMAGE_PROFILES, SELECTABLE_IMAGE_QUALITIES } from './catalog.ts';
+import { readPresentationFullDesign } from './presentationFullDesign.ts';
 import {
   assertServerSnapshot, claimServerCall, rebaseServerPolicy, recordServerResult, settleServerCall, validateServerCall,
   type ServerSnapshot,
@@ -102,14 +103,19 @@ function supported(job: DesignJob, call: JobCall, read: ServerRead, live = false
   const image = job.plan.operation.image;
   const medium = ['generate_medium', 'approve_and_generate_medium'].includes(job.plan.operation.action);
   const recreate = job.plan.operation.action === 'recreate_asset';
-  const edit = job.plan.operation.context.workspace === 'production' && job.plan.operation.action === 'edit_image';
+  let canvasEdit = false;
+  if (job.plan.operation.action === 'edit_image' && ['presentations', 'free_design'].includes(job.plan.operation.context.workspace)) {
+    try { canvasEdit = !!readPresentationFullDesign(job.plan.operation.context); } catch { /* Invalid full-design contracts remain unsupported. */ }
+  }
+  const edit = (job.plan.operation.context.workspace === 'production' || canvasEdit) && job.plan.operation.action === 'edit_image';
   const regenerate = job.plan.operation.context.workspace === 'production' && job.plan.operation.action === 'regenerate_image';
   requireValue(read.policy.enabled && image && read.policy.enabled_image_profiles.includes(image.profile), live ? 'live_policy_mismatch' : 'simulation_disabled');
   requireValue((job.plan.operation.action === 'generate_image' || recreate || medium || edit || regenerate)
-    && (image.profile === 'baseline' || (live && image.profile === 'flare_candidate'))
+    && (image.profile === 'baseline' || (live && SELECTABLE_IMAGE_PROFILES.includes(image.profile)))
     && (image.executor === 'image_api' || (live && image.executor === 'responses_image' && read.policy.responses_image_enabled))
     && image.output_count === 1 && image.output_format === 'png'
-    && image.quality === (medium ? 'medium' : 'low') && call.planned.executor === image.executor && call.planned.model_profile === image.profile
+    && (medium ? image.quality === 'medium' : SELECTABLE_IMAGE_QUALITIES.some(quality => quality === image.quality))
+    && call.planned.executor === image.executor && call.planned.model_profile === image.profile
     && call.planned.model_id === IMAGE_PROFILES[image.profile].model_id
     && call.planned.image_outputs === 1 && job.calls.length === 1 && job.plan.lineage === (medium || edit ? 'child_version' : 'new_asset')
     && image.size.width > 0 && image.size.height > 0 && image.size.width <= 4096 && image.size.height <= 4096

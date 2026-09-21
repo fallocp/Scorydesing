@@ -110,6 +110,10 @@ export interface NewsEditionSummary {
 export interface SaveNewsEditionInput {
   /** Presente al actualizar; ausente al crear. */
   id?: string;
+  /** A locally reserved id makes a lost creation acknowledgement recoverable. */
+  createIfMissing?: boolean;
+  businessId?: string;
+  actorId?: string;
   title?: string | null;
   editionType: NewsEditionType;
   rawInput: string;
@@ -164,11 +168,15 @@ export function useSaveNewsEdition() {
 
   return useMutation({
     mutationFn: async (input: SaveNewsEditionInput): Promise<{ id: string }> => {
-      if (!activeBusinessId || !user?.id) throw new Error('No business or user');
+      const businessId = input.businessId ?? activeBusinessId;
+      const actorId = input.actorId ?? user?.id;
+      if (!businessId || !actorId) throw new Error('No business or user');
+      const { data: session, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || session.session?.user.id !== actorId) throw new Error('La sesión cambió. Vuelve a la sesión original para guardar la edición.');
 
       const row = {
-        business_id: activeBusinessId,
-        created_by: user.id,
+        business_id: businessId,
+        created_by: actorId,
         title: input.title ?? null,
         edition_type: input.editionType,
         raw_input: input.rawInput,
@@ -180,12 +188,19 @@ export function useSaveNewsEdition() {
         status: input.status ?? 'draft',
       };
 
+      if (input.id && input.createIfMissing) {
+        const { data, error } = await editionsTable().upsert({ ...row, id: input.id }, { onConflict: 'id' }).select('id').single();
+        if (error) throw new Error(error.message);
+        return { id: data.id };
+      }
+
       if (input.id) {
         // Update: created_by/business_id no se tocan (RLS ya validó el acceso).
         const { business_id: _b, created_by: _c, ...patch } = row;
         const { data, error } = await editionsTable()
           .update(patch)
           .eq('id', input.id)
+          .eq('business_id', businessId)
           .select('id')
           .single();
         if (error) throw new Error(error.message);

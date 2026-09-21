@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Sparkles, Check, X, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -8,23 +8,47 @@ import { Badge } from '@/components/ui/badge';
 import { useGenerateImage } from '@/hooks/useGenerateImage';
 import { useDesignStore } from '@/store/designStore';
 import { useToast } from '@/components/ui/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { useActiveBusiness } from '@/hooks/useActiveBusiness';
+import { useAuth } from '@/hooks/useAuth';
+import { ImageGenerationControls } from '@/components/image-generation/ImageGenerationControls';
+import { saveImageToLibrary } from '@/utils/imageStock/saveImageToLibrary';
+import { acknowledgeSharedDesignImage, recoverSharedDesignImage, type SharedDesignImageResult } from '@/lib/desaing/sharedImageGeneration';
 
 export function ImageGeneratorPanel() {
   const { toast } = useToast();
   const selectedBrand = useDesignStore((s) => s.selectedBrand);
-  const [prompt, setPrompt] = useState('');
-  const [generatedImage, setGeneratedImage] = useState<string | null>(null);
-  const [imageBase64Raw, setImageBase64Raw] = useState<string | null>(null);
+  const { activeBusinessId } = useActiveBusiness();
+  const { user } = useAuth();
+  const scope = JSON.stringify([user?.id, activeBusinessId, selectedBrand]);
+  const [draft, setDraft] = useState({ scope, prompt: '' });
+  const prompt = draft.scope === scope ? draft.prompt : '';
+  const setPrompt = (value: string) => setDraft({ scope, prompt: value });
+  const [storedImage, setGeneratedImage] = useState<string | null>(null);
+  const [storedGeneration, setGeneration] = useState<SharedDesignImageResult | null>(null);
+  // Hide another session's bytes during render, before the cleanup effect runs.
+  const generation = storedGeneration?.actor_id === user?.id
+    && storedGeneration?.business_id === activeBusinessId
+    && storedGeneration?.scope.library?.brand === selectedBrand ? storedGeneration : null;
+  const generatedImage = generation ? storedImage : null;
   const [imageApproved, setImageApproved] = useState<boolean | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
 
-  const generateImage = useGenerateImage();
+  const generateImage = useGenerateImage('standalone-image');
   const isLoading = generateImage.isPending;
+  const isBusy = isLoading || isSaving || isClosing;
+  const busyRef = useRef(false);
+  const scopeRef = useRef(scope);
+  scopeRef.current = scope;
+  useEffect(() => {
+    setDraft({ scope, prompt: '' });
+    setGeneration(null); setGeneratedImage(null); setImageApproved(null); setIsSaved(false);
+  }, [scope]);
 
-  const handleGenerate = () => {
-    if (!selectedBrand || !prompt.trim()) {
+  const handleGenerate = async () => {
+    if (busyRef.current || (generation && !isSaved)) return;
+    if (!user?.id || !selectedBrand || !activeBusinessId || !prompt.trim()) {
       toast({
         title: 'Información faltante',
         description: 'Por favor ingresa una descripción de imagen y selecciona una marca.',
@@ -33,98 +57,86 @@ export function ImageGeneratorPanel() {
       return;
     }
 
-    setGeneratedImage(null);
-    setImageBase64Raw(null);
-    setImageApproved(null);
-    setIsSaved(false);
-
-    generateImage.mutate(
-      {
+    busyRef.current = true;
+    try {
+      const data = await generateImage.mutateAsync({
         userRequest: prompt.trim(),
         brand: selectedBrand,
-      },
-      {
-        onSuccess: (data) => {
-          setImageBase64Raw(data.imageBase64);
-          setGeneratedImage(`data:image/png;base64,${data.imageBase64}`);
-        },
-        onError: (error) => {
-          toast({
-            title: 'Error al generar imagen',
-            description: error.message,
-            variant: 'destructive',
-          });
-        },
-      }
-    );
+        generationKey: 'current',
+        libraryContext: { brand: selectedBrand, collection: 'generated', description: prompt.trim() },
+      });
+      if (scopeRef.current !== scope) return;
+      const result = data.results[0];
+      if (!result || result.actor_id !== user.id || result.business_id !== activeBusinessId
+        || result.scope.library?.brand !== selectedBrand) throw new Error('La sesión cambió. Recupera la imagen desde su sesión original.');
+      setGeneration(result);
+      setGeneratedImage(`data:image/png;base64,${data.imageBase64}`);
+      setImageApproved(null); setIsSaved(false);
+    } catch (error) {
+      if (scopeRef.current === scope) toast({ title: 'Error al generar imagen', description: error instanceof Error ? error.message : 'No se pudo generar la imagen.', variant: 'destructive' });
+    } finally { busyRef.current = false; }
   };
 
   const handleApprove = async () => {
-    setImageApproved(true);
-
-    // Auto-save to Supabase Storage
-    if (imageBase64Raw && selectedBrand) {
+    if (generation && selectedBrand && !busyRef.current && scopeRef.current === scope) {
+      busyRef.current = true;
       setIsSaving(true);
       try {
-        const byteString = atob(imageBase64Raw);
-        const ab = new ArrayBuffer(byteString.length);
-        const ia = new Uint8Array(ab);
-        for (let i = 0; i < byteString.length; i++) {
-          ia[i] = byteString.charCodeAt(i);
-        }
-        const blob = new Blob([ab], { type: 'image/png' });
-
-        const stripAccents = (str: string) =>
-          str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-        const slug = stripAccents(prompt)
-          .toLowerCase()
-          .replace(/[^a-z0-9\s-]/g, '')
-          .replace(/\s+/g, '-')
-          .slice(0, 60);
-        const filename = `${selectedBrand}/generated/${slug}-${Date.now()}.png`;
-
-        const { error: uploadError } = await supabase.storage
-          .from('design-images')
-          .upload(filename, blob, { contentType: 'image/png', upsert: false });
-
-        if (uploadError) throw uploadError;
-
-        const { data: urlData } = supabase.storage
-          .from('design-images')
-          .getPublicUrl(filename);
-
-        await supabase.from('design_images').insert({
-          brand: selectedBrand,
-          source: 'generated',
-          storage_path: urlData.publicUrl,
-          description: prompt,
-          tags: prompt.toLowerCase().split(/\s+/).filter((w) => w.length > 3).slice(0, 8),
-          theme: 'generated',
-          prompt_used: prompt,
-          usage_count: 0,
+        const library = generation.scope.library;
+        if (!library || generation.actor_id !== user?.id || generation.business_id !== activeBusinessId || library.brand !== selectedBrand) throw new Error('Vuelve a la sesión y marca originales para guardar esta imagen.');
+        await saveImageToLibrary({
+          generation, imageBase64: generation.imageBase64,
+          brand: library.brand, collection: library.collection, description: library.description,
+          promptUsed: generation.promptUsed.promptFinal, businessId: generation.business_id,
         });
-
+        if (scopeRef.current !== scope) return;
+        await acknowledgeSharedDesignImage(generation);
+        if (scopeRef.current !== scope) return;
+        setImageApproved(true);
         setIsSaved(true);
         toast({ title: 'Imagen guardada', description: 'Disponible en tu biblioteca de assets.' });
       } catch (err) {
         console.error('Error guardando imagen:', err);
-        toast({ title: 'Imagen aprobada pero no se pudo guardar', description: 'Guárdala manualmente con clic derecho.', variant: 'destructive' });
+        if (scopeRef.current === scope) toast({ title: 'Guardado pendiente', description: 'Tu imagen se conserva. Vuelve a pulsar Aprobar y Guardar para completar el guardado.', variant: 'destructive' });
       } finally {
+        busyRef.current = false;
         setIsSaving(false);
       }
     }
   };
 
-  const handleReject = () => {
-    setImageApproved(false);
-    setGeneratedImage(null);
-    setImageBase64Raw(null);
-    setIsSaved(false);
-    toast({ title: 'Imagen rechazada', description: 'Puedes modificar el prompt y generar de nuevo.' });
+  const handleReject = async () => {
+    if (!generation || busyRef.current || scopeRef.current !== scope) return;
+    busyRef.current = true;
+    setIsClosing(true);
+    try {
+      await acknowledgeSharedDesignImage(generation);
+      if (scopeRef.current !== scope) return;
+      setImageApproved(false); setGeneratedImage(null); setGeneration(null); setIsSaved(false);
+      toast({ title: 'Imagen rechazada', description: 'Puedes modificar el prompt y generar de nuevo.' });
+    } catch (error) {
+      if (scopeRef.current === scope) toast({ title: 'No se pudo cerrar esta versión', description: error instanceof Error ? error.message : 'Vuelve a intentarlo.', variant: 'destructive' });
+    } finally { busyRef.current = false; setIsClosing(false); }
+  };
+
+  const handleRecover = async () => {
+    if (!user?.id || !activeBusinessId || !selectedBrand || busyRef.current) return;
+    busyRef.current = true; setIsSaving(true);
+    try {
+      const result = await recoverSharedDesignImage({ actorId: user.id, businessId: activeBusinessId, process: 'stock', slotKey: 'standalone-image:current:v0' });
+      if (!result) throw new Error('No hay una imagen pendiente para recuperar.');
+      if (scopeRef.current !== scope) return;
+      if (result.actor_id !== user.id || result.business_id !== activeBusinessId || result.scope.library?.brand !== selectedBrand) throw new Error('Selecciona la sesión y marca originales para recuperar esta imagen.');
+      setGeneration(result); setGeneratedImage(`data:image/png;base64,${result.imageBase64}`);
+      setPrompt(result.scope.library.description); setImageApproved(null); setIsSaved(false);
+    } catch (error) {
+      if (scopeRef.current === scope) toast({ title: 'Recuperación de imagen', description: error instanceof Error ? error.message : 'No se pudo recuperar la imagen.', variant: 'destructive' });
+    } finally { busyRef.current = false; setIsSaving(false); }
   };
 
   return (
     <div className="space-y-4">
+      <ImageGenerationControls value={generateImage.imageSettings} onChange={generateImage.setImageSettings} disabled={isBusy || !user?.id || !activeBusinessId} />
       <div className="space-y-2">
         <Label htmlFor="image-prompt">Descripción de Imagen</Label>
         <Textarea
@@ -133,23 +145,24 @@ export function ImageGeneratorPanel() {
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           rows={3}
-          disabled={isLoading}
+          disabled={isBusy || !user?.id}
         />
       </div>
 
       <Button
         onClick={handleGenerate}
-        disabled={isLoading || !prompt.trim() || !selectedBrand}
+        disabled={isBusy || !prompt.trim() || !user?.id || !selectedBrand || !activeBusinessId || (!!generation && !isSaved)}
       >
         <Sparkles className="h-4 w-4 mr-2" />
         {isLoading ? 'Generando...' : 'Generar Imagen'}
       </Button>
+      <Button variant="outline" onClick={handleRecover} disabled={isBusy || !user?.id || !activeBusinessId || !selectedBrand}>Recuperar imagen pendiente</Button>
 
       {isLoading && (
         <div className="space-y-2">
           <Skeleton className="aspect-square max-w-md rounded-lg" />
           <p className="text-sm text-muted-foreground">
-            Generando imagen con GPT Image 2... Esto puede tomar un momento.
+            Generando con el modelo y la calidad seleccionados. Esto puede tomar un momento.
           </p>
         </div>
       )}
@@ -181,12 +194,12 @@ export function ImageGeneratorPanel() {
               <Button
                 onClick={handleApprove}
                 className="bg-green-600 hover:bg-green-700 text-white"
-                disabled={isSaving}
+                disabled={isSaving || isClosing}
               >
                 <Check className="h-4 w-4 mr-2" />
                 Aprobar y Guardar
               </Button>
-              <Button variant="outline" onClick={handleReject}>
+              <Button variant="outline" onClick={handleReject} disabled={isSaving || isClosing}>
                 <X className="h-4 w-4 mr-2" />
                 Rechazar y Reintentar
               </Button>

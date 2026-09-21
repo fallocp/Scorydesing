@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils';
 import { EDITOR_ICONS } from '@/constants/editorIcons';
 import { useSuggestCopy } from '@/hooks/useSuggestCopy';
 import { sanitizePresentationHtml } from '@/lib/presentations/presentationHtml';
+import { DESIGN_FONT_OPTIONS } from '../../supabase/functions/_shared/desaing/compositionFonts';
 import { validatePresentationRaster } from '@/lib/presentations/presentationAssets';
 import { serializeMountedImages } from '@/lib/presentations/presentationManifest';
 
@@ -59,23 +60,9 @@ const EDITABLE_ELEMENTS: ElementDef[] = [
 // --- Font options for the typography panel ---
 // `google` = parámetro family para Google Fonts (null = fuente de sistema).
 interface FontOption { label: string; value: string; google: string | null; }
-
-const FONT_OPTIONS: FontOption[] = [
-  { label: 'Raleway',         value: "'Raleway', sans-serif",         google: 'Raleway:wght@300;400;500;600;700;800' },
-  { label: 'Montserrat',      value: "'Montserrat', sans-serif",      google: 'Montserrat:wght@400;500;600;700;800' },
-  { label: 'Poppins',         value: "'Poppins', sans-serif",         google: 'Poppins:wght@400;500;600;700' },
-  { label: 'Inter',           value: "'Inter', sans-serif",           google: 'Inter:wght@400;500;600;700;800' },
-  { label: 'Fraunces',        value: "'Fraunces', serif",             google: 'Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..700' },
-  { label: 'Playfair Display',value: "'Playfair Display', serif",     google: 'Playfair+Display:ital,wght@0,400..800;1,400..700' },
-  { label: 'Sora',            value: "'Sora', sans-serif",            google: 'Sora:wght@400;500;600;700;800' },
-  { label: 'Manrope',         value: "'Manrope', sans-serif",         google: 'Manrope:wght@400;500;600;700;800' },
-  { label: 'Work Sans',       value: "'Work Sans', sans-serif",       google: 'Work+Sans:wght@400;500;600;700' },
-  { label: 'Roboto',          value: "'Roboto', sans-serif",          google: 'Roboto:wght@400;500;700' },
-  { label: 'Lato',            value: "'Lato', sans-serif",            google: 'Lato:wght@400;700;900' },
-  { label: 'JetBrains Mono',  value: "'JetBrains Mono', monospace",   google: 'JetBrains+Mono:wght@400;500;600;700' },
-  { label: 'Georgia (sistema)', value: 'Georgia, serif',             google: null },
-  { label: 'Arial (sistema)',   value: 'Arial, Helvetica, sans-serif', google: null },
-];
+const FONT_OPTIONS: FontOption[] = DESIGN_FONT_OPTIONS.map(font => ({
+  label: font.google ? font.family : `${font.family} (sistema)`, value: font.value, google: font.google,
+}));
 
 /** Convierte 'rgb(r, g, b)' a '#rrggbb' para el <input type="color">. */
 function rgbToHex(rgb: string): string {

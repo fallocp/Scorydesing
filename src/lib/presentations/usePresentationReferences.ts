@@ -63,7 +63,7 @@ export function usePresentationReferences(options: { client: DesignServerClient;
   const referenceScope: PresentationReferenceScope = { references: items.map(item => ({ reference_id: item.id, role: item.role })),
     ...(recreateReferenceId ? { recreate_reference_id: recreateReferenceId } : {}) };
   const referenceKey = JSON.stringify(referenceScope);
-  async function prepare(generation: ServerGenerationCapabilities) {
+  async function prepare(generation: Pick<ServerGenerationCapabilities, 'max_references' | 'supports_recreation'>) {
     const life = lifetime.current, frozen = items, expected = signature(items), source = recreateReferenceId;
     if (!life?.active || !life.store || !ready || life.locked) throw new Error('presentation_references_unavailable');
     if (items.length + (options.captureSlots ?? 1) > (generation.max_references ?? 2)) throw new Error('server_generation_reference_limit');

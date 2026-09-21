@@ -67,7 +67,7 @@ function AuthenticatedApp() {
         `resolveKitSlug` y el contexto legacy de `prompt_kit`/`strategic_config`.
 
         También salieron `/bulletin` (BulletinPage), `/stock-generator`
-        (StockGeneratorPage) y `/compliance` (ComplianceWizardPage), con sus tarjetas
+        (Image Stock, cuyo código exclusivo se retiró después) y `/compliance` (ComplianceWizardPage), con sus tarjetas
         del Home: herramientas fuera de uso. Nadie más navegaba a esas tres rutas,
         así que no quedaron botones muertos.
 

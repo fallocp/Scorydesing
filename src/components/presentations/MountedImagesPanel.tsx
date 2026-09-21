@@ -7,19 +7,24 @@ import type { PixelExtractionRecipe } from '../../lib/presentations/presentation
 import { ManualExtractionEditor } from './ManualExtractionEditor';
 import { composePresentationImage, sanitizePresentationHtml } from '../../lib/presentations/presentationHtml';
 import { imageDataUrl } from '../../lib/desaing/labImages';
+import type { DesignServerClient } from '../../lib/desaing/serverClient';
+import type { RegisteredAssetVersion } from '../../../supabase/functions/_shared/desaing/assets';
+import { listReusablePresentationAssets, mountReusablePresentationAsset, readReusablePresentationAsset } from '../../lib/presentations/reusablePresentationAssets';
 import './MountedImagesPanel.css';
 
 export interface MountedImagesPanelProps {
   businessId: string;
   documentId: string;
   slide: PresentationSlide;
-  onApply: (next: PresentationSlide) => void;
+  client?: DesignServerClient;
+  onApply: (next: PresentationSlide) => Promise<void> | void;
   onClose: () => void;
 }
 
 type LibraryAsset = Awaited<ReturnType<typeof listPresentationAssets>>[number];
 type Region = { x: number; y: number; width: number; height: number };
 type Selection = { kind: 'library'; item: LibraryAsset }
+  | { kind: 'server'; item: LibraryAsset; actorId: string }
   | { kind: 'file'; file: File; previewUrl: string; width: number; height: number };
 
 function message(error: unknown): string {
@@ -31,6 +36,8 @@ function message(error: unknown): string {
     unapproved_asset: 'La imagen necesita revisión antes de montarla.',
     invalid_mounted_region: 'Revisa la posición y el tamaño de la imagen.',
     indexed_db_unavailable: 'Este navegador no permite abrir la biblioteca local.',
+    server_session_changed: 'Cambió tu sesión. Cierra este panel y vuelve a abrir tu biblioteca.',
+    asset_bytes_mismatch: 'La imagen no coincide con la versión elegida. Vuelve a seleccionarla.',
   };
   if (known[value]) return known[value];
   return value && !/^[a-z0-9_]+$/i.test(value) ? value : 'No se pudo completar el cambio. Tu diapositiva se conserva.';
@@ -47,10 +54,15 @@ function rasterDataUrl(value: string): boolean {
   return /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(value);
 }
 
-export function MountedImagesPanel({ businessId, documentId, slide, onApply, onClose }: MountedImagesPanelProps) {
+export function MountedImagesPanel({ businessId, documentId, slide, client, onApply, onClose }: MountedImagesPanelProps) {
   const canvas = useMemo(() => getSlideDimensions(slide.html), [slide.html]);
   const safeHtml = useMemo(() => sanitizePresentationHtml(slide.html), [slide.html]);
   const [library, setLibrary] = useState<LibraryAsset[]>([]);
+  const [remote, setRemote] = useState<{ actorId: string; assets: RegisteredAssetVersion[] } | null>(null);
+  const [remoteLoading, setRemoteLoading] = useState(false);
+  const [remoteError, setRemoteError] = useState('');
+  const [remotePreviews, setRemotePreviews] = useState<Record<string, string>>({});
+  const [sessionEpoch, setSessionEpoch] = useState(0);
   const [selection, setSelection] = useState<Selection | null>(null);
   const [extracting, setExtracting] = useState(false);
   const [region, setRegion] = useState<Region>({ x: canvas.width * .54, y: canvas.height * .18,
@@ -88,14 +100,32 @@ export function MountedImagesPanel({ businessId, documentId, slide, onApply, onC
     operation.current++;
     locked.current = false;
     setSelection(null); setExtracting(false); setLibrary([]); setLoading(true); setError(null); setBusy(false);
+    setRemote(null); setRemotePreviews({}); setRemoteError(''); setRemoteLoading(Boolean(client));
     if (ownedUrl.current) { URL.revokeObjectURL(ownedUrl.current); ownedUrl.current = null; }
     setRegion({ x: canvas.width * .54, y: canvas.height * .18, width: canvas.width * .4, height: canvas.height * .64 });
     listPresentationAssets(businessId).then(items => {
       if (current) setLibrary(items.filter(item => item.version.identity.business_id === businessId && rasterDataUrl(item.dataUrl)));
     }).catch(problem => { if (current) setError(message(problem)); })
       .finally(() => { if (current) setLoading(false); });
+    if (client) void listReusablePresentationAssets(client, businessId).then(items => {
+      if (current) setRemote(items);
+    }).catch(problem => { if (current) setRemoteError(message(problem)); })
+      .finally(() => { if (current) setRemoteLoading(false); });
     return () => { current = false; };
-  }, [businessId, documentId, slide.id]);
+  }, [businessId, documentId, slide.id, client, sessionEpoch]);
+
+  useEffect(() => {
+    if (!client || !remote) return;
+    let current = true;
+    const check = async () => {
+      try { if ((await client.session()).actorId === remote.actorId) return; } catch { /* Clear the previous account's previews. */ }
+      if (!current || !alive.current) return;
+      current = false; operation.current++; locked.current = false;
+      setSelection(null); setRemote(null); setRemotePreviews({}); setBusy(false); setSessionEpoch(value => value + 1);
+    };
+    window.addEventListener('focus', check); window.addEventListener('storage', check); document.addEventListener('visibilitychange', check);
+    return () => { current = false; window.removeEventListener('focus', check); window.removeEventListener('storage', check); document.removeEventListener('visibilitychange', check); };
+  }, [client, remote]);
 
   useEffect(() => { setRegion(current => fitRegion(current, canvas)); }, [canvas.width, canvas.height]);
   useEffect(() => {
@@ -120,7 +150,7 @@ export function MountedImagesPanel({ businessId, documentId, slide, onApply, onC
   const previewElementId = useMemo(() => `mounted-preview-${crypto.randomUUID()}`, []);
   const previewHtml = useMemo(() => previewUrl
     ? composePresentationImage(safeHtml, previewUrl, region, previewElementId,
-      selection?.kind === 'library' ? selection.item.version.identity : undefined)
+      selection && selection.kind !== 'file' ? selection.item.version.identity : undefined)
     : safeHtml, [safeHtml, previewUrl, region, previewElementId, selection]);
   const scale = Math.min(Math.max(1, availableWidth) / canvas.width, 500 / canvas.height, 1);
 
@@ -136,6 +166,19 @@ export function MountedImagesPanel({ businessId, documentId, slide, onApply, onC
       if (height > canvas.height) { height = canvas.height; width = height * aspect; }
       return fitRegion({ ...current, width, height }, canvas);
     });
+  }
+
+  async function chooseRemote(asset: RegisteredAssetVersion) {
+    if (!client || !remote || busy || locked.current) return;
+    const request = ++operation.current, actorId = remote.actorId;
+    locked.current = true; setBusy(true); setError(null); setSelection(null); setExtracting(false);
+    try {
+      const item = await readReusablePresentationAsset(client, { businessId, actorId, asset });
+      if (!alive.current || operation.current !== request) return;
+      setRemotePreviews(previous => ({ ...previous, [JSON.stringify([asset.identity.asset_id, asset.identity.version_id])]: item.dataUrl }));
+      selectImage({ kind: 'server', item, actorId });
+    } catch (problem) { if (alive.current && operation.current === request) setError(message(problem)); }
+    finally { if (alive.current && operation.current === request) { locked.current = false; setBusy(false); } }
   }
 
   async function chooseFile(file: File | undefined) {
@@ -181,8 +224,16 @@ export function MountedImagesPanel({ businessId, documentId, slide, onApply, onC
     locked.current = true;
     setBusy(true); setError(null);
     try {
-      const item = chosen.kind === 'library' ? chosen.item : await importPresentationAsset(captured.businessId, chosen.file);
-      const next = await mountPresentationAsset(captured.businessId, sourceSlide, item.version, item.dataUrl, targetRegion, captured.revision);
+      let next: PresentationSlide;
+      if (chosen.kind === 'server') {
+        if (!client) throw new Error('server_session_changed');
+        next = await mountReusablePresentationAsset(client, { businessId: captured.businessId, actorId: chosen.actorId,
+          slide: sourceSlide, asset: chosen.item.version, previewDataUrl: chosen.item.dataUrl,
+          region: targetRegion, expectedRevision: captured.revision });
+      } else {
+        const item = chosen.kind === 'library' ? chosen.item : await importPresentationAsset(captured.businessId, chosen.file);
+        next = await mountPresentationAsset(captured.businessId, sourceSlide, item.version, item.dataUrl, targetRegion, captured.revision);
+      }
       if (!alive.current || operation.current !== request) return;
       const live = latestTarget.current;
       if (live.businessId !== captured.businessId || live.documentId !== captured.documentId
@@ -190,13 +241,13 @@ export function MountedImagesPanel({ businessId, documentId, slide, onApply, onC
         throw new Error('La diapositiva cambió mientras preparabas la imagen. Cierra el panel y revisa el destino antes de montarla.');
       }
       await onApply(next);
-      onClose();
+      if (alive.current && operation.current === request) onClose();
     } catch (problem) { if (alive.current && operation.current === request) setError(message(problem)); }
     finally { if (alive.current && operation.current === request) { locked.current = false; setBusy(false); } }
   }
 
   async function saveExtraction(recipe: PixelExtractionRecipe) {
-    if (!selection || busy || locked.current) return;
+    if (!selection || selection.kind === 'server' || busy || locked.current) return;
     const captured = { businessId, documentId, slideId: slide.id, revision: slide.revision }, chosen = selection;
     const request = ++operation.current;
     locked.current = true; setBusy(true); setError(null);
@@ -231,7 +282,26 @@ export function MountedImagesPanel({ businessId, documentId, slide, onApply, onC
       <div className="mip-body">
         <aside className="mip-library">
           <div className="mip-section-heading"><h3>Tu biblioteca</h3><span>PNG · JPEG · WebP</span></div>
-          <p className="mip-note">Biblioteca local de este negocio.</p>
+          <p className="mip-note">Piezas de este negocio para portadas, páginas y diapositivas. Reutilizarlas no genera otra imagen.</p>
+          {client && <section className="mip-remote-library" aria-label="Piezas aprobadas del negocio">
+            <h3>Piezas aprobadas</h3>
+            {remoteLoading ? <p className="mip-note" role="status">Cargando piezas…</p>
+              : remoteError ? <p className="mip-error" role="alert">{remoteError}</p>
+              : remote?.assets.length ? <div className="mip-remote-list">{remote.assets.map((asset, index) => {
+                const identity = asset.identity, source = asset.provenance;
+                const chosen = selection?.kind === 'server' && selection.item.version.identity.asset_id === identity.asset_id
+                  && selection.item.version.identity.version_id === identity.version_id;
+                const preview = remotePreviews[JSON.stringify([identity.asset_id, identity.version_id])];
+                return <button type="button" key={`${identity.asset_id}:${identity.version_id}`} className="mip-library-item"
+                  aria-pressed={chosen} disabled={busy} onClick={() => void chooseRemote(asset)}>
+                  {preview ? <img src={preview} alt={`Pieza aprobada ${index + 1}`} /> : <div className="mip-remote-placeholder"><ImagePlus size={24} />Ver pieza {index + 1}</div>}
+                  <span>{asset.storage.width} × {asset.storage.height}{source.kind === 'image_operation' && ` · ${source.quality}`}</span>
+                  {source.kind === 'image_operation' && <span>{source.model_id}</span>}
+                  {chosen && <Check className="mip-selected-check" size={16} aria-hidden="true" />}
+                </button>;
+              })}</div> : <p className="mip-note">Las imágenes aprobadas aparecerán aquí.</p>}
+          </section>}
+          <h3 className="mip-local-heading">Imágenes de este dispositivo</h3>
           <input className="mip-file-input" ref={fileInput} type="file" accept="image/png,image/jpeg,image/webp" disabled={busy}
             onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; void chooseFile(file); }} aria-label="Seleccionar imagen PNG, JPEG o WebP" />
           <button className="mip-button mip-upload" type="button" disabled={busy} onClick={() => fileInput.current?.click()}><Upload size={16} aria-hidden="true" />Subir una imagen</button>
@@ -250,7 +320,7 @@ export function MountedImagesPanel({ businessId, documentId, slide, onApply, onC
             })}</div> : <div className="mip-empty"><ImagePlus size={30} aria-hidden="true" /><strong>La primera pieza empieza aquí.</strong><span>Sube una imagen para usarla en esta diapositiva y reutilizarla después.</span></div>}
         </aside>
         <section className="mip-workspace" aria-label="Colocación de la imagen">
-          {selection && selectedDimensions && previewUrl && <div className="mip-extraction-launch">
+          {selection && selection.kind !== 'server' && selectedDimensions && previewUrl && <div className="mip-extraction-launch">
             {!extracting && <button className="mip-button" type="button" disabled={busy} onClick={() => setExtracting(true)}>Extraer pieza manualmente</button>}
             {extracting && <ManualExtractionEditor sourceUrl={previewUrl} width={selectedDimensions.width} height={selectedDimensions.height} disabled={busy}
               readSource={() => selection.kind === 'file' ? Promise.resolve(selection.file) : readPresentationAsset(businessId, selection.item.version)}

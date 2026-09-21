@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { assertExplorationRequest, assertExplorationResult, assertExplorationSession, beginExploration, bindIdeaRender, combineTextIdeas, createExplorationSession, explorationDiscussionHistory,
   finishExploration, ideaRenderInstruction, latestTextIdeas, markExplorationUncertain, refineTextIdea, selectedTextIdea, selectTextIdea, updateExplorationContext } from '../exploration.ts';
 import type { IdeaSelection } from '../explorationContracts.ts';
-import { context, request, result } from './fixtures/explorationFixture.ts';
+import { context, request, result, visualBriefRequest, visualUnderstanding } from './fixtures/explorationFixture.ts';
 
 const first: IdeaSelection = { set_id: 'request-1', idea_id: 'request-1:idea:1', version: 1 };
 const second: IdeaSelection = { ...first, idea_id: 'request-1:idea:2' };
@@ -36,6 +36,30 @@ describe('five text directions and recoverable pure session transitions', () => 
     const done = finishExploration(beginExploration(createExplorationSession(context(), 'asset_in_region'), req), output);
     expect(done.sets).toEqual([]); expect(done.messages).toHaveLength(2);
     expect(() => assertExplorationResult(result(), req)).toThrow('invalid_exploration_ideas');
+  });
+  it('persists resolved copy and source roles through discussion without approving or generating anything', () => {
+    const req = visualBriefRequest(), output = { ...result(req.request_key), ideas: [], design_understanding: visualUnderstanding() };
+    const done = finishExploration(beginExploration(createExplorationSession(req.context, 'full_design'), req), output);
+    expect(done.sets).toEqual([]); expect(done.render_bindings).toEqual([]); expect(done.selected).toBeNull();
+    expect(done.attempts[0].result?.design_understanding).toEqual(output.design_understanding);
+    expect(() => assertExplorationSession(JSON.parse(JSON.stringify(done)))).not.toThrow();
+    const nextContext = { ...done.context, instruction: output.design_understanding.resolved_instruction };
+    const adjusted = updateExplorationContext(done, nextContext);
+    expect(adjusted.messages).toEqual(done.messages); expect(adjusted.attempts).toEqual(done.attempts);
+    const followup = { ...req, request_key: 'visual-followup', context: nextContext, message: 'Haz el mundo más grande.',
+      design_brief: { ...req.design_brief!, copy: output.design_understanding.copy, previous_understanding: output.design_understanding } };
+    expect(() => beginExploration(adjusted, followup)).not.toThrow();
+  });
+  it.each(['foreign_brand', 'foreign_copy_source', 'pending_with_copy', 'none_with_source', 'oversized_copy', 'extra_brief_key'])
+  ('rejects invalid %s structured context while preserving legacy requests', variant => {
+    const req = visualBriefRequest();
+    if (variant === 'foreign_brand') req.design_brief!.brand!.brand_id = 'other';
+    if (variant === 'foreign_copy_source') req.design_brief!.copy.source_reference_ids = ['other'];
+    if (variant === 'pending_with_copy') req.design_brief!.copy.text = 'lo que viene en las referencias';
+    if (variant === 'none_with_source') req.design_brief!.copy.status = 'none';
+    if (variant === 'oversized_copy') req.design_brief!.copy = { status: 'literal', text: 'x'.repeat(4001), source_reference_ids: [] };
+    if (variant === 'extra_brief_key') Object.assign(req.design_brief!, { credentials: 'secret' });
+    expect(() => assertExplorationRequest(req)).toThrow(); expect(() => assertExplorationRequest(request())).not.toThrow();
   });
   it.each(['count', 'duplicate', 'unknown_reference', 'extra_property', 'usage'])('rejects malformed %s results before mutating history', field => {
     const output = result();

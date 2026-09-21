@@ -33,6 +33,7 @@ import {
 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import type { SavedMockup } from '@/hooks/useDesignMockups'
+import { mockupGenerationLabel, readSavedMockupGeneration } from '@/lib/mockupImageGeneration'
 import { useDeleteMockup, useToggleMockupUploaded } from '@/hooks/useDesignMockups'
 import { useLikeMockup, useDislikeMockup, useRecentFeedback } from '@/hooks/useDesignFeedback'
 import { useToast } from '@/components/ui/use-toast'
@@ -307,7 +308,7 @@ export function SavedMockupsGrid({
   const slideItems: MockupSlideItem[] = pageItems.map((mockup) => ({
     id: mockup.id,
     src: mockup.image_url,
-    label: platformMeta(mockup.platform).label,
+    label: [platformMeta(mockup.platform).label, mockupGenerationLabel(readSavedMockupGeneration(mockup.selections))].filter(Boolean).join(' · '),
     downloadName: `mockup-${mockup.id.slice(0, 8)}.png`,
   }))
 
@@ -538,6 +539,7 @@ export function SavedMockupsGrid({
                 const isLiked = feedback === 'like'
                 const isDisliked = feedback === 'dislike'
                 const isUploaded = !!mockup.uploaded_at
+                const generationLabel = mockupGenerationLabel(readSavedMockupGeneration(mockup.selections))
                 const {
                   label: platformLabel,
                   Icon: PlatformIcon,
@@ -563,6 +565,8 @@ export function SavedMockupsGrid({
                       className={cn('w-full object-contain bg-muted/40', platformAspect)}
                       loading="lazy"
                     />
+
+                    {generationLabel && <p title={generationLabel} className="truncate bg-background px-3 py-2 text-xs text-muted-foreground">{generationLabel}</p>}
 
                     {onDesign && <div className="absolute inset-x-0 top-12 z-10 flex flex-wrap justify-center gap-1 px-2" onClick={event => event.stopPropagation()}>
                       {([['edit_image', 'Editar píxeles'], ['regenerate_image', 'Regenerar'], ['compare', 'Comparar']] as const).map(([action, label]) =>
@@ -650,7 +654,7 @@ export function SavedMockupsGrid({
                     </div>
 
                     {/* Bottom right: Like/Dislike + Iterate */}
-                    <div className="absolute bottom-2 right-2 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className={cn('absolute right-2 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity', generationLabel ? 'bottom-10' : 'bottom-2')}>
                       <button
                         type="button"
                         onClick={(e) => {
@@ -706,7 +710,7 @@ export function SavedMockupsGrid({
                     </div>
 
                     {/* Platform badge */}
-                    <div className="absolute bottom-2 left-2">
+                    <div className={cn('absolute left-2', generationLabel ? 'bottom-10' : 'bottom-2')}>
                       <span className="flex items-center gap-1.5 text-[11px] font-medium bg-black/60 text-white px-2 py-1 rounded">
                         <PlatformIcon className="h-3.5 w-3.5" />
                         {platformLabel}

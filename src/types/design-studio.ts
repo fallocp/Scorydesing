@@ -2069,6 +2069,13 @@ export interface GeneratedMockup {
   index: number;
   image_base64: string;
   prompt_used: string;
+  /** Shared-engine identity. Absent on images generated before the migration. */
+  operation_key?: string;
+  saved_mockup_id?: string;
+  asset_identity?: import('../../supabase/functions/_shared/desaing/contracts').AssetVersion;
+  /** Values reported by the generation endpoint; absent on historical results. */
+  image_model?: import('../../supabase/functions/_shared/imageGenerationOptions').ImageModel;
+  image_quality?: import('../../supabase/functions/_shared/imageGenerationOptions').ImageQuality;
 }
 
 // --- HTML Iteration ---
@@ -2147,7 +2154,11 @@ export interface BranchContentIngredients {
 }
 
 export interface GenerateMockupsRequest {
+  image_model?: import('../../supabase/functions/_shared/imageGenerationOptions').ImageModel;
+  image_quality?: import('../../supabase/functions/_shared/imageGenerationOptions').ImageQuality;
   business_id: string;
+  business_name?: string;
+  business_context?: string;
   brand_palette: BrandPalette;
   mode: 'visual' | 'reference';
   // Mode A
@@ -2165,13 +2176,22 @@ export interface GenerateMockupsRequest {
   // Iteration feedback — regenerate with user corrections
   iteration_feedback?: string;
   previous_prompt?: string;
+  previous_image_base64?: string;
+  parent_mockup_id?: string;
   // Common
   platform: PlatformFormat;
-  count: 3;
+  count: 1 | 3;
 }
 
 export interface GenerateMockupsResponse {
   mockups: GeneratedMockup[];
+  /** Frozen generation context, also returned when recovering a pending job. */
+  business_id?: string;
+  actor_id?: string;
+  platform?: PlatformFormat;
+  selections?: Record<string, unknown>;
+  parent_mockup_id?: string;
+  iteration_feedback?: string;
 }
 
 export interface DesignHtmlFromMockupRequest {

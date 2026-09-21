@@ -4,30 +4,40 @@ import { assertDesignSurfaceDestination, designSurfaceSessionId, type DesignSurf
 import { validateImageSize } from './formats.ts';
 
 export const FULL_DESIGN_MARKER = 'ScoryDesign: diseño completo de diapositiva (full_design v1).';
+const COPY_MODE_PREFIX = 'ScoryDesign: modo de texto del diseño ';
+export const NO_TEXT_DESIGN_MARKER = `${COPY_MODE_PREFIX}sin texto (no_text v1).`;
+export type FullDesignCopyMode = 'literal' | 'none';
 const COPY_PREFIX = 'Texto aprobado, conservar literalmente:\n';
 const CANVAS_PREFIX = 'Lienzo completo: ';
 export const ONBOARDING_DIRECTION_PREFIX = 'ScoryDesign: dirección de marca confirmada ';
 export const PRODUCTION_SOURCE_PREFIX = 'ScoryDesign: fuente de producción ';
 export const PRODUCTION_ACTION_PREFIX = 'ScoryDesign: acción de producción ';
-export interface PresentationFullDesign { approvedCopy: string; canvas: { width: number; height: number }; production?: { sourceHash: string; action: ProductionImageAction } }
+export interface PresentationFullDesign { approvedCopy: string; copyMode?: 'none'; canvas: { width: number; height: number }; production?: { sourceHash: string; action: ProductionImageAction } }
 export function presentationDesignSessionId(documentId: string, slideId: string, scope: ExplorationScope = 'asset_in_region'): string {
   return designSurfaceSessionId(documentId, slideId, scope);
 }
-export function fullDesignImmutables(approvedCopy: string, canvas: { width: number; height: number }, destination?: DesignSurfaceDestination): string[] {
+export function fullDesignImmutables(approvedCopy: string, canvas: { width: number; height: number }, destination?: DesignSurfaceDestination,
+  copyMode: FullDesignCopyMode = 'literal'): string[] {
+  if (!['literal', 'none'].includes(copyMode)) throw new Error('invalid_full_design_copy_mode');
   const production = destination?.workspace === 'production';
-  if (typeof approvedCopy !== 'string' || (!production && !approvedCopy.trim()) || approvedCopy.length > 4000 || approvedCopy.includes('\0')) throw new Error('approved_copy_required');
+  if (copyMode === 'none' && approvedCopy !== '') throw new Error('invalid_full_design_copy_mode');
+  if (typeof approvedCopy !== 'string' || (copyMode === 'literal' && !production && !approvedCopy.trim()) || approvedCopy.length > 4000 || approvedCopy.includes('\0')) throw new Error('approved_copy_required');
   if (production) assertDesignSurfaceDestination(destination);
   if (![canvas.width, canvas.height].every(value => Number.isSafeInteger(value) && value > 0 && value <= 10000)) throw new Error('invalid_full_design_canvas');
   const onboarding = destination?.workspace === 'onboarding';
   if (onboarding && !/^[a-f0-9]{64}$/.test(destination.brief_hash)) throw new Error('invalid_full_design_context');
-  return [FULL_DESIGN_MARKER, `${COPY_PREFIX}${approvedCopy}`, `${CANVAS_PREFIX}${canvas.width}×${canvas.height}.`,
+  return [FULL_DESIGN_MARKER, ...(copyMode === 'none' ? [NO_TEXT_DESIGN_MARKER, 'No incluir texto en la imagen.'] : [`${COPY_PREFIX}${approvedCopy}`]), `${CANVAS_PREFIX}${canvas.width}×${canvas.height}.`,
     ...(onboarding ? [`${ONBOARDING_DIRECTION_PREFIX}${destination.brief_hash}.`] : []),
     ...(production ? [`${PRODUCTION_SOURCE_PREFIX}${destination.source_hash}.`, `${PRODUCTION_ACTION_PREFIX}${destination.action ?? 'edit_image'}.`,
-      ...(!approvedCopy ? ['No incluir texto en la imagen.'] : [])] : [])];
+      ...(!approvedCopy && copyMode === 'literal' ? ['No incluir texto en la imagen.'] : [])] : [])];
 }
-/** A complete-design marker is valid only with literal copy, canvas and an isolated session. */
+/** Full designs require literal copy or an explicit no-text marker, a canvas and an isolated session. */
 export function readPresentationFullDesign(context: DesignContext): PresentationFullDesign | null {
-  if (!context.immutable_elements.includes(FULL_DESIGN_MARKER)) return null;
+  const markers = context.immutable_elements.filter(value => value === FULL_DESIGN_MARKER);
+  const copyModes = context.immutable_elements.filter(value => value.startsWith(COPY_MODE_PREFIX));
+  if (!markers.length && !copyModes.length) return null;
+  if (markers.length !== 1 || copyModes.length > 1 || copyModes.some(value => value !== NO_TEXT_DESIGN_MARKER)) throw new Error('invalid_full_design_context');
+  const noText = copyModes.length === 1;
   const copy = context.immutable_elements.filter(value => value.startsWith(COPY_PREFIX));
   const dimensions = context.immutable_elements.filter(value => value.startsWith(CANVAS_PREFIX));
   const match = dimensions.length === 1 && /^Lienzo completo: (\d+)×(\d+)\.$/.exec(dimensions[0]);
@@ -62,10 +72,11 @@ export function readPresentationFullDesign(context: DesignContext): Presentation
       });
     } else throw new Error('invalid_full_design_context');
   } catch { throw new Error('invalid_full_design_context'); }
-  if (context.session_id !== session || copy.length !== 1 || !match) throw new Error('invalid_full_design_context');
-  const result: PresentationFullDesign = { approvedCopy: copy[0].slice(COPY_PREFIX.length), canvas: { width: Number(match[1]), height: Number(match[2]) }, ...(production ? { production } : {}) };
+  if (context.session_id !== session || copy.length !== (noText ? 0 : 1) || !match) throw new Error('invalid_full_design_context');
+  const result: PresentationFullDesign = { approvedCopy: noText ? '' : copy[0].slice(COPY_PREFIX.length), ...(noText ? { copyMode: 'none' as const } : {}),
+    canvas: { width: Number(match[1]), height: Number(match[2]) }, ...(production ? { production } : {}) };
   fullDesignImmutables(result.approvedCopy, result.canvas, production ? { workspace: 'production', document_type: 'image', brand_id: context.business_id,
-    source_hash: production.sourceHash, action: production.action } : undefined);
+    source_hash: production.sourceHash, action: production.action } : undefined, result.copyMode);
   return result;
 }
 export function fullDesignImageSize(canvas: { width: number; height: number }, production = false): { width: number; height: number } {

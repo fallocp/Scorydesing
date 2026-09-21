@@ -4,6 +4,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.53.0";
 import { fetchBusinessContext } from "../_shared/fetchBusinessContext.ts";
 import { callOpenAI } from '../_shared/callOpenAI.ts';
 import { buildSlideExamples } from '../_shared/slideExamples.ts';
+import { buildDesignCanvasHtmlMessages, DESIGN_CANVAS_HTML_LIMITS, DesignCanvasHtmlError,
+  finalizeDesignCanvasHtml, parseDesignCanvasHtmlRequest } from '../_shared/designCanvasHtml.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -744,6 +746,51 @@ serve(async (req) => {
 
     const body = await req.json();
 
+    // The same Presentations HTML engine, with the active tenant and the actual
+    // canvas. This branch never calls an image provider or an image endpoint.
+    // Keep the existing xending-slide contract below unchanged.
+    if (body?.design_system === 'design-canvas') {
+      if (req.method !== 'POST') throw new DesignCanvasHtmlError('method_not_allowed', 'Usa POST para diseñar el lienzo.', 405);
+      const authorization = req.headers.get('Authorization');
+      const bearer = authorization && /^Bearer\s+(\S+)$/i.exec(authorization);
+      if (!bearer) throw new DesignCanvasHtmlError('authentication_required', 'Inicia sesión para diseñar.', 401);
+      const supabaseUrl = Deno.env.get('SUPABASE_URL');
+      const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
+      if (!supabaseUrl || !anonKey) throw new DesignCanvasHtmlError('server_configuration', 'El servicio HTML no está configurado.', 503);
+      // Original user JWT + anon key: both tenant and profile queries retain RLS.
+      const userClient = createClient(supabaseUrl, anonKey, {
+        global: { headers: { Authorization: authorization! } },
+        auth: { persistSession: false, autoRefreshToken: false },
+      });
+      const { data: userData, error: userError } = await userClient.auth.getUser(bearer[1]);
+      if (userError || !userData.user) throw new DesignCanvasHtmlError('authentication_required', 'La sesión ya no es válida.', 401);
+      if (new TextEncoder().encode(JSON.stringify(body)).length > DESIGN_CANVAS_HTML_LIMITS.requestBytes) {
+        throw new DesignCanvasHtmlError('request_too_large', 'El diseño y sus referencias exceden el tamaño admitido.', 413);
+      }
+      const canvasRequest = parseDesignCanvasHtmlRequest(body);
+      const [tenantRead, profileRead] = await Promise.all([
+        userClient.from('business_tenants')
+          .select('name,logo_url,primary_color,secondary_color,accent_color,fonts')
+          .eq('id', canvasRequest.business_id).eq('is_active', true).maybeSingle(),
+        userClient.from('creative_profiles').select('version,base_brand,strategic_layer,preferences')
+          .eq('business_id', canvasRequest.business_id).order('version', { ascending: false }).limit(1).maybeSingle(),
+      ]);
+      if (tenantRead.error || !tenantRead.data) throw new DesignCanvasHtmlError('business_access_denied', 'No tienes acceso a esta marca o está inactiva.', 403);
+      if (profileRead.error) throw new DesignCanvasHtmlError('brand_context_unavailable', 'No se pudo cargar la identidad de marca. Inténtalo de nuevo.', 503);
+      const messages = buildDesignCanvasHtmlMessages(canvasRequest, { ...tenantRead.data, profile: profileRead.data });
+      const model = canvasRequest.current_html
+        ? (Deno.env.get('SLIDE_FIX_MODEL') || 'gpt-5.4-mini')
+        : (Deno.env.get('SLIDE_MODEL') || 'gpt-5.4-mini');
+      const result = await callOpenAI({ model, messages, max_completion_tokens: 12000, timeoutMs: 120_000 });
+      if (!result.success) return new Response(JSON.stringify({ error: result.error, message: result.message }), {
+        status: result.status || 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+      const html = finalizeDesignCanvasHtml(result.content || '', canvasRequest);
+      return new Response(JSON.stringify({ html, canvas: canvasRequest.canvas, business_id: canvasRequest.business_id }), {
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // ─── Presentation Slide flow: text/image → slide HTML (Xending Light Editorial) ───
     // Detect by design_system === 'xending-slide'
     if (body.design_system === 'xending-slide') {
@@ -1132,6 +1179,9 @@ ${textPrompt}`,
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
+    if (error instanceof DesignCanvasHtmlError) return new Response(JSON.stringify({ error: error.code, message: error.message }), {
+      status: error.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
     const message = error instanceof Error ? error.message : 'Error desconocido';
     return new Response(
       JSON.stringify({ error: 'server_error', message }),

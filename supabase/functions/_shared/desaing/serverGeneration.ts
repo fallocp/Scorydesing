@@ -11,6 +11,10 @@ import { runLiveServerCall, type LiveWorkerProvider, type WorkerStorage } from '
 import { PILOT_LIMITS } from './pilotHttp.ts';
 import { readPresentationFullDesign, fullDesignImageSize } from './presentationFullDesign.ts';
 import { isPromptAdminOperation } from './promptAdminComparison.ts';
+import { isGenerationProfilePolicy, SELECTABLE_IMAGE_QUALITIES } from './catalog.ts';
+import type { ServerPolicy } from './serverState.ts';
+import { readStudioGeneration, STUDIO_MAX_BRIEF_BYTES } from './studioGeneration.ts';
+import { readAssetGeneration, ASSET_MAX_BRIEF_BYTES } from './assetGeneration.ts';
 
 /** All pins come from server configuration. A browser session supplies no permit or pilot token. */
 export interface ServerGenerationConfig {
@@ -70,7 +74,7 @@ export function createServerGeneration(settings: ServerGenerationConfig, deps: S
     requireValue(p.business_id === config.businessId && p.policy_id === config.policyId
       && p.limit_micro_usd === PILOT_LIMITS.budgetMicroUsd && p.max_image_outputs === PILOT_LIMITS.maxOutputs
       && p.reservation_per_output_micro_usd === PILOT_LIMITS.reservationMicroUsd
-      && p.enabled_image_profiles.length === 1 && p.enabled_image_profiles[0] === PILOT_LIMITS.imageProfile
+      && isGenerationProfilePolicy(p.enabled_image_profiles)
       && p.responses_image_enabled === true, 'server_policy_changed', 409);
   }
   function assertWindow() {
@@ -82,7 +86,8 @@ export function createServerGeneration(settings: ServerGenerationConfig, deps: S
     requireValue(!state?.jobs.jobs.some(job => job.operation_key !== operationKey && job.calls.some(call =>
       ['pending', 'running', 'result_received', 'validating', 'uncertain', 'failed'].includes(call.state))), 'server_previous_operation_unresolved', 409);
   }
-  function remaining(state: ServerSnapshot) {
+  function remaining(state: ServerSnapshot): number | null {
+    if (!PILOT_LIMITS.meteredImageOutputs) return null;
     const quota = getQuotaUsage(state.jobs);
     return Math.max(0, Math.min(PILOT_LIMITS.maxOutputs - quota.image_outputs,
       Math.floor((PILOT_LIMITS.budgetMicroUsd - quota.committed_micro_usd) / PILOT_LIMITS.reservationMicroUsd)));
@@ -97,7 +102,8 @@ export function createServerGeneration(settings: ServerGenerationConfig, deps: S
     assertScope(businessId, actorId, read); assertWindow();
     requireValue(read.policy.enabled, 'server_feature_disabled', 503);
     assertResolved(state, operationKey);
-    requireValue(remaining(state) > 0, 'job_quota_exceeded', 429);
+    const available = remaining(state);
+    requireValue(available === null || available > 0, 'job_quota_exceeded', 429);
   }
   function guardedRepository(operationKey?: string, onEnqueueCommit?: () => void, importing = false): ServerRepository {
     return {
@@ -107,7 +113,8 @@ export function createServerGeneration(settings: ServerGenerationConfig, deps: S
         assertResolved(read.state.snapshot, operationKey);
         if (importing) {
           assertWindow(); requireValue(read.policy.enabled, 'server_feature_disabled', 503);
-          requireValue(!read.state.snapshot || remaining(read.state.snapshot) > 0, 'job_quota_exceeded', 429);
+          const available = read.state.snapshot ? remaining(read.state.snapshot) : null;
+          requireValue(available === null || available > 0, 'job_quota_exceeded', 429);
         }
         return read;
       },
@@ -131,23 +138,45 @@ export function createServerGeneration(settings: ServerGenerationConfig, deps: S
       },
     };
   }
-  function assertOperation(operation: DesignOperation, state: ServerSnapshot, actorId: string, businessId: string) {
+  function assertOperation(operation: DesignOperation, state: ServerSnapshot, actorId: string, businessId: string, policy: ServerPolicy) {
     requireValue(operation.context.actor_id === actorId && operation.context.business_id === businessId, 'server_operation_actor_mismatch', 403);
     const medium = operation.action === 'generate_medium', recreate = operation.action === 'recreate_asset', image = operation.image;
-    const production = operation.context.workspace === 'production', edit = production && operation.action === 'edit_image';
-    let full: ReturnType<typeof readPresentationFullDesign>;
-    try { full = readPresentationFullDesign(operation.context); }
+    const production = operation.context.workspace === 'production';
+    let full: ReturnType<typeof readPresentationFullDesign>, studio: ReturnType<typeof readStudioGeneration>, asset: ReturnType<typeof readAssetGeneration>;
+    try { full = readPresentationFullDesign(operation.context); studio = readStudioGeneration(operation.context); asset = readAssetGeneration(operation.context); }
     catch { throw new ServerBoundaryError('unsupported_server_generation', 400); }
+    const canvasEdit = !!full && ['presentations', 'free_design'].includes(operation.context.workspace) && operation.action === 'edit_image';
+    const edit = (production || canvasEdit) && operation.action === 'edit_image';
+    if (canvasEdit) {
+      requireValue(operation.context.base_asset, 'unsupported_server_generation');
+      const base = getAssetVersion(state.assets, operation.context.base_asset);
+      const provenance = base.provenance;
+      const parent = provenance.kind === 'image_operation' ? state.jobs.jobs.find(job => job.operation_key === provenance.operation_key) : undefined;
+      const previous = parent && readPresentationFullDesign(parent.plan.operation.context);
+      requireValue(previous && canonical(previous.canvas) === canonical(full!.canvas)
+        && base.brand_id === operation.context.brand_id && base.project_id === operation.context.project_id
+        && parent!.plan.operation.context.workspace === operation.context.workspace
+        && parent!.plan.operation.context.target.document_type === operation.context.target.document_type
+        && parent!.plan.operation.context.target.document_id === operation.context.target.document_id
+        && parent!.plan.operation.context.target.slide_id === operation.context.target.slide_id
+        && parent!.plan.operation.context.target.page_id === operation.context.target.page_id
+        && parent!.plan.operation.context.target.element_id === operation.context.target.element_id, 'unsupported_server_generation');
+    }
+    if (studio) requireValue(!full && operation.action === 'generate_image'
+      && operation.context.target.document_id === operation.operation_key && !operation.selected_candidates, 'unsupported_server_generation');
+    if (asset) requireValue(!full && !studio && operation.action === 'generate_image'
+      && operation.context.target.document_id === operation.operation_key && !operation.selected_candidates, 'unsupported_server_generation');
     if (operation.context.workspace === 'onboarding' || production) requireValue(!!full, 'unsupported_server_generation');
     if (production) requireValue(full?.production && (medium || operation.action === full.production.action), 'unsupported_server_generation');
-    const size = full ? fullDesignImageSize(full.canvas, production) : { width: 1024, height: 1024 };
+    const size = asset?.generationSize ?? studio?.canvas ?? (full ? fullDesignImageSize(full.canvas, production) : { width: 1024, height: 1024 });
     if (full) requireValue(!recreate && (!operation.context.placement
       || canonical(operation.context.placement.canvas) === canonical(full.canvas)
       && canonical(operation.context.placement.region) === canonical({ x: 0, y: 0, ...full.canvas, units: 'px' })), 'unsupported_server_generation');
-    requireValue((operation.action === 'generate_image' || recreate || medium || production && ['edit_image', 'regenerate_image'].includes(operation.action)) && !operation.proposals
-      && image?.profile === PILOT_LIMITS.imageProfile && image.executor === config.executor
-      && image.quality === (medium ? 'medium' : 'low') && image.output_count === 1 && image.output_format === 'png'
-      && (medium ? ['opaque', 'transparent'].includes(image.background) : image.background === (recreate ? 'transparent' : 'opaque'))
+    requireValue((operation.action === 'generate_image' || recreate || medium || canvasEdit || production && ['edit_image', 'regenerate_image'].includes(operation.action)) && !operation.proposals
+      && image && policy.enabled_image_profiles.includes(image.profile) && image.executor === config.executor
+      && (medium ? image.quality === 'medium' : SELECTABLE_IMAGE_QUALITIES.some(quality => quality === image.quality))
+      && image.output_count === 1 && image.output_format === 'png'
+      && (medium ? ['opaque', 'transparent'].includes(image.background) : image.background === (asset?.background ?? (recreate ? 'transparent' : 'opaque')))
       && image.size.width === size.width && image.size.height === size.height, 'unsupported_server_generation');
     if (!medium) requireValue(!operation.context.direction_approval && !operation.selected_candidates
       && (recreate || edit ? !!operation.context.base_asset : !operation.context.base_asset), 'unsupported_server_generation');
@@ -156,7 +185,7 @@ export function createServerGeneration(settings: ServerGenerationConfig, deps: S
       && reference.asset_id === operation.context.base_asset!.asset_id && reference.version_id === operation.context.base_asset!.version_id),
     'server_recreation_source_required');
     requireValue(encoder.encode([operation.context.instruction, ...operation.context.immutable_elements].join('\n')).length
-      <= PILOT_LIMITS.maxBriefBytes, 'request_too_large', 413);
+      <= (asset ? ASSET_MAX_BRIEF_BYTES : studio ? STUDIO_MAX_BRIEF_BYTES : PILOT_LIMITS.maxBriefBytes), 'request_too_large', 413);
     requireValue(operation.context.references.length <= GENERATION_MAX_REFERENCES, 'server_generation_reference_limit');
     for (const identity of [...operation.context.references, ...(operation.context.base_asset ? [operation.context.base_asset] : [])]) {
       const version = getAssetVersion(state.assets, { business_id: identity.business_id, asset_id: identity.asset_id, version_id: identity.version_id });
@@ -173,7 +202,7 @@ export function createServerGeneration(settings: ServerGenerationConfig, deps: S
       const parent = source.kind === 'image_operation' ? state.jobs.jobs.find(job => job.operation_key === source.operation_key) : undefined;
       // A changed deployment default cannot migrate an already selected direction to another image route/model.
       requireValue(source.kind === 'image_operation' && source.quality === 'low' && parent
-        && ['generate_image', 'recreate_asset', ...(production ? ['edit_image', 'regenerate_image'] : [])].includes(parent.plan.operation.action)
+        && ['generate_image', 'recreate_asset', ...(full ? ['edit_image'] : []), ...(production ? ['regenerate_image'] : [])].includes(parent.plan.operation.action)
         && parent.plan.operation.image?.quality === 'low' && parent.plan.operation.image.profile === image.profile
         && parent.plan.operation.image.executor === image.executor && parent.plan.operation.image.background === image.background
         && canonical(parent.plan.operation.image.size) === canonical(image.size)
@@ -191,10 +220,12 @@ export function createServerGeneration(settings: ServerGenerationConfig, deps: S
         assertScope(businessId, actorId, read); assertWindow(); assertResolved(value.state);
         requireValue(read.policy.enabled, 'server_feature_disabled', 503);
         generation = { profile: PILOT_LIMITS.imageProfile, executor: config.executor, max_reference_edge: PILOT_LIMITS.maxReferenceEdge,
+          profiles: [...read.policy.enabled_image_profiles], qualities: [...SELECTABLE_IMAGE_QUALITIES],
           max_brief_bytes: PILOT_LIMITS.maxBriefBytes, remaining_outputs: remaining(value.state),
-          max_references: GENERATION_MAX_REFERENCES, supports_recreation: true, supports_full_design: true };
+          max_references: GENERATION_MAX_REFERENCES, supports_recreation: true, supports_full_design: true, supports_full_design_edit: true, supports_studio_generation: true, supports_asset_generation: true };
       } catch { /* A paused, expired or unavailable execution gate does not hide saved work. */ }
-      return { ...value, enabled: value.enabled && !!generation && generation.remaining_outputs > 0, generation };
+      return { ...value, enabled: value.enabled && !!generation
+        && (generation.remaining_outputs === null || generation.remaining_outputs > 0), generation };
     },
     async import(actorId, input, bytes) {
       const { read, value } = await readOnce(input.businessId, actorId);
@@ -218,7 +249,7 @@ export function createServerGeneration(settings: ServerGenerationConfig, deps: S
         return { revision: value.revision, job: previous, reused: true, execution: { status: 'already_started' } };
       }
       assertAdmission(businessId, actorId, read, value.state, operation.operation_key);
-      assertOperation(operation, value.state, actorId, businessId);
+      assertOperation(operation, value.state, actorId, businessId, read.policy);
       if (operation.context.workspace === 'production') {
         requireValue(deps.validateProduction, 'server_production_unavailable', 503);
         await deps.validateProduction(operation, value.state, 'admit');

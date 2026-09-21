@@ -7,7 +7,7 @@ import { DesignServerClientError, type DesignServerClient } from './serverClient
 
 export type PromptComparisonSide = 'before' | 'after';
 export interface PromptComparisonItem { side: PromptComparisonSide; status: JobCallState | 'saved' | 'uncertain'; job: DesignJob | null; asset: RegisteredAssetVersion | null }
-export interface PromptComparisonState { busy: boolean; ready: boolean; remaining: number; needed: number; canGenerate: boolean; items: PromptComparisonItem[] }
+export interface PromptComparisonState { busy: boolean; ready: boolean; remaining: number | null; needed: number; canGenerate: boolean; items: PromptComparisonItem[] }
 export interface PromptComparisonStorage { getItem(key: string): string | null; setItem(key: string, value: string): void }
 interface Journal { schema_version: 1; test_hash: string; attempted: PromptComparisonSide[]; review?: PromptAdminReviewInput }
 const sides: PromptComparisonSide[] = ['before', 'after'];
@@ -57,8 +57,10 @@ export function createPromptAdminComparisonController(options: {
     const rows = items(), needed = rows.filter(item => !item.job).length, generation = read?.generation;
     const incompatible = !generation || generation.executor !== test.executor || generation.profile !== 'flare_candidate';
     const blocked = rows.some(item => item.status === 'uncertain') || read?.state.jobs.jobs.some(job => job.calls.some(call => unresolved.includes(call.state)));
-    return structuredClone({ busy, ready, remaining: generation?.remaining_outputs ?? 0, needed,
-      canGenerate: ready && !busy && !incompatible && !blocked && needed > 0 && (generation?.remaining_outputs ?? 0) >= needed, items: rows });
+    const remaining = generation?.remaining_outputs ?? null;
+    return structuredClone({ busy, ready, remaining, needed,
+      canGenerate: ready && !busy && !incompatible && !blocked && needed > 0
+        && (remaining === null || remaining >= needed), items: rows });
   }
   function publish() { if (!closed) options.onChange?.(snapshot()); }
   async function refresh() { await current(); const response = await client.read(test.business_id); await current(); read = response; items(); ready = true; publish(); }
@@ -74,7 +76,8 @@ export function createPromptAdminComparisonController(options: {
       const rows = items(), missing = rows.filter(item => !item.job);
       if (!missing.length) return snapshot();
       if (rows.some(item => item.status === 'uncertain')) throw Error('prompt_comparison_uncertain');
-      if (!read?.generation || read.generation.remaining_outputs < missing.length) throw Error('prompt_comparison_quota');
+      if (!read?.generation || read.generation.remaining_outputs !== null
+        && read.generation.remaining_outputs < missing.length) throw Error('prompt_comparison_quota');
       if (read.generation.executor !== test.executor || read.generation.profile !== 'flare_candidate') throw Error('prompt_comparison_configuration_changed');
       for (const row of missing) {
         await current(); await refresh();

@@ -5,7 +5,7 @@ import type { DesignOperation, AssetVersion } from '../../contracts.ts';
 import { normalizeImageResponse } from '../../imageResponse.ts';
 
 /** Domain-valid simulated low→direction approval→medium→final review; no provider or Storage I/O. */
-export async function approvedBrandDirection(draft: BrandSetupDraft, policy: ServerPolicy, reviewed = true) {
+export async function approvedBrandDirection(draft: BrandSetupDraft, policy: ServerPolicy, reviewed = true, directQuality?: 'medium' | 'high') {
   const actor = draft.actor_id, business = draft.business_id;
   let state = createServerSnapshot(business, policy);
   const low: DesignOperation = { operation_key: 'brand-low', action: 'generate_image', context: {
@@ -32,6 +32,12 @@ export async function approvedBrandDirection(draft: BrandSetupDraft, policy: Ser
     return identity;
   }
   const first = result(low, false), candidate = { ...first, candidate_id: 'brand-selected' };
+  if (directQuality) {
+    // A separately selected render, not a promotion of the unrelated low draft.
+    const direct = { ...structuredClone(low), operation_key: `brand-direct-${directQuality}`,
+      image: { ...low.image!, quality: directQuality } };
+    const identity = result(direct, reviewed); return { state, identity, low: first };
+  }
   state = applyServerCommand(state, policy, actor, { kind: 'approve_direction', approval: { actor_id: actor, approval_id: 'brand-approval', candidate,
     immutable_elements: low.context.immutable_elements } }, 15).state;
   const medium: DesignOperation = { ...structuredClone(low), operation_key: 'brand-medium', action: 'generate_medium',

@@ -11,6 +11,7 @@ import { readServerState, ServerBoundaryError, type ServerRepository } from './s
 import type { ServerHtmlConfig } from './serverHtml.ts';
 import { assertBusinessId } from './serverRequest.ts';
 import { PILOT_LIMITS } from './pilotHttp.ts';
+import { isGenerationProfilePolicy } from './catalog.ts';
 
 export interface ServerOnboardingBoundary {
   read(actorId: string, businessId: string): Promise<BrandSetupRead>;
@@ -37,7 +38,7 @@ export function createServerOnboarding(settings: ServerHtmlConfig, deps: ServerO
     const p = read.policy;
     need(p.business_id === businessId && p.policy_id === config.policyId && p.limit_micro_usd === PILOT_LIMITS.budgetMicroUsd
       && p.max_image_outputs === PILOT_LIMITS.maxOutputs && p.reservation_per_output_micro_usd === PILOT_LIMITS.reservationMicroUsd
-      && same(p.enabled_image_profiles, [PILOT_LIMITS.imageProfile]) && p.responses_image_enabled, 'server_policy_changed');
+      && isGenerationProfilePolicy(p.enabled_image_profiles) && p.responses_image_enabled, 'server_policy_changed');
     return read;
   }
   async function materialContext(draft: BrandSetupDraft): Promise<string> {
@@ -62,9 +63,13 @@ export function createServerOnboarding(settings: ServerHtmlConfig, deps: ServerO
     const state = await readServerState({ ...deps.repository, read: async () => read }, draft.business_id, draft.actor_id);
     let asset; try { asset = getAssetVersion(state.state.assets, draft.direction); } catch { throw new ServerBoundaryError('server_onboarding_direction_changed', 409); }
     const provenance = asset.provenance;
-    need(provenance.kind === 'image_operation' && provenance.quality === 'medium' && getAssetReviewStatus(state.state.assets, draft.direction) === 'approved', 'server_onboarding_direction_not_approved');
+    need(provenance.kind === 'image_operation' && ['medium', 'high'].includes(provenance.quality)
+      && getAssetReviewStatus(state.state.assets, draft.direction) === 'approved', 'server_onboarding_direction_not_approved');
     const job = state.state.jobs.jobs.find(j => j.operation_key === provenance.operation_key), op = job?.plan.operation;
-    need(op?.action === 'generate_medium', 'server_onboarding_direction_changed');
+    // Historical promotions keep their parent/direction checks. A separately
+    // requested medium/high design is reviewed directly, never labelled a promotion.
+    need(op && (op.action === 'generate_medium' || op.action === 'generate_image'
+      && op.image?.quality === provenance.quality && !op.context.base_asset && !op.context.direction_approval), 'server_onboarding_direction_changed');
     const c = op.context, t = c.target;
     need(c.business_id === draft.business_id && c.actor_id === draft.actor_id && c.brand_id === draft.business_id && c.project_id === draft.id
       && c.workspace === 'onboarding' && t.document_type === 'special' && t.document_id === draft.id && t.page_id === draft.page_id

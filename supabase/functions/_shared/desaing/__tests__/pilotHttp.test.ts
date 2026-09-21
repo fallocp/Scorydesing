@@ -123,7 +123,7 @@ describe('administrative pilot authentication, configuration and scope', () => {
     if (field === 'limit') f.repository.policy.limit_micro_usd++;
     if (field === 'reserve') f.repository.policy.reservation_per_output_micro_usd--;
     if (field === 'outputs') f.repository.policy.max_image_outputs++;
-    if (field === 'profile') f.repository.policy.enabled_image_profiles.push('sunburst_rescue');
+    if (field === 'profile') f.repository.policy.enabled_image_profiles = [];
     if (field === 'policy') f.repository.policy.policy_id = 'changed';
     if (field === 'responses') f.repository.policy.responses_image_enabled = false;
     if (field === 'role') f.repository.role = 'editor';

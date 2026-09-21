@@ -19,6 +19,14 @@ import {
  */
 import { HIGHLIGHT_CEILING_EN } from "../_shared/carouselHighlights.ts";
 import { buildSceneRepertoireBlock, getSceneKit } from "../_shared/sceneKitRegistry.ts";
+import {
+  decodeImageReference,
+  ImageGenerationInputError,
+  resolveImageGenerationOptions,
+  type ImageModel,
+  type LegacyImageQuality,
+} from "../_shared/imageGenerationOptions.ts";
+import { createPipelineImageTransport, generatePipelineImage, PipelineImageBridgeError } from "../_shared/desaing/pipelineImageBridge.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -143,6 +151,7 @@ interface GenerateImageRequest {
   imageIntent?: string;  // semantic concept: what the image should COMMUNICATE (replaces imageDirection)
   funnelStage?: 'atraccion' | 'conexion' | 'conversion';  // adjusts visual tone per funnel stage
   pipelineRunId?: string;  // UUID for pipeline traceability
+  generationRequestId?: string; // Persisted explicit version; reused for delivery retries.
   visualStyle?: string;
   recommendedTemplate?: string;
   visualGuidelines?: string;
@@ -191,9 +200,9 @@ interface GenerateImageRequest {
   // (professional, icon_3d, slide, ...) drive its own look, including
   // live-edited prompts that are not yet persisted.
   styleSystemPrompt?: string;
-  // Image Stock Studio: gpt-image-2 render quality. Defaults to 'medium' to
-  // preserve cost/behavior for existing flows; the new style generators pass 'high'.
-  imageQuality?: 'low' | 'medium' | 'high' | 'auto';
+  // Omitted selections retain GPT Image 2 / medium for existing callers.
+  imageModel?: ImageModel;
+  imageQuality?: LegacyImageQuality;
   // Image Stock Studio — image-to-image (restyle / remix). When set, the image
   // is generated via the OpenAI images/edits endpoint using this reference as
   // pixels (preserving subject/composition) instead of pure text-to-image.
@@ -972,15 +981,6 @@ serve(async (req) => {
   }
 
   try {
-    const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
-    if (!openAIApiKey) {
-      console.error('OpenAI API key not found in environment');
-      return new Response(
-        JSON.stringify({ error: 'auth_error', message: 'Service unavailable' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
     let requestBody: GenerateImageRequest;
     try {
       requestBody = await req.json();
@@ -992,11 +992,38 @@ serve(async (req) => {
       );
     }
 
+    if (!requestBody || typeof requestBody !== 'object' || Array.isArray(requestBody)) {
+      return new Response(
+        JSON.stringify({ error: 'parse_error', message: 'Invalid request body' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    // Prompt preparation stays here; paid image work belongs to shared jobs.
+    resolveImageGenerationOptions(requestBody.imageModel, requestBody.imageQuality, { allowAuto: true });
+    decodeImageReference(requestBody.referenceImageBase64);
+    if (requestBody.mode === 'generate' && requestBody.pipelineRunId) {
+      return await handlePipelineImagePath(requestBody, req);
+    }
+    const promptOnly = requestBody.mode === 'prompts' || requestBody.mode === 'carousel_prompts'
+      || (requestBody.mode === undefined && !!requestBody.business_id && !requestBody.styleSystemPrompt && !requestBody.promptFinal);
+    if (!promptOnly) return new Response(JSON.stringify({ error: 'shared_image_engine_required',
+      message: 'Actualiza la aplicación para generar esta imagen mediante desaing-server. Esta función solo prepara los prompts.' }),
+      { status: 426, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+
     const { userRequest, brand } = requestBody;
     if (!userRequest || !brand) {
       return new Response(
         JSON.stringify({ error: 'parse_error', message: 'Missing required fields: userRequest, brand' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+    if (!openAIApiKey) {
+      console.error('OpenAI API key not found in environment');
+      return new Response(
+        JSON.stringify({ error: 'auth_error', message: 'Service unavailable' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -1025,9 +1052,9 @@ serve(async (req) => {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 
     return new Response(
-      JSON.stringify({ error: 'parse_error', message: errorMessage }),
+      JSON.stringify({ error: error instanceof PipelineImageBridgeError ? error.code : 'parse_error', message: errorMessage }),
       {
-        status: 500,
+        status: error instanceof PipelineImageBridgeError ? error.status : error instanceof ImageGenerationInputError ? 400 : 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     );
@@ -2024,110 +2051,6 @@ async function handleMasterImagePath(
     : DEFAULT_MASTER_IMAGE_BACKGROUND_STYLE;
   const effectiveBackgroundStyle = requestBody.backgroundStyle ?? selectedDefaultBackgroundStyle;
 
-  // ── mode = "generate": skip prompt building, go straight to image generation ──
-  if (mode === 'generate') {
-    if (!requestBody.promptFinal) {
-      return new Response(
-        JSON.stringify({ error: 'parse_error', message: 'Missing promptFinal for mode=generate' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    console.log(`Step 2 (generate mode, type=${requestBody.imageType}): Generating image via gpt-image-2...`);
-
-    const step2Response = await fetchWithRetry(
-      'https://api.openai.com/v1/images/generations',
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${openAIApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'gpt-image-2',
-          prompt: requestBody.promptFinal,
-          n: 1,
-          size: resolveImageSize(requestBody.imageSize, aspectRatio),
-          quality: requestBody.imageQuality ?? 'medium',
-        }),
-      },
-      openAIApiKey
-    );
-
-    if (step2Response.error) {
-      return new Response(
-        JSON.stringify(step2Response),
-        { status: step2Response.status || 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const step2Data = await step2Response.response!.json();
-    const imageBase64 = step2Data.data?.[0]?.b64_json ?? step2Data.data?.[0]?.b64;
-
-    if (!imageBase64) {
-      return new Response(
-        JSON.stringify({ error: 'parse_error', message: 'No image generated from AI' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    console.log('Image generated successfully (generate mode).');
-
-    /**
-     * Catalogue the image in image_library.
-     *
-     * The row id is returned so a caller that also saves a mockup can link the two
-     * (`image_library.mockup_id`). Without that link the library keeps its own copy
-     * of the bytes forever: deleting the mockup left the image visible in the asset
-     * catalogue, pointing at a file that no longer existed.
-     *
-     * The insert stays here rather than moving to the client because the pipeline
-     * uses this same path and never creates a mockup — moving it would silently
-     * stop cataloguing every pipeline image.
-     */
-    let imageLibraryId: string | null = null;
-    try {
-      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-      const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-      const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-      const { data: libraryRow } = await supabase
-        .from('image_library')
-        .insert({
-          business_id: requestBody.business_id,
-          image_base64: imageBase64,
-          commercial_branch_id: requestBody.branch_id ?? null,
-          image_type: requestBody.imageType ?? null,
-          image_intent: requestBody.imageIntent ?? null,
-          angle_tag: requestBody.angle ?? 'unknown',
-          pipeline_run_id: requestBody.pipelineRunId ?? null,
-        })
-        .select('id')
-        .single();
-
-      imageLibraryId = (libraryRow as { id: string } | null)?.id ?? null;
-      console.log('Image saved to image_library.');
-    } catch (saveErr) {
-      // Non-blocking: log error but still return the image
-      console.error('Failed to save image to image_library (non-blocking):', saveErr);
-    }
-
-    return new Response(
-      JSON.stringify({
-        imageBase64,
-        imageType: requestBody.imageType,
-        // Null when the catalogue insert failed; the caller just skips the link.
-        imageLibraryId,
-        promptUsed: {
-          promptFinal: requestBody.promptFinal,
-          negativeInstructions: requestBody.negativeInstructions ?? '',
-          aspectRatio,
-        },
-      }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  }
-
   // ── mode = "prompts": build all 3 prompts, return without generating image ──
 
   console.log('Master image prompt path (prompts mode): fetching business context...');
@@ -2411,7 +2334,7 @@ async function handleMasterImagePath(
       },
       // Convenience: tell the caller how to activate each type
       usage: {
-        next_step: 'Call this endpoint again with mode="generate", imageType=<type>, promptFinal=<prompts[type].prompt_final>',
+        next_step: 'Submit the selected prompt to desaing-server using an authenticated asset-generation job',
         available_types: ['fotografia', 'infografia', 'mapa_rutas'],
       },
     }),
@@ -2679,7 +2602,7 @@ async function buildCarouselPrompts(
         backgroundStyle,
       },
       usage: {
-        next_step: 'Call this endpoint again per slide with mode="generate", promptFinal=<slides[i].promptFinal>, imageSize=<imageSize>',
+        next_step: 'Submit each slide prompt to desaing-server using one authenticated asset-generation job per slide',
       },
     }),
     { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -2712,7 +2635,7 @@ async function handleLegacyPath(
       recommended_use: '',
       creative_rationale: '',
     };
-    return await generateImageFromPromptData(approved, requestBody, openAIApiKey, aspectRatio);
+    return promptOnlyResponse(approved);
   }
 
   // Build the dynamic prompt template for the user message
@@ -2854,147 +2777,44 @@ Follow the STYLE INSTRUCTIONS above exactly — they define the colors, material
 
   console.log('Step 1 complete. Prompt generated successfully.');
 
-  // Prompt-only mode: return the built prompt WITHOUT generating the image, so
-  // the UI can show it in an editable "gate" for the user to approve/edit
-  // before spending an image generation. The approved text is then sent back
-  // via `promptFinal` (short-circuit at the top of this function).
-  if (requestBody.mode === 'prompts') {
-    return new Response(
-      JSON.stringify({
-        promptUsed: {
-          promptFinal: promptData.prompt_final,
-          negativeInstructions: promptData.negative_instructions,
-          aspectRatio: promptData.aspect_ratio,
-          recommendedUse: promptData.recommended_use,
-          creativeRationale: promptData.creative_rationale,
-        },
-      }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-    );
-  }
-
-  return await generateImageFromPromptData(promptData, requestBody, openAIApiKey, aspectRatio);
+  return promptOnlyResponse(promptData);
 }
 
-/**
- * Step 2 (shared): generate the image from a ready PromptBuilderResponse via
- * the OpenAI Images API (gpt-image-2). Used by both the normal 2-step legacy
- * flow and the approved-prompt short-circuit, so the rendering behaviour stays
- * identical regardless of how the prompt was produced.
- */
-async function generateImageFromPromptData(
-  promptData: PromptBuilderResponse,
-  requestBody: GenerateImageRequest,
-  openAIApiKey: string,
-  aspectRatio: string,
-): Promise<Response> {
-  // How many variations to return (1–3).
-  const count = Math.min(3, Math.max(1, Math.round(requestBody.imageCount ?? 1)));
-  const quality = requestBody.imageQuality ?? 'medium';
-  const size = aspectRatioToSize(aspectRatio);
-  const hasReference = !!(requestBody.referenceImageBase64 && requestBody.referenceImageBase64.trim());
-
-  let step2Response;
-  if (hasReference) {
-    // ─── Image-to-image (restyle / remix) via images/edits ───
-    // The reference is passed as pixels so the subject/composition is preserved
-    // and only the styling/finish changes (what ChatGPT does with an uploaded
-    // image + "same concept, restyle").
-    console.log(`Step 2: Restyling reference image via gpt-image-2 edits (n=${count})...`);
-    const bytes = base64ToUint8Array(requestBody.referenceImageBase64!);
-    const form = new FormData();
-    form.append('model', 'gpt-image-2');
-    form.append('prompt', promptData.prompt_final);
-    form.append('n', String(count));
-    form.append('size', size);
-    form.append('quality', quality);
-    form.append('image', new Blob([bytes], { type: 'image/png' }), 'reference.png');
-
-    step2Response = await fetchWithRetry(
-      'https://api.openai.com/v1/images/edits',
-      {
-        method: 'POST',
-        // No Content-Type header: fetch sets the multipart boundary for FormData.
-        headers: { 'Authorization': `Bearer ${openAIApiKey}` },
-        body: form,
-      },
-      openAIApiKey
-    );
-  } else {
-    console.log(`Step 2: Generating image via gpt-image-2 (n=${count})...`);
-    step2Response = await fetchWithRetry(
-      'https://api.openai.com/v1/images/generations',
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${openAIApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'gpt-image-2',
-          prompt: promptData.prompt_final,
-          n: count,
-          size,
-          quality,
-        }),
-      },
-      openAIApiKey
-    );
-  }
-
-  if (step2Response.error) {
-    return new Response(
-      JSON.stringify(step2Response),
-      {
-        status: step2Response.status || 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    );
-  }
-
-  const step2Data = await step2Response.response!.json();
-  const images: string[] = Array.isArray(step2Data.data)
-    ? step2Data.data
-        .map((d: { b64_json?: string; b64?: string }) => d.b64_json ?? d.b64)
-        .filter((b: string | undefined): b is string => !!b)
-    : [];
-
-  if (images.length === 0) {
-    console.error('No image data in Step 2 response. Response keys:', JSON.stringify(Object.keys(step2Data)));
-    return new Response(
-      JSON.stringify({ error: 'parse_error', message: 'No image generated from AI' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  }
-
-  console.log(`Step 2 complete. ${images.length} image(s) generated successfully.`);
-
-  return new Response(
-    JSON.stringify({
-      imageBase64: images[0],
-      images,
-      promptUsed: {
-        promptFinal: promptData.prompt_final,
-        negativeInstructions: promptData.negative_instructions,
-        aspectRatio: promptData.aspect_ratio,
-        recommendedUse: promptData.recommended_use,
-        creativeRationale: promptData.creative_rationale,
-      },
-    }),
-    {
-      status: 200,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    }
-  );
+function promptOnlyResponse(promptData: PromptBuilderResponse): Response {
+  return new Response(JSON.stringify({ promptUsed: {
+    promptFinal: promptData.prompt_final, negativeInstructions: promptData.negative_instructions,
+    aspectRatio: promptData.aspect_ratio, recommendedUse: promptData.recommended_use,
+    creativeRationale: promptData.creative_rationale,
+  } }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 }
 
-/** Decode a base64 string or data URL into raw bytes for multipart upload. */
-function base64ToUint8Array(input: string): Uint8Array {
-  const base64 = input.includes(',') ? input.slice(input.indexOf(',') + 1) : input;
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return bytes;
+/** Existing pipeline compatibility; all paid work is admitted by desaing-server. */
+async function handlePipelineImagePath(requestBody: GenerateImageRequest, req: Request): Promise<Response> {
+  const authorization = req.headers.get('Authorization') ?? '';
+  const token = /^Bearer ([^\s]+)$/i.exec(authorization)?.[1];
+  if (!token) throw new PipelineImageBridgeError('authentication_required', 401, 'Inicia sesión para generar la imagen.');
+  const origin = Deno.env.get('SUPABASE_URL'), publicKey = Deno.env.get('SUPABASE_ANON_KEY');
+  if (!origin || !publicKey) throw new PipelineImageBridgeError('service_unavailable', 503, 'El motor compartido no está disponible.');
+  const client = createClient(origin, publicKey, { global: { headers: { Authorization: authorization } },
+    auth: { persistSession: false, autoRefreshToken: false } });
+  const { data: identity, error: authError } = await client.auth.getUser(token);
+  if (authError || !identity.user) throw new PipelineImageBridgeError('authentication_required', 401, 'La sesión no es válida.');
+  const { data: run, error: runError } = await client.from('pipeline_runs').select('id')
+    .eq('id', requestBody.pipelineRunId).eq('business_id', requestBody.business_id).maybeSingle();
+  if (runError || !run) throw new PipelineImageBridgeError('business_access_denied', 403, 'No tienes acceso a este pipeline.');
+  const result = await generatePipelineImage(requestBody, {
+    actorId: identity.user.id, ...createPipelineImageTransport({ origin, publicKey, authorization }),
+    async catalogue(id, imageBase64) {
+      const { error } = await client.from('image_library').upsert({ id, business_id: requestBody.business_id,
+        image_base64: imageBase64, commercial_branch_id: requestBody.branch_id ?? null,
+        image_type: requestBody.imageType ?? null, image_intent: requestBody.imageIntent ?? null,
+        angle_tag: requestBody.angle ?? 'unknown', pipeline_run_id: requestBody.pipelineRunId,
+      }, { onConflict: 'id', ignoreDuplicates: true });
+      if (error) throw new PipelineImageBridgeError('pipeline_catalogue_pending', 503,
+        'La imagen está guardada. Reanuda para completar la biblioteca sin generar otra imagen.');
+    },
+  });
+  return new Response(JSON.stringify(result), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 }
 
 /**

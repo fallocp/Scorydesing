@@ -1,4 +1,16 @@
 .dep-panel { margin: 16px 0; color: #253b3d; min-width: 0; }
+.dep-idea-details { margin: 16px 0; }
+.dep-idea-details > summary, .dep-persistence > summary { cursor: pointer; font-size: 12px; color: #46665d; padding: 10px 0; }
+.dep-panel-compact { margin: 0 0 22px; }
+.dep-panel-compact .dep-discussion { border-top: 0; padding-top: 0; margin-top: 16px; }
+.dep-panel-compact .dep-discussion h4 { display: none; }
+.dep-panel-compact .dep-discussion ol:empty { display: none; }
+.dep-panel-compact .dep-discussion ol { max-height: 260px; }
+.dep-panel-compact .dep-toolbar { display: grid; grid-template-columns: 1fr; }
+.dep-panel-compact .dep-ideas { grid-template-columns: 1fr; }
+.dep-panel-compact .dep-field textarea { min-height: 96px; line-height: 1.6; padding: 12px; }
+.dep-panel-compact .dep-discussion form > button { width: 100%; }
+.dep-persistence { margin-top: 16px; }
 .dep-panel *, .dep-panel *::before, .dep-panel *::after { box-sizing: border-box; }
 .dep-heading { display: flex; justify-content: space-between; align-items: start; gap: 12px; }
 .dep-heading h3 { margin: 0 0 5px; font-size: 18px; letter-spacing: -.3px; }
@@ -39,3 +51,8 @@
 .dep-message p { margin: 5px 0 0; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
 .dep-panel button:focus-visible, .dep-panel input:focus-visible, .dep-panel textarea:focus-visible, .dep-panel select:focus-visible { outline: 3px solid #4e9e88; outline-offset: 2px; }
 @media (max-width: 600px) { .dep-ideas { grid-template-columns: 1fr; } .dep-toolbar { flex-direction: column; } .dep-toolbar button { width: 100%; } }
+.dep-understanding { padding: 14px; border: 1px solid #c4ded7; border-radius: 12px; background: #f4faf8; margin: 12px 0; overflow-wrap: anywhere; }
+.dep-understanding h4 { margin: 0 0 8px; font-size: 14px; }
+.dep-understanding p, .dep-understanding li { font-size: 13px; line-height: 1.55; }
+.dep-understanding summary { cursor: pointer; font-weight: 600; font-size: 13px; }
+.dep-literal { white-space: pre-wrap; padding: 10px; background: white; border-radius: 8px; }

@@ -15,6 +15,8 @@ import { assertBrandSetupSaveInput, assertBrandSetupPublishInput } from './onboa
 import type { ServerProductionBoundary } from './serverProduction.ts';
 import { assertProductionApplyInput, assertProductionPrepareInput, assertProductionSource } from './production.ts';
 import type { ServerPromptAdminBoundary } from './serverPromptAdmin.ts';
+import { StudioPreparationError, type PreparedStudioMockup } from '../studioMockupPrompt.ts';
+import { ImageGenerationInputError } from '../imageGenerationOptions.ts';
 import { assertPromptAdminSaveInput, assertPromptAdminTestInput, assertPromptAdminReviewInput, assertPromptAdminPublishInput, assertPromptAdminRevertInput,
   assertPromptAdminDiscardInput, assertPromptAdminType } from './promptAdmin.ts';
 
@@ -32,6 +34,8 @@ export interface ServerHttpDependencies {
   onboarding?: ServerOnboardingBoundary;
   production?: ServerProductionBoundary;
   promptAdmin?: ServerPromptAdminBoundary;
+  /** Read-only Studio prompt composition; paid work always uses generation.enqueue. */
+  studioPrepare?(actorId: string, input: unknown): Promise<PreparedStudioMockup>;
 }
 
 export function createServerHandler(deps: ServerHttpDependencies) {
@@ -86,6 +90,15 @@ export function createServerHandler(deps: ServerHttpDependencies) {
       let body: unknown;
       try { body = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(await boundedBody(request, 262144))); }
       catch (error) { if (error instanceof ServerBoundaryError) throw error; throw new ServerBoundaryError('invalid_json'); }
+      if (url.pathname.endsWith('/desaing-server/studio/prepare')) {
+        if (!deps.studioPrepare) throw new ServerBoundaryError('server_studio_unavailable', 503);
+        try { return reply(200, { prepared: await deps.studioPrepare(actor.id, body) }); }
+        catch (error) {
+          if (error instanceof StudioPreparationError) throw new ServerBoundaryError(error.code, error.status);
+          if (error instanceof ImageGenerationInputError) throw new ServerBoundaryError('invalid_studio_request', 400);
+          throw error;
+        }
+      }
       const promptRoute = /\/desaing-server\/prompt-admin\/(capabilities|read|save|test|review|publish|revert|discard|recover)$/.exec(url.pathname)?.[1];
       if (promptRoute) {
         if (!deps.promptAdmin) throw new ServerBoundaryError('server_prompt_admin_unavailable', 503);

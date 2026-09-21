@@ -11,6 +11,7 @@ import { inspectServerPng } from './serverPng.ts';
 import { productionOutputCanvas, readPresentationFullDesign } from './presentationFullDesign.ts';
 import { getAssetVersion, getAssetReviewStatus, type RegisteredAssetVersion } from './assets.ts';
 import { PILOT_LIMITS } from './pilotHttp.ts';
+import { isGenerationProfilePolicy } from './catalog.ts';
 
 export interface ProductionStorage { get(key: string): Promise<Uint8Array>; putImmutable(key: string, bytes: Uint8Array): Promise<void> }
 export interface ServerProductionDependencies { repository: ServerRepository; productionRepository: ProductionRepository;
@@ -69,7 +70,7 @@ export function createServerProduction(settings: ServerHtmlConfig, deps: ServerP
     need(actor === config.actorId && biz === config.businessId && ['owner', 'admin'].includes(read.role), 'business_write_denied', 403);
     need(p.business_id === biz && p.policy_id === config.policyId && p.limit_micro_usd === PILOT_LIMITS.budgetMicroUsd
       && p.reservation_per_output_micro_usd === PILOT_LIMITS.reservationMicroUsd && p.max_image_outputs === PILOT_LIMITS.maxOutputs
-      && same(p.enabled_image_profiles, [PILOT_LIMITS.imageProfile]) && p.responses_image_enabled, 'server_policy_changed'); return read;
+      && isGenerationProfilePolicy(p.enabled_image_profiles) && p.responses_image_enabled, 'server_policy_changed'); return read;
   }
   async function original(source: ProductionSourceState, biz: string) {
     const key = productionLegacyKey(source.base_mockup.image_url, config.expectedSupabaseOrigin, biz);
@@ -151,7 +152,7 @@ export function createServerProduction(settings: ServerHtmlConfig, deps: ServerP
       need(asset.provenance.kind === 'image_operation' && getAssetReviewStatus(state.state.assets, request.result_asset) === 'approved', 'production_not_approved');
       const provenance = asset.provenance;
       const operation = state.state.jobs.jobs.find(j => j.operation_key === provenance.operation_key)?.plan.operation;
-      need(operation && (operation.context.interaction_mode === 'execute_change' || provenance.quality === 'medium'), 'production_not_approved');
+      need(operation && (operation.context.interaction_mode === 'execute_change' || ['medium', 'high'].includes(provenance.quality)), 'production_not_approved');
       need((await operationSnapshot(actor, operation, false)).id === snapshot.id, 'production_result_mismatch');
       const bytes = await verifiedAsset(request.result_asset, asset);
       need(asset.storage.width === snapshot.output_canvas.width && asset.storage.height === snapshot.output_canvas.height, 'production_result_mismatch');

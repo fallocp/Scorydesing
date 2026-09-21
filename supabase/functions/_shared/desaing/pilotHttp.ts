@@ -8,9 +8,11 @@ import { importServerAsset, type PrivateAssetStorage } from './serverStorage.ts'
 import { inspectServerPng } from './serverPng.ts';
 import { runLiveServerCall, type LiveWorkerProvider, type WorkerStorage } from './serverWorker.ts';
 import type { LiveExecutionPermit, LiveExecutionTarget } from './liveExecution.ts';
+import { isGenerationProfilePolicy } from './catalog.ts';
 
 /** Deliberately fixed pilot scope. Reservations are retained; no inferred settlement. */
-export const PILOT_LIMITS = Object.freeze({ budgetMicroUsd: 5000000, reservationMicroUsd: 1000000, maxOutputs: 4,
+export const PILOT_LIMITS = Object.freeze({ budgetMicroUsd: 5_000_000, reservationMicroUsd: 1_000_000,
+  maxOutputs: 4, meteredImageOutputs: true,
   imageProfile: 'flare_candidate' as const, imageModel: 'gpt-image-2.5-flare', responsesModel: 'gpt-5.4-mini',
   responsesMaxOutputTokens: 2048, maxReferenceEdge: 1024, maxReferences: 2, maxBriefBytes: 4000,
   targetApprovalId: 'fai-xending-pilot-2026-09-17' });
@@ -84,7 +86,7 @@ function assertPolicy(policy: ServerPolicy, config: PilotConfig): void {
   requireValue(policy.business_id === config.businessId && policy.policy_id === config.policyId
     && policy.limit_micro_usd === PILOT_LIMITS.budgetMicroUsd && policy.max_image_outputs === PILOT_LIMITS.maxOutputs
     && policy.reservation_per_output_micro_usd === PILOT_LIMITS.reservationMicroUsd
-    && policy.enabled_image_profiles.length === 1 && policy.enabled_image_profiles[0] === PILOT_LIMITS.imageProfile
+    && isGenerationProfilePolicy(policy.enabled_image_profiles)
     && policy.responses_image_enabled === true, 'pilot_policy_mismatch', 409);
 }
 function assertNoOtherActiveOrUncertain(state: ServerSnapshot | null, operationKey?: string): void {

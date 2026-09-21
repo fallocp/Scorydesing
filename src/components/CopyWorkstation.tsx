@@ -12,6 +12,9 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useDesignStore } from '@/store/designStore';
 import { useGenerateImage } from '@/hooks/useGenerateImage';
+import { ImageGenerationControls } from '@/components/image-generation/ImageGenerationControls';
+import { acknowledgeSharedDesignImage, recoverSharedDesignImage } from '@/lib/desaing/sharedImageGeneration';
+import { saveImageToLibrary } from '@/utils/imageStock/saveImageToLibrary';
 import { useImageLibrary } from '@/hooks/useImageLibrary';
 import { generatePieceHtml, renderHtmlToPng } from '@/utils/xendingDesign/canvasRenderer';
 import { useSaveDesignPiece, useDesignPieces, useDeleteDesignPiece } from '@/hooks/useDesignPieces';
@@ -152,7 +155,7 @@ export function CopyWorkstation({ branch, branchName, initialBrainstormOpen = fa
   const defaultTemplateId = bulletinMeta?.templateId || (isBulletin ? 'bulletin-dark' : 'card-light');
   const currentCampaign = useDesignStore((s) => s.currentCampaign);
   const setCampaign = useDesignStore((s) => s.setCampaign);
-  const generateImage = useGenerateImage();
+  const generateImage = useGenerateImage('copy-workstation');
   const savePieceMutation = useSaveDesignPiece();
   const saveToLibraryMutation = useSaveToDesignLibrary();
   const deletePieceMutation = useDeleteDesignPiece();
@@ -710,6 +713,12 @@ export function CopyWorkstation({ branch, branchName, initialBrainstormOpen = fa
 
   // Active business for multi-channel renderer
   const { activeBusinessId } = useActiveBusiness();
+  const imageScope = JSON.stringify([activeBusinessId, selectedBrand, campaignId, branch.id]);
+  const imageScopeRef = useRef(imageScope);
+  imageScopeRef.current = imageScope;
+  const generatingCopiesRef = useRef(new Set<string>());
+  const imageCopyStatesRef = useRef(copyStates);
+  imageCopyStatesRef.current = copyStates;
 
   // Image generation style per copy
   const [imageStyles, setImageStyles] = useState<Record<number, string>>({});
@@ -789,10 +798,12 @@ export function CopyWorkstation({ branch, branchName, initialBrainstormOpen = fa
   };
 
   // --- Generate image for a copy ---
-  const handleGenerateImage = async (index: number) => {
-    if (!selectedBrand) return;
+  const handleGenerateImage = async (index: number, recoverOnly = false) => {
+    if (!selectedBrand || !activeBusinessId || !campaignId) return;
+    const generationKey = `${campaignId}:${branch.id}:${index}`;
+    if (generatingCopiesRef.current.has(generationKey)) return;
     const state = copyStates[index];
-    if (!state.prompt.trim()) {
+    if (!recoverOnly && !state.prompt.trim()) {
       toast({ title: 'Escribe un prompt para la imagen', variant: 'destructive' });
       return;
     }
@@ -809,92 +820,90 @@ export function CopyWorkstation({ branch, branchName, initialBrainstormOpen = fa
       finalPrompt = `STYLE: Financial / business visual with realistic elements relevant to the concept. Use neutral professional colors (NO specific brand colors). The image should visually represent: "${idea.headline}". Include financial elements that match the concept (dashboards, currency symbols, charts, screens, documents — choose what fits). Professional advertising quality, clean composition. Visual direction: ${finalPrompt}`;
     }
 
+    generatingCopiesRef.current.add(generationKey);
     updateCopyState(index, { isGenerating: true });
 
     try {
-      const data = await generateImage.mutateAsync({
+      const data = recoverOnly ? null : await generateImage.mutateAsync({
         userRequest: finalPrompt,
         brand: selectedBrand,
         headline: idea?.headline,
         body: idea?.subcopy,
+        generationKey,
+        libraryContext: { brand: selectedBrand, collection: 'generated', description: state.prompt, campaignId,
+          extraTags: [
+            `branch:${(branch as any).commercial_branch_id || ''}`,
+            `angle:${branch.category || composedContext?.angle || 'general'}`,
+            `image_type:${imageStyle === 'infographic' || imageStyle === 'clay3d' ? 'infografia' : 'fotografia'}`,
+          ],
+        },
       });
-
-      // Upload to storage
-      const byteString = atob(data.imageBase64);
-      const ab = new ArrayBuffer(byteString.length);
-      const ia = new Uint8Array(ab);
-      for (let i = 0; i < byteString.length; i++) {
-        ia[i] = byteString.charCodeAt(i);
+      const result = data?.results[0] ?? await recoverSharedDesignImage({
+        businessId: activeBusinessId, process: 'stock', slotKey: `copy-workstation:${generationKey}:v0`,
+      });
+      if (!result) throw new Error('No hay una imagen pendiente para este copy.');
+      const library = result.scope.library;
+      if (!library || result.business_id !== activeBusinessId || library.brand !== selectedBrand || library.campaignId !== campaignId) {
+        throw new Error('La imagen pertenece a otra marca o campaña. Abre su campaña original para recuperarla.');
       }
-      const blob = new Blob([ab], { type: 'image/png' });
+      const imageUrl = await saveImageToLibrary({ generation: result, imageBase64: result.imageBase64,
+        brand: library.brand, collection: library.collection, description: library.description,
+        promptUsed: result.promptUsed.promptFinal, businessId: result.business_id, extraTags: library.extraTags });
 
-      const slug = state.prompt
-        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-        .toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').slice(0, 40);
-      const filename = `${selectedBrand}/generated/${slug}-${Date.now()}.png`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('design-images')
-        .upload(filename, blob, { contentType: 'image/png' });
-
-      if (uploadError) throw uploadError;
-
-      const { data: urlData } = supabase.storage
-        .from('design-images')
-        .getPublicUrl(filename);
-
-      // Save to design_images table
-      await supabase.from('design_images').insert({
-        brand: selectedBrand,
-        source: 'generated',
-        storage_path: urlData.publicUrl,
-        description: state.prompt,
-        tags: state.prompt.toLowerCase().split(/\s+/).filter((w) => w.length > 3).slice(0, 8),
-        theme: 'generated',
-        prompt_used: state.prompt,
-        campaign_id: currentCampaign?.id || null,
-        usage_count: 0,
+      // Preserve the existing branch/angle catalogue, with the shared operation id
+      // so recovering a lost acknowledgement cannot duplicate the stock entry.
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || sessionData.session?.user.id !== result.actor_id) {
+        throw new Error('La sesión cambió. Vuelve a la sesión original para completar el catálogo de esta imagen.');
+      }
+      const tag = (prefix: string) => library.extraTags?.find(value => value.startsWith(prefix))?.slice(prefix.length);
+      const catalogue = supabase.from('image_library' as any) as any;
+      const { error: catalogueError } = await catalogue.insert({
+        id: result.operation_key, business_id: result.business_id, image_url: imageUrl,
+        commercial_branch_id: tag('branch:') || null, image_type: tag('image_type:') || 'fotografia',
+        image_intent: library.description, angle_tag: tag('angle:') || 'general', pipeline_run_id: null,
       });
-
-      // Also save to image_library with branch + angle taxonomy (non-blocking)
-      if (activeBusiness?.id) {
-        supabase.from('image_library' as any).insert({
-          business_id: activeBusiness.id,
-          image_url: urlData.publicUrl,
-          commercial_branch_id: (branch as any).commercial_branch_id || null,
-          image_type: imageStyle === 'infographic' ? 'infografia' : imageStyle === 'clay3d' ? 'infografia' : 'fotografia',
-          image_intent: state.prompt,
-          angle_tag: branch.category || composedContext?.angle || 'general',
-          pipeline_run_id: null,
-        }).then(({ error }) => {
-          if (error) console.error('Error saving to image_library (non-blocking):', error);
-        });
+      if (catalogueError) {
+        if (catalogueError.code !== '23505') throw new Error('La imagen está guardada; falta registrar su catálogo. Usa Recuperar pendiente.');
+        const { data: existing, error: readError } = await catalogue.select('id, business_id, image_url')
+          .eq('id', result.operation_key).eq('business_id', result.business_id).single();
+        if (readError || existing?.image_url !== imageUrl) throw new Error('No se pudo verificar la imagen guardada en el catálogo.');
       }
 
-      const variantId = `gen-${Date.now()}`;
+      const variantId = result.operation_key;
       const newVariant: GeneratedVariant = {
         id: variantId,
-        imageUrl: urlData.publicUrl,
-        prompt: state.prompt,
+        imageUrl,
+        prompt: library.description,
       };
-
-      updateCopyState(index, {
-        variants: [...state.variants, newVariant],
-        selectedVariantId: variantId,
-        isGenerating: false,
-      });
-
-      toast({ title: `Imagen generada para Copy ${index + 1}` });
-      // Immediate save after generating image
-      immediateSave(branch, getWorkState());
+      if (imageScopeRef.current === imageScope) {
+        const latest = imageCopyStatesRef.current[index] ?? state;
+        const variants = [...latest.variants.filter(item => item.id !== variantId && item.imageUrl !== imageUrl), newVariant];
+        const updated = { ...imageCopyStatesRef.current,
+          [index]: { ...latest, variants, selectedVariantId: variantId, isGenerating: false,
+            ...(recoverOnly ? { prompt: library.description } : {}) } };
+        imageCopyStatesRef.current = updated;
+        setCopyStates(updated);
+        const work = getWorkState();
+        immediateSave(branch, { ...work,
+          copyPrompts: Object.fromEntries(Object.entries(updated).map(([key, value]) => [key, value.prompt])),
+          copyImageUrls: Object.fromEntries(Object.entries(updated).map(([key, value]) => [key, value.variants.map(item => item.imageUrl)])),
+          selectedImagePerCopy: Object.fromEntries(Object.entries(updated).map(([key, value]) => [key, value.variants.find(item => item.id === value.selectedVariantId)?.imageUrl || ''])),
+        });
+      }
+      // Both libraries are durable; campaign autosave keeps its existing behavior.
+      await acknowledgeSharedDesignImage(result);
+      if (imageScopeRef.current === imageScope) toast({ title: `Imagen ${recoverOnly ? 'recuperada' : 'generada'} para Copy ${index + 1}` });
     } catch (err) {
       console.error('Error generando imagen:', err);
-      updateCopyState(index, { isGenerating: false });
+      if (imageScopeRef.current === imageScope) updateCopyState(index, { isGenerating: false });
       toast({
         title: 'Error al generar imagen',
         description: err instanceof Error ? err.message : 'Error desconocido',
         variant: 'destructive',
       });
+    } finally {
+      generatingCopiesRef.current.delete(generationKey);
     }
   };
 
@@ -1682,6 +1691,7 @@ export function CopyWorkstation({ branch, branchName, initialBrainstormOpen = fa
 
   return (
     <div className="space-y-6">
+      <ImageGenerationControls value={generateImage.imageSettings} onChange={generateImage.setImageSettings} disabled={generateImage.isPending} />
       {/* Hidden file inputs */}
       <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileSelected} />
       <input ref={swapFileInputRef} type="file" accept="image/*" className="hidden" onChange={handleSwapFileSelected} />
@@ -2202,7 +2212,7 @@ export function CopyWorkstation({ branch, branchName, initialBrainstormOpen = fa
                       <Button
                         size="sm"
                         onClick={() => handleGenerateImage(index)}
-                        disabled={state.isGenerating || !state.prompt.trim()}
+                        disabled={state.isGenerating || !state.prompt.trim() || !campaignId || !activeBusinessId}
                       >
                         {state.isGenerating ? (
                           <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
@@ -2210,6 +2220,10 @@ export function CopyWorkstation({ branch, branchName, initialBrainstormOpen = fa
                           <Sparkles className="h-3.5 w-3.5 mr-1" />
                         )}
                         {state.isGenerating ? 'Generando...' : 'Generar imagen'}
+                      </Button>
+                      <Button size="sm" variant="outline" disabled={state.isGenerating || !campaignId || !activeBusinessId}
+                        onClick={() => handleGenerateImage(index, true)} title="Recupera la versión pendiente y su descripción original sin generar otra imagen.">
+                        Recuperar pendiente
                       </Button>
                       <Button size="sm" variant="outline" onClick={() => handleUploadClick(index)}>
                         <Upload className="h-3.5 w-3.5 mr-1" /> Subir

@@ -1,4 +1,5 @@
-import type { AssetVersion, CandidateVersion, DesignOperation, DesignReference, InteractionMode } from '../../../supabase/functions/_shared/desaing/contracts';
+import type { AssetVersion, CandidateVersion, DesignOperation, DesignReference, InteractionMode, ImageProfile } from '../../../supabase/functions/_shared/desaing/contracts';
+import type { ImageGenerationSettings, ImageModel, ImageQuality } from '../imageGenerationSettings';
 import type { RecordedDirectionApproval, RegisteredAssetVersion } from '../../../supabase/functions/_shared/desaing/assets';
 import { getAssetReviewStatus, getAssetVersion } from '../../../supabase/functions/_shared/desaing/assets';
 import type { DesignJob, JobCall } from '../../../supabase/functions/_shared/desaing/jobLedger';
@@ -12,11 +13,37 @@ import { validatePresentationRaster } from './presentationAssets';
 import { composePresentationImage } from './presentationHtml';
 import { getSlideDimensions, reviseSlide, type PresentationMountedAsset, type PresentationSlide } from './presentationDocument';
 import type { ExplorationScope } from '../../../supabase/functions/_shared/desaing/explorationContracts';
-import { fullDesignImmutables, fullDesignImageSize, readPresentationFullDesign, ONBOARDING_DIRECTION_PREFIX } from '../../../supabase/functions/_shared/desaing/presentationFullDesign';
+import { fullDesignImmutables, fullDesignImageSize, readPresentationFullDesign, ONBOARDING_DIRECTION_PREFIX, type FullDesignCopyMode } from '../../../supabase/functions/_shared/desaing/presentationFullDesign';
 import { designSurfaceTarget, designSurfaceSessionId, designSurfaceWorkspace, designSurfaceBrand, type DesignSurfaceDestination } from '../../../supabase/functions/_shared/desaing/designSurface';
 
 export type DesignRegion = PresentationMountedAsset['region'];
 const PRESENTATION_IMMUTABLES = ['Conservar el texto y la estructura HTML de la diapositiva.'];
+
+export interface PresentationImageSelection { profile: ImageProfile; quality: ImageQuality }
+export const PRESENTATION_IMAGE_MODELS: Record<ImageProfile, ImageModel> = {
+  baseline: 'gpt-image-2', flare_candidate: 'gpt-image-2.5-flare', sunburst_rescue: 'gpt-image-2.5-sunburst',
+};
+export function presentationImageSelection(settings: ImageGenerationSettings): PresentationImageSelection {
+  const profile = (Object.keys(PRESENTATION_IMAGE_MODELS) as ImageProfile[]).find(key => PRESENTATION_IMAGE_MODELS[key] === settings.model);
+  if (!profile) throw new Error('unsupported_image_selection');
+  return { profile, quality: settings.quality };
+}
+/** Older servers only advertise their original draft route. Never silently downgrade a choice. */
+export function supportsPresentationImageSelection(generation: ServerGenerationCapabilities | null | undefined,
+  selection: PresentationImageSelection): boolean {
+  return !!generation && (generation.profiles ?? [generation.profile]).includes(selection.profile)
+    && (generation.qualities ?? ['low']).includes(selection.quality);
+}
+export function assertPresentationImageSelection(generation: ServerGenerationCapabilities | null | undefined,
+  selection: PresentationImageSelection): void {
+  if (!supportsPresentationImageSelection(generation, selection)) throw new Error('unsupported_image_selection');
+}
+
+/** A pointer to a source is an instruction, not the literal wording to print. */
+export function isUnresolvedReferenceCopy(copy: string): boolean {
+  const normalized = copy.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim().replace(/[.!?]+$/, '').trim();
+  return /^(?:(?:usa|usar|conserva|conservar|pon|poner)\s+)?(?:(?:lo que (?:viene|dice|aparece|esta) en|(?:el )?(?:mismo )?texto (?:de|en))\s+)(?:(?:la|las|el|los)\s+)?(?:referencias?|imagen(?:es)?|fotos?)$/.test(normalized);
+}
 
 /** Compatibility defaults belong only to the explicitly simulated harness. */
 export function presentationGenerationCapabilities(generation: ServerGenerationCapabilities | null | undefined,
@@ -31,7 +58,7 @@ export function presentationGenerationCapabilities(generation: ServerGenerationC
 
 function assertPresentationGeneration(generation: ServerGenerationCapabilities | null | undefined, requireOutput = true): asserts generation is ServerGenerationCapabilities {
   if (!isServerGenerationCapabilities(generation)) throw new Error('server_generation_unavailable');
-  if (requireOutput && generation.remaining_outputs < 1) throw new Error('job_quota_exceeded');
+  if (requireOutput && generation.remaining_outputs !== null && generation.remaining_outputs < 1) throw new Error('job_quota_exceeded');
 }
 
 /** Called before capture conversion/upload, and again when building the frozen operation. */
@@ -70,7 +97,7 @@ export function presentationLibraryResults(state: ServerSnapshot, businessId: st
   return state.assets.versions.flatMap(asset => {
     const source = asset.provenance;
     if (asset.identity.business_id !== businessId || source.kind !== 'image_operation'
-      || !['low', 'medium'].includes(source.quality) || asset.storage.mime_type !== 'image/png') return [];
+      || !['low', 'medium', 'high'].includes(source.quality) || asset.storage.mime_type !== 'image/png') return [];
     const job = state.jobs.jobs.find(item => item.operation_key === source.operation_key);
     if (!job || job.plan.operation.context.business_id !== businessId || job.plan.operation.context.brand_id !== asset.brand_id
       || job.plan.operation.context.project_id !== asset.project_id || job.plan.operation.image?.quality !== source.quality) return [];
@@ -100,8 +127,10 @@ export function reviewedOnboardingDirection(state: ServerSnapshot, input: {
   if (input.destination.workspace !== 'onboarding' || input.destination.brand_id !== input.businessId) throw new Error('invalid_onboarding_context');
   const expected = designSurfaceTarget(input.documentId, input.surface, input.destination);
   const found = presentationLibraryResults(state, input.businessId).find(item => sameVersion(item.asset.identity, input.asset));
-  if (!found || found.call.state !== 'approved' || found.asset.provenance.kind !== 'image_operation' || found.asset.provenance.quality !== 'medium'
-    || found.job.plan.operation.action !== 'generate_medium' || !found.draft) throw new Error('unapproved_asset');
+  if (!found || found.call.state !== 'approved' || found.asset.provenance.kind !== 'image_operation'
+    || !['medium', 'high'].includes(found.asset.provenance.quality)
+    || !(found.job.plan.operation.action === 'generate_image'
+      || found.job.plan.operation.action === 'generate_medium' && found.draft)) throw new Error('unapproved_asset');
   const context = found.job.plan.operation.context, full = readPresentationFullDesign(context);
   if (!full || context.workspace !== 'onboarding' || context.actor_id !== input.actorId || context.brand_id !== input.businessId
     || context.project_id !== input.documentId || context.target.document_type !== expected.document_type
@@ -135,7 +164,7 @@ export async function approveServerLibraryDirection(client: DesignServerClient, 
 export async function reviewServerLibraryResult(client: DesignServerClient, businessId: string, identity: AssetVersion,
   decision: 'approved' | 'rejected'): Promise<void> {
   const result = await readLibraryResult(client, businessId, identity);
-  if (decision === 'approved' && result.asset.provenance.kind === 'image_operation' && result.asset.provenance.quality !== 'medium'
+  if (decision === 'approved' && result.asset.provenance.kind === 'image_operation' && result.asset.provenance.quality === 'low'
     && !isDirectProductionOperation(result.job.plan.operation)) {
     throw new Error('draft_requires_direction_approval');
   }
@@ -152,7 +181,9 @@ export function reviewedProductionResult(state: ServerSnapshot, input: {
   if (input.destination.workspace !== 'production' || input.destination.brand_id !== input.businessId) throw new Error('invalid_production_context');
   const found = presentationLibraryResults(state, input.businessId).find(item => sameVersion(item.asset.identity, input.asset));
   if (!found || found.call.state !== 'approved' || found.asset.provenance.kind !== 'image_operation'
-    || !(isDirectProductionOperation(found.job.plan.operation) || found.asset.provenance.quality === 'medium' && found.draft)) throw new Error('unapproved_asset');
+    || !(isDirectProductionOperation(found.job.plan.operation) || ['medium', 'high'].includes(found.asset.provenance.quality)
+      && (['edit_image', 'regenerate_image'].includes(found.job.plan.operation.action)
+        || found.job.plan.operation.action === 'generate_medium' && found.draft))) throw new Error('unapproved_asset');
   const context = found.job.plan.operation.context, full = readPresentationFullDesign(context), expected = designSurfaceTarget(input.documentId, input.surface, input.destination);
   if (!full?.production || context.actor_id !== input.actorId || context.business_id !== input.businessId || context.brand_id !== input.businessId
     || context.project_id !== input.documentId || context.target.document_id !== expected.document_id || context.target.document_type !== expected.document_type
@@ -199,11 +230,13 @@ export function buildPresentationImageOperation(input: {
   businessId: string; actorId: string; documentId: string; slide: PresentationSlide;
   reference?: RegisteredAssetVersion; region: DesignRegion; instruction: string; operationKey: string;
   generation: ServerGenerationCapabilities;
+  imageSelection?: PresentationImageSelection;
   interactionMode?: InteractionMode;
   additionalReferences?: { reference: DesignReference; version: RegisteredAssetVersion }[];
   recreateReferenceId?: string;
   scope?: ExplorationScope;
   approvedCopy?: string;
+  copyMode?: FullDesignCopyMode;
   destination?: DesignSurfaceDestination;
   productionSource?: RegisteredAssetVersion;
   productionCopyVersion?: string;
@@ -216,9 +249,13 @@ export function buildPresentationImageOperation(input: {
     || input.productionSource.identity.business_id !== input.businessId || input.productionSource.brand_id !== input.businessId
     || input.productionSource.project_id !== input.documentId || input.productionSource.storage.mime_type !== 'image/png'
     || !/^[a-f0-9]{64}$/.test(input.productionCopyVersion ?? '') || input.reference || input.recreateReferenceId)) throw new Error('invalid_production_context');
-  const immutable = full ? fullDesignImmutables(input.approvedCopy ?? '', canvas, input.destination) : input.destination
+  if (!full && input.copyMode !== undefined) throw new Error('invalid_full_design_copy_mode');
+  const immutable = full ? fullDesignImmutables(input.approvedCopy ?? '', canvas, input.destination, input.copyMode) : input.destination
     ? ['Conservar el texto y la estructura HTML del lienzo.'] : [...PRESENTATION_IMMUTABLES];
+  if (full && isUnresolvedReferenceCopy(input.approvedCopy ?? '')) throw new Error('reference_copy_unresolved');
   assertPresentationBrief(input.instruction, input.generation, immutable);
+  const imageSelection = input.imageSelection ?? { profile: input.generation.profile, quality: 'low' as const };
+  assertPresentationImageSelection(input.generation, imageSelection);
   if (full && (!input.generation.supports_full_design || input.recreateReferenceId)) throw new Error('unsupported_full_design');
   if (full && (input.region.x !== 0 || input.region.y !== 0 || input.region.width !== canvas.width || input.region.height !== canvas.height)) throw new Error('invalid_full_design_canvas');
   if (!full && !input.reference) throw new Error('capture_required');
@@ -253,7 +290,7 @@ export function buildPresentationImageOperation(input: {
       ...(input.reference ? { placement: { capture_reference_id: referenceId!, document_revision: String(input.slide.revision),
         canvas: getSlideDimensions(input.slide.html), region: { ...input.region, units: 'px' as const } } } : {}),
     },
-    image: { profile: input.generation.profile, quality: 'low', size: full ? fullDesignImageSize(canvas, !!production) : { width: 1024, height: 1024 }, output_format: 'png', background: source ? 'transparent' : 'opaque', output_count: 1, executor: input.generation.executor },
+    image: { ...imageSelection, size: full ? fullDesignImageSize(canvas, !!production) : { width: 1024, height: 1024 }, output_format: 'png', background: source ? 'transparent' : 'opaque', output_count: 1, executor: input.generation.executor },
   };
 }
 
@@ -284,7 +321,9 @@ export function buildPresentationMediumOperation(input: {
   destination?: DesignSurfaceDestination;
 }): DesignOperation {
   assertPresentationBrief(input.operation.context.instruction, input.generation, input.operation.context.immutable_elements);
-  if (input.operation.image?.profile !== input.generation.profile || input.operation.image?.executor !== input.generation.executor) throw new Error('server_generation_changed');
+  if (!input.operation.image || !(input.generation.profiles ?? [input.generation.profile]).includes(input.operation.image.profile)
+    || input.operation.image.executor !== input.generation.executor
+    || input.generation.qualities && !input.generation.qualities.includes('medium')) throw new Error('server_generation_changed');
   const full = readPresentationFullDesign(input.operation.context);
   if (full && !input.generation.supports_full_design) throw new Error('unsupported_full_design');
   const maxBaseEdge = full ? 1536 : input.generation.max_reference_edge;

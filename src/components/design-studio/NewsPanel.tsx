@@ -42,6 +42,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils';
 
 import { ImageLightbox } from '@/components/ImageLightbox';
+import { ImageGenerationControls } from '@/components/image-generation/ImageGenerationControls';
 import { useNewsEdition } from '@/hooks/useNewsEdition';
 import { useNewsEditions, useNewsScenes, useDiscardNewsEdition } from '@/hooks/useNewsEditions';
 import { exportCarouselPdf, exportCarouselPngs } from '@/utils/design-studio/exportCarousel';
@@ -293,6 +294,9 @@ export function NewsPanel() {
           </Button>
         </div>
       </div>
+
+      <ImageGenerationControls value={news.imageSettings} onChange={news.setImageSettings}
+        disabled={news.isGeneratingAll || news.slides.some(slide => slide.status === 'generating')} />
 
       {/* Ediciones guardadas */}
       {editions.data && editions.data.length > 0 && (
@@ -841,6 +845,7 @@ export function NewsPanel() {
                   </details>
 
                   {/* Acciones por vía */}
+                  {s.status === 'error' && imageMode === 'app' && <p className="text-xs text-muted-foreground">Recuperar conserva la solicitud y el texto originales. Después puedes usar Actualizar texto sin generar otra escena.</p>}
                   {imageMode === 'app' ? (
                     <Button
                       size="sm"
@@ -854,7 +859,7 @@ export function NewsPanel() {
                       ) : (
                         <Sparkles className="mr-2 h-4 w-4" />
                       )}
-                      {s.status === 'done' ? 'Regenerar' : 'Generar'}
+                      {s.status === 'error' ? 'Recuperar resultado' : s.status === 'done' ? 'Regenerar' : 'Generar'}
                     </Button>
                   ) : (
                     <Button

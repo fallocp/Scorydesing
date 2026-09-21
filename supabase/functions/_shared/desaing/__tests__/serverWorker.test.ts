@@ -409,7 +409,7 @@ describe('simulation worker durable dispatch boundary', () => {
       op.proposals = Array.from({ length: 5 }, (_, i) => ({ candidate_id: `candidate-${i}`, instruction: `Dirección ${i}`, reference_ids: [] }));
     }
     if (variant === 'executor') op.image!.executor = 'responses_image';
-    if (variant === 'quality') op.image!.quality = 'medium';
+    if (variant === 'quality') op.image!.quality = 'auto';
     if (variant === 'format') op.image!.output_format = 'webp';
     const h = harness(op, [], { responses_image_enabled: true });
     await expect(h.run()).rejects.toMatchObject({ code: 'unsupported_simulation_operation' });
@@ -679,9 +679,20 @@ describe('live worker, only injected fake HTTP transport and explicit trusted pe
     expect(h.transport).not.toHaveBeenCalled(); expect(h.repository.commit).not.toHaveBeenCalled();
   });
 
-  it('keeps sunburst rescue outside the current worker scope even with an enabled policy', async () => {
+  it.each(['image_api', 'responses_image'] as const)('sends an explicitly selected Sunburst through %s once with its exact permit', async executor => {
+    const h = liveHarness(executor, false, 'sunburst_rescue');
+    expect((await h.run()).status).toBe('completed');
+    const body = JSON.parse(String(h.transport.mock.calls[0][1]!.body));
+    expect(executor === 'image_api' ? body.model : body.tools[0].model).toBe('gpt-image-2.5-sunburst');
+    expect(h.repository.snapshot.assets.versions[0].provenance).toMatchObject({ model_id: 'gpt-image-2.5-sunburst' });
+    expect((await h.run()).status).toBe('already_started'); expect(h.transport).toHaveBeenCalledTimes(1); reserved(h);
+  });
+
+  it('does not switch an approved Flare operation to Sunburst even if both are enabled', async () => {
     const h = liveHarness('image_api', false, 'sunburst_rescue');
-    await expect(h.run()).rejects.toMatchObject({ code: 'unsupported_live_operation' });
+    h.repository.policy.enabled_image_profiles.push('flare_candidate');
+    h.permit.approvedOperation.image!.profile = 'flare_candidate';
+    await expect(h.run()).rejects.toMatchObject({ code: 'live_permit_scope_mismatch' });
     expect(h.transport).not.toHaveBeenCalled(); expect(h.repository.commit).not.toHaveBeenCalled();
   });
 

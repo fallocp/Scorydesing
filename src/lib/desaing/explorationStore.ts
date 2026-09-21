@@ -8,6 +8,9 @@ export interface ExplorationDraft {
   capture_name: string | null;
   brief: string;
   approved_copy?: string;
+  copy_mode?: 'literal' | 'none';
+  visual_references?: { scope_key: string; references: DesignContext['references'] };
+  applied_understanding_key?: string;
   region: { x: number; y: number; width: number; height: number } | null;
   prepared_idea?: { selection: IdeaSelection; instruction: string; original_brief: string; context: DesignContext };
 }
@@ -47,6 +50,13 @@ function validateDraft(value: unknown, scope: ExplorationStoreScope): asserts va
     || context.session_id !== scope.session_id) fail('exploration_store_scope_mismatch');
   if (!boundedText(draft.brief, 16_000)) fail('invalid_exploration_brief');
   if (draft.approved_copy !== undefined && (!boundedText(draft.approved_copy, 4000) || draft.approved_copy.includes('\0'))) fail('invalid_exploration_copy');
+  if (draft.copy_mode !== undefined && !['literal', 'none'].includes(draft.copy_mode)) fail('invalid_exploration_copy');
+  if (draft.copy_mode === 'none' && draft.approved_copy) fail('invalid_exploration_copy');
+  if (draft.applied_understanding_key !== undefined && !draft.session.attempts.some(attempt => attempt.request.request_key === draft.applied_understanding_key && attempt.result?.design_understanding)) fail('invalid_exploration_understanding');
+  if (draft.visual_references) {
+    if (!boundedText(draft.visual_references.scope_key, 16000)) fail('invalid_exploration_references');
+    assertExplorationSession({ ...draft.session, context: { ...context, references: draft.visual_references.references } });
+  }
   if (draft.capture !== null) {
     if (!(draft.capture instanceof Blob) || draft.capture.type !== 'image/png'
       || draft.capture.size < 8 || draft.capture.size > CAPTURE_LIMIT) fail('invalid_exploration_capture');

@@ -41,7 +41,14 @@ import {
  */
 import { planCoversRoles } from '../../supabase/functions/_shared/buildCarouselScriptBeats';
 import { useActiveBusiness } from './useActiveBusiness';
+import { useImageGenerationSettings } from './useImageGenerationSettings';
+import { imageGenerationRequestFields } from '@/lib/imageGenerationSettings';
 import { useSaveMockup } from './useDesignMockups';
+import {
+  acknowledgeSharedDesignImage,
+  generateSharedDesignImage,
+  recoverSharedDesignImage,
+} from '@/lib/desaing/sharedImageGeneration';
 import { adoptStudioCarouselReceipt } from '@/lib/desaing/studioImageState';
 import type { ProductionReceipt } from '../../supabase/functions/_shared/desaing/production';
 import { useUpdateBankMeta, type CopyBankItem } from './useDesignCopyBank';
@@ -381,6 +388,7 @@ export function useCarouselQueue({
   persistMeta,
 }: UseCarouselQueueParams) {
   const { activeBusinessId } = useActiveBusiness();
+  const { settings: imageSettings, setSettings: setImageSettings } = useImageGenerationSettings(activeBusinessId, 'carousel');
   const saveMockup = useSaveMockup();
   const updateBankMeta = useUpdateBankMeta();
 
@@ -432,6 +440,11 @@ export function useCarouselQueue({
 
   /** Lets `generateAll` bail out mid-queue. */
   const cancelRef = useRef(false);
+  // React state updates are deferred; this also guards two clicks in the same tick.
+  const renderingRef = useRef(false);
+  const renderScope = JSON.stringify([activeBusinessId, bankItem?.row.id, imageType]);
+  const renderScopeRef = useRef(renderScope);
+  renderScopeRef.current = renderScope;
 
   /** Single write path: keeps the ref and the state in lockstep. */
   const applySlots = useCallback((next: CarouselSlotRuntime[]) => {
@@ -1249,26 +1262,44 @@ export function useCarouselQueue({
    * time — there is no second code path that could drift.
    */
   const generateSlot = useCallback(
-    async (index: number): Promise<boolean> => {
-      if (!activeBusinessId || !bankItem) return false;
+    async (index: number, recoverOnly = false): Promise<boolean> => {
+      if (!activeBusinessId || !bankItem || renderingRef.current) return false;
 
       const slot = slotsRef.current.find((s) => s.index === index);
       if (!slot) return false;
 
-      if (!slot.prompt.trim()) {
+      if (!recoverOnly && !slot.prompt.trim()) {
         patchSlot(index, { status: 'error', error: 'Este slide no tiene prompt todavía.' });
         return false;
       }
 
-      const effectiveGroupId = groupId ?? crypto.randomUUID();
-      if (!groupId) setGroupId(effectiveGroupId);
+      let effectiveGroupId = groupId ?? crypto.randomUUID();
+      if (!groupId && !recoverOnly) setGroupId(effectiveGroupId);
 
+      const stillInScope = () => renderScopeRef.current === renderScope
+        && slotsRef.current.some((current) => current.id === slot.id);
+      const assertScope = () => {
+        if (!stillInScope() || !slotsRef.current.some((current) => current.id === slot.id && current.prompt === slot.prompt)) {
+          throw new Error('El carrusel cambió. Vuelve al slide original para recuperar su imagen.');
+        }
+      };
+      const scope = {
+        businessId: activeBusinessId,
+        process: 'carousel' as const,
+        // Slide ids survive reload and copy edits; new scripts have new ids.
+        slotKey: `${bankItem.row.id}:${slot.id}:${imageType}`,
+      };
+      renderingRef.current = true;
       setRenderingIndex(index);
       patchSlot(index, { status: 'generating', error: undefined });
 
       try {
-        const { data, error: fnError } = await supabase.functions.invoke('generate-design-image', {
-          body: {
+        // Persist a missing group before dispatch so recovery saves into the same set.
+        if (!groupId && !recoverOnly) {
+          await persist({ slots: slotsRef.current, groupId: effectiveGroupId });
+          assertScope();
+        }
+        const data = recoverOnly ? await recoverSharedDesignImage(scope) : await generateSharedDesignImage({
             userRequest: slot.slideCopy.headline,
             brand: brandSlug === 'xending-capital' ? 'xending_capital' : 'xending',
             business_id: activeBusinessId,
@@ -1282,36 +1313,56 @@ export function useCarouselQueue({
             angle: bankItem.meta.angleName ?? 'general',
             aspectRatio: CAROUSEL_ASPECT_RATIO,
             imageSize: IMAGE_SIZE,
-            /**
-             * Same quality every other image flow uses (it is the function's
-             * default; the carousel was the only caller asking for 'high').
-             *
-             * 'high' at 1024² did not come back inside the 110s the function
-             * allows itself before the platform gateway kills the request, so
-             * every slide failed with a timeout. A carousel is the flow that can
-             * least afford it: five renders in a row means five chances to hit
-             * the ceiling. Going back to 'high' needs the render to stop being a
-             * synchronous request, not a longer timeout.
-             */
-            imageQuality: 'medium',
+            ...imageGenerationRequestFields(imageSettings),
+        }, {
+          ...scope,
+          consumerContext: {
+            slotId: slot.id, groupId: effectiveGroupId,
+            slideCopy: structuredClone(slot.slideCopy), imageIntent: slot.imageIntent,
           },
         });
 
-        const imageBase64: string | undefined = data?.imageBase64;
-        if (fnError || !imageBase64) {
-          throw new Error(data?.message ?? fnError?.message ?? 'No se generó la imagen');
+        assertScope();
+        if (!data) throw new Error('No hay una generación pendiente para este slide.');
+        const { imageBase64 } = data;
+        if (!imageBase64 || data.business_id !== activeBusinessId) throw new Error('No se recibió la imagen de este carrusel.');
+        let recoveredCopy: CarouselSlideCopy | undefined;
+        let recoveredIntent: string | undefined;
+        if (recoverOnly) {
+          const original = data.scope.consumerContext;
+          const copy = original?.slideCopy as CarouselSlideCopy | undefined;
+          if (original?.slotId !== slot.id || typeof original.groupId !== 'string'
+            || typeof original.imageIntent !== 'string' || !copy || typeof copy.headline !== 'string'
+            || (copy.body !== undefined && typeof copy.body !== 'string')
+            || (copy.cta !== undefined && typeof copy.cta !== 'string')
+            || (groupId && original.groupId !== groupId)) {
+            throw new Error('No se pudo verificar el texto y grupo originales de esta imagen pendiente.');
+          }
+          effectiveGroupId = original.groupId;
+          recoveredCopy = structuredClone(copy);
+          recoveredIntent = original.imageIntent;
         }
 
         const saved = await saveMockup.mutateAsync({
+          mockupId: data.operation_key,
+          businessId: data.business_id,
+          actorId: data.actor_id,
           imageBase64,
           platform: CAROUSEL_PLATFORM,
-          promptUsed: slot.prompt,
+          promptUsed: data.promptUsed.promptFinal,
+          selections: { image_generation: {
+            model: data.image_model,
+            quality: data.image_quality,
+            operation_key: data.operation_key,
+            asset_identity: data.asset_identity,
+          } },
           carouselGroupId: effectiveGroupId,
           carouselIndex: index,
           // Links the catalogue entry the function just created to this mockup, so
           // deleting the slide also removes it from the asset library.
-          imageLibraryId: data?.imageLibraryId ?? null,
+          imageLibraryId: data.imageLibraryId ?? null,
         });
+        assertScope();
 
         // Persist the pointer, keep the pixels in memory. Read from the ref so a
         // queued run picks up the slides finished by earlier iterations.
@@ -1323,24 +1374,36 @@ export function useCarouselQueue({
                 mockupId: saved.mockupId,
                 imageUrl: saved.imageUrl,
                 imageBase64,
+                ...(recoveredCopy ? {
+                  slideCopy: recoveredCopy, imageIntent: recoveredIntent!, prompt: data.promptUsed.promptFinal,
+                } : {}),
                 error: undefined,
               }
             : s,
         );
-        applySlots(nextSlots);
         await persist({ slots: nextSlots, groupId: effectiveGroupId });
+        if (stillInScope()) {
+          applySlots(nextSlots);
+          setGroupId(effectiveGroupId);
+        }
+        // Recovery must remain possible until both the saved image and its slide
+        // pointer are durable. A failed save never authorizes a second render.
+        await acknowledgeSharedDesignImage(data);
 
-        return true;
+        return stillInScope();
       } catch (err) {
         const message = errorMessage(err, 'Error generando la imagen');
-        patchSlot(index, { status: 'error', error: message });
-        setError(message);
+        if (stillInScope()) {
+          patchSlot(index, { status: 'error', error: message });
+          setError(message);
+        }
         return false;
       } finally {
+        renderingRef.current = false;
         setRenderingIndex(null);
       }
     },
-    [activeBusinessId, bankItem, groupId, branchId, imageType, brandSlug, saveMockup, patchSlot, persist, applySlots],
+    [activeBusinessId, bankItem, groupId, branchId, imageType, brandSlug, saveMockup, patchSlot, persist, applySlots, imageSettings, renderScope],
   );
 
   /**
@@ -1414,6 +1477,7 @@ export function useCarouselQueue({
 
   return {
     slots,
+    imageSettings, setImageSettings,
     visualAnchor,
     visualMotif,
     groupId,
@@ -1450,6 +1514,7 @@ export function useCarouselQueue({
     buildPrompts,
     updateSlotPrompt,
     generateSlot,
+    recoverSlot: (index: number) => generateSlot(index, true),
     generateAll,
     cancelQueue,
     reset,

@@ -1,6 +1,7 @@
 import type { DesignOperation } from './contracts.ts';
 import type { ServerCommand } from './serverState.ts';
 import { ServerBoundaryError } from './serverRepository.ts';
+import { ASSET_MAX_PROMPT_CHARACTERS, readAssetGeneration } from './assetGeneration.ts';
 
 type RecordValue = Record<string, unknown>;
 function fail(): never { throw new ServerBoundaryError('invalid_server_request'); }
@@ -31,7 +32,7 @@ function operation(value: unknown): DesignOperation {
     'instruction', 'immutable_elements', 'copy_version_id', 'base_asset', 'references', 'placement', 'direction_approval'],
   ['actor_id', 'business_id', 'brand_id', 'project_id', 'session_id', 'workspace', 'interaction_mode', 'target', 'instruction', 'immutable_elements', 'references']);
   for (const key of ['actor_id', 'business_id', 'brand_id', 'project_id', 'session_id', 'workspace', 'interaction_mode']) text(c[key]);
-  text(c.instruction, 16000); strings(c.immutable_elements);
+  text(c.instruction, ASSET_MAX_PROMPT_CHARACTERS); strings(c.immutable_elements);
   if (c.copy_version_id !== undefined) text(c.copy_version_id);
   const target = object(c.target, ['document_type', 'document_id', 'revision', 'slide_id', 'page_id', 'element_id'], ['document_type', 'document_id', 'revision']);
   Object.values(target).forEach(item => text(item));
@@ -69,7 +70,10 @@ function operation(value: unknown): DesignOperation {
     if (!Array.isArray(v.selected_candidates) || v.selected_candidates.length > 5) fail();
     v.selected_candidates.forEach(candidate => asset(candidate, true));
   }
-  return structuredClone(v) as unknown as DesignOperation;
+  const parsed = structuredClone(v) as unknown as DesignOperation;
+  try { if (!readAssetGeneration(parsed.context)) text(c.instruction, 16000); }
+  catch { fail(); }
+  return parsed;
 }
 
 export function parseServerRequest(value: unknown): { businessId: string; command: ServerCommand | { kind: 'read' } } {

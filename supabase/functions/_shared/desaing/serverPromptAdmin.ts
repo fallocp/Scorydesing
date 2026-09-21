@@ -13,6 +13,7 @@ import { readServerState, ServerBoundaryError, type ServerRepository } from './s
 import type { ServerHtmlConfig } from './serverHtml.ts';
 import { assertBusinessId } from './serverRequest.ts';
 import { PILOT_LIMITS } from './pilotHttp.ts';
+import { isGenerationProfilePolicy } from './catalog.ts';
 
 export interface ServerPromptAdminBoundary {
   capabilities(actorId: string, businessId: string): Promise<PromptAdminCapabilities>;
@@ -44,7 +45,7 @@ export function createServerPromptAdmin(settings: ServerHtmlConfig, deps: Server
     const read = await deps.repository.read(biz, actor), p = read.policy;
     need(p.business_id === biz && p.policy_id === config.policyId && p.limit_micro_usd === PILOT_LIMITS.budgetMicroUsd
       && p.max_image_outputs === PILOT_LIMITS.maxOutputs && p.reservation_per_output_micro_usd === PILOT_LIMITS.reservationMicroUsd
-      && same(p.enabled_image_profiles, [PILOT_LIMITS.imageProfile]) && p.responses_image_enabled, 'server_policy_changed');
+      && isGenerationProfilePolicy(p.enabled_image_profiles) && p.responses_image_enabled, 'server_policy_changed');
     return readServerState({ ...deps.repository, read: async () => read }, biz, actor);
   }
   type State = Awaited<ReturnType<typeof gate>>;

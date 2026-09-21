@@ -9,11 +9,12 @@ import { newBrandSetupDraft, type BrandSetupDraft } from '../onboarding.ts';
 import type { ServerPolicy } from '../serverState.ts';
 import { materialsFixture, materialResult, MATERIAL_ACTOR as actor, MATERIAL_BUSINESS as business } from './fixtures/materialsFixture.ts';
 import { approvedBrandDirection } from './fixtures/onboardingFixture.ts';
+import { PILOT_LIMITS } from '../pilotHttp.ts';
 
 const config = { enabled: true, businessId: business, actorId: actor, policyId: 'brand-pilot', expectedSupabaseOrigin: 'https://project.supabase.co',
   actualSupabaseOrigin: 'https://project.supabase.co', expiresAt: 1 };
-const policy: ServerPolicy = { business_id: business, enabled: true, policy_id: config.policyId, limit_micro_usd: 5000000,
-  max_image_outputs: 4, reservation_per_output_micro_usd: 1000000, enabled_image_profiles: ['flare_candidate'], responses_image_enabled: true };
+const policy: ServerPolicy = { business_id: business, enabled: true, policy_id: config.policyId, limit_micro_usd: PILOT_LIMITS.budgetMicroUsd,
+  max_image_outputs: PILOT_LIMITS.maxOutputs, reservation_per_output_micro_usd: PILOT_LIMITS.reservationMicroUsd, enabled_image_profiles: ['flare_candidate'], responses_image_enabled: true };
 
 describe.sequential('SQL004 transactional onboarding, durable revisions and exact approved direction', () => {
   let db: PGlite, loseSave = false, losePublish = false;
@@ -65,7 +66,8 @@ describe.sequential('SQL004 transactional onboarding, durable revisions and exac
     await db.query('INSERT INTO auth.users(id) VALUES ($1)', [actor]);
     await db.query("INSERT INTO public.business_tenants(id,slug,fonts) VALUES ($1,'brand-test','{\"extra\":\"Preserved\"}')", [business]);
     await db.query("INSERT INTO public.user_business_memberships(user_id,business_id,role) VALUES ($1,$2,'owner')", [actor, business]);
-    await db.query("INSERT INTO public.desaing_policies(business_id,enabled,policy_id,limit_micro_usd,max_image_outputs,reservation_per_output_micro_usd,enabled_image_profiles,responses_image_enabled) VALUES ($1,true,$2,5000000,4,1000000,ARRAY['flare_candidate'],true)", [business, config.policyId]);
+    await db.query("INSERT INTO public.desaing_policies(business_id,enabled,policy_id,limit_micro_usd,max_image_outputs,reservation_per_output_micro_usd,enabled_image_profiles,responses_image_enabled) VALUES ($1,true,$2,$3,$4,$5,ARRAY['flare_candidate'],true)",
+      [business, config.policyId, policy.limit_micro_usd, policy.max_image_outputs, policy.reservation_per_output_micro_usd]);
   });
   afterAll(async () => { await db?.close(); });
   it('reads the SQL fingerprint directly and saves free drafts after paid expiry without changing business or budget', async () => {
@@ -107,6 +109,18 @@ describe.sequential('SQL004 transactional onboarding, durable revisions and exac
     const d = await withMaterials(), other = { ...d, profile: { ...d.profile, style: 'Otra dirección' } }, image = await approvedBrandDirection(other, policy);
     await db.query('UPDATE public.desaing_state SET revision=1,snapshot=$2 WHERE business_id=$1', [business, JSON.stringify(image.state)]);
     await expect(save({ ...d, direction: image.identity })).rejects.toMatchObject({ code: 'server_onboarding_direction_changed' });
+  });
+  it.each(['medium', 'high'] as const)('accepts a separately generated %s direction only after exact final approval', async quality => {
+    const d = await withMaterials(), unreviewed = await approvedBrandDirection(d, policy, false, quality);
+    await db.query('UPDATE public.desaing_state SET revision=1,snapshot=$2 WHERE business_id=$1', [business, JSON.stringify(unreviewed.state)]);
+    await expect(save({ ...d, direction: unreviewed.identity })).rejects.toMatchObject({ code: 'server_onboarding_direction_not_approved' });
+    const reviewed = await approvedBrandDirection(d, policy, true, quality);
+    expect(reviewed.state.assets.direction_approvals).toHaveLength(0);
+    expect(reviewed.state.assets.versions.at(-1)?.provenance).toMatchObject({ action: 'generate_image', quality });
+    expect(reviewed.state.assets.versions.at(-1)?.provenance).not.toHaveProperty('parent');
+    await db.query('UPDATE public.desaing_state SET revision=2,snapshot=$2 WHERE business_id=$1', [business, JSON.stringify(reviewed.state)]);
+    const saved = await save({ ...d, direction: reviewed.identity });
+    expect((await server().publish(actor, publishRequest(saved))).direction).toEqual(reviewed.identity);
   });
   it('publishes one profile transactionally, preserves unrelated tenant fields, and recovers a lost acknowledgement without duplicates', async () => {
     const f = await ready(), saved = await save({ ...f.draft, direction: f.image.identity });

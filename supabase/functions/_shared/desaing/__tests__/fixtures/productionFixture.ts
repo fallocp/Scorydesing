@@ -36,7 +36,7 @@ export async function productionTestResult(state: ServerSnapshot, policy: Server
   state = recordServerResult(state, operation.operation_key, call.call_key, attempt, normalizeImageResponse({ status: 200, duration_ms: 10, expected_outputs: 1,
     body: { data: [{ b64_json: Buffer.from(bytes).toString('base64') }] } }), [{ identity, brand_id: biz, project_id: operation.context.project_id,
     storage: { storage_key, mime_type: 'image/png', ...operation.image!.size, size_bytes: bytes.length }, provenance: { kind: 'image_operation',
-      operation_key: operation.operation_key, output_index: 0, action: operation.action as 'edit_image' | 'regenerate_image', model_id: call.planned.model_id!, quality: 'low',
+      operation_key: operation.operation_key, output_index: 0, action: operation.action as 'edit_image' | 'regenerate_image', model_id: call.planned.model_id!, quality: operation.image!.quality,
       effective_prompt: operation.context.instruction, revised_prompt: null, references: operation.context.references, immutable_elements: operation.context.immutable_elements,
       ...(operation.context.base_asset ? { parent: operation.context.base_asset } : {}) } }], 102);
   state = validateServerCall(state, operation.operation_key, call.call_key, true, 103);

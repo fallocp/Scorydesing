@@ -2,12 +2,12 @@
  * useFxDaily — dueño del ciclo de vida de un Daily Report FX.
  *
  *   1. processMd     MD → report (campos editables) + image_prompt   (edge: generate-fx-daily)
- *   2. generateImage image_prompt → escena AI → compone HTML editorial → guarda PNG
- *   3. recompose     re-hornea solo el texto editable sobre la escena en memoria
+ *   2. generateImage kit reutilizable → compone HTML editorial → guarda PNG
+ *   3. recompose     vuelve a montar el texto editable sobre el mismo kit
  *
- * Reutiliza los mismos cables que News: generate-design-image (mode generate,
- * promptFinal verbatim), render server (renderHtmlToPng) y useSaveMockup. El texto
- * editorial va 100% en la capa HTML (buildFxDailyHtml).
+ * Comparte con News el render HTML (renderHtmlToPng) y useSaveMockup. Los objetos
+ * del kit se generan por separado con useFxKit y el motor común; montar el
+ * reporte no genera otra imagen AI. El texto va en buildFxDailyHtml.
  */
 
 import { useCallback, useRef, useState } from 'react';

@@ -1,5 +1,6 @@
-import type { AssetVersion, DesignContext } from './contracts.ts';
+import type { AssetVersion, DesignContext, ReferenceRole } from './contracts.ts';
 import type { ServerExplorationCapabilities } from './serverExplorationContract.ts';
+import type { ConversationNextAction, ConversationTurnContext } from './conversationActions.ts';
 
 /** Textual ideas are not image candidates, approvals or AssetVersions. */
 export type ExplorationScope = 'asset_in_region' | 'full_design';
@@ -30,6 +31,34 @@ export interface TextIdeaSet {
   usage: ExplorationUsage | null;
 }
 export interface ExplorationMessage { role: 'user' | 'assistant'; text: string; request_key: string }
+/** Literal copy is resolved content, not an approval or permission to render. */
+export interface DesignCopy {
+  status: 'pending' | 'literal' | 'none';
+  text: string;
+  source_reference_ids: string[];
+}
+export interface ExplorationBrandSnapshot {
+  brand_id: string;
+  name: string;
+  summary: string;
+  palette: string[];
+  typography: string[];
+}
+export interface DesignUnderstanding {
+  intent: 'recreate' | 'variation' | 'explore';
+  resolved_instruction: string;
+  copy: DesignCopy;
+  references: { reference_id: string; roles: ReferenceRole[]; instruction: string }[];
+  preserve: string[];
+  pending_questions: string[];
+}
+export interface ExplorationDesignBrief {
+  copy: DesignCopy;
+  brand: ExplorationBrandSnapshot | null;
+  selected_instruction: string;
+  preserve: string[];
+  previous_understanding?: DesignUnderstanding;
+}
 export interface ExplorationRequest {
   request_key: string;
   kind: 'directions' | 'discussion';
@@ -37,6 +66,9 @@ export interface ExplorationRequest {
   context: DesignContext;
   message: string;
   history: Pick<ExplorationMessage, 'role' | 'text'>[];
+  design_brief?: ExplorationDesignBrief;
+  /** Opt-in unified conversation; execution remains a separate authorized step. */
+  conversation?: ConversationTurnContext;
 }
 export interface ExplorationResult {
   request_key: string;
@@ -44,6 +76,8 @@ export interface ExplorationResult {
   ideas: IdeaContent[];
   response_id: string | null;
   usage: ExplorationUsage | null;
+  design_understanding?: DesignUnderstanding;
+  next_action?: ConversationNextAction;
 }
 export interface ExplorationAttempt {
   request: ExplorationRequest;

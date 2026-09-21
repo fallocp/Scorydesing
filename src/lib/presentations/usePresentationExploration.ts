@@ -1,23 +1,27 @@
 import { useEffect, useRef, useState } from 'react';
 import type { DesignContext, InteractionMode } from '../../../supabase/functions/_shared/desaing/contracts';
 import type { RegisteredAssetVersion } from '../../../supabase/functions/_shared/desaing/assets';
-import type { ExplorationPlanner, ExplorationRequest, ExplorationSession, ExplorationScope, IdeaSelection, IdeaSource } from '../../../supabase/functions/_shared/desaing/explorationContracts';
+import type { ExplorationPlanner, ExplorationRequest, ExplorationSession, ExplorationScope, IdeaSelection, IdeaSource, ExplorationDesignBrief, DesignUnderstanding, ExplorationResult } from '../../../supabase/functions/_shared/desaing/explorationContracts';
 import type { ServerExplorationCapabilities } from '../../../supabase/functions/_shared/desaing/serverExplorationContract';
 import {
   beginExploration, bindIdeaRender, combineTextIdeas, createExplorationSession, discardUnsubmittedExploration, explorationDiscussionHistory, finishExploration,
   ideaRenderInstruction, fullDesignRenderInstruction, markExplorationUncertain, refineTextIdea, selectTextIdea, updateExplorationContext,
+  expectedExplorationContext,
 } from '../../../supabase/functions/_shared/desaing/exploration';
 import { changeInteractionMode } from '../../../supabase/functions/_shared/desaing/session';
 import { openExplorationStore, type ExplorationDraft, type ExplorationDraftRecord, type ExplorationStore } from '../desaing/explorationStore';
 import { isExplorationAdmissionRefusal, type DesignServerClient } from '../desaing/serverClient';
 import { getSlideDimensions, type PresentationSlide } from './presentationDocument';
-import { prepareServerCapture, type DesignRegion } from './presentationServerDesign';
+import { prepareServerCapture, isUnresolvedReferenceCopy, type DesignRegion } from './presentationServerDesign';
 import { presentationReferenceScopeSuffix, type PresentationReferenceScope } from '../../../supabase/functions/_shared/desaing/presentationReferenceScope';
 import { fullDesignImmutables, fullDesignLocalInstruction } from '../../../supabase/functions/_shared/desaing/presentationFullDesign';
 import { designSurfaceTarget, designSurfaceSessionId, designSurfaceWorkspace, designSurfaceBrand, type DesignSurfaceDestination } from '../../../supabase/functions/_shared/desaing/designSurface';
 
-interface Inputs { instruction: string; region: DesignRegion; capture: File | null; referenceScope?: PresentationReferenceScope; approvedCopy?: string }
+interface Inputs { instruction: string; region: DesignRegion; capture: File | null; referenceScope?: PresentationReferenceScope; approvedCopy?: string; copyMode?: 'literal' | 'none' }
 interface Options extends Inputs {
+  brand?: ExplorationDesignBrief['brand'];
+  brandReady?: boolean;
+  prepareReferences?(capabilities: ServerExplorationCapabilities, capture: Blob | null, hash: string): Promise<DesignContext['references']>;
   scope?: ExplorationScope;
   enabled?: boolean;
   destination?: DesignSurfaceDestination;
@@ -47,11 +51,13 @@ interface Lifetime {
   savedInputs: Inputs | null;
   savedSlide: string;
   restoring: Inputs | null;
+  visualReferences: ExplorationDraft['visual_references'];
 }
-const slideKey = (value: Options) => canonical([value.slide.revision, value.slide.html]);
+const slideKey = (value: Options) => canonical([value.slide.revision, value.slide.html, value.brand]);
 const sameInputs = (a: Inputs | null, b: Inputs) => !!a && a.instruction === b.instruction
-  && a.capture === b.capture && a.approvedCopy === b.approvedCopy && canonical(a.region) === canonical(b.region) && canonical(a.referenceScope) === canonical(b.referenceScope);
-const inputsOf = (value: Inputs): Inputs => ({ instruction: value.instruction, region: { ...value.region }, capture: value.capture, referenceScope: value.referenceScope, approvedCopy: value.approvedCopy });
+  && a.capture === b.capture && a.approvedCopy === b.approvedCopy && a.copyMode === b.copyMode && canonical(a.region) === canonical(b.region) && canonical(a.referenceScope) === canonical(b.referenceScope);
+const inputsOf = (value: Inputs): Inputs => ({ instruction: value.instruction, region: { ...value.region }, capture: value.capture, referenceScope: value.referenceScope, approvedCopy: value.approvedCopy, copyMode: value.copyMode });
+const referenceContextKey = (inputs: Inputs, hash: string) => canonical([inputs.referenceScope, hash]);
 async function captureHash(blob: Blob) {
   const digest = await crypto.subtle.digest('SHA-256', await blob.arrayBuffer());
   return Array.from(new Uint8Array(digest), v => v.toString(16).padStart(2, '0')).join('');
@@ -85,14 +91,17 @@ export function usePresentationExploration(options: Options) {
     return { actor_id: life.actor, business_id: value.businessId, brand_id: designSurfaceBrand(value.destination), project_id: value.documentId,
       session_id: designSurfaceSessionId(value.documentId, value.slide.id, value.scope, value.destination), workspace: designSurfaceWorkspace(value.destination), interaction_mode: mode,
       target: designSurfaceTarget(value.documentId, value.slide, value.destination),
-      // No fictitious asset/version: the local capture is retained as bytes. This
-      // text planner receives scope metadata, not a claim that it saw the pixels.
       instruction: (value.scope === 'full_design' ? fullDesignLocalInstruction(inputs.instruction, canvas, inputs.capture ? imageHash : null)
-        : `${inputs.instruction.trim()}\n\nAlcance: una pieza independiente para la región ${JSON.stringify(inputs.region)} del lienzo ${canvas.width}×${canvas.height}.\nIdentidad de la captura local: ${imageHash}. La planificación inicial es textual.`) + presentationReferenceScopeSuffix(inputs.referenceScope),
+        : `${inputs.instruction.trim()}\n\nAlcance: una pieza independiente para la región ${JSON.stringify(inputs.region)} del lienzo ${canvas.width}×${canvas.height}.\nIdentidad de la captura local: ${imageHash}.`)
+        .replace(' La planificación inicial es textual.', '') + presentationReferenceScopeSuffix(inputs.referenceScope)
+        + (value.brand ? `\n\nIdentidad de la marca de este proyecto:\n${canonical(value.brand)}` : ''),
       ...(value.destination?.workspace === 'production' ? { copy_version_id: value.productionCopyVersion,
         ...(value.destination.action !== 'regenerate_image' ? { base_asset: value.productionSource?.identity } : {}) } : {}),
-      immutable_elements: value.scope === 'full_design' ? inputs.approvedCopy?.trim() || value.destination?.workspace === 'production' ? fullDesignImmutables(inputs.approvedCopy ?? '', canvas, value.destination)
-        : ['Pendiente de definir el texto aprobado para el diseño completo.'] : [value.destination ? 'Conservar el texto y la estructura HTML del lienzo.' : 'Conservar el texto y la estructura HTML de la diapositiva.'], references: [] };
+      immutable_elements: value.scope === 'full_design' ? (inputs.copyMode === 'none' || inputs.approvedCopy?.trim() && !isUnresolvedReferenceCopy(inputs.approvedCopy) || value.destination?.workspace === 'production')
+        ? fullDesignImmutables(inputs.approvedCopy ?? '', canvas, value.destination, inputs.copyMode)
+        : ['Pendiente de resolver el texto literal del diseño. Las indicaciones sobre referencias no son texto para imprimir.', `Lienzo completo: ${canvas.width}×${canvas.height}.`]
+        : [value.destination ? 'Conservar el texto y la estructura HTML del lienzo.' : 'Conservar el texto y la estructura HTML de la diapositiva.'],
+      references: life.visualReferences?.scope_key === referenceContextKey(inputs, imageHash) ? structuredClone(life.visualReferences.references) : [] };
   }
   async function save(life: Lifetime, value: ExplorationDraft, inputs?: Inputs, source = latest.current) {
     ensureActive(life);
@@ -119,12 +128,16 @@ export function usePresentationExploration(options: Options) {
     return { session: previous ? updateExplorationContext(previous.session, nextContext) : createExplorationSession(nextContext, source.scope ?? 'asset_in_region'),
       capture: image.blob, capture_name: image.name, brief: inputs.instruction, region: { ...inputs.region },
       ...(source.scope === 'full_design' ? { approved_copy: inputs.approvedCopy ?? '' } : {}),
+      copy_mode: inputs.copyMode ?? 'literal',
+      ...(life.visualReferences ? { visual_references: life.visualReferences } : {}),
+      ...(previous?.applied_understanding_key ? { applied_understanding_key: previous.applied_understanding_key } : {}),
       ...(previous?.prepared_idea ? { prepared_idea: previous.prepared_idea } : {}) };
   }
   async function restore(life: Lifetime, value: ExplorationDraft) {
     ensureActive(life);
     const inputs: Inputs = { instruction: value.brief, region: value.region ?? latest.current.region, referenceScope: latest.current.referenceScope,
       approvedCopy: value.approved_copy ?? latest.current.approvedCopy,
+      copyMode: value.copy_mode ?? 'literal',
       capture: value.capture ? new File([value.capture], value.capture_name ?? 'captura.png', { type: 'image/png' }) : null };
     // Reuse exactly the persisted PNG bytes: re-encoding a recovered capture can
     // alter its hash and silently invalidate its selected design direction.
@@ -135,6 +148,7 @@ export function usePresentationExploration(options: Options) {
     life.savedInputs = inputs;
     life.savedSlide = slideKey(latest.current);
     latest.current.restore(inputs);
+    return inputs;
   }
   async function perform(action: (life: Lifetime) => Promise<void>, recovering = false) {
     const life = lifetime.current;
@@ -152,6 +166,10 @@ export function usePresentationExploration(options: Options) {
         : ['exploration_unresolved', 'exploration_previous_unresolved'].includes(code) ? 'La solicitud anterior sigue pendiente. Recupera su resultado antes de pedir otras ideas.'
         : code === 'exploration_quota_exceeded' ? 'No queda presupuesto disponible para otra conversación de diseño. Puedes trabajar con las ideas guardadas.'
         : code === 'exploration_unavailable' ? 'La conversación de diseño está pausada. Puedes consultar y ajustar las ideas guardadas.'
+        : code === 'brand_context_unavailable' ? 'Carga la identidad de este negocio antes de continuar.'
+        : code === 'exploration_visual_context_unavailable' ? 'El servidor todavía no tiene activa la lectura de imágenes en la conversación. Falta desplegar desaing-server actualizado.'
+        : ['exploration_reference_unavailable', 'exploration_reference_invalid'].includes(code) ? 'No se pudo leer una referencia guardada. Vuelve a añadir esa imagen; no se envió una conversación nueva.'
+        : code === 'exploration_reference_limit' ? 'Esta conversación admite hasta cuatro imágenes. Quita una referencia antes de continuar.'
         : code === 'server_session_changed' ? 'La sesión cambió. Cierra y vuelve a abrir este panel para continuar.'
         : 'No se completó esta acción. Conservamos la exploración; recupera su estado antes de repetirla.');
     } finally { life.locked = false; if (active(life)) setBusy(false); }
@@ -197,6 +215,7 @@ export function usePresentationExploration(options: Options) {
     }
     const saved = await life.store.read(); ensureActive(life);
     life.current = saved;
+    life.visualReferences = saved?.value.visual_references;
     if (saved && latest.current.destination?.workspace === 'onboarding'
       && saved.value.session.context.target.revision !== String(latest.current.slide.revision)) {
       const source = latest.current, next = await draft(life, source);
@@ -205,6 +224,8 @@ export function usePresentationExploration(options: Options) {
     } else if (saved) { await restore(life, saved.value); setRecord(saved); }
     else { const source = latest.current; await save(life, await draft(life, source), source, source); }
     await mergeHistory(life);
+    const latestResult = [...(life.current?.value.session.attempts ?? [])].reverse().find(attempt => attempt.status === 'completed')?.result;
+    if (latestResult) await applyUnderstanding(life, latestResult);
     await refreshCapabilities(life);
     life.recoveryRequired = false;
   }
@@ -212,7 +233,7 @@ export function usePresentationExploration(options: Options) {
     setRecord(null); setBusy(false); setError(''); setCapabilities(null);
     if (options.enabled === false) { lifetime.current = null; return; }
     const life: Lifetime = { active: true, actor: '', store: null, current: null, work: Promise.resolve(), locked: false,
-      recoveryRequired: false, source: options, normalized: null, savedInputs: null, savedSlide: '', restoring: null };
+      recoveryRequired: false, source: options, normalized: null, savedInputs: null, savedSlide: '', restoring: null, visualReferences: undefined };
     lifetime.current = life;
     void serial(life, () => load(life)).catch(() => {
       life.recoveryRequired = true;
@@ -248,34 +269,96 @@ export function usePresentationExploration(options: Options) {
     } }); }, 250);
     return () => clearTimeout(timer);
   }, [options.planner, options.enabled, options.instruction, options.capture, options.region.x, options.region.y, options.region.width,
-    options.region.height, options.slide.revision, options.slide.html, options.approvedCopy, canonical(options.referenceScope), record, busy]);
+    options.region.height, options.slide.revision, options.slide.html, options.approvedCopy, options.copyMode, canonical(options.brand), canonical(options.referenceScope), record, busy]);
 
   async function mode(next: InteractionMode) { await perform(life => serial(life, async () => {
     const source = latest.current, value = await draft(life, source);
     value.session = updateExplorationContext(value.session, changeInteractionMode(value.session.context, next));
     await save(life, value, source, source);
   })); }
-  async function plan(kind: ExplorationRequest['kind'], message: string) { await perform(async life => {
+  async function editInputs(inputs: Partial<Inputs>) {
+    const life = requireLifetime();
+    if (life.recoveryRequired || life.locked) throw new Error('exploration_recovery_required');
+    return serial(life, async () => {
+      const source = { ...latest.current, ...inputs }, value = await draft(life, source);
+      delete value.prepared_idea;
+      await save(life, value);
+      return restore(life, value);
+    });
+  }
+  async function applyUnderstanding(life: Lifetime, result: ExplorationResult) {
+    const current = life.current!.value, attempt = current.session.attempts.find(item => item.request.request_key === result.request_key);
+    const understood = result.design_understanding;
+    if (!understood || !attempt || current.applied_understanding_key === result.request_key) return;
+    if (attempt.request.kind === 'directions') {
+      const expected = expectedExplorationContext(attempt.request, result);
+      if (canonical(expected) === canonical(attempt.request.context) || canonical(withoutMode(current.session.context)) !== canonical(withoutMode(expected))) return;
+      const next = { ...current, approved_copy: understood.copy.text, copy_mode: 'literal' as const, applied_understanding_key: result.request_key };
+      await save(life, next); await restore(life, next); return;
+    }
+    // A recovered answer must not overwrite a brief edited after that request.
+    if (canonical(withoutMode(current.session.context)) !== canonical(withoutMode(attempt.request.context))) return;
+    const source = latest.current;
+    const inputs: Inputs = { ...inputsOf(source), instruction: [understood.resolved_instruction,
+      ...understood.references.map(ref => `Referencia ${ref.reference_id}: ${ref.instruction}`),
+      ...understood.preserve.map(item => `Conservar: ${item}`)].join('\n'),
+      ...(source.scope === 'full_design' && !['production', 'onboarding'].includes(source.destination?.workspace ?? '') ? { approvedCopy: understood.copy.status === 'literal' ? understood.copy.text : '',
+        copyMode: understood.copy.status === 'none' ? 'none' : 'literal' } : {}) };
+    const image = await capture(life, inputs.capture);
+    const next = { ...current, brief: inputs.instruction, approved_copy: inputs.approvedCopy, copy_mode: inputs.copyMode,
+      applied_understanding_key: result.request_key, prepared_idea: undefined,
+      session: updateExplorationContext(current.session, context(life, source, inputs, image.hash, current.session.context.interaction_mode)) };
+    await save(life, next); await restore(life, next);
+  }
+  async function plan(kind: ExplorationRequest['kind'], message: string, selection?: IdeaSelection) { await perform(async life => {
     let request!: ExplorationRequest;
+    let completed = false;
     let preparedBefore: ExplorationDraft['prepared_idea'];
     const planner = life.source.planner!;
+    let available = capabilities;
+    if (latest.current.brandReady === false) throw new Error('brand_context_unavailable');
     if (planner.capabilities) {
-      const available = await planner.capabilities(); ensureActive(life); setCapabilities(available);
+      available = await planner.capabilities(); ensureActive(life); setCapabilities(available);
       if (!available || available.remaining_attempts < 1) throw new Error(available ? 'exploration_quota_exceeded' : 'exploration_unavailable');
     }
     await serial(life, async () => {
       const source = latest.current;
-      if (!source.instruction.trim()) throw new Error('brief_required');
-      if (source.scope === 'full_design') fullDesignImmutables(source.approvedCopy ?? '', getSlideDimensions(source.slide.html), source.destination);
+      if (!message.trim()) throw new Error('brief_required');
+      const visual = available?.supports_visual_context === true;
+      if (!visual && (source.capture || source.referenceScope?.references.length)) throw new Error('exploration_visual_context_unavailable');
+      if (visual && source.prepareReferences) {
+        const image = await capture(life, source.capture);
+        const references = await source.prepareReferences(available!, image.blob, image.hash);
+        ensureActive(life);
+        if (!sameInputs(inputsOf(source), latest.current) || slideKey(source) !== slideKey(latest.current)) throw new Error('exploration_context_changed');
+        life.visualReferences = { scope_key: referenceContextKey(source, image.hash), references };
+      }
       const value = await draft(life, source), nextContext = value.session.context;
       if (value.session.attempts.some(attempt => attempt.status !== 'completed')) throw new Error('exploration_unresolved');
       // Reuse an existing unchanged set; a reload/double click never buys another plan.
       if (kind === 'directions' && value.session.sets.some(set => canonical(withoutMode(set.context)) === canonical(withoutMode(nextContext)))) {
         await save(life, value, source, source); return;
       }
+      const prior = [...value.session.attempts].reverse().find(attempt => attempt.result?.design_understanding)?.result?.design_understanding;
+      const referenceIds = new Set(nextContext.references.map(ref => ref.reference_id));
+      const previous: DesignUnderstanding | undefined = prior ? { ...prior,
+        copy: { ...prior.copy, source_reference_ids: prior.copy.source_reference_ids.filter(id => referenceIds.has(id)) },
+        references: prior.references.filter(ref => referenceIds.has(ref.reference_id)) } : undefined;
+      const chosen = selection ?? value.session.selected;
+      const selectedIdea = chosen && value.session.sets.find(set => set.set_id === chosen.set_id)?.ideas.find(idea => idea.idea_id === chosen.idea_id && idea.version === chosen.version);
+      const literal = !!source.approvedCopy?.trim() && !isUnresolvedReferenceCopy(source.approvedCopy);
+      const designBrief: ExplorationDesignBrief = { copy: { status: source.copyMode === 'none' ? 'none' : literal ? 'literal' : 'pending',
+        text: literal ? source.approvedCopy! : '', source_reference_ids: literal && previous && previous.copy.text === source.approvedCopy ? previous.copy.source_reference_ids : [] },
+        brand: source.brand ?? null, selected_instruction: selectedIdea?.render_instruction ?? '', preserve: previous?.preserve ?? [],
+        ...(previous ? { previous_understanding: previous } : {}) };
       request = { request_key: crypto.randomUUID(), kind, scope: source.scope ?? 'asset_in_region', context: nextContext,
-        message, history: kind === 'discussion' ? explorationDiscussionHistory(value.session)
+        ...(visual ? { design_brief: designBrief } : {}),
+        message, history: kind === 'discussion' ? visual
+          ? [...value.session.messages.slice(-12).map(({ role, text }) => ({ role, text: text.slice(0, 1800) })),
+            ...explorationDiscussionHistory(value.session).filter(item => item.text.startsWith('{"kind":"saved_text_'))]
+          : explorationDiscussionHistory(value.session)
           : value.session.messages.slice(-8).map(({ role, text }) => ({ role, text })) };
+      while (request.history.length && new TextEncoder().encode(JSON.stringify(request)).length > 65536) request.history.shift();
       preparedBefore = value.prepared_idea;
       value.session = beginExploration(value.session, request);
       if (kind === 'directions') delete value.prepared_idea;
@@ -285,9 +368,13 @@ export function usePresentationExploration(options: Options) {
     try {
       ensureActive(life);
       const result = await planner.plan(request);
-      await serial(life, async () => { await save(life, { ...life.current!.value, session: finishExploration(life.current!.value.session, result) }); });
+      await serial(life, async () => {
+        await save(life, { ...life.current!.value, session: finishExploration(life.current!.value.session, result) });
+        completed = true;
+        await applyUnderstanding(life, result);
+      });
     } catch (problem) {
-      if (active(life) && !life.recoveryRequired) await serial(life, async () => {
+      if (!completed && active(life) && !life.recoveryRequired) await serial(life, async () => {
         const refused = isExplorationAdmissionRefusal(problem), current = life.current!.value;
         await save(life, { ...current,
           ...(refused ? { prepared_idea: preparedBefore } : {}),
@@ -366,6 +453,8 @@ export function usePresentationExploration(options: Options) {
         if (result) session = finishExploration(session, result);
       }
       if (session !== saved.value.session) await save(life, { ...saved.value, session });
+      const latestResult = [...session.attempts].reverse().find(attempt => attempt.status === 'completed')?.result;
+      if (latestResult) await applyUnderstanding(life, latestResult);
       if (session.attempts.some(attempt => attempt.status !== 'completed')) throw new Error('exploration_unresolved');
       life.recoveryRequired = false;
     } catch (problem) { life.recoveryRequired = true; throw problem; }
@@ -376,14 +465,16 @@ export function usePresentationExploration(options: Options) {
     && record.value.session.context.target.document_id === options.documentId
     && record.value.session.context.session_id === designSurfaceSessionId(options.documentId, options.slide.id, options.scope, options.destination) ? record : null;
   return { session: visible?.value.session ?? null, mode: visible?.value.session.context.interaction_mode ?? 'execute_change',
-    canPlan: !!options.planner && (!options.planner.capabilities || !!capabilities && capabilities.remaining_attempts > 0), capabilities,
+    canPlan: options.brandReady !== false && !!options.planner && (!options.planner.capabilities || !!capabilities && capabilities.remaining_attempts > 0), capabilities,
+    understanding: [...(visible?.value.session.attempts ?? [])].reverse().find(attempt => attempt.result?.design_understanding)?.result?.design_understanding ?? null,
     ready: !!visible, busy, error, setMode: mode, planFive: () => plan('directions', 'Propón cinco ideas de diseño distintas para este encargo.'),
-    discuss: (message: string) => plan('discussion', message), recover, useIdea, bindRender, prepareVisualSession, bindVisualRender,
+    discuss: (message: string) => plan('discussion', message), recover, useIdea, editInputs, bindRender, prepareVisualSession, bindVisualRender,
     preparedSelection: visible?.value.prepared_idea && options.instruction === visible.value.prepared_idea.instruction
       ? visible.value.prepared_idea.selection : null,
     select: (selection: IdeaSelection) => mutate(value => ({ ...value, session: selectTextIdea(value.session, selection) })),
-    refine: (selection: IdeaSelection, feedback: string) => mutate(value => ({ ...value, prepared_idea: undefined,
-      session: refineTextIdea(value.session, selection, feedback) })),
+    refine: (selection: IdeaSelection, feedback: string) => capabilities?.supports_visual_context
+      ? plan('discussion', feedback, selection) : mutate(value => ({ ...value, prepared_idea: undefined,
+        session: refineTextIdea(value.session, selection, feedback) })),
     combine: (sources: IdeaSource[]) => mutate(value => ({ ...value, prepared_idea: undefined,
       session: combineTextIdeas(value.session, sources, crypto.randomUUID()) })),
   };

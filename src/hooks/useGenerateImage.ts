@@ -1,13 +1,22 @@
 /**
- * React Query mutation for generating design images via the generate-design-image Edge Function.
- * Wraps the Supabase Edge Function call with loading, error, and success states.
+ * Generates images through the shared DesAIng job engine.
+ * The legacy text endpoint only prepares prompts; consumers save then acknowledge results.
  */
 
 import { useMutation } from '@tanstack/react-query';
-import { invokeWithRetry } from '@/lib/supabase-retry';
+import { supabase } from '@/integrations/supabase/client';
+import { useActiveBusiness } from './useActiveBusiness';
+import { useAuth } from './useAuth';
+import { useImageGenerationSettings } from './useImageGenerationSettings';
+import { generateSharedDesignImage, type SharedDesignImageResult, type SharedImageRequest, type SharedImageScope } from '@/lib/desaing/sharedImageGeneration';
 import type { Brand } from '@/types/xendingDesign';
+import type { ImageModel } from '@/lib/imageGenerationSettings';
 
-export interface GenerateImageRequest {
+export interface GenerateImageRequest extends SharedImageRequest {
+  /** Stable consumer slot: repeated delivery recovers its existing operation. */
+  generationKey?: string;
+  expectedActorId?: string;
+  libraryContext?: SharedImageScope['library'];
   userRequest: string;
   brand: Brand;
   mainSubject?: string;
@@ -33,12 +42,14 @@ export interface GenerateImageRequest {
   /** Explicit per-request snapshot; bypasses DB/global source for reproducibility. */
   masterPromptVersion?: 'v1' | 'v2' | 'v3';
   /**
-   * Image Stock Studio: process-specific style prompt. When set, the backend
+   * Optional process-specific style prompt. When set, the backend
    * uses it as the step-1 system prompt (single-image path) so each generator
    * drives its own look. Pass the current (possibly edited) prompt text.
    */
   styleSystemPrompt?: string;
-  /** gpt-image-2 render quality. Defaults to 'medium' server-side. */
+  /** Explicit model selection; omitted legacy callers retain the server default. */
+  imageModel?: ImageModel;
+  /** Explicit render quality. The shared engine rejects legacy 'auto'. */
   imageQuality?: 'low' | 'medium' | 'high' | 'auto';
   /**
    * Shared image-engine "gate" support:
@@ -69,6 +80,7 @@ export interface ImagePromptDetails {
 }
 
 export interface GenerateImageResponse {
+  results: SharedDesignImageResult[];
   imageBase64: string;
   /** All returned variations (length = requested imageCount). First = imageBase64. */
   images?: string[];
@@ -80,27 +92,41 @@ export interface BuildImagePromptResponse {
   promptUsed: ImagePromptDetails;
 }
 
-async function generateDesignImage(
-  request: GenerateImageRequest
-): Promise<GenerateImageResponse> {
-  return invokeWithRetry<GenerateImageResponse>('generate-design-image', {
-    body: request as unknown as Record<string, unknown>,
-  });
-}
-
 async function buildImagePrompt(
   request: GenerateImageRequest
 ): Promise<BuildImagePromptResponse> {
-  return invokeWithRetry<BuildImagePromptResponse>('generate-design-image', {
-    body: { ...request, mode: 'prompts' } as unknown as Record<string, unknown>,
-  });
+  const { data, error } = await supabase.functions.invoke('generate-design-image', { body: { ...request, mode: 'prompts' } });
+  if (error || data?.error || !data?.promptUsed?.promptFinal) throw new Error(data?.message || error?.message || 'No se pudo preparar el prompt.');
+  return data as BuildImagePromptResponse;
 }
 
-export function useGenerateImage() {
-  return useMutation({
-    mutationFn: generateDesignImage,
-    mutationKey: ['generate-design-image'],
+export function useGenerateImage(processKey = 'standalone-image') {
+  const { activeBusinessId } = useActiveBusiness();
+  const { user } = useAuth();
+  const { settings, setSettings } = useImageGenerationSettings(activeBusinessId, processKey);
+  const mutation = useMutation({
+    async mutationFn(input: GenerateImageRequest): Promise<GenerateImageResponse> {
+      if (!activeBusinessId || !user?.id) throw new Error('Selecciona una marca e inicia sesión antes de generar.');
+      const { generationKey, libraryContext, expectedActorId, ...request } = structuredClone(input);
+      if (request.business_id && request.business_id !== activeBusinessId || expectedActorId && expectedActorId !== user.id) {
+        throw new Error('La sesión o la marca cambió. Vuelve a abrir el generador.');
+      }
+      const count = request.imageCount ?? 1;
+      if (!Number.isInteger(count) || count < 1 || count > 3) throw new Error('Elige entre una y tres versiones.');
+      const scope: SharedImageScope = { businessId: activeBusinessId, actorId: user.id, process: 'stock',
+        slotKey: `${processKey}:${generationKey ?? 'current'}`,
+        library: libraryContext ?? { brand: request.brand, collection: 'generated', description: request.userRequest } };
+      const results: SharedDesignImageResult[] = [];
+      for (let index = 0; index < count; index++) {
+        results.push(await generateSharedDesignImage({ ...request, imageCount: 1,
+          imageModel: request.imageModel ?? settings.model, imageQuality: request.imageQuality ?? settings.quality },
+        { ...scope, slotKey: `${scope.slotKey}:v${index}` }));
+      }
+      return { imageBase64: results[0].imageBase64, images: results.map(item => item.imageBase64), promptUsed: results[0].promptUsed, results };
+    },
+    mutationKey: ['shared-design-image', activeBusinessId, user?.id, processKey], retry: false,
   });
+  return { ...mutation, imageSettings: settings, setImageSettings: setSettings };
 }
 
 /**
@@ -112,5 +138,6 @@ export function useBuildImagePrompt() {
   return useMutation({
     mutationFn: buildImagePrompt,
     mutationKey: ['generate-design-image', 'prompts'],
+    retry: false,
   });
 }

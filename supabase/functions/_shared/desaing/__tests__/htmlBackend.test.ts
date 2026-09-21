@@ -11,13 +11,15 @@ import { ServerBoundaryError, type ServerRead, type ServerRepository } from '../
 import { createServerHandler } from '../serverHttp.ts';
 import { htmlPng, htmlRequest, htmlResult, HTML_ACTOR as actor, HTML_BUSINESS as business } from './fixtures/htmlCompositionFixture.ts';
 import { isServerHtmlCapabilities } from '../serverHtmlContract.ts';
+import { PILOT_LIMITS } from '../pilotHttp.ts';
+import { makeTextlessCompositionCopy } from '../composition.ts';
 const config: ServerHtmlConfig = { enabled: true, actorId: actor, businessId: business, policyId: 'html-pilot',
   expectedSupabaseOrigin: 'https://project.supabase.co', actualSupabaseOrigin: 'https://project.supabase.co', expiresAt: 100000 };
 const token = 'a0000000-0000-4000-8000-000000000003';
 async function fixture(overrides: Partial<ServerHtmlConfig> = {}) {
   const request = await htmlRequest(), entries = new Map<string, HtmlJournalEntry>();
-  const policy = { business_id: business, enabled: true, policy_id: config.policyId, limit_micro_usd: 5000000,
-    reservation_per_output_micro_usd: 1000000, max_image_outputs: 4, enabled_image_profiles: ['flare_candidate' as const], responses_image_enabled: true };
+  const policy = { business_id: business, enabled: true, policy_id: config.policyId, limit_micro_usd: PILOT_LIMITS.budgetMicroUsd,
+    reservation_per_output_micro_usd: PILOT_LIMITS.reservationMicroUsd, max_image_outputs: PILOT_LIMITS.maxOutputs, enabled_image_profiles: ['flare_candidate' as const], responses_image_enabled: true };
   const snapshot = createServerSnapshot(business, policy);
   snapshot.assets = registerAssetVersion(snapshot.assets, { identity: request.design_reference, brand_id: 'presentation', project_id: 'deck',
     provenance: { kind: 'imported', origin: 'upload' }, storage: { storage_key: `${business}/design.png`, mime_type: 'image/png', width: 1, height: 1, size_bytes: htmlPng().length } });
@@ -68,11 +70,20 @@ describe('authenticated HTML vision admission and existing shared budget', () =>
     expect(await f.boundary.plan(actor, f.request)).toEqual(htmlResult(f.request)); expect(f.plan).toHaveBeenCalledTimes(1);
     expect(isServerHtmlCapabilities(await f.boundary.capabilities(business, actor))).toBe(true);
   });
-  it('shares the twenty-attempt, one-dollar text and five-dollar combined limits before pixel reads or claims', async () => {
+  it('shares the twenty-attempt, one-dollar text and configured combined limits before pixel reads or claims', async () => {
     for (const limit of ['attempts', 'text', 'total']) { const f = await fixture();
-      if (limit === 'attempts') f.attempts(20); if (limit === 'text') f.text(750001); if (limit === 'total') { f.image(4900000); }
+      if (limit === 'attempts') f.attempts(20); if (limit === 'text') f.text(750001); if (limit === 'total') { f.image(PILOT_LIMITS.budgetMicroUsd - 100000); }
       await expect(f.boundary.plan(actor, f.request)).rejects.toMatchObject({ code: 'html_quota_exceeded', status: 429 });
       expect(f.storage.get).not.toHaveBeenCalled(); expect(f.journal.claim).not.toHaveBeenCalled(); expect(f.plan).not.toHaveBeenCalled(); }
+  });
+  it('advertises and preserves textless conversion without another dispatch on recovery', async () => {
+    const f = await fixture(); f.request.copy = await makeTextlessCompositionCopy(); f.request.context.copy_version_id = f.request.copy.version_id;
+    expect(await f.boundary.capabilities(business, actor)).toMatchObject({ composition_version: 2 });
+    const prepared = prepareCompositionRequest(f.request, htmlPng()) as any;
+    expect(JSON.parse(prepared.input[1].content[0].text)).toMatchObject({ approved_copy: [], copy_mode: 'none' });
+    const result = await f.boundary.plan(actor, f.request); expect(result.composition.texts).toEqual([]);
+    expect(await f.boundary.recover(actor, business, f.request.request_key)).toEqual(result);
+    expect(f.plan).toHaveBeenCalledTimes(1);
   });
   it.each(['disabled', 'expired', 'origin', 'actor', 'role', 'policy', 'paused'])('blocks new work under invalid %s', async variant => {
     const f = await fixture(variant === 'disabled' ? { enabled: false } : variant === 'origin' ? { actualSupabaseOrigin: 'https://foreign.supabase.co' } : {});

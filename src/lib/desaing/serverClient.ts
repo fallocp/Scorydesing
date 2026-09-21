@@ -15,6 +15,9 @@ import { createProductionClient, type ProductionClient } from './productionClien
 import { PRODUCTION_ERRORS } from '../../../supabase/functions/_shared/desaing/production';
 import { createPromptAdminClient, type PromptAdminClient } from './promptAdminClient';
 import { PROMPT_ADMIN_ERRORS } from '../../../supabase/functions/_shared/desaing/promptAdmin';
+import type { GenerateMockupsRequest } from '../../types/design-studio';
+import type { PreparedStudioMockup } from '../../../supabase/functions/_shared/studioMockupPrompt';
+import { IMAGE_MODELS, IMAGE_QUALITIES } from '../../../supabase/functions/_shared/imageGenerationOptions';
 
 export type PublicServerCommand = Exclude<ServerCommand, { kind: 'register_import' }>;
 export interface DesignServerUpload {
@@ -25,6 +28,7 @@ export interface DesignServerUpload {
 }
 export interface DesignServerClient {
   session(): Promise<{ actorId: string }>;
+  prepareStudio?(request: GenerateMockupsRequest): Promise<PreparedStudioMockup>;
   read(businessId: string): Promise<{ revision: number; state: ServerSnapshot; enabled: boolean; generation?: ServerGenerationCapabilities | null }>;
   command(businessId: string, command: PublicServerCommand): Promise<Record<string, unknown> & { revision: number }>;
   upload(input: DesignServerUpload, file: Blob): Promise<RegisteredAssetVersion>;
@@ -45,6 +49,7 @@ export interface DesignServerClientOptions {
 
 const MAX_BYTES = 8388608;
 const PUBLIC_ERRORS = new Set([
+  'server_studio_unavailable', 'invalid_studio_request', 'studio_prompt_too_large', 'studio_client_upgrade_required',
   ...PROMPT_ADMIN_ERRORS,
   ...PRODUCTION_ERRORS,
   'business_access_denied', 'business_write_denied', 'server_disabled', 'server_feature_disabled', 'server_policy_missing',
@@ -59,6 +64,7 @@ const PUBLIC_ERRORS = new Set([
   'exploration_previous_unresolved', 'exploration_quota_exceeded', 'server_exploration_configuration_invalid',
   'invalid_exploration_request',
   'exploration_request_too_large',
+  'exploration_visual_context_unavailable', 'exploration_reference_unavailable', 'exploration_reference_invalid', 'exploration_reference_limit',
   'server_html_outcome_unknown', 'server_html_expired', 'server_html_configuration_invalid', 'invalid_html_request',
   'html_request_conflict', 'html_reference_unapproved', 'html_reference_invalid', 'html_reference_limit',
   'html_source_unavailable', 'html_source_invalid', 'html_source_not_approved', 'html_request_too_large',
@@ -84,6 +90,10 @@ const PUBLIC_ERRORS = new Set([
   'server_onboarding_materials_required', 'server_onboarding_outcome_unknown',
 ]);
 const MESSAGES: Record<string, string> = {
+  server_studio_unavailable: 'Actualiza el servidor para usar Design Studio con el motor compartido.',
+  studio_client_upgrade_required: 'Recarga la aplicación para usar el motor compartido de diseño.',
+  invalid_studio_request: 'Revisa la marca, el formato y las referencias del encargo.',
+  studio_prompt_too_large: 'El encargo y su historial son demasiado largos. Reduce las instrucciones antes de generar.',
   server_authentication_required: 'Inicia sesión para usar la biblioteca del servidor.',
   server_session_unavailable: 'No se pudo comprobar la sesión. Vuelve a intentarlo.',
   server_session_changed: 'La sesión cambió. Abre de nuevo este panel antes de continuar.',
@@ -120,6 +130,7 @@ export function isExplorationAdmissionRefusal(error: unknown): boolean {
     exploration_previous_unresolved: 409,
     server_exploration_configuration_invalid: 503, invalid_exploration_request: 400,
     server_operation_actor_mismatch: 403, exploration_request_too_large: 413, server_authentication_required: 401,
+    exploration_visual_context_unavailable: 400, exploration_reference_unavailable: 404, exploration_reference_invalid: 400, exploration_reference_limit: 413,
   };
   return statuses[error.code] !== undefined && error.httpStatus === statuses[error.code];
 }
@@ -247,6 +258,22 @@ export function createDesignServerClient(options: DesignServerClientOptions): De
 
   return {
     async session() { const value = await authenticated(); return { actorId: value.actorId }; },
+    async prepareStudio(request) {
+      validateBusiness(request.business_id);
+      const session = await authenticated();
+      // The preparation route never receives image bytes. Registered references carry those to generation.
+      const { reference_image_base64, previous_image_base64: _previous, ...metadata } = structuredClone(request);
+      const data = await post(session, '/studio/prepare', JSON.stringify({ ...metadata, prepare_only: true,
+        has_reference_image: !!reference_image_base64 }), 'application/json', false);
+      await sameActor(session);
+      const prepared = record(data) && record(data.prepared) ? data.prepared : null;
+      if (!prepared || typeof prepared.prompt !== 'string' || !prepared.prompt.trim() || prepared.prompt.length > 16000
+        || prepared.platform !== request.platform || !IMAGE_MODELS.includes(prepared.image_model as never)
+        || !IMAGE_QUALITIES.includes(prepared.image_quality as never) || !record(prepared.size)
+        || ![[1024, 1024], [1024, 1536], [1536, 1024]].some(([w, h]) => prepared.size && (prepared.size as Record<string, unknown>).width === w
+          && (prepared.size as Record<string, unknown>).height === h)) fail('server_invalid_response');
+      return structuredClone(prepared) as unknown as PreparedStudioMockup;
+    },
     onboarding(businessId) {
       validateBusiness(businessId);
       return createBrandSetupClient(businessId, { session: authenticated, sameActor, post, fail });
