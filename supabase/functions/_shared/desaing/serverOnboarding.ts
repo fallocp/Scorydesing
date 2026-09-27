@@ -36,8 +36,8 @@ export function createServerOnboarding(settings: ServerHtmlConfig, deps: ServerO
     } catch { throw new ServerBoundaryError('server_onboarding_configuration_invalid', 503); }
     need(actorId === config.actorId && businessId === config.businessId && ['owner', 'admin'].includes(read.role), 'business_write_denied', 403);
     const p = read.policy;
-    need(p.business_id === businessId && p.policy_id === config.policyId && p.limit_micro_usd === PILOT_LIMITS.budgetMicroUsd
-      && p.max_image_outputs === PILOT_LIMITS.maxOutputs && p.reservation_per_output_micro_usd === PILOT_LIMITS.reservationMicroUsd
+    need(p.business_id === businessId && p.policy_id === config.policyId
+      && p.limit_micro_usd > 0 && p.max_image_outputs > 0 && p.reservation_per_output_micro_usd > 0
       && isGenerationProfilePolicy(p.enabled_image_profiles) && p.responses_image_enabled, 'server_policy_changed');
     return read;
   }

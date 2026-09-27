@@ -43,8 +43,8 @@ export function createServerPromptAdmin(settings: ServerHtmlConfig, deps: Server
     } catch { throw new ServerBoundaryError('server_prompt_admin_configuration_invalid', 503); }
     const access = await repo.capabilities(biz, actor); need(access.governed && access.can_manage, 'prompt_admin_forbidden', 403);
     const read = await deps.repository.read(biz, actor), p = read.policy;
-    need(p.business_id === biz && p.policy_id === config.policyId && p.limit_micro_usd === PILOT_LIMITS.budgetMicroUsd
-      && p.max_image_outputs === PILOT_LIMITS.maxOutputs && p.reservation_per_output_micro_usd === PILOT_LIMITS.reservationMicroUsd
+    need(p.business_id === biz && p.policy_id === config.policyId
+      && p.limit_micro_usd > 0 && p.max_image_outputs > 0 && p.reservation_per_output_micro_usd > 0
       && isGenerationProfilePolicy(p.enabled_image_profiles) && p.responses_image_enabled, 'server_policy_changed');
     return readServerState({ ...deps.repository, read: async () => read }, biz, actor);
   }

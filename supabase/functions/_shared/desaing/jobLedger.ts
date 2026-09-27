@@ -275,12 +275,18 @@ export function cancelImageJob(current: JobLedger, operation_key: string, now: n
   const job = ledger.jobs.find(j => j.operation_key === operation_key);
   check(job && now >= job.created_at, 'job_not_found_or_invalid_time');
   for (const call of job!.calls) {
-    if (call.state === 'pending' || call.state === 'running') check(now >= call.updated_at, 'non_monotonic_job_time');
+    if (['pending', 'running', 'uncertain'].includes(call.state)) check(now >= call.updated_at, 'non_monotonic_job_time');
     if (call.state === 'pending') { call.state = 'cancelled'; call.updated_at = now; }
     else if (call.state === 'running') {
       check(now >= call.attempt!.started_at, 'non_monotonic_job_time');
       call.state = 'uncertain';
       call.error_code = 'cancelled_after_start';
+      call.updated_at = now;
+    } else if (call.state === 'uncertain') {
+      // The user explicitly discarded this attempt. Keep its reservation because
+      // it may have reached the provider, but stop reconciliation and unlock a new request.
+      call.state = 'cancelled';
+      call.error_code = 'cancelled_after_uncertainty';
       call.updated_at = now;
     }
   }
@@ -340,9 +346,9 @@ export function assertJobLedger(value: unknown, business_id: string): asserts va
           && !attempts.has(call.attempt.attempt_id), 'invalid_saved_attempt');
         attempts.add(call.attempt.attempt_id);
       }
-      check((call.state === 'pending' || call.state === 'cancelled') ? call.attempt === null : call.attempt !== null,
-        'inconsistent_saved_attempt');
-      if (['pending', 'cancelled', 'running'].includes(call.state)) {
+      const requiresAttempt = call.state !== 'pending' && !(call.state === 'cancelled' && call.attempt === null);
+      check(requiresAttempt ? call.attempt !== null : call.attempt === null, 'inconsistent_saved_attempt');
+      if (['pending', 'running'].includes(call.state)) {
         check(call.receipt === null && call.review === null, 'inconsistent_saved_receipt');
       }
       if (call.receipt !== null) {

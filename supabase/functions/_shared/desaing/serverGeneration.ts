@@ -32,7 +32,7 @@ export interface ServerGenerationDependencies {
   storage: WorkerStorage & PrivateAssetStorage;
   createProvider(): LiveWorkerProvider;
   now?: () => number;
-  validateProduction?(operation: DesignOperation, state: ServerSnapshot, stage: 'admit' | 'dispatch'): Promise<void>;
+  validateProduction?(operation: DesignOperation, state: ServerSnapshot, stage: 'admit' | 'dispatch', options?: { pixels?: boolean }): Promise<void>;
   validatePromptAdmin?(operation: DesignOperation, state: ServerSnapshot, stage: 'admit' | 'dispatch'): Promise<void>;
 }
 export interface ServerGenerationBoundary {
@@ -72,8 +72,7 @@ export function createServerGeneration(settings: ServerGenerationConfig, deps: S
     requireValue(['owner', 'admin'].includes(read.role), 'business_write_denied', 403);
     const p = read.policy;
     requireValue(p.business_id === config.businessId && p.policy_id === config.policyId
-      && p.limit_micro_usd === PILOT_LIMITS.budgetMicroUsd && p.max_image_outputs === PILOT_LIMITS.maxOutputs
-      && p.reservation_per_output_micro_usd === PILOT_LIMITS.reservationMicroUsd
+      && p.limit_micro_usd > 0 && p.max_image_outputs > 0 && p.reservation_per_output_micro_usd > 0
       && isGenerationProfilePolicy(p.enabled_image_profiles)
       && p.responses_image_enabled === true, 'server_policy_changed', 409);
   }
@@ -84,13 +83,12 @@ export function createServerGeneration(settings: ServerGenerationConfig, deps: S
   }
   function assertResolved(state: ServerSnapshot | null, operationKey?: string) {
     requireValue(!state?.jobs.jobs.some(job => job.operation_key !== operationKey && job.calls.some(call =>
-      ['pending', 'running', 'result_received', 'validating', 'uncertain', 'failed'].includes(call.state))), 'server_previous_operation_unresolved', 409);
+      ['pending', 'running', 'result_received', 'validating', 'uncertain'].includes(call.state))), 'server_previous_operation_unresolved', 409);
   }
-  function remaining(state: ServerSnapshot): number | null {
-    if (!PILOT_LIMITS.meteredImageOutputs) return null;
+  function remaining(state: ServerSnapshot, policy: ServerPolicy): number {
     const quota = getQuotaUsage(state.jobs);
-    return Math.max(0, Math.min(PILOT_LIMITS.maxOutputs - quota.image_outputs,
-      Math.floor((PILOT_LIMITS.budgetMicroUsd - quota.committed_micro_usd) / PILOT_LIMITS.reservationMicroUsd)));
+    return Math.max(0, Math.min(policy.max_image_outputs - quota.image_outputs,
+      Math.floor((policy.limit_micro_usd - quota.committed_micro_usd) / policy.reservation_per_output_micro_usd)));
   }
   async function readOnce(businessId: string, actorId: string) {
     const read = await deps.repository.read(businessId, actorId);
@@ -102,10 +100,11 @@ export function createServerGeneration(settings: ServerGenerationConfig, deps: S
     assertScope(businessId, actorId, read); assertWindow();
     requireValue(read.policy.enabled, 'server_feature_disabled', 503);
     assertResolved(state, operationKey);
-    const available = remaining(state);
+    const available = remaining(state, read.policy);
     requireValue(available === null || available > 0, 'job_quota_exceeded', 429);
   }
-  function guardedRepository(operationKey?: string, onEnqueueCommit?: () => void, importing = false): ServerRepository {
+  function guardedRepository(operationKey?: string, onEnqueueCommit?: () => void, importing = false,
+    validateProduction = deps.validateProduction): ServerRepository {
     return {
       async read(businessId, actorId) {
         const read = await deps.repository.read(businessId, actorId);
@@ -113,7 +112,7 @@ export function createServerGeneration(settings: ServerGenerationConfig, deps: S
         assertResolved(read.state.snapshot, operationKey);
         if (importing) {
           assertWindow(); requireValue(read.policy.enabled, 'server_feature_disabled', 503);
-          const available = read.state.snapshot ? remaining(read.state.snapshot) : null;
+          const available = read.state.snapshot ? remaining(read.state.snapshot, read.policy) : null;
           requireValue(available === null || available > 0, 'job_quota_exceeded', 429);
         }
         return read;
@@ -125,8 +124,8 @@ export function createServerGeneration(settings: ServerGenerationConfig, deps: S
         if (['job_enqueued', 'call_started'].includes(input.event)) {
           const operation = input.snapshot.jobs.jobs.find(job => job.operation_key === operationKey)?.plan.operation;
           if (operation?.context.workspace === 'production') {
-            requireValue(deps.validateProduction, 'server_production_unavailable', 503);
-            await deps.validateProduction(operation, input.snapshot, input.event === 'job_enqueued' ? 'admit' : 'dispatch');
+            requireValue(validateProduction, 'server_production_unavailable', 503);
+            await validateProduction(operation, input.snapshot, input.event === 'job_enqueued' ? 'admit' : 'dispatch');
           }
           if (operation && isPromptAdminOperation(operation)) {
             requireValue(deps.validatePromptAdmin, 'server_prompt_admin_unavailable', 503);
@@ -221,7 +220,7 @@ export function createServerGeneration(settings: ServerGenerationConfig, deps: S
         requireValue(read.policy.enabled, 'server_feature_disabled', 503);
         generation = { profile: PILOT_LIMITS.imageProfile, executor: config.executor, max_reference_edge: PILOT_LIMITS.maxReferenceEdge,
           profiles: [...read.policy.enabled_image_profiles], qualities: [...SELECTABLE_IMAGE_QUALITIES],
-          max_brief_bytes: PILOT_LIMITS.maxBriefBytes, remaining_outputs: remaining(value.state),
+          max_brief_bytes: PILOT_LIMITS.maxBriefBytes, remaining_outputs: remaining(value.state, read.policy),
           max_references: GENERATION_MAX_REFERENCES, supports_recreation: true, supports_full_design: true, supports_full_design_edit: true, supports_studio_generation: true, supports_asset_generation: true };
       } catch { /* A paused, expired or unavailable execution gate does not hide saved work. */ }
       return { ...value, enabled: value.enabled && !!generation
@@ -250,9 +249,16 @@ export function createServerGeneration(settings: ServerGenerationConfig, deps: S
       }
       assertAdmission(businessId, actorId, read, value.state, operation.operation_key);
       assertOperation(operation, value.state, actorId, businessId, read.policy);
+      // Within one request, verify the original's pixels once; later stages still recheck
+      // the database source, hash and base, without re-downloading and re-decoding the PNG.
+      let productionPixelsVerified = false;
+      const validateProduction = deps.validateProduction && (async (op: DesignOperation, state: ServerSnapshot, stage: 'admit' | 'dispatch') => {
+        await deps.validateProduction!(op, state, stage, { pixels: !productionPixelsVerified });
+        productionPixelsVerified = true;
+      });
       if (operation.context.workspace === 'production') {
-        requireValue(deps.validateProduction, 'server_production_unavailable', 503);
-        await deps.validateProduction(operation, value.state, 'admit');
+        requireValue(validateProduction, 'server_production_unavailable', 503);
+        await validateProduction(operation, value.state, 'admit');
       }
       const sourceProvider = deps.createProvider();
       const provider: LiveWorkerProvider = { mode: sourceProvider.mode, generate: input => sourceProvider.generate({ ...input,
@@ -260,7 +266,7 @@ export function createServerGeneration(settings: ServerGenerationConfig, deps: S
           await input.beforeDispatch?.();
           if (operation.context.workspace === 'production') {
             const fresh = await readServerState(deps.repository, businessId, actorId);
-            await deps.validateProduction!(operation, fresh.state, 'dispatch');
+            await validateProduction!(operation, fresh.state, 'dispatch');
           }
           if (isPromptAdminOperation(operation)) {
             const fresh = await readServerState(deps.repository, businessId, actorId);
@@ -270,7 +276,7 @@ export function createServerGeneration(settings: ServerGenerationConfig, deps: S
       }) };
       requireValue(provider.mode === 'live', 'server_generation_configuration_invalid', 503);
       let attemptedCommit = false;
-      const repository = guardedRepository(operation.operation_key, () => { attemptedCommit = true; });
+      const repository = guardedRepository(operation.operation_key, () => { attemptedCommit = true; }, false, validateProduction);
       try {
         const queued = await executeServerCommand(repository, businessId, actorId, { kind: 'enqueue', operation }, now);
         if (queued.reused) return { ...queued, execution: { status: 'already_started' } };
@@ -284,8 +290,8 @@ export function createServerGeneration(settings: ServerGenerationConfig, deps: S
         const execution = await runLiveServerCall({ repository, storage: deps.storage, provider, businessId, actorId,
           operationKey: operation.operation_key, callKey: job.calls[0].call_key, now,
           permit: { ...scope, enabled: true, businessId, actorId, policyId: config.policyId, expiresAt: config.expiresAt,
-            maxImageOutputs: 1, maxReservationMicroUsd: PILOT_LIMITS.reservationMicroUsd,
-            approvedBudgetMicroUsd: PILOT_LIMITS.budgetMicroUsd, approvedOperation: structuredClone(operation) },
+            maxImageOutputs: 1, maxReservationMicroUsd: read.policy.reservation_per_output_micro_usd,
+            approvedBudgetMicroUsd: read.policy.limit_micro_usd, approvedOperation: structuredClone(operation) },
           target: { ...scope, actualSupabaseOrigin: config.actualSupabaseOrigin } });
         const final = await readServerState(deps.repository, businessId, actorId);
         return { revision: final.revision, job: final.state.jobs.jobs.find(item => item.operation_key === operation.operation_key), reused: false, execution };

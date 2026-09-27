@@ -63,6 +63,7 @@ describe.sequential('SQL005 exact production source and explicit image-only appl
       CREATE TABLE public.copy_bank_items(id uuid PRIMARY KEY,business_id uuid NOT NULL REFERENCES public.business_tenants(id),headline text,subcopy text,cta text,status text,image_meta jsonb);
       CREATE TABLE public.generated_ideas(id uuid PRIMARY KEY,business_id uuid NOT NULL REFERENCES public.business_tenants(id),headline text,subcopy text,cta text,status text,piece_v2 jsonb);`);
     await db.exec(await readFile(new URL('../../../../migrations/202609180005_desaing_production.sql', import.meta.url), 'utf8'));
+    await db.exec(await readFile(new URL('../../../../migrations/202609230001_desaing_production_copy_edits.sql', import.meta.url), 'utf8'));
   }, 30000);
   beforeEach(async () => { privateObjects.clear(); legacyObjects.clear(); legacyObjects.set(sourceKey, sourceBytes); lose = null;
     await db.exec('RESET ROLE; TRUNCATE public.desaing_production_receipts,public.desaing_production_snapshots,public.copy_bank_items,public.generated_ideas,public.design_mockups,public.desaing_explorations,public.desaing_audit,public.desaing_state,public.desaing_policies,public.user_business_memberships,public.business_tenants,auth.users');

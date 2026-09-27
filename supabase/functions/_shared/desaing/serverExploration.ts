@@ -55,8 +55,8 @@ export function createServerExploration(settings: ServerExplorationConfig, deps:
     } catch { throw new ServerBoundaryError('server_exploration_configuration_invalid', 503); }
     requireValue(businessId === config.businessId && actorId === config.actorId && ['owner', 'admin'].includes(read.role), 'business_write_denied', 403);
     const policy = read.policy;
-    requireValue(policy.business_id === businessId && policy.policy_id === config.policyId && policy.limit_micro_usd === PILOT_LIMITS.budgetMicroUsd
-      && policy.max_image_outputs === PILOT_LIMITS.maxOutputs && policy.reservation_per_output_micro_usd === PILOT_LIMITS.reservationMicroUsd
+    requireValue(policy.business_id === businessId && policy.policy_id === config.policyId
+      && policy.limit_micro_usd > 0 && policy.max_image_outputs > 0 && policy.reservation_per_output_micro_usd > 0
       && isGenerationProfilePolicy(policy.enabled_image_profiles)
       && policy.responses_image_enabled === true, 'server_policy_changed', 409);
   }

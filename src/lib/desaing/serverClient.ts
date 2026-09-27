@@ -42,6 +42,8 @@ export interface DesignServerClient {
 }
 export interface DesignServerClientOptions {
   endpoint: string;
+  /** Optional lightweight endpoint for reads and state-only commands. */
+  stateEndpoint?: string;
   getSession: () => Promise<{ actorId: string; accessToken: string } | null>;
   fetch?: typeof fetch;
   publicKey?: string;
@@ -144,12 +146,12 @@ const revision = (value: unknown): value is number => typeof value === 'number' 
 const localHost = (hostname: string) => hostname === 'localhost' || hostname === '[::1]' || /^127(?:\.\d{1,3}){3}$/.test(hostname);
 const safeProtocol = (url: URL) => url.protocol === 'https:' || (url.protocol === 'http:' && localHost(url.hostname));
 
-function endpointUrl(input: string): URL {
+function endpointUrl(input: string, functionName = 'desaing-server'): URL {
   let url: URL;
   try { url = new URL(input); } catch { return fail('server_invalid_endpoint'); }
   if (!safeProtocol(url) || url.username || url.password || url.search || url.hash) fail('server_invalid_endpoint');
   url.pathname = url.pathname.replace(/\/$/, '');
-  if (!url.pathname.endsWith('/desaing-server')) fail('server_invalid_endpoint');
+  if (!url.pathname.endsWith(`/${functionName}`)) fail('server_invalid_endpoint');
   return url;
 }
 function validateBusiness(businessId: string): void {
@@ -186,6 +188,7 @@ async function limitedBytes(response: Response, tooLargeCode: string): Promise<U
 /** No SDK, session persistence, provider requests or automatic retries. */
 export function createDesignServerClient(options: DesignServerClientOptions): DesignServerClient {
   const endpoint = endpointUrl(options.endpoint);
+  const stateEndpoint = options.stateEndpoint ? endpointUrl(options.stateEndpoint, 'desaing-state') : endpoint;
   const transport = options.fetch ?? globalThis.fetch.bind(globalThis);
   if (options.publicKey !== undefined && !text(options.publicKey, 8192)) fail('server_invalid_endpoint');
 
@@ -205,8 +208,8 @@ export function createDesignServerClient(options: DesignServerClientOptions): De
     catch { return fail('server_response_unknown'); }
   }
   async function post(session: { actorId: string; accessToken: string }, suffix: string, body: BodyInit,
-    contentType: string, mutating: boolean, query?: URLSearchParams): Promise<unknown> {
-    const url = new URL(`${endpoint.toString()}${suffix}`);
+    contentType: string, mutating: boolean, query?: URLSearchParams, target = endpoint): Promise<unknown> {
+    const url = new URL(`${target.toString()}${suffix}`);
     if (query) url.search = query.toString();
     const response = await request(url, { method: 'POST', body, headers: {
       'Content-Type': contentType, Authorization: `Bearer ${session.accessToken}`,
@@ -428,7 +431,8 @@ export function createDesignServerClient(options: DesignServerClientOptions): De
     async read(businessId) {
       validateBusiness(businessId);
       const session = await authenticated();
-      const data = await post(session, '', JSON.stringify({ business_id: businessId, command: { kind: 'read' } }), 'application/json', false);
+      const data = await post(session, '', JSON.stringify({ business_id: businessId, command: { kind: 'read' } }), 'application/json', false,
+        undefined, stateEndpoint);
       await sameActor(session);
       if (!record(data) || !revision(data.revision) || typeof data.enabled !== 'boolean') fail('server_invalid_response');
       try { assertServerSnapshot(data.state, businessId); } catch { fail('server_invalid_response'); }
@@ -447,7 +451,9 @@ export function createDesignServerClient(options: DesignServerClientOptions): De
       const session = await authenticated();
       if ((validated.command.kind === 'enqueue' && validated.command.operation.context.actor_id !== session.actorId)
         || (validated.command.kind === 'approve_direction' && validated.command.approval.actor_id !== session.actorId)) fail('server_session_changed');
-      const data = await post(session, '', JSON.stringify({ business_id: businessId, command: validated.command }), 'application/json', true);
+      const target = ['cancel', 'recover', 'review', 'approve_direction'].includes(validated.command.kind) ? stateEndpoint : endpoint;
+      const data = await post(session, '', JSON.stringify({ business_id: businessId, command: validated.command }), 'application/json', true,
+        undefined, target);
       await sameActor(session);
       if (!record(data) || !revision(data.revision)) fail('server_response_unknown');
       return structuredClone(data) as Record<string, unknown> & { revision: number };

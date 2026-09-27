@@ -40,6 +40,10 @@ verify_jwt = true
 [functions.desaing-server]
 verify_jwt = true
 
+# Lightweight authenticated state boundary for reads, recovery and reviews.
+[functions.desaing-state]
+verify_jwt = true
+
 # Administrative pilot: every request requires the separate secret pilot token.
 # No browser integration; pinned actor/business, expiry and USD 5 policy in handler.
 [functions.desaing-pilot]

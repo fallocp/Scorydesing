@@ -21,7 +21,8 @@ export interface ServerProductionBoundary {
   read(actorId: string, businessId: string, source: ProductionSource): Promise<ProductionRead>;
   apply(actorId: string, input: ProductionApplyInput): Promise<ProductionReceipt>;
   recover(actorId: string, businessId: string, applyId: string): Promise<ProductionReceipt | null>;
-  validateOperation(actorId: string, operation: DesignOperation): Promise<void>;
+  /** `pixels: false` keeps the database source/base checks but skips re-downloading and re-decoding the original. */
+  validateOperation(actorId: string, operation: DesignOperation, options?: { pixels?: boolean }): Promise<void>;
 }
 const same = (a: unknown, b: unknown) => canonicalExploration(a) === canonicalExploration(b);
 function need(value: unknown, code: string, status = 409): asserts value { if (!value) throw new ServerBoundaryError(code, status); }
@@ -68,8 +69,8 @@ export function createServerProduction(settings: ServerHtmlConfig, deps: ServerP
     } catch { throw new ServerBoundaryError('server_production_configuration_invalid', 503); }
     const read = await deps.repository.read(biz, actor), p = read.policy;
     need(actor === config.actorId && biz === config.businessId && ['owner', 'admin'].includes(read.role), 'business_write_denied', 403);
-    need(p.business_id === biz && p.policy_id === config.policyId && p.limit_micro_usd === PILOT_LIMITS.budgetMicroUsd
-      && p.reservation_per_output_micro_usd === PILOT_LIMITS.reservationMicroUsd && p.max_image_outputs === PILOT_LIMITS.maxOutputs
+    need(p.business_id === biz && p.policy_id === config.policyId
+      && p.limit_micro_usd > 0 && p.max_image_outputs > 0 && p.reservation_per_output_micro_usd > 0
       && isGenerationProfilePolicy(p.enabled_image_profiles) && p.responses_image_enabled, 'server_policy_changed'); return read;
   }
   async function original(source: ProductionSourceState, biz: string) {
@@ -86,14 +87,14 @@ export function createServerProduction(settings: ServerHtmlConfig, deps: ServerP
     if (pixels) { const input = await original(source, snapshot.business_id); need(input.hash === snapshot.base_asset.version_id && same(input.canvas, snapshot.canvas), 'production_base_changed'); }
     return source;
   }
-  async function operationSnapshot(actor: string, operation: DesignOperation, checkCurrent: boolean) {
+  async function operationSnapshot(actor: string, operation: DesignOperation, checkCurrent: boolean, pixels = true) {
     const c = operation.context; need(c.workspace === 'production' && c.actor_id === actor && c.business_id === config.businessId, 'production_result_mismatch');
     assertBusinessId(c.project_id); const saved = await repo.snapshot(c.business_id, actor, c.project_id);
     need(saved, 'production_snapshot_not_found', 404); const s = saved.snapshot;
     need(s.copy.origin !== 'unavailable', 'production_copy_required');
     let full; try { full = readPresentationFullDesign(c); } catch { throw new ServerBoundaryError('production_result_mismatch', 409); }
     const source = s.source;
-    need(full?.production && full.production.sourceHash === s.source_hash && full.approvedCopy === s.copy.text && same(full.canvas, s.output_canvas)
+    need(full?.production && full.production.sourceHash === s.source_hash && same(full.canvas, s.output_canvas)
       && c.copy_version_id === s.copy.version_id && c.brand_id === s.business_id && c.target.document_id === s.id && c.target.revision === '1'
       && c.target.document_type === (source.kind === 'image' ? 'image' : 'carousel')
       && c.target.slide_id === (source.kind === 'carousel' ? source.slide_id : undefined) && c.target.page_id === undefined && c.target.element_id === undefined
@@ -101,7 +102,7 @@ export function createServerProduction(settings: ServerHtmlConfig, deps: ServerP
     if (operation.action === 'edit_image') need(same(c.base_asset, s.base_asset), 'production_base_changed');
     else if (operation.action === 'regenerate_image') need(!c.base_asset, 'production_base_changed');
     else need(operation.action === 'generate_medium', 'production_result_mismatch');
-    if (checkCurrent) await current(s); return s;
+    if (checkCurrent) await current(s, pixels); return s;
   }
   async function verifiedAsset(identity: AssetVersion, asset: RegisteredAssetVersion) {
     need(same(identity, asset.identity) && asset.storage.mime_type === 'image/png' && asset.storage.size_bytes <= 8388608, 'production_result_mismatch');
@@ -138,7 +139,8 @@ export function createServerProduction(settings: ServerHtmlConfig, deps: ServerP
         return await repo.prepare(actor, request, snapshot, config.policyId);
       } catch (error) { if (error instanceof ServerBoundaryError && error.status < 500) throw error; throw new ServerBoundaryError('server_production_outcome_unknown', 503); }
     },
-    async validateOperation(actor, operation) { const frozen = structuredClone(operation); await gate(actor, frozen.context.business_id); await operationSnapshot(actor, frozen, true); },
+    async validateOperation(actor, operation, options) { const frozen = structuredClone(operation); await gate(actor, frozen.context.business_id);
+      await operationSnapshot(actor, frozen, true, options?.pixels ?? true); },
     async apply(actor, input) {
       const request = structuredClone(input); validate(() => assertProductionApplyInput(request)); assertBusinessId(actor);
       const prior = await repo.recover(request.business_id, actor, request.apply_id);
@@ -153,7 +155,8 @@ export function createServerProduction(settings: ServerHtmlConfig, deps: ServerP
       const provenance = asset.provenance;
       const operation = state.state.jobs.jobs.find(j => j.operation_key === provenance.operation_key)?.plan.operation;
       need(operation && (operation.context.interaction_mode === 'execute_change' || ['medium', 'high'].includes(provenance.quality)), 'production_not_approved');
-      need((await operationSnapshot(actor, operation, false)).id === snapshot.id, 'production_result_mismatch');
+      const validatedSnapshot = await operationSnapshot(actor, operation, false), full = readPresentationFullDesign(operation.context);
+      need(validatedSnapshot.id === snapshot.id && full, 'production_result_mismatch');
       const bytes = await verifiedAsset(request.result_asset, asset);
       need(asset.storage.width === snapshot.output_canvas.width && asset.storage.height === snapshot.output_canvas.height, 'production_result_mismatch');
       const key = `${request.business_id}/mockups/desaing-${request.apply_id}.png`, url = deps.legacyStorage.publicUrl(key);
@@ -161,7 +164,7 @@ export function createServerProduction(settings: ServerHtmlConfig, deps: ServerP
       await deps.legacyStorage.putImmutable(key, bytes);
       await gate(actor, request.business_id); await current(snapshot);
       try { return await repo.apply({ actorId: actor, request, stateRevision: state.revision, imageUrl: url, prompt: provenance.effective_prompt,
-        instruction: relativeProductionInstruction(snapshot, operation), policyId: config.policyId }); }
+        instruction: relativeProductionInstruction(snapshot, operation), copyText: full.approvedCopy, policyId: config.policyId }); }
       catch (error) { if (error instanceof ServerBoundaryError && error.status < 500) throw error; throw new ServerBoundaryError('server_production_outcome_unknown', 503); }
     },
   };

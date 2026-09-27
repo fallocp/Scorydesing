@@ -48,7 +48,7 @@ const generation = createServerGeneration({
   expiresAt: Number(Deno.env.get('DESAING_UI_EXPIRES_AT_MS') ?? ''),
 }, {
   repository,
-  validateProduction: operation => production.validateOperation(operation.context.actor_id, operation),
+  validateProduction: (operation, _state, _stage, options) => production.validateOperation(operation.context.actor_id, operation, options),
   validatePromptAdmin: operation => promptAdmin.validateOperation(operation.context.actor_id, operation),
   storage: { ...storage, async get(key) {
     const { data, error } = await bucket().download(key);

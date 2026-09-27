@@ -10,7 +10,7 @@ export interface ProductionRepository {
   prepare(actorId: string, request: ProductionPrepareInput, snapshot: ProductionSnapshot, policyId: string): Promise<ProductionSnapshot>;
   read(businessId: string, actorId: string, source: ProductionSource): Promise<ProductionRead>;
   recover(businessId: string, actorId: string, applyId: string): Promise<{ request: ProductionApplyInput; receipt: ProductionReceipt } | null>;
-  apply(input: { actorId: string; request: ProductionApplyInput; stateRevision: number; imageUrl: string; prompt: string; instruction: string; policyId: string }): Promise<ProductionReceipt>;
+  apply(input: { actorId: string; request: ProductionApplyInput; stateRevision: number; imageUrl: string; prompt: string; instruction: string; copyText: string; policyId: string }): Promise<ProductionReceipt>;
 }
 type Rpc = (name: string, args: Record<string, unknown>) => PromiseLike<{ data: unknown; error: { message?: string } | null }>;
 const record = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -49,7 +49,7 @@ export function createSupabaseProductionRepository(rpc: Rpc): ProductionReposito
     async recover(biz, actor, id) { const v = await call('desaing_recover_production', { ...scope(biz, actor), p_apply_id: id });
       if (v === null) return null; if (!record(v) || !record(v.request)) return invalid(); const r = receipt(v.receipt, biz, actor); if (r.apply_id !== id) return invalid(); return { request: v.request as unknown as ProductionApplyInput, receipt: r }; },
     async apply(input) { const r = receipt(await call('desaing_apply_production', { ...scope(input.request.business_id, input.actorId), p_request: input.request,
-      p_expected_state_revision: input.stateRevision, p_image_url: input.imageUrl, p_prompt: input.prompt, p_instruction: input.instruction, p_policy_id: input.policyId }), input.request.business_id, input.actorId);
+      p_expected_state_revision: input.stateRevision, p_image_url: input.imageUrl, p_prompt: input.prompt, p_instruction: input.instruction, p_copy_text: input.copyText, p_policy_id: input.policyId }), input.request.business_id, input.actorId);
       if (r.apply_id !== input.request.apply_id || r.snapshot_id !== input.request.snapshot_id || r.source_hash !== input.request.source_hash
         || !same(r.base_asset, input.request.base_asset) || !same(r.result_asset, input.request.result_asset) || r.image_url !== input.imageUrl) return invalid(); return r; },
   };

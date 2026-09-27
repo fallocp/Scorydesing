@@ -84,15 +84,14 @@ export async function authenticatePilotToken(received: string, expected: string)
 
 function assertPolicy(policy: ServerPolicy, config: PilotConfig): void {
   requireValue(policy.business_id === config.businessId && policy.policy_id === config.policyId
-    && policy.limit_micro_usd === PILOT_LIMITS.budgetMicroUsd && policy.max_image_outputs === PILOT_LIMITS.maxOutputs
-    && policy.reservation_per_output_micro_usd === PILOT_LIMITS.reservationMicroUsd
+    && policy.limit_micro_usd > 0 && policy.max_image_outputs > 0 && policy.reservation_per_output_micro_usd > 0
     && isGenerationProfilePolicy(policy.enabled_image_profiles)
     && policy.responses_image_enabled === true, 'pilot_policy_mismatch', 409);
 }
 function assertNoOtherActiveOrUncertain(state: ServerSnapshot | null, operationKey?: string): void {
   if (!state) return;
   const blocking = state.jobs.jobs.some(job => job.operation_key !== operationKey && job.calls.some(call =>
-    ['pending', 'running', 'result_received', 'validating', 'uncertain', 'failed'].includes(call.state)));
+    ['pending', 'running', 'result_received', 'validating', 'uncertain'].includes(call.state)));
   requireValue(!blocking, 'pilot_previous_operation_unresolved', 409);
 }
 function windowOpen(config: PilotConfig, now: () => number): void {

@@ -375,6 +375,21 @@ export function getAssetVersion(catalog: AssetCatalog, asset: AssetVersion): Reg
   return structuredClone(requireVersion(catalog, asset));
 }
 
+/** Exact-version lookup for a catalog the caller has ALREADY validated with assertAssetCatalog.
+ * Avoids re-validating the whole catalog per lookup; returned versions must be treated as read-only. */
+export function indexValidatedAssetVersions(catalog: AssetCatalog): (asset: AssetVersion) => RegisteredAssetVersion {
+  const index = new Map<string, RegisteredAssetVersion>();
+  for (const version of catalog.versions) {
+    index.set(JSON.stringify([version.identity.business_id, version.identity.asset_id, version.identity.version_id]), version);
+  }
+  return asset => {
+    identity(asset, catalog.business_id);
+    const result = index.get(JSON.stringify([asset.business_id, asset.asset_id, asset.version_id]));
+    check(result, 'version_missing', 'The exact asset version is not registered.');
+    return result;
+  };
+}
+
 export function recordDirectionApproval(catalog: AssetCatalog, input: RecordedDirectionApproval): AssetCatalog {
   const next = snapshot(catalog);
   validateDirection(input, next);

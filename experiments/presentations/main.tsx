@@ -29,6 +29,7 @@ const productionFetch: typeof fetch = async (input, init) => {
   return fetch(input instanceof Request ? new Request(destination, input) : destination, init);
 };
 const designClient = createDesignServerClient({ endpoint: `${productionEnabled ? productionOrigin : location.origin}/functions/v1/desaing-server`,
+  stateEndpoint: `${productionEnabled ? productionOrigin : location.origin}/functions/v1/desaing-state`,
   ...(productionEnabled ? { fetch: productionFetch } : {}),
   getSession: async () => ({ actorId: 'c402a035-1ae3-42b8-ad5d-604dc03ba7cc', accessToken: 'local-design-session' }),
 });

@@ -2,6 +2,7 @@ import type { Plugin } from 'vite';
 import { readFile } from 'node:fs/promises';
 import { PGlite } from '@electric-sql/pglite';
 import { createServerHandler } from '../../supabase/functions/_shared/desaing/serverHttp';
+import { createServerStateHandler } from '../../supabase/functions/_shared/desaing/serverStateHttp';
 import { createSupabaseRepository } from '../../supabase/functions/_shared/desaing/serverSupabase';
 import { runSimulatedServerCall } from '../../supabase/functions/_shared/desaing/serverWorker';
 import { executeServerCommand } from '../../supabase/functions/_shared/desaing/serverRepository';
@@ -37,6 +38,7 @@ import { PROMPT_ADMIN_SCHEMA, seedPromptAdminEvidence } from './promptAdminFixtu
 
 const ACTOR = 'c402a035-1ae3-42b8-ad5d-604dc03ba7cc';
 const ROOT = '/functions/v1/desaing-server';
+const STATE_ROOT = '/functions/v1/desaing-state';
 
 /** Dev/test entry only. Binds loopback; no env, credentials or production SDK. */
 export function presentationServerPlugin(options: { generation?: boolean; exploration?: boolean; durableExploration?: boolean; proposals?: boolean; composition?: boolean; workspace?: boolean; materials?: boolean; onboarding?: boolean; production?: boolean; promptAdmin?: boolean } = {}): Plugin {
@@ -325,7 +327,14 @@ export function presentationServerPlugin(options: { generation?: boolean; explor
           responsesModel: 'gpt-5.4-mini', responsesMaxOutputTokens: 2048, fetch: providerFetch }),
       }) } : {}),
     });
+    const makeStateApi = () => createServerStateHandler({ enabled: true, allowedOrigins: [ORIGIN], repository,
+      authenticate: async token => token === 'local-design-session' ? { id: ACTOR } : null,
+      generation: { enabled: generationTest, executor, businessId: TEST_BUSINESS_ID, actorId: ACTOR,
+        policyId: 'local-generation-pilot', expectedSupabaseOrigin: 'https://local-generation.invalid', actualSupabaseOrigin: 'https://local-generation.invalid',
+        expiresAt: Date.now() + 3600000, maxReferenceEdge: 1024, maxBriefBytes: 4000, maxReferences: 4 },
+    });
     let api = makeApi();
+    let stateApi = makeStateApi();
     const running = new Set<string>();
     async function dispatch(operationKey: string) {
       if (generationTest || pause || running.has(operationKey)) return;
@@ -401,7 +410,7 @@ export function presentationServerPlugin(options: { generation?: boolean; explor
     }
     server.middlewares.use(async (req, res, next) => {
       const path = req.url?.split('?')[0] ?? '';
-      if (!path.startsWith(ROOT) && !path.startsWith('/__desaing-') && !(productionTest && path.startsWith('/storage/v1/object/public/design-images/'))) return next();
+      if (!path.startsWith(ROOT) && !path.startsWith(STATE_ROOT) && !path.startsWith('/__desaing-') && !(productionTest && path.startsWith('/storage/v1/object/public/design-images/'))) return next();
       try {
         if (req.headers.host !== new URL(ORIGIN).host || (req.headers.origin && req.headers.origin !== ORIGIN)) { res.statusCode = 403; res.end(); return; }
         res.setHeader('Cache-Control', 'no-store');
@@ -521,7 +530,7 @@ export function presentationServerPlugin(options: { generation?: boolean; explor
             if (generationTest) {
               if (params.has('executor')) {
                 if (!['image_api', 'responses_image'].includes(params.get('executor')!)) throw new Error('invalid_test_executor');
-                executor = params.get('executor') as typeof executor; api = makeApi();
+                executor = params.get('executor') as typeof executor; api = makeApi(); stateApi = makeStateApi();
               }
               if (params.has('capabilities')) {
                 if (!['normal', 'missing', 'malformed'].includes(params.get('capabilities')!)) throw new Error('invalid_test_capabilities');
@@ -563,7 +572,8 @@ export function presentationServerPlugin(options: { generation?: boolean; explor
         for await (const chunk of req) { size += chunk.length; if (size > 8388608) { res.statusCode = 413; res.end(); return; } chunks.push(chunk); }
         const body = Buffer.concat(chunks);
         const headers = new Headers(); for (const [key, value] of Object.entries(req.headers)) if (value) headers.set(key, Array.isArray(value) ? value.join(',') : value);
-        const response = await api(new Request(`${ORIGIN}${req.url}`, { method: req.method, headers, ...(body.length ? { body } : {}) }));
+        const handler = path.startsWith(STATE_ROOT) ? stateApi : api;
+        const response = await handler(new Request(`${ORIGIN}${req.url}`, { method: req.method, headers, ...(body.length ? { body } : {}) }));
         let reply = await response.text();
         if(promptAdminTest&&path.startsWith(`${ROOT}/prompt-admin/`)) {
           const kind=path.slice(`${ROOT}/prompt-admin/`.length);

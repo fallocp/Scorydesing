@@ -54,8 +54,8 @@ export function createServerHtml(settings: ServerHtmlConfig, deps: ServerHtmlDep
     } catch { throw new ServerBoundaryError('server_html_configuration_invalid', 503); }
     requireValue(businessId === config.businessId && actorId === config.actorId && ['owner', 'admin'].includes(read.role), 'business_write_denied', 403);
     const p = read.policy;
-    requireValue(p.business_id === businessId && p.policy_id === config.policyId && p.limit_micro_usd === PILOT_LIMITS.budgetMicroUsd
-      && p.max_image_outputs === PILOT_LIMITS.maxOutputs && p.reservation_per_output_micro_usd === PILOT_LIMITS.reservationMicroUsd
+    requireValue(p.business_id === businessId && p.policy_id === config.policyId
+      && p.limit_micro_usd > 0 && p.max_image_outputs > 0 && p.reservation_per_output_micro_usd > 0
       && isGenerationProfilePolicy(p.enabled_image_profiles)
       && p.responses_image_enabled === true, 'server_policy_changed', 409);
   }

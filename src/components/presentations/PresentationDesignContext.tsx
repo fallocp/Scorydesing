@@ -28,6 +28,7 @@ function browserService(): PresentationDesignService | null {
     openFreeWorkspace: (scope, onStatus) => openSupabaseFreeDesignStore(supabase, scope, onStatus),
   }, client: createDesignServerClient({
     endpoint: `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/desaing-server`,
+    stateEndpoint: `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/desaing-state`,
     publicKey: import.meta.env.VITE_SUPABASE_ANON_KEY,
     async getSession() {
       const { data, error } = await supabase.auth.getSession();

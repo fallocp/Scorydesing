@@ -50,8 +50,8 @@ export function createServerMaterials(settings: ServerHtmlConfig, deps: ServerMa
         && /^[A-Za-z0-9_.:-]{1,200}$/.test(config.policyId) && Number.isSafeInteger(config.expiresAt) && config.expiresAt > 0, 'server_materials_configuration_invalid', 503);
     } catch { throw new ServerBoundaryError('server_materials_configuration_invalid', 503); }
     requireValue(businessId === config.businessId && actorId === config.actorId && ['owner', 'admin'].includes(read.role), 'business_write_denied', 403);
-    const p = read.policy; requireValue(p.business_id === businessId && p.policy_id === config.policyId && p.limit_micro_usd === PILOT_LIMITS.budgetMicroUsd
-      && p.max_image_outputs === PILOT_LIMITS.maxOutputs && p.reservation_per_output_micro_usd === PILOT_LIMITS.reservationMicroUsd
+    const p = read.policy; requireValue(p.business_id === businessId && p.policy_id === config.policyId
+      && p.limit_micro_usd > 0 && p.max_image_outputs > 0 && p.reservation_per_output_micro_usd > 0
       && isGenerationProfilePolicy(p.enabled_image_profiles) && p.responses_image_enabled === true, 'server_policy_changed', 409);
   }
   async function gate(businessId: string, actorId: string, paid = true) { const read = await deps.repository.read(businessId, actorId); assertScope(businessId, actorId, read);

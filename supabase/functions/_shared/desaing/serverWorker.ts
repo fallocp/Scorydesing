@@ -304,7 +304,9 @@ async function runServerCall(input: SimulatedWorkerInput | LiveWorkerInput, live
       const encoded = providerResult.outputs[0].b64_json;
       requireValue(typeof encoded === 'string' && encoded.length <= 4 * Math.ceil(8388608 / 3)
         && encoded.length % 4 === 0 && /^[A-Za-z0-9+/]+={0,2}$/.test(encoded), 'live_result_invalid');
-      output = { bytes: Uint8Array.from(atob(encoded), ch => ch.charCodeAt(0)), mimeType: 'image/png' };
+      const binary = atob(encoded), decoded = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) decoded[i] = binary.charCodeAt(i);
+      output = { bytes: decoded, mimeType: 'image/png' };
     } else {
       output = await (provider as SimulatedProvider).generate({ job: structuredClone(claimedJob), call: structuredClone(claimedCall), attemptId,
         references: references.map(reference => ({ ...structuredClone(reference), bytes: reference.bytes.slice() })),

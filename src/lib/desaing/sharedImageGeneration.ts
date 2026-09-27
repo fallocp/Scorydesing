@@ -10,6 +10,7 @@ function engine() {
   if (import.meta.env.VITE_DESAING_SERVER_ENABLED !== 'true') throw new Error('Activa el motor compartido de diseño para generar imágenes.');
   return configured ??= createAssetGenerationClient({
     client: createDesignServerClient({ endpoint: `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/desaing-server`,
+      stateEndpoint: `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/desaing-state`,
       publicKey: import.meta.env.VITE_SUPABASE_ANON_KEY,
       async getSession() { const { data, error } = await supabase.auth.getSession();
         return error || !data.session ? null : { actorId: data.session.user.id, accessToken: data.session.access_token }; } }),

@@ -1,9 +1,10 @@
 import type { AssetVersion, CandidateVersion, DesignOperation, ImageProfile, PlanningEnvironment } from './contracts.ts';
 import { IMAGE_PROFILES } from './catalog.ts';
 import {
-  assertAssetCatalog, createAssetCatalog, getAssetVersion, recordDirectionApproval, registerAssetVersion, reviewAssetVersion,
+  assertAssetCatalog, createAssetCatalog, getAssetVersion, indexValidatedAssetVersions, recordDirectionApproval, registerAssetVersion, reviewAssetVersion,
   type AssetCatalog, type RecordedDirectionApproval, type RegisteredAssetVersion,
 } from './assets.ts';
+type VersionLookup = (asset: AssetVersion) => RegisteredAssetVersion;
 import {
   assertJobLedger, beginJobCall, beginJobValidation, cancelImageJob, createJobLedger, enqueueImageJob,
   finishJobValidation, recordJobResult, recoverImageJobs, reviewJobCall, settleJobCallCost,
@@ -93,10 +94,13 @@ export function assertServerSnapshot(value: unknown, business_id: string): asser
   assertJobLedger(value.jobs, business_id);
   assertAssetCatalog(value.assets, business_id);
   const state = value as unknown as ServerSnapshot;
+  // The catalog was fully validated above; index it once instead of revalidating it per lookup.
+  const lookup = indexValidatedAssetVersions(state.assets);
+  const reviews = new Map(state.assets.reviews.map(review => [canonical(review.asset), review]));
   const attached = new Set<string>();
   for (const job of state.jobs.jobs) {
     check(id(job.plan.operation.context.actor_id), 'invalid_server_job_actor');
-    checkOperationAssets(state, job.plan.operation);
+    checkOperationAssets(state, job.plan.operation, lookup);
     if (job.plan.operation.action === 'approve_and_generate_medium') {
       const operation = job.plan.operation;
       check(state.assets.direction_approvals.some(approval => canonical(approval.candidate)
@@ -105,7 +109,7 @@ export function assertServerSnapshot(value: unknown, business_id: string): asser
     }
   }
   for (const job of state.jobs.jobs) for (const call of job.calls) for (const output of call.receipt?.outputs ?? []) {
-    const version = getAssetVersion(state.assets, output.asset);
+    const version = lookup(output.asset);
     const source = version.provenance;
     const operation = job.plan.operation;
     check(source.kind === 'image_operation' && source.operation_key === job.operation_key
@@ -121,7 +125,7 @@ export function assertServerSnapshot(value: unknown, business_id: string): asser
     check(references.every(Boolean) && canonical(references) === canonical(source.references), 'server_output_references_mismatch');
     if (job.plan.lineage === 'child_version') check(source.parent && operation.context.base_asset
       && sameVersion(source.parent, operation.context.base_asset), 'server_output_parent_mismatch');
-    const review = state.assets.reviews.find(item => sameVersion(item.asset, output.asset));
+    const review = reviews.get(canonical({ business_id: output.asset.business_id, asset_id: output.asset.asset_id, version_id: output.asset.version_id }));
     check((call.state !== 'approved' && call.state !== 'rejected') || review?.decision === call.state,
       'server_output_review_mismatch');
     check(!review || (review.decision === call.state && review.actor_id === call.review?.actor_id), 'server_output_review_mismatch');
@@ -144,13 +148,15 @@ export function rebaseServerPolicy(current: ServerSnapshot, policy: ServerPolicy
   assertServerPolicy(policy, current.business_id);
   const state = structuredClone(current);
   state.jobs.policy = quotaPolicy(policy);
-  assertServerSnapshot(state, state.business_id);
+  // Only the ledger policy changed; the rest of the snapshot was validated above.
+  assertJobLedger(state.jobs, state.business_id);
   return state;
 }
 
-function requireCandidate(state: ServerSnapshot, candidate: CandidateVersion): RegisteredAssetVersion {
+function requireCandidate(state: ServerSnapshot, candidate: CandidateVersion,
+  lookup: VersionLookup = asset => getAssetVersion(state.assets, asset)): RegisteredAssetVersion {
   check(record(candidate) && id(candidate.candidate_id), 'invalid_server_candidate');
-  const version = getAssetVersion(state.assets, {
+  const version = lookup({
     business_id: candidate.business_id, asset_id: candidate.asset_id, version_id: candidate.version_id,
   });
   check(version.provenance.kind !== 'image_operation' || version.provenance.candidate_id === undefined
@@ -158,23 +164,24 @@ function requireCandidate(state: ServerSnapshot, candidate: CandidateVersion): R
   return version;
 }
 
-function checkOperationAssets(state: ServerSnapshot, operation: DesignOperation): void {
+function checkOperationAssets(state: ServerSnapshot, operation: DesignOperation,
+  lookup: VersionLookup = asset => getAssetVersion(state.assets, asset)): void {
   check(record(operation) && record(operation.context) && record(operation.context.target)
     && Array.isArray(operation.context.references) && Array.isArray(operation.context.immutable_elements)
     && (operation.selected_candidates === undefined || Array.isArray(operation.selected_candidates)), 'invalid_server_operation');
   const context = operation.context;
   for (const ref of context.references) {
     check(record(ref) && Array.isArray(ref.roles), 'invalid_server_reference');
-    const version = getAssetVersion(state.assets, { business_id: ref.business_id, asset_id: ref.asset_id, version_id: ref.version_id });
+    const version = lookup({ business_id: ref.business_id, asset_id: ref.asset_id, version_id: ref.version_id });
     check(ref.mime_type === version.storage.mime_type, 'server_reference_mime_mismatch');
   }
   if (context.base_asset) {
-    const base = getAssetVersion(state.assets, context.base_asset);
+    const base = lookup(context.base_asset);
     if (['edit_image', 'generate_medium', 'approve_and_generate_medium'].includes(operation.action)) {
       check(base.brand_id === context.brand_id && base.project_id === context.project_id, 'server_parent_scope_mismatch');
     }
   }
-  for (const candidate of operation.selected_candidates ?? []) requireCandidate(state, candidate);
+  for (const candidate of operation.selected_candidates ?? []) requireCandidate(state, candidate, lookup);
   if (operation.action === 'combine_proposals') {
     const selected = operation.selected_candidates ?? [];
     check(new Set(selected.map(item => canonical([item.business_id, item.asset_id, item.version_id]))).size === selected.length,

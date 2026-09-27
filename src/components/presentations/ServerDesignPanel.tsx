@@ -42,6 +42,7 @@ const briefExcerpt = (instruction: string): string => {
 function describe(error: unknown, standalone = false): string {
   const code = error && typeof error === 'object' && 'code' in error ? String(error.code) : error instanceof Error ? error.message : '';
   const messages: Record<string, string> = {
+    production_result_mismatch: 'La solicitud guardada ya no coincide con esta versión. Descártala para ajustar el texto y generar una solicitud nueva.',
     approved_copy_required: 'Escribe el texto aprobado que debe conservar el diseño completo.',
     reference_copy_unresolved: 'Ese campo contiene una indicación sobre las referencias. Pega el texto exacto que quieres mostrar en el diseño.',
     unsupported_image_selection: 'Este modelo o calidad todavía no está habilitado en el servidor. Elige una opción disponible; tu selección no se sustituye automáticamente.',
@@ -75,6 +76,11 @@ function describe(error: unknown, standalone = false): string {
   };
   const message = messages[code] ?? 'No se pudo completar la acción. La diapositiva y los trabajos guardados se conservan.';
   return standalone ? message.replace(/La diapositiva/g, 'El lienzo').replace(/la diapositiva/g, 'el lienzo') : message;
+}
+
+function isDiscardableProductionMismatch(error: unknown): boolean {
+  return !!error && typeof error === 'object' && 'code' in error && 'httpStatus' in error
+    && String(error.code) === 'production_result_mismatch' && Number(error.httpStatus) === 409;
 }
 
 interface ServerDesignPanelProps {
@@ -252,6 +258,10 @@ function ServerDesignScopePanel({ service, businessId, documentId, slide, onAppl
   const approved = selected && state && getAssetReviewStatus(state.assets, selected.identity) === 'approved';
   const selectedFullDesign = full && (libraryResult?.job ?? job) ? readPresentationFullDesign((libraryResult?.job ?? job)!.plan.operation.context) : null;
   const active = call && ['pending', 'running', 'result_received', 'validating'].includes(call.state);
+  // The server admits one unresolved generation per business. Surface it even when
+  // this panel is showing a different (e.g. unsent local) request, so it can be cancelled.
+  const blockingJob = state?.jobs.jobs.find(item => item.operation_key !== job?.operation_key
+    && item.calls.some(entry => ['pending', 'running', 'result_received', 'validating', 'uncertain'].includes(entry.state)));
   useEffect(() => {
     const queued = queuedDiscussion.current;
     if (!queued || queued.capture !== capture || operationKey || operationBusy || !exploration.ready) return;
@@ -328,7 +338,13 @@ function ServerDesignScopePanel({ service, businessId, documentId, slide, onAppl
     try {
       if (!closing && openedActor.current && (await client.session()).actorId !== openedActor.current) throw new Error('server_session_changed');
       if (alive.current) await action();
-    } catch (problem) { if (alive.current) setError(describe(problem, !!destination)); }
+    } catch (problem) { if (alive.current) {
+      const pending = pendingRef.current;
+      if (isDiscardableProductionMismatch(problem) && pending && !state?.jobs.jobs.some(job => job.operation_key === pending.operation_key)) {
+        remember(null); setOperationKey(null);
+      }
+      setError(describe(problem, !!destination));
+    } }
     finally { locked.current = false; if (alive.current) setBusy(false); }
   }
   function closeDesign() {
@@ -352,7 +368,13 @@ function ServerDesignScopePanel({ service, businessId, documentId, slide, onAppl
   }, [canvas.width]);
   useEffect(() => {
     if (!active) return;
-    const timer = setInterval(() => { if (!locked.current) void refresh().catch(problem => { if (alive.current) setError(describe(problem, !!destination)); }); }, 1000);
+    const timer = setInterval(() => {
+      if (locked.current) return;
+      void refresh().catch(problem => {
+        clearInterval(timer);
+        if (alive.current) setError(describe(problem, !!destination));
+      });
+    }, 1000);
     return () => clearInterval(timer);
   }, [active]);
   useEffect(() => {
@@ -433,9 +455,13 @@ function ServerDesignScopePanel({ service, businessId, documentId, slide, onAppl
   const previewHtml = preview && previewAsset ? composePresentationImage(full
     ? `<style>html,body{margin:0;padding:0;width:${canvas.width}px;height:${canvas.height}px;overflow:hidden}.slide{position:relative;width:${canvas.width}px;height:${canvas.height}px;background:white}</style><main class="slide"></main>` : slide.html,
     preview, region, 'server-piece-preview', previewAsset.identity)
+    : production && productionPreview && productionSource ? composePresentationImage(slide.html, productionPreview, { x: 0, y: 0, ...canvas }, 'production-source-preview', productionSource.identity)
     : sanitizePresentationHtml(slide.html);
   const fixedRequest = !!operationKey || !!pending;
   const canNew = !pending && !active && (!call || !!direction || ['approved', 'rejected', 'failed', 'cancelled'].includes(call.state));
+  function continueEditing() {
+    setOperationKey(null); setLibraryChoice(null); setCompareDraft(false); setProposalReview(false); setError('');
+  }
   async function prepareResultFeedback(message?: string) {
     if (!output || !job || active || pending || !full || production || onboarding) return;
     const original = job.plan.operation.context, design = readPresentationFullDesign(original);
@@ -577,8 +603,8 @@ function ServerDesignScopePanel({ service, businessId, documentId, slide, onAppl
         <option value="literal">Incluir texto</option><option value="none">Sin texto</option></select></label>}
       {full && copyMode !== 'none' && <label className="sdp-field">{onboarding ? 'Nombre de marca confirmado' : 'Texto que llevará el diseño'}<textarea aria-label="Texto aprobado"
         value={(libraryResult || job) ? readPresentationFullDesign((libraryResult?.job ?? job)!.plan.operation.context)?.approvedCopy ?? approvedCopy : approvedCopy} maxLength={4000} rows={5}
-        readOnly={onboarding || production} disabled={busy || loading || !exploration.ready || fixedRequest || !!libraryChoice} onChange={event => setApprovedCopy(event.target.value)}
-        placeholder="Puedes escribirlo aquí o pedir al agente que lo lea de una referencia" /><span className="mip-note">{onboarding ? 'El nombre procede de la ficha confirmada. Revisa sus letras en el resultado visual antes de aprobarlo.' : 'Revisa el texto extraído antes de generar. El botón Generar usa literalmente este contenido.'}</span></label>}
+        readOnly={onboarding} disabled={busy || loading || !exploration.ready || fixedRequest || !!libraryChoice} onChange={event => setApprovedCopy(event.target.value)}
+        placeholder="Puedes escribirlo aquí o pedir al agente que lo lea de una referencia" /><span className="mip-note">{onboarding ? 'El nombre procede de la ficha confirmada. Revisa sus letras en el resultado visual antes de aprobarlo.' : production ? 'Puedes actualizar el texto para esta nueva variante. El botón Generar usa literalmente este contenido.' : 'Revisa el texto extraído antes de generar. El botón Generar usa literalmente este contenido.'}</span></label>}
       {unresolvedCopy && <p className="mip-note">“{approvedCopy}” es una indicación. Envíala en la conversación para que el agente lea las referencias y complete el texto.</p>}
       {!production && !fixedRequest && !libraryChoice && <label className="sdp-field">{full ? 'Diseño actual o referencia (opcional)' : destination ? 'Captura de este lienzo' : 'Captura de esta diapositiva'}<input className="sdp-capture" type="file" accept="image/png,image/jpeg,image/webp" disabled={busy || loading || !exploration.ready}
         onChange={e => setCapture(e.target.files?.[0] ?? null)} />{service.exploration && capture && <span className="mip-note" data-testid="exploration-capture-name">Captura conservada: {capture.name}</span>}</label>}
@@ -617,8 +643,19 @@ function ServerDesignScopePanel({ service, businessId, documentId, slide, onAppl
       }}>{destination ? 'Volver a la solicitud del lienzo' : 'Volver a la solicitud del slide'}</button>}
       <button className="mip-button sdp-full" disabled={busy || loading} onClick={() => void run(() => refresh(true))}><RefreshCw size={15} />Recuperar estado</button>
       {!libraryChoice && (active || call?.state === 'uncertain') && <button className="mip-button sdp-full" disabled={busy} onClick={() => void run(async () => {
-        await client.command(businessId, { kind: 'cancel', operation_key: job!.operation_key }); if (alive.current) await refresh();
+        await client.command(businessId, { kind: 'cancel', operation_key: job!.operation_key });
+        if (alive.current) { await refresh(); if (alive.current) continueEditing(); }
       })}>Cancelar solicitud</button>}
+      {!libraryChoice && blockingJob && <>
+        <p className="mip-note">Hay otra generación pendiente de confirmar que bloquea nuevas solicitudes. Cancelarla no reenvía nada.</p>
+        <button className="mip-button sdp-full" disabled={busy} onClick={() => void run(async () => {
+          await client.command(businessId, { kind: 'cancel', operation_key: blockingJob.operation_key });
+          if (alive.current) await refresh();
+        })}>Cancelar generación pendiente</button>
+      </>}
+      {pending && !job && <button className="mip-button sdp-full" disabled={busy || loading} onClick={() => {
+        remember(null); setOperationKey(null); setError('');
+      }}>Descartar solicitud fallida</button>}
       {!libraryChoice && (job || pending) && <button className="mip-button sdp-full" disabled={busy || !canNew} onClick={() => {
         setOperationKey(null); setLibraryChoice(null); setCompareDraft(false); setCapture(null); setInstruction(''); setRegion(initialRegion); setError('');
       }}>Nueva pieza</button>}
@@ -649,7 +686,7 @@ function ServerDesignScopePanel({ service, businessId, documentId, slide, onAppl
       <div className="sdp-preview" style={{ aspectRatio: `${canvas.width}/${canvas.height}` }}><iframe ref={frame} title={onboarding ? 'Vista previa de dirección de marca' : 'Vista previa de pieza en HTML'} sandbox="" tabIndex={-1} srcDoc={previewHtml}
         style={{ width: canvas.width, height: canvas.height }} onLoad={e => {
           const frame = e.currentTarget; frame.style.transform = `scale(${frame.parentElement!.clientWidth / canvas.width})`;
-        }} />{full && !preview && capturePreview && <img src={capturePreview} alt="Referencia actual del diseño" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', background: 'white' }} />}
+        }} />{full && !preview && capturePreview && <img src={capturePreview} alt="Referencia actual del diseño" style={{ position: 'absolute', inset: 0, zIndex: 1, width: '100%', height: '100%', objectFit: 'contain', background: 'white' }} />}
         {!full && <div className="sdp-zone" style={{ left: `${region.x / canvas.width * 100}%`, top: `${region.y / canvas.height * 100}%`, width: `${region.width / canvas.width * 100}%`, height: `${region.height / canvas.height * 100}%` }}>{!preview && <span>Zona de la pieza</span>}</div>}</div>
       {!full && <div className="mip-numeric-grid">{([['x', 'Izquierda'], ['y', 'Arriba'], ['width', 'Ancho'], ['height', 'Alto']] as const).map(([key, label]) => <label key={key}><span>{label} · px</span>
         <input type="number" aria-label={label} value={region[key]} min={key === 'x' || key === 'y' ? 0 : 1} disabled={busy || (fixedRequest && !libraryChoice)}
@@ -675,7 +712,8 @@ function ServerDesignScopePanel({ service, businessId, documentId, slide, onAppl
               await reviewServerLibraryResult(client, businessId, libraryResult.asset.identity, 'approved'); if (alive.current) await refresh();
             })}><Check size={16} />Aprobar versión final</button></>)}
         {libraryResult.call.state === 'needs_review' && !libraryResult.direction && <button className="mip-button" disabled={busy || compareDraft} onClick={() => void run(async () => {
-          await reviewServerLibraryResult(client, businessId, libraryResult.asset.identity, 'rejected'); if (alive.current) await refresh();
+          await reviewServerLibraryResult(client, businessId, libraryResult.asset.identity, 'rejected');
+          if (alive.current) { await refresh(); if (alive.current) continueEditing(); }
         })}>Rechazar pieza</button>}
         {libraryResult.call.state === 'approved' && <p>{onboarding ? 'Esta dirección está aprobada. Puedes incorporarla al borrador de marca.' : `Esta versión está aprobada. Puedes ajustar su zona y montarla en el ${destination ? 'lienzo' : 'slide'} actual.`}</p>}
         {libraryResult.call.state === 'rejected' && <p>Esta versión fue rechazada y no puede montarse.</p>}
@@ -707,7 +745,8 @@ function ServerDesignScopePanel({ service, businessId, documentId, slide, onAppl
           await client.command(businessId, { kind: 'review', operation_key: job!.operation_key, call_key: call.call_key, decision: 'approved' }); if (alive.current) await refresh();
         })}><Check size={16} />Aprobar versión final</button>}</>}
         {call?.state === 'needs_review' && !direction && <button className="mip-button" disabled={busy} onClick={() => void run(async () => {
-          await client.command(businessId, { kind: 'review', operation_key: job!.operation_key, call_key: call.call_key, decision: 'rejected' }); if (alive.current) await refresh();
+          await client.command(businessId, { kind: 'review', operation_key: job!.operation_key, call_key: call.call_key, decision: 'rejected' });
+          if (alive.current) { await refresh(); if (alive.current) continueEditing(); }
         })}>Rechazar pieza</button>}</div>}
       {selected && <p className="mip-note">{production ? 'Revisa el texto, los detalles y el formato. Aprobar esta imagen no sustituye la versión guardada; aplicarla requiere el botón separado.' : onboarding ? 'Esta imagen es una propuesta de dirección. Aprobarla no publica el perfil ni modifica el prompt maestro.' : full ? 'Este resultado es una imagen. Puedes preparar su HTML y ajustarlo en el editor completo antes de aplicarlo.' : `Los textos y la estructura del ${destination ? 'lienzo' : 'slide'} conservan su edición independiente.`}</p>}
       {service.exploration && exploration.mode === 'explore_design' && !libraryChoice && !proposalReview && proposalItems.length > 0 && <VisualProposalGallery
