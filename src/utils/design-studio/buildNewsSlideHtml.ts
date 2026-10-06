@@ -100,11 +100,11 @@ export function buildNewsSlideHtml(input: NewsSlideHtmlInput): string {
     isExecutiveWrap,
   } = input;
 
-  // Executive wrap (Xending View) siempre lleva el texto a la izquierda,
-  // sin importar qué text_safe_area haya quedado resuelta (sección 44):
-  // el archetype pide la escena a la derecha, así que esto no puede depender
-  // de una resolución vieja o de un valor inesperado del modelo.
-  const onRight = !isExecutiveWrap && (textSafeArea === 'right' || textSafeArea === 'upper_right');
+  // El lado del texto (y del velo) lo decide `text_safe_area`. El resolver deja
+  // el Xending View en 'left' por defecto (el archetype pide la escena a la
+  // derecha), pero honramos el valor del slide para que el botón "Voltear"
+  // pueda pasarlo al otro lado también en el cierre.
+  const onRight = textSafeArea === 'right' || textSafeArea === 'upper_right';
   const pad = Math.round(width * 0.06);
 
   // Métricas proporcionales al lienzo.

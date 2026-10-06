@@ -18,6 +18,7 @@ import {
   ChevronUp,
   Copy,
   Download,
+  FlipHorizontal2,
   FilePlus2,
   FileText,
   ImagePlus,
@@ -101,6 +102,20 @@ export function NewsPanel() {
       });
     } else {
       toast({ title: 'Texto actualizado' });
+    }
+  };
+
+  // Voltea el texto y el velo blanco al lado opuesto de la escena y re-hornea.
+  const handleFlipSide = async (slideNumber: number) => {
+    const ok = await news.flipSlideSide(slideNumber);
+    if (!ok) {
+      toast({
+        title: 'No se pudo voltear el texto',
+        description: 'Regenera la imagen primero (la escena no está en memoria).',
+        variant: 'destructive',
+      });
+    } else {
+      toast({ title: 'Texto volteado al otro lado' });
     }
   };
 
@@ -872,6 +887,24 @@ export function NewsPanel() {
                       Copiar prompt
                     </Button>
                   )}
+
+                  {/* Voltear el texto y el velo blanco al otro lado cuando la
+                      escena tiene el sujeto del lado donde cayó el texto. No
+                      gasta IA: solo re-hornea sobre la misma escena. */}
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="w-full"
+                    onClick={() => handleFlipSide(s.slide_number)}
+                    disabled={s.status === 'generating' || !(s.imageUrl || s.imageBase64)}
+                    title="Pasa el texto y la capa blanca al lado opuesto"
+                  >
+                    <FlipHorizontal2 className="mr-2 h-4 w-4" />
+                    Voltear texto
+                    <span className="ml-2 text-[10px] text-muted-foreground">
+                      ({s.text_safe_area === 'right' || s.text_safe_area === 'upper_right' ? 'derecha' : 'izquierda'})
+                    </span>
+                  </Button>
 
                   {/* Montar tu propia imagen y solo hornear el texto (Fed/Banxico,
                       notas urgentes con foto fija). No gasta IA. */}

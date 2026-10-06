@@ -689,6 +689,23 @@ export function useNewsEdition() {
     [patchSlide, composeAndSave, assertScope, scopeKey],
   );
 
+  /**
+   * Voltea el texto (y el velo blanco) al lado opuesto de la escena y re-hornea
+   * la pieza. Cuando el montaje quedó del lado equivocado —el texto encima del
+   * sujeto de la foto— esto lo pasa al otro lado sin regenerar la imagen. Solo
+   * alterna left↔right (los únicos lados que cambian el layout del compositor).
+   */
+  const flipSlideSide = useCallback(
+    async (slideNumber: number): Promise<boolean> => {
+      const slide = slidesRef.current.find((s) => s.slide_number === slideNumber);
+      if (!slide) return false;
+      const onRight = slide.text_safe_area === 'right' || slide.text_safe_area === 'upper_right';
+      patchSlide(slideNumber, { text_safe_area: onRight ? 'left' : 'right' });
+      return recomposeSlide(slideNumber);
+    },
+    [patchSlide, recomposeSlide],
+  );
+
   const generateAll = useCallback(async (): Promise<void> => {
     if (slidesRef.current.length === 0 || currentScope.current !== scopeKey) return;
     const identity = editionIdentity.current;
@@ -870,6 +887,7 @@ export function useNewsEdition() {
     removeSlide,
     updateSlidePrompt,
     recomposeSlide,
+    flipSlideSide,
     mountSceneImage,
     saveEdition,
     loadEdition,

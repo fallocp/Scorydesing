@@ -66,6 +66,8 @@ export interface BrandLayerInput {
   logoBox?: { width: number; height: number }
   /** Overrides the default wordmark size. */
   wordmarkFontPx?: number
+  /** Size the padding and disclaimer take proportions from. Defaults to `width`. */
+  metricsBase?: number
 }
 
 /**
@@ -101,13 +103,50 @@ function escapeHtml(text: string): string {
     .replace(/'/g, '&#39;')
 }
 
+/** Brand identities offered by the layer (shared by Studio and Diseño libre). */
+export const BRAND_OPTIONS = [
+  { key: 'xending', label: 'Xending', wordmark: 'Xending' },
+  { key: 'xending_usa', label: 'Xending USA', wordmark: 'Xending USA' },
+  { key: 'xending_capital', label: 'Xending Capital', wordmark: 'Xending Capital' },
+] as const
+export type BrandKey = (typeof BRAND_OPTIONS)[number]['key']
+export const BRAND_LAYER_FONTS_URL =
+  'https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Poppins:wght@400;500;600;700&family=Fraunces:wght@400;600&display=swap'
+
 export function buildBrandLayerHtml(input: BrandLayerInput): string {
+  const { imageUrl, width, height, imageFit = 'cover', canvasBackground = '#FFFFFF' } = input
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<link href="${BRAND_LAYER_FONTS_URL}" rel="stylesheet" />
+<style>
+  * { box-sizing: border-box; }
+  /* Poppins as the base so the promoter name and role — the only text here that
+     does not set its own family — land on the brand font instead of the
+     browser default serif. */
+  html, body { margin: 0; padding: 0; background: #FFFFFF; font-family: 'Poppins', Arial, sans-serif; }
+  .brand-canvas { position: relative; width: ${width}px; height: ${height}px; overflow: hidden; background: ${canvasBackground}; }
+  .piece-photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: ${imageFit}; z-index: 10; }
+</style>
+</head>
+<body>
+  <div class="brand-canvas">
+    <img class="piece-photo" src="${imageUrl}" alt="Pieza" />${buildBrandLayerElements(input)}
+  </div>
+</body>
+</html>`
+}
+
+/**
+ * The brand elements alone (patch, lockup, promoter and disclaimer), positioned for a
+ * `width`×`height` canvas. `withIds` adds `data-eid` so each one moves on its own in
+ * VisualDesignEditor without element definitions (Diseño libre).
+ */
+export function buildBrandLayerElements(input: Omit<BrandLayerInput, 'imageUrl'>, withIds = false): string {
   const {
-    imageUrl,
     width,
     height,
-    imageFit = 'cover',
-    canvasBackground = '#FFFFFF',
     logoUrl,
     wordmark,
     disclaimer,
@@ -116,14 +155,16 @@ export function buildBrandLayerHtml(input: BrandLayerInput): string {
     cover,
     logoBox = DEFAULT_LOGO_BOX,
     wordmarkFontPx = DEFAULT_WORDMARK_FONT_PX,
+    metricsBase = width,
   } = input
+  const eid = (id: string) => (withIds ? ` data-eid="${id}"` : '')
 
-  // Proportional metrics (percentages of canvas width).
-  const pad = Math.round(width * 0.04)
-  const discFont = Math.max(11, Math.round(width * 0.0155))
-  const nameFont = Math.max(12, Math.round(width * 0.019))
-  const roleFont = Math.max(10, Math.round(width * 0.015))
-  const photoSize = Math.round(width * 0.075)
+  // Proportional metrics (percentages of canvas width, or of `metricsBase`).
+  const pad = Math.round(metricsBase * 0.04)
+  const discFont = Math.max(11, Math.round(metricsBase * 0.0155))
+  const nameFont = Math.max(12, Math.round(metricsBase * 0.019))
+  const roleFont = Math.max(10, Math.round(metricsBase * 0.015))
+  const photoSize = Math.round(metricsBase * 0.075)
 
   const discColor = disclaimerTheme === 'light' ? '#FFFFFF' : '#3A4450'
   const discShadow =
@@ -135,7 +176,7 @@ export function buildBrandLayerHtml(input: BrandLayerInput): string {
     cover && cover.heightPct > 0
       ? `
     <div
-      class="bottom-cover"
+      class="bottom-cover"${eid('brand-cover')}
       style="position:absolute;left:0;right:0;bottom:0;height:${Math.round((height * cover.heightPct) / 100)}px;background:${cover.color};z-index:20;"
     ></div>`
       : ''
@@ -143,11 +184,11 @@ export function buildBrandLayerHtml(input: BrandLayerInput): string {
   // Logo and brand name travel together in a lockup, same as the presentation
   // templates (`.logo-row` + `.wordmark`), so dragging moves both at once.
   const logoImg = logoUrl
-    ? `<img class="brand-logo" src="${logoUrl}" alt="Logo" style="width:${logoBox.width}px;height:${logoBox.height}px;object-fit:contain;" />`
+    ? `<img class="brand-logo"${eid('brand-logo')} src="${logoUrl}" alt="Logo" style="width:${logoBox.width}px;height:${logoBox.height}px;object-fit:contain;" />`
     : ''
 
   const wordmarkSpan = wordmark?.trim()
-    ? `<span class="brand-wordmark" style="font-family:'Montserrat',Arial,sans-serif;font-size:${wordmarkFontPx}px;font-weight:700;letter-spacing:-0.02em;color:#0F1419;line-height:1;white-space:nowrap;">${escapeHtml(wordmark.trim())}</span>`
+    ? `<span class="brand-wordmark"${eid('brand-wordmark')} style="font-family:'Montserrat',Arial,sans-serif;font-size:${wordmarkFontPx}px;font-weight:700;letter-spacing:-0.02em;color:#0F1419;line-height:1;white-space:nowrap;">${escapeHtml(wordmark.trim())}</span>`
     : ''
 
   const logoBlock =
@@ -162,7 +203,7 @@ export function buildBrandLayerHtml(input: BrandLayerInput): string {
   const promoterBlock = promoter
     ? `
     <div
-      class="promoter-overlay"
+      class="promoter-overlay"${eid('brand-promoter')}
       style="position:absolute;right:${pad}px;bottom:${pad + discFont * 3}px;display:flex;align-items:center;gap:${Math.round(photoSize * 0.25)}px;z-index:30;"
     >
       <img
@@ -181,32 +222,12 @@ export function buildBrandLayerHtml(input: BrandLayerInput): string {
   const disclaimerBlock = disclaimer?.trim()
     ? `
     <div
-      class="brand-disclaimer"
+      class="brand-disclaimer"${eid('brand-disclaimer')}
       style="position:absolute;left:${pad}px;right:${pad}px;bottom:${pad}px;font-family:'Fraunces',Georgia,serif;font-size:${discFont}px;font-weight:400;line-height:1.35;color:${discColor};text-shadow:${discShadow};text-align:center;z-index:30;"
     >${escapeHtml(disclaimer.trim())}</div>`
     : ''
 
-  return `<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="utf-8" />
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Poppins:wght@400;500;600;700&family=Fraunces:wght@400;600&display=swap" rel="stylesheet" />
-<style>
-  * { box-sizing: border-box; }
-  /* Poppins as the base so the promoter name and role — the only text here that
-     does not set its own family — land on the brand font instead of the
-     browser default serif. */
-  html, body { margin: 0; padding: 0; background: #FFFFFF; font-family: 'Poppins', Arial, sans-serif; }
-  .brand-canvas { position: relative; width: ${width}px; height: ${height}px; overflow: hidden; background: ${canvasBackground}; }
-  .piece-photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: ${imageFit}; z-index: 10; }
-</style>
-</head>
-<body>
-  <div class="brand-canvas">
-    <img class="piece-photo" src="${imageUrl}" alt="Pieza" />${coverBlock}${logoBlock}${promoterBlock}${disclaimerBlock}
-  </div>
-</body>
-</html>`
+  return `${coverBlock}${logoBlock}${promoterBlock}${disclaimerBlock}`
 }
 
 export interface BrandLayerPatch {

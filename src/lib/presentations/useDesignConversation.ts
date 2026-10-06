@@ -56,7 +56,7 @@ const describeError = (problem: unknown) => {
     conversation_sync_unavailable: 'No se pudo confirmar el guardado en Supabase. Tu copia local se conserva; sincroniza antes de continuar.',
     conversation_forbidden: 'Tu sesión no tiene acceso a este trabajo. Revisa la cuenta y el negocio seleccionados.',
     conversation_size_limit: 'El historial supera el límite de guardado remoto. Tu copia local se conserva.',
-    conversation_pending_unresolved: 'Hay una acción pendiente. Recupera su resultado antes de continuar.',
+    conversation_pending_unresolved: 'Hay una acción pendiente. Recupérala o descártala para continuar.',
     conversation_target_changed: 'Cambió el lienzo. Tu conversación sigue guardada; vuelve a abrirla para trabajar con esta versión.',
     server_session_changed: 'Cambió tu sesión. Vuelve a abrir este diseño.',
     conversation_message_limit: 'Esta conversación llegó a su límite de mensajes. Conservamos todo el historial.',
@@ -68,6 +68,15 @@ const describeError = (problem: unknown) => {
     server_generation_unavailable: 'La generación de imágenes no está disponible en este momento.',
     conversation_outcome_unknown: 'La respuesta sigue pendiente de confirmar. Usa Recuperar; conservamos la solicitud exacta.',
     conversation_action_not_found: 'Todavía no se encontró un resultado guardado. Puedes volver a recuperarlo sin repetir la generación.',
+    exploration_provider_timeout: 'La IA tardó demasiado en responder. Descarta la solicitud y vuelve a intentarlo.',
+    exploration_provider_rejected: 'El proveedor de IA rechazó la solicitud. Descártala y vuelve a intentarlo.',
+    exploration_provider_invalid_result: 'La IA devolvió una respuesta incompleta. Descarta la solicitud y vuelve a intentarlo.',
+    exploration_provider_incomplete: 'La IA devolvió una respuesta incompleta. Descarta la solicitud y vuelve a intentarlo.',
+    exploration_provider_unexpected_output: 'La IA devolvió una respuesta inesperada. Descarta la solicitud y vuelve a intentarlo.',
+    exploration_provider_response_too_large: 'La respuesta de la IA fue demasiado grande. Descarta la solicitud y pide algo más breve.',
+    exploration_provider_unknown: 'No se pudo completar la respuesta de la IA. Descarta la solicitud y vuelve a intentarlo.',
+    server_exploration_outcome_unknown: 'Esta solicitud no terminó. Descártala para seguir conversando.',
+    exploration_previous_unresolved: 'Hay otra respuesta en curso. Espera unos segundos o descarta la solicitud pendiente.',
   };
   return errors[code] ?? (/\s/.test(code) && !/[{}<>]/.test(code) ? code : 'No se completó la acción. Conservamos el trabajo; recupera su estado antes de repetirla.');
 };
@@ -552,6 +561,15 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
       await refreshImage(life);
     }),
     recover: () => run(recoverAction, true),
+    /** Closes a stuck request without replaying it. A late image still lands in Biblioteca. */
+    discard: () => run(async life => {
+      await loadConversation(life); if (!active(life)) return; await assertCurrent(life);
+      const pending = current(life).pending; if (!pending) return;
+      await save(life, value => completeConversationAction(value, pending.action_id, { next_action: null, message: {
+        id: `assistant:${pending.action_id}`, turn_id: pending.turn_id, role: 'assistant',
+        text: pending.kind === 'image' ? 'Descarté la espera de esta imagen. Si termina de generarse, la encontrarás en Biblioteca.'
+          : 'Descarté la solicitud anterior. Puedes escribir de nuevo.' } }));
+    }, true),
     approveImage: () => run(async life => {
       await assertCurrent(life); await assertRemoteRevision(life); if (current(life).pending) throw Error('conversation_pending_unresolved'); const selected = imageOf(current(life));
       if (selected?.kind !== 'image') throw Error('Selecciona una imagen para revisarla.');

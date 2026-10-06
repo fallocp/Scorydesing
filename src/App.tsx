@@ -13,6 +13,9 @@ import PresentationsPage from "./pages/PresentationsPage";
 import FreeDesignPage from "./pages/FreeDesignPage";
 import MaterialsPage from "./pages/MaterialsPage";
 import DesignStudioPage from "./pages/DesignStudioPage";
+import CreateEditPage from "./pages/CreateEditPage";
+import CreateDesignPage from "./pages/CreateDesignPage";
+import { CreateEntryHandoff } from "./components/create-edit/CreateEntryHandoff";
 
 function App() {
   return (
@@ -32,7 +35,9 @@ function App() {
 function AuthenticatedApp() {
   useInitActiveBusiness();
   return (
-    <Routes>
+    <><CreateEntryHandoff /><Routes>
+      <Route path="/create" element={<CreateEditPage />} />
+      <Route path="/create/design" element={<CreateDesignPage />} />
       <Route path="/" element={<ScoryDesignPage />} />
       <Route path="/onboarding" element={<OnboardingPage />} />
       <Route path="/content-library" element={<ContentLibraryPage />} />
@@ -76,7 +81,7 @@ function AuthenticatedApp() {
         `business_tenants.compliance_rules` que ya consumía el backend.
       */}
       <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+    </Routes></>
   );
 }
 

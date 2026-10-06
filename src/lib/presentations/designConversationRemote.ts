@@ -113,13 +113,72 @@ export async function openSupabaseDesignConversationStore(client: SupabaseClient
   };
 }
 
+/** Embedded PNGs above this size are stored once in Storage instead of inside every workspace save. */
+const OFFLOAD_MIN_BASE64 = 24 * 1024;
+const EMBEDDED_PNG = /data:image\/png;base64,([A-Za-z0-9+/]+={0,2})/g;
+const STORED_PNG = /scory-png:([a-f0-9]{64})/g;
+/** Decoded images by storage path, shared by every store of the same client in this tab (paths are content hashes). */
+const storedImagesByClient = new WeakMap<object, Map<string, string>>();
+const base64Bytes = (base64: string) => { const binary = atob(base64), bytes = new Uint8Array(binary.length); for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i); return bytes; };
+const bytesBase64 = (bytes: Uint8Array) => { let binary = ''; for (let i = 0; i < bytes.length; i += 16384) binary += String.fromCharCode(...bytes.subarray(i, i + 16384)); return btoa(binary); };
+
+/**
+ * Keeps the synced workspace small: every large embedded PNG (mounted images, logos) is uploaded once, content-addressed,
+ * to the private references bucket and replaced by `scory-png:<sha256>`; reading restores the exact data URL.
+ * Snapshots saved before this change still decode unchanged.
+ */
+export function createFreeWorkspaceImageCodec(client: SupabaseClient<any>, scope: FreeDesignScope) {
+  const prefix = digest(new TextEncoder().encode('@workspace\n@workspace')).then(hash => `${scope.actor_id}/${scope.business_id}/${hash}/`);
+  const storedImages = storedImagesByClient.get(client) ?? new Map<string, string>();
+  storedImagesByClient.set(client, storedImages);
+  async function offload(html: string): Promise<string> {
+    const found = [...new Set([...html.matchAll(EMBEDDED_PNG)].map(match => match[1]).filter(base64 => base64.length >= OFFLOAD_MIN_BASE64))];
+    let next = html;
+    for (const base64 of found) {
+      const bytes = base64Bytes(base64), sha = await digest(bytes), path = `${await prefix}${sha}.png`;
+      if (!storedImages.has(path)) {
+        const { error } = await client.storage.from(bucket).upload(path, new Blob([bytes], { type: 'image/png' }), { contentType: 'image/png', upsert: false });
+        // Content-addressed: an existing object at this path holds these same bytes (checked again on read).
+        if (error && String((error as { statusCode?: string }).statusCode) !== '409' && !/already exists|duplicate/i.test(error.message)) continue;
+        storedImages.set(path, `data:image/png;base64,${base64}`);
+      }
+      next = next.split(`data:image/png;base64,${base64}`).join(`scory-png:${sha}`);
+    }
+    return next;
+  }
+  async function restore(html: string): Promise<string> {
+    let next = html;
+    for (const sha of new Set([...html.matchAll(STORED_PNG)].map(match => match[1]))) {
+      const path = `${await prefix}${sha}.png`;
+      let url = storedImages.get(path);
+      if (!url) {
+        const { data, error } = await client.storage.from(bucket).download(path); fail(error);
+        if (!data) throw Error('conversation_reference_missing');
+        const bytes = new Uint8Array(await data.arrayBuffer());
+        if (await digest(bytes) !== sha) throw Error('conversation_reference_missing');
+        url = `data:image/png;base64,${bytesBase64(bytes)}`; storedImages.set(path, url);
+      }
+      next = next.split(`scory-png:${sha}`).join(url);
+    }
+    return next;
+  }
+  const mapHtml = async (value: FreeDesignWorkspace, map: (html: string) => Promise<string>): Promise<FreeDesignWorkspace> => ({
+    ...value, documents: await Promise.all(value.documents.map(async document => ({ ...document, canvas: { ...document.canvas, html: await map(document.canvas.html) } }))),
+  });
+  return { encode: (value: FreeDesignWorkspace) => mapHtml(value, offload), decode: (value: FreeDesignWorkspace) => mapHtml(value, restore) };
+}
+
 /** Free-design canvas IDs must also exist on the second device to reopen their conversations. */
 export async function openSupabaseFreeDesignStore(client: SupabaseClient<any>, scope: FreeDesignScope, onStatus?: ConversationSyncObserver) {
   const identity = structuredClone(scope), validate = (value: FreeDesignWorkspace) => assertFreeDesignWorkspace(value, identity);
+  const images = createFreeWorkspaceImageCodec(client, identity);
   const remote = createSupabaseContinuityPort<FreeDesignWorkspace>(client,
     { actor: identity.actor_id, business: identity.business_id, document: '@workspace', slide: '@workspace' }, 'free_workspace', {
-      async encode(value) { validate(value); return value; },
-      async decode(value) { validate(value as FreeDesignWorkspace); return value as FreeDesignWorkspace; },
+      async encode(value) { validate(value); return images.encode(value); },
+      async decode(value) {
+        if (!value || !Array.isArray((value as FreeDesignWorkspace).documents)) throw Error('invalid_free_workspace');
+        const decoded = await images.decode(value as FreeDesignWorkspace); validate(decoded); return decoded;
+      },
     });
   const cache = await openContinuityCache<FreeDesignWorkspace>(JSON.stringify(['free_workspace', identity]));
   const store = createContinuityStore({ remote, cache, validate, onStatus, assertSession: remote.assertSession,

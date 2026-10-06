@@ -14,7 +14,7 @@ export interface PresentationReferencePickerProps {
 }
 const labels: Record<PresentationReferenceRole, string> = {
   object_reference: 'Objeto o persona', image_style_reference: 'Estilo visual', layout_reference: 'Composición',
-  content_source: 'Contenido', brand_reference: 'Marca',
+  content_source: 'Texto y contenido', brand_reference: 'Marca',
 };
 /** Local files only; previews and roles never upload or call an image/text model. */
 export function PresentationReferencePicker({ items, onChange, disabled = false, maxReferences = 3, onBusyChange, conversationReadsImages }: PresentationReferencePickerProps) {

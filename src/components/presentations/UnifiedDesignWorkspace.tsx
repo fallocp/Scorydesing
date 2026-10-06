@@ -137,7 +137,8 @@ export function UnifiedDesignWorkspace(props: UnifiedDesignWorkspaceProps) {
           <button className="dc-button" disabled={busy || fileBusy} onClick={() => void act(() => work.synchronize())}>Sincronizar</button>
           <button className="dc-button" disabled={busy || fileBusy} onClick={() => void act(() => work.exportLocal())}>Descargar copia local</button></div>}
         {work.brand.status === 'error' && <p className="dc-error">No se pudo cargar la marca. <button className="dc-button" disabled={blocked || pending} onClick={work.brand.refresh}>Volver a cargar</button></p>}
-        {pending && !busy && <div className="dc-recovery"><p>Hay una solicitud pendiente. Recupera su estado para continuar con este trabajo.</p><button className="dc-button" onClick={() => void act(() => work.recover())}>Recuperar solicitud</button></div>}
+        {pending && !busy && <div className="dc-recovery"><p>Hay una solicitud pendiente. Recupera su estado para continuar con este trabajo.</p><button className="dc-button" onClick={() => void act(() => work.recover())}>Recuperar solicitud</button>
+          <button className="dc-button" onClick={() => void act(() => work.discard())}>Descartar</button></div>}
         <div className="dc-quick"><button className="dc-button" disabled={blocked || pending} onClick={() => void send('Propón cinco ideas de diseño con mis referencias y lo que hemos acordado. No generes imágenes todavía.')}>Dame cinco ideas</button>
           <button className="dc-button" disabled={blocked || pending} onClick={() => void send('Crea una imagen con las referencias y el diseño que hemos acordado.')}>Crear imagen</button>
           <button className="dc-button" disabled={blocked || pending} onClick={() => void send('Crea HTML editable con las referencias y lo que hemos acordado.')}>Crear HTML</button></div>

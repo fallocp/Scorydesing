@@ -34,8 +34,10 @@ import { useSaveMockup, type SavedMockup } from '@/hooks/useDesignMockups'
 import { renderHtmlToPng } from '@/utils/xendingDesign/canvasRenderer'
 import {
   BRAND_LAYER_ELEMENTS,
+  BRAND_OPTIONS,
   buildBrandLayerHtml,
   patchBrandLayerHtml,
+  type BrandKey,
   type BrandLayerPatch,
 } from '@/utils/design-studio/buildBrandLayerHtml'
 import { sampleBottomColor } from '@/utils/design-studio/sampleImageColor'
@@ -52,18 +54,6 @@ import {
 } from '@/hooks/usePromoters'
 import { PLATFORM_DIMENSIONS, type PlatformFormat } from '@/types/design-studio'
 
-/**
- * Brand identities available for the layer. Kept as a constant on purpose: the
- * only thing that changes between them today is the logo and the legal text,
- * so this needs neither a new tenant nor a migration.
- */
-const BRAND_OPTIONS = [
-  { key: 'xending', label: 'Xending', wordmark: 'Xending' },
-  { key: 'xending_usa', label: 'Xending USA', wordmark: 'Xending USA' },
-  { key: 'xending_capital', label: 'Xending Capital', wordmark: 'Xending Capital' },
-] as const
-
-type BrandKey = (typeof BRAND_OPTIONS)[number]['key']
 
 interface BrandLayerDialogProps {
   mockup: SavedMockup

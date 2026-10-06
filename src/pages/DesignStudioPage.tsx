@@ -14,7 +14,8 @@
  */
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { studioTab } from '@/lib/create-edit/entry';
 import { useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Loader2, Sparkles, Save, Newspaper, TrendingUp } from 'lucide-react';
 
@@ -123,6 +124,7 @@ function appendNoLogoDirective(promptText: string): string {
 }
 
 export default function DesignStudioPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
@@ -1134,7 +1136,9 @@ export default function DesignStudioPage() {
         />
 
         {/* Top-level: Estudio comercial vs Xending News (independiente) */}
-        <Tabs defaultValue="studio" className="w-full">
+        <Tabs value={studioTab(searchParams.get('tab'))} onValueChange={value => {
+          setSearchParams(previous => { const next = new URLSearchParams(previous); next.set('tab', studioTab(value)); return next; }, { replace: true });
+        }} className="w-full">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="studio">Estudio</TabsTrigger>
             <TabsTrigger value="news">
@@ -1646,6 +1650,7 @@ export default function DesignStudioPage() {
           <StudioImagePanel key={`${reviewedImage.businessId}:${reviewedImage.actorId}:${reviewedImage.mockupId}`}
             service={designService} businessId={reviewedImage.businessId} source={{ kind: 'image', mockup_id: reviewedImage.mockupId }}
             initialAction={reviewedImage.action} onClose={() => setReviewedImage(null)}
+            onEditVersion={mockupId => setReviewedImage(current => current && { ...current, mockupId, action: 'edit_image' })}
             onSaved={async () => { await queryClient.invalidateQueries({ queryKey: ['design-mockups', reviewedImage.businessId] }); }} />}
       </div>
     </div>

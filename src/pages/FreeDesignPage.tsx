@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Download, Plus, Copy, Palette } from 'lucide-react';
+import type { OpenInEditorState } from '@/lib/create-edit/openInEditor';
+import { FreeBrandLayerPanel } from '@/components/desaing/FreeBrandLayerPanel';
+import { rasterizeHtml } from '@/lib/desaing/rasterizeHtml';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { usePresentationDesignService, type PresentationDesignService } from '@/components/presentations/PresentationDesignContext';
 import { ServerDesignPanel } from '@/components/presentations/ServerDesignPanel';
@@ -26,7 +29,7 @@ import { presentationProjectPort } from '@/lib/presentations/presentationProject
 import type { RegisteredAssetVersion } from '../../supabase/functions/_shared/desaing/assets';
 import './FreeDesignPage.css';
 
-type Panel = { kind: 'design' | 'piece' | 'html' | 'direct_html' | 'mount' | 'visual' | 'code' | 'deck' | 'materials'; document: FreeDesignDocument; asset?: RegisteredAssetVersion; copy?: string; copyMode?: 'approved_text' | 'no_text' };
+type Panel = { kind: 'design' | 'piece' | 'html' | 'direct_html' | 'mount' | 'visual' | 'code' | 'deck' | 'materials' | 'brand'; document: FreeDesignDocument; asset?: RegisteredAssetVersion; copy?: string; copyMode?: 'approved_text' | 'no_text' };
 type Life = { active: boolean; actor: string; store: (Awaited<ReturnType<typeof openFreeDesignStore>> & Partial<Pick<ContinuityStore<FreeDesignWorkspace>, 'status' | 'backups'>>) | null; record: FreeDesignRecord | null; work: Promise<unknown>; blocked: boolean };
 const kinds: Record<FreeDesignKind, string> = { cover: 'Portada', page: 'Página', special: 'Diseño especial' };
 const errorMessage = (error: unknown) => ({
@@ -48,9 +51,10 @@ export default function FreeDesignPage() {
   return <FreeDesignWorkspacePage key={activeBusinessId} businessId={activeBusinessId} service={service} />;
 }
 export function FreeDesignWorkspacePage({ businessId, service }: { businessId: string; service: PresentationDesignService }) {
-  const navigate = useNavigate(), lifeRef = useRef<Life | null>(null);
+  const navigate = useNavigate(), lifeRef = useRef<Life | null>(null), location = useLocation();
+  const openRequest = useRef<OpenInEditorState | null>((location.state as OpenInEditorState | null)?.openEditor === 'visual' ? location.state as OpenInEditorState : null);
   const [record, setRecord] = useState<FreeDesignRecord | null>(null), [writing, setBusy] = useState(false), [error, setError] = useState('');
-  const [importing, setImporting] = useState(false);
+  const [importing, setImporting] = useState(false), [exporting, setExporting] = useState(false);
   const [syncStatus, setSyncStatus] = useState<ContinuityStatus>('loading'), [localCopies, setLocalCopies] = useState(false);
   const busy = writing || importing || !!service.continuity && syncStatus !== 'synced';
   const [sessionEpoch, setSessionEpoch] = useState(0);
@@ -73,6 +77,9 @@ export function FreeDesignWorkspacePage({ businessId, service }: { businessId: s
         : await openFreeDesignStore(scope);
       if (!active(life)) { store.close(); return; } life.store = store; life.record = await store.read();
       if (active(life)) { setRecord(life.record); setCreating(!life.record.value.documents.length); }
+      // Crear y editar → "Abrir en el editor": open the existing Editor Visual on the new document once.
+      const requested = life.record.value.documents.find(item => item.id === openRequest.current?.documentId);
+      if (active(life) && requested) { openRequest.current = null; setPanel({ kind: 'visual', document: structuredClone(requested) }); navigate('.', { replace: true, state: null }); }
       if (store.backups && active(life)) setLocalCopies((await store.backups()).length > 0);
     })().catch(problem => { if (active(life)) setError(errorMessage(problem)); }).finally(() => { if (active(life)) setBusy(false); });
     life.work = work;
@@ -123,7 +130,14 @@ export function FreeDesignWorkspacePage({ businessId, service }: { businessId: s
       ? updateFreeDesignCanvas(item, next, target.canvas.revision) : item) }));
   }
   async function saveEditor(html: string, close: boolean) {
-    if (!panel || busy) return;
+    if (!panel) return;
+    if (busy) {
+      setError(syncStatus === 'conflict' ? 'Otra sesión guardó cambios. No se guardó: descarga tu copia local y sincroniza.'
+        : service.continuity && syncStatus !== 'synced' ? 'Todavía no se confirma la conexión con Supabase. Espera unos segundos y vuelve a guardar.'
+          : 'Hay un guardado en curso. Espera a que termine y vuelve a guardar.');
+      return;
+    }
+    if (lifeRef.current?.blocked) { setError('Otra sesión guardó cambios. Cierra el editor y pulsa «Sincronizar»; tus cambios de aquí no se guardaron.'); return; }
     const target = panel.document, clean = sanitizePresentationHtml(html);
     const safe = panel.kind === 'code' ? detachUnverifiedMountedImages(target.canvas.html, clean) : clean;
     const mounted = reconcileMountedAssets(target.canvas, safe);
@@ -132,9 +146,20 @@ export function FreeDesignWorkspacePage({ businessId, service }: { businessId: s
     try { const saved = await apply(next, target); if (panelRef.current !== panel) return;
       if (close) setPanel(null); else setPanel({ ...panel, document: saved.value.documents.find(item => item.id === target.id)! }); } catch { /* Keep editor open. */ }
   }
-  function download(text: string, type: string, name: string) {
-    const url = URL.createObjectURL(new Blob([text], { type })); const link = window.document.createElement('a');
+  function download(text: string | Blob, type: string, name: string) {
+    const url = URL.createObjectURL(typeof text === 'string' ? new Blob([text], { type }) : text); const link = window.document.createElement('a');
     link.href = url; link.download = name; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  /** Browser-side PNG at the exact canvas size; no render server. */
+  async function exportPng() {
+    if (!document || exporting) return;
+    setExporting(true); setError('');
+    try {
+      const saved = (await change(updateBrief)).value.documents.find(item => item.id === document.id)!;
+      const png = await rasterizeHtml(sanitizePresentationHtml(saved.canvas.html), saved.width, saved.height);
+      download(png, 'image/png', `${saved.name.replace(/[^\p{L}\p{N}_. -]/gu, '').slice(0, 80) || 'diseno'}.png`);
+    } catch { setError('No se pudo generar el PNG en este navegador. Descarga el HTML como respaldo.'); }
+    finally { setExporting(false); }
   }
   async function exportDocument(json: boolean) {
     if (!document) return;
@@ -213,6 +238,7 @@ export function FreeDesignWorkspacePage({ businessId, service }: { businessId: s
           <button className="fd-button" disabled={busy} onClick={() => void open('html')}>Hacer editable una imagen</button>
           <button className="fd-button" disabled={busy} onClick={() => void open('piece')}>Crear pieza</button>
           <button className="fd-button" disabled={busy} onClick={() => void open('mount')}>Añadir imágenes montadas</button>
+          <button className="fd-button" disabled={busy} onClick={() => void open('brand')}>Capa de marca</button>
           <button className="fd-button" disabled={busy} onClick={() => void open('visual')}>Editor Visual</button>
           <button className="fd-button" disabled={busy} onClick={() => void open('code')}>Editar HTML</button></div>
         <section className="fd-brief"><h3>Contenido e idea</h3><label>Qué quieres diseñar<textarea aria-label="Idea del diseño" rows={3} maxLength={8000} value={brief} disabled={busy} onChange={event => setBrief(event.target.value)} /></label>
@@ -220,7 +246,8 @@ export function FreeDesignWorkspacePage({ businessId, service }: { businessId: s
           <label>Texto que debe conservarse<textarea aria-label="Texto del diseño libre" rows={4} maxLength={4000} value={copy} disabled={busy} onChange={event => setCopy(event.target.value)} /></label>
           <div className="fd-toolbar"><button className="fd-button" disabled={busy || (brief === document.brief && copy === document.approved_copy)} onClick={() => void change(updateBrief).catch(() => {})}>Guardar indicaciones</button>
             <span className="fd-note">{brief === document.brief && copy === document.approved_copy ? 'Indicaciones guardadas.' : 'Indicaciones pendientes de guardar.'}</span></div></section>
-        <div className="fd-toolbar"><button className="fd-button" disabled={busy} onClick={() => void exportDocument(false)}><Download size={16} />Descargar HTML</button>
+        <div className="fd-toolbar"><button className="fd-button fd-primary" disabled={busy || exporting} onClick={() => void exportPng()}><Download size={16} />{exporting ? 'Preparando PNG…' : `Descargar PNG ${document.width}×${document.height}`}</button>
+          <button className="fd-button" disabled={busy} onClick={() => void exportDocument(false)}><Download size={16} />Descargar HTML</button>
           <button className="fd-button" disabled={busy} onClick={() => void exportDocument(true)}>Exportar respaldo</button>
           <button className="fd-button" disabled={busy} onClick={() => void open('deck')}>Crear presentación con este diseño</button>
           <button className="fd-link" disabled={busy} onClick={() => void change(updateBrief).then(() => navigate('/presentations')).catch(() => {})}>Ir a Presentaciones</button></div>
@@ -244,6 +271,13 @@ export function FreeDesignWorkspacePage({ businessId, service }: { businessId: s
     {panel?.kind === 'html' && <DesignToHtmlPanel service={service} businessId={businessId} documentId={panel.document.id} slide={panel.document.canvas}
       destination={destination} initialAsset={panel.asset} initialCopy={panel.copy ?? panel.document.approved_copy} initialCopyMode={panel.copyMode}
       onApply={async next => { await apply(next, panel.document); }} onClose={() => setPanel(null)} />}
+    {panel?.kind === 'brand' && <FreeBrandLayerPanel document={panel.document} onClose={() => setPanel(null)} onApply={async html => {
+      const target = panel.document, next = reviseSlide([target.canvas], { slide_id: target.canvas.id, expected_revision: target.canvas.revision,
+        html, mounted_assets: reconcileMountedAssets(target.canvas, html) })[0];
+      const saved = await apply(next, target), updated = saved.value.documents.find(item => item.id === target.id)!;
+      // Place and adjust the brand elements in the existing Editor Visual.
+      if (panelRef.current === panel) setPanel({ kind: 'visual', document: structuredClone(updated) });
+    }} />}
     {panel?.kind === 'mount' && <MountedImagesPanel businessId={businessId} client={service.client} documentId={panel.document.id} slide={panel.document.canvas}
       onApply={async next => { await apply(next, panel.document); }} onClose={() => setPanel(null)} />}
     {panel?.kind === 'deck' && <DeckComposerPanel businessId={businessId} documentId={panel.document.id} source={panel.document.canvas}

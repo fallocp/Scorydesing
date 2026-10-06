@@ -1,0 +1,17 @@
+.fbl-backdrop{position:fixed;inset:0;z-index:80;background:#0b1f1f99;display:flex;align-items:center;justify-content:center;padding:16px}
+.fbl-panel{width:min(620px,100%);max-height:92vh;display:flex;flex-direction:column;background:#fff;border-radius:14px;box-shadow:0 20px 60px #0003;color:#153e40;overflow:hidden}
+.fbl-panel header{display:flex;justify-content:space-between;gap:16px;padding:18px 20px;border-bottom:1px solid #e3ebe6}
+.fbl-panel h2{font-size:18px;font-weight:650;margin:0}.fbl-panel header p{font-size:12px;color:#617575;margin:6px 0 0;line-height:1.5}
+.fbl-icon{border:1px solid #c4d5ce;background:#fff;border-radius:8px;padding:6px;height:fit-content;cursor:pointer}
+.fbl-body{display:grid;gap:16px;padding:18px 20px;overflow-y:auto}
+.fbl-body fieldset{border:0;padding:0;margin:0;display:grid;gap:8px}.fbl-body legend,.fbl-body>label{font-size:13px;font-weight:600;margin-bottom:6px}
+.fbl-body>label{display:grid;gap:6px}
+.fbl-body input:not([type=checkbox]),.fbl-body textarea{padding:9px 10px;border:1px solid #c7d8d0;border-radius:7px;font:inherit;font-size:13px;color:#173e40}
+.fbl-chips{display:flex;flex-wrap:wrap;gap:6px}.fbl-chips button{border:1px solid #c4d5ce;background:#fff;border-radius:7px;padding:6px 10px;font-size:12px;cursor:pointer}
+.fbl-logos{display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:8px;max-height:180px;overflow-y:auto}
+.fbl-logos button{height:60px;border:1px solid #c4d5ce;background:#f7faf8;border-radius:8px;padding:6px;font-size:11px;color:#617575;cursor:pointer}
+.fbl-logos img{width:100%;height:100%;object-fit:contain}
+.fbl-on{border-color:#176d61 !important;box-shadow:0 0 0 1px #176d61;background:#e4efea !important}
+.fbl-inline{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:400}
+.fbl-note{font-size:12px;color:#617575;margin:0}.fbl-error{padding:10px 12px;background:#fff0e8;border:1px solid #e9ac8e;color:#8b3b1f;border-radius:8px;margin:0;font-size:13px}
+.fbl-panel footer{display:flex;justify-content:flex-end;gap:9px;padding:14px 20px;border-top:1px solid #e3ebe6}

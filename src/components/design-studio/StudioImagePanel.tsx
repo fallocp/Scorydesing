@@ -12,7 +12,8 @@ import './StudioImagePanel.css';
 
 export interface StudioImagePanelProps {
   service: PresentationDesignService; businessId: string; source: ProductionSource; initialAction?: StudioImageAction;
-  localCarousel?: StudioCarouselContext; onClose(): void; onSaved?(receipt: ProductionReceipt, snapshot: ProductionSnapshot): Promise<void> | void;
+  localCarousel?: StudioCarouselContext; onClose(): void; onEditVersion?(mockupId: string): void;
+  onSaved?(receipt: ProductionReceipt, snapshot: ProductionSnapshot): Promise<void> | void;
 }
 const same = (a: unknown, b: unknown) => canonicalExploration(a) === canonicalExploration(b);
 const code = (error: unknown) => error && typeof error === 'object' && 'code' in error ? String(error.code) : error instanceof Error ? error.message : '';
@@ -56,11 +57,11 @@ function surface(snapshot: ProductionSnapshot): PresentationSlide {
 }
 
 /** Production source adapter. Rendering/review is owned by the shared design panel. */
-export function StudioImagePanel({ service, businessId, source, initialAction = 'compare', localCarousel, onClose, onSaved }: StudioImagePanelProps) {
+export function StudioImagePanel({ service, businessId, source, initialAction = 'compare', localCarousel, onClose, onEditVersion, onSaved }: StudioImagePanelProps) {
   const api = useMemo(() => service.client.production?.(businessId), [service.client, businessId]);
   const sourceKey = canonicalExploration(source);
   const [snapshot, setSnapshot] = useState<ProductionSnapshot | null>(null), [base, setBase] = useState<RegisteredAssetVersion | null>(null);
-  const [history, setHistory] = useState<ProductionReceipt[]>([]), [receipt, setReceipt] = useState<ProductionReceipt | null>(null);
+  const [history, setHistory] = useState<ProductionReceipt[]>([]), [selectedHistory, setSelectedHistory] = useState<ProductionReceipt | null>(null), [receipt, setReceipt] = useState<ProductionReceipt | null>(null);
   const [baseUrl, setBaseUrl] = useState(''), [resultUrl, setResultUrl] = useState('');
   const [visual, setVisual] = useState<'edit_image' | 'regenerate_image' | null>(null);
   const [busy, setBusy] = useState(true), [error, setError] = useState(''), [notice, setNotice] = useState('');
@@ -71,7 +72,7 @@ export function StudioImagePanel({ service, businessId, source, initialAction = 
   function ensure(life: Life) { if (!active(life)) throw Error('studio_closed'); if (life.changed) throw Error('server_session_changed'); }
   function forget(life: Life) {
     life.changed = true; life.blocked = true; life.snapshot = null; life.pending = null;
-    if (active(life)) { setSnapshot(null); setBase(null); setBaseUrl(''); setResultUrl(''); setHistory([]); setReceipt(null); setPending(null); setVisual(null); setCopy(''); setNotice(''); setError(describe(Error('server_session_changed'))); }
+    if (active(life)) { setSnapshot(null); setBase(null); setBaseUrl(''); setResultUrl(''); setHistory([]); setSelectedHistory(null); setReceipt(null); setPending(null); setVisual(null); setCopy(''); setNotice(''); setError(describe(Error('server_session_changed'))); }
   }
   async function verify(life: Life) {
     ensure(life); try { if ((await service.client.session()).actorId !== life.actor) throw Error('server_session_changed'); }
@@ -135,7 +136,7 @@ export function StudioImagePanel({ service, businessId, source, initialAction = 
   }
   useEffect(() => {
     const life: Life = { active: true, actor: '', locked: true, blocked: false, changed: false, pending: null, snapshot: null };
-    lifeRef.current = life; setBusy(true); setError(''); setSnapshot(null); setBase(null); setReceipt(null); setPending(null); setHistory([]); setVisual(null); setBaseUrl(''); setResultUrl('');
+    lifeRef.current = life; setBusy(true); setError(''); setSnapshot(null); setBase(null); setReceipt(null); setPending(null); setHistory([]); setSelectedHistory(null); setVisual(null); setBaseUrl(''); setResultUrl('');
     void (async () => { life.actor = (await service.client.session()).actorId; ensure(life); await refresh(life); })()
       .catch(problem => { if (active(life)) setError(describe(problem)); }).finally(() => { life.locked = false; if (active(life)) setBusy(false); });
     return () => { life.active = false; urls.current.forEach(url => URL.revokeObjectURL(url)); urls.current = []; };
@@ -148,9 +149,9 @@ export function StudioImagePanel({ service, businessId, source, initialAction = 
   useEffect(() => { trigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     return () => { const target = trigger.current; requestAnimationFrame(() => { if (target?.isConnected && !target.closest('[inert]')) target.focus(); }); }; }, []);
   useEffect(() => { if (!visual) dialog.current?.focus(); }, [visual]);
-  async function useResult(asset: RegisteredAssetVersion, approvedCopy: string, operation: DesignOperation) {
+  async function useResult(asset: RegisteredAssetVersion, _approvedCopy: string, operation: DesignOperation) {
     await run(async life => {
-      if (!api || !life.snapshot || life.pending || receipt || approvedCopy !== life.snapshot.copy.text
+      if (!api || !life.snapshot || life.pending || receipt
         || operation.context.project_id !== life.snapshot.id || operation.context.copy_version_id !== life.snapshot.copy.version_id) throw Error('studio_source_changed');
       const frozen: StudioPendingApply = { schema_version: 1, actor_id: life.actor, snapshot: structuredClone(life.snapshot), input: {
         business_id: businessId, apply_id: crypto.randomUUID(), snapshot_id: life.snapshot.id, source_hash: life.snapshot.source_hash,
@@ -206,8 +207,10 @@ export function StudioImagePanel({ service, businessId, source, initialAction = 
           if (!api || !life.pending) return; const frozen = life.pending, result = await api.apply(frozen.input); await verify(life); await completed(life, result, frozen);
         }, true)}>Reenviar el mismo guardado</button></section>}
       {!!history.length && <section><h3>Versiones guardadas</h3><div className="sip-history">{history.map(item => <button type="button" key={item.apply_id} disabled={busy}
-        onClick={() => void run(async life => { setResultUrl(await image(life, item.result_asset)); })}>
-        <img src={item.image_url} alt="Variante guardada" /><span>Comparar · {new Date(item.applied_at).toLocaleString('es-MX')}</span></button>)}</div></section>}
+        onClick={() => void run(async life => { setResultUrl(await image(life, item.result_asset)); setSelectedHistory(item); })}>
+        <img src={item.image_url} alt="Variante guardada" /><span>Comparar · {new Date(item.applied_at).toLocaleString('es-MX')}</span></button>)}</div>
+        {selectedHistory && source.kind === 'image' && onEditVersion && selectedHistory.mockup_id !== source.mockup_id && <button type="button" className="sip-primary" disabled={busy}
+          onClick={() => onEditVersion(selectedHistory.mockup_id)}>Editar esta versión</button>}</section>}
       {!pending && !receipt && <div className="sip-actions"><button type="button" disabled={busy} onClick={() => void run(refresh, true)}>Recuperar estado</button>
         <button type="button" disabled={busy} onClick={() => void run(async life => {
           if (!api) throw Error('studio_unavailable'); const next = await api.prepare({ business_id: businessId, prepare_id: crypto.randomUUID(), source });

@@ -64,6 +64,13 @@ import { usePresentationDesignService } from '@/components/presentations/Present
 
 const MODE_OPTIONS = [
   {
+    key: 'create-edit',
+    title: 'Crear y editar',
+    description: 'Empieza una idea o retoma tu trabajo en el nuevo espacio',
+    icon: Wand2,
+    route: '/create',
+  },
+  {
     key: 'library',
     title: 'Biblioteca de Assets',
     description: 'Explora y administra tu biblioteca de imágenes',
