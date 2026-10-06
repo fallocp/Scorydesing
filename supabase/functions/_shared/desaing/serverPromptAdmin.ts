@@ -36,17 +36,16 @@ export function createServerPromptAdmin(settings: ServerHtmlConfig, deps: Server
   const config = structuredClone(settings), repo = deps.promptAdminRepository, now = deps.now ?? Date.now;
   async function gate(actor: string, biz: string) {
     assertBusinessId(actor); assertBusinessId(biz); need(config.enabled, 'prompt_admin_disabled', 503);
-    need(actor === config.actorId && biz === config.businessId, 'prompt_admin_forbidden', 403);
     try { const expected = new URL(config.expectedSupabaseOrigin), actual = new URL(config.actualSupabaseOrigin);
       need(expected.protocol === 'https:' && expected.origin === config.expectedSupabaseOrigin && actual.origin === config.actualSupabaseOrigin
         && expected.origin === actual.origin, 'server_prompt_admin_configuration_invalid', 503);
     } catch { throw new ServerBoundaryError('server_prompt_admin_configuration_invalid', 503); }
     const access = await repo.capabilities(biz, actor); need(access.governed && access.can_manage, 'prompt_admin_forbidden', 403);
     const read = await deps.repository.read(biz, actor), p = read.policy;
-    need(p.business_id === biz && p.policy_id === config.policyId
+    need(p.business_id === biz
       && p.limit_micro_usd > 0 && p.max_image_outputs > 0 && p.reservation_per_output_micro_usd > 0
       && isGenerationProfilePolicy(p.enabled_image_profiles) && p.responses_image_enabled, 'server_policy_changed');
-    return readServerState({ ...deps.repository, read: async () => read }, biz, actor);
+    return { ...await readServerState({ ...deps.repository, read: async () => read }, biz, actor), policyId: p.policy_id };
   }
   type State = Awaited<ReturnType<typeof gate>>;
   function approved(state: State, identity: AssetVersion, actor: string, requireApproval = true) {
@@ -86,8 +85,8 @@ export function createServerPromptAdmin(settings: ServerHtmlConfig, deps: Server
     if (saved) need(saved.mutation.kind === kind && same(saved.request, request), 'prompt_admin_request_conflict'); return saved?.mutation ?? null;
   }
   async function commit(actor: string, kind: PromptAdminMutation['kind'], request: { business_id: string; request_id: string }, result: unknown, stateRevision: number | null) {
-    await gate(actor, request.business_id);
-    try { return await repo.mutate({ businessId: request.business_id, actorId: actor, kind, request, result, stateRevision, policyId: config.policyId }); }
+    const { policyId } = await gate(actor, request.business_id);
+    try { return await repo.mutate({ businessId: request.business_id, actorId: actor, kind, request, result, stateRevision, policyId }); }
     catch (error) { if (error instanceof ServerBoundaryError && error.status < 500) throw error; throw new ServerBoundaryError('server_prompt_admin_outcome_unknown', 503); }
   }
   return {

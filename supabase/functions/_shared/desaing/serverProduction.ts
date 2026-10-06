@@ -68,8 +68,8 @@ export function createServerProduction(settings: ServerHtmlConfig, deps: ServerP
       need(a.origin === b.origin && a.origin === config.actualSupabaseOrigin && b.origin === config.expectedSupabaseOrigin && b.protocol === 'https:', 'server_production_configuration_invalid', 503);
     } catch { throw new ServerBoundaryError('server_production_configuration_invalid', 503); }
     const read = await deps.repository.read(biz, actor), p = read.policy;
-    need(actor === config.actorId && biz === config.businessId && ['owner', 'admin'].includes(read.role), 'business_write_denied', 403);
-    need(p.business_id === biz && p.policy_id === config.policyId
+    need(['owner', 'admin'].includes(read.role), 'business_write_denied', 403);
+    need(p.business_id === biz
       && p.limit_micro_usd > 0 && p.max_image_outputs > 0 && p.reservation_per_output_micro_usd > 0
       && isGenerationProfilePolicy(p.enabled_image_profiles) && p.responses_image_enabled, 'server_policy_changed'); return read;
   }
@@ -87,8 +87,8 @@ export function createServerProduction(settings: ServerHtmlConfig, deps: ServerP
     if (pixels) { const input = await original(source, snapshot.business_id); need(input.hash === snapshot.base_asset.version_id && same(input.canvas, snapshot.canvas), 'production_base_changed'); }
     return source;
   }
-  async function operationSnapshot(actor: string, operation: DesignOperation, checkCurrent: boolean, pixels = true) {
-    const c = operation.context; need(c.workspace === 'production' && c.actor_id === actor && c.business_id === config.businessId, 'production_result_mismatch');
+  async function operationSnapshot(actor: string, biz: string, operation: DesignOperation, checkCurrent: boolean, pixels = true) {
+    const c = operation.context; need(c.workspace === 'production' && c.actor_id === actor && c.business_id === biz, 'production_result_mismatch');
     assertBusinessId(c.project_id); const saved = await repo.snapshot(c.business_id, actor, c.project_id);
     need(saved, 'production_snapshot_not_found', 404); const s = saved.snapshot;
     need(s.copy.origin !== 'unavailable', 'production_copy_required');
@@ -134,13 +134,13 @@ export function createServerProduction(settings: ServerHtmlConfig, deps: ServerP
         prompt: source.prompt, copy: { text, origin, version_id: await productionCopyHash(request.prepare_id, text, origin) }, protected_context: source.protected_context, created_at: new Date(now()).toISOString() };
       assertProductionSnapshot(snapshot);
       await deps.privateStorage.putImmutable(version.storage.storage_key, image.bytes);
-      await gate(actor, request.business_id); await current(snapshot);
+      const { policy } = await gate(actor, request.business_id); await current(snapshot);
       try { await executeServerCommand(deps.repository, request.business_id, actor, { kind: 'register_import', version });
-        return await repo.prepare(actor, request, snapshot, config.policyId);
+        return await repo.prepare(actor, request, snapshot, policy.policy_id);
       } catch (error) { if (error instanceof ServerBoundaryError && error.status < 500) throw error; throw new ServerBoundaryError('server_production_outcome_unknown', 503); }
     },
     async validateOperation(actor, operation, options) { const frozen = structuredClone(operation); await gate(actor, frozen.context.business_id);
-      await operationSnapshot(actor, frozen, true, options?.pixels ?? true); },
+      await operationSnapshot(actor, frozen.context.business_id, frozen, true, options?.pixels ?? true); },
     async apply(actor, input) {
       const request = structuredClone(input); validate(() => assertProductionApplyInput(request)); assertBusinessId(actor);
       const prior = await repo.recover(request.business_id, actor, request.apply_id);
@@ -155,16 +155,16 @@ export function createServerProduction(settings: ServerHtmlConfig, deps: ServerP
       const provenance = asset.provenance;
       const operation = state.state.jobs.jobs.find(j => j.operation_key === provenance.operation_key)?.plan.operation;
       need(operation && (operation.context.interaction_mode === 'execute_change' || ['medium', 'high'].includes(provenance.quality)), 'production_not_approved');
-      const validatedSnapshot = await operationSnapshot(actor, operation, false), full = readPresentationFullDesign(operation.context);
+      const validatedSnapshot = await operationSnapshot(actor, request.business_id, operation, false), full = readPresentationFullDesign(operation.context);
       need(validatedSnapshot.id === snapshot.id && full, 'production_result_mismatch');
       const bytes = await verifiedAsset(request.result_asset, asset);
       need(asset.storage.width === snapshot.output_canvas.width && asset.storage.height === snapshot.output_canvas.height, 'production_result_mismatch');
       const key = `${request.business_id}/mockups/desaing-${request.apply_id}.png`, url = deps.legacyStorage.publicUrl(key);
       need(productionLegacyKey(url, config.expectedSupabaseOrigin, request.business_id) === key, 'production_source_invalid');
       await deps.legacyStorage.putImmutable(key, bytes);
-      await gate(actor, request.business_id); await current(snapshot);
+      const { policy } = await gate(actor, request.business_id); await current(snapshot);
       try { return await repo.apply({ actorId: actor, request, stateRevision: state.revision, imageUrl: url, prompt: provenance.effective_prompt,
-        instruction: relativeProductionInstruction(snapshot, operation), copyText: full.approvedCopy, policyId: config.policyId }); }
+        instruction: relativeProductionInstruction(snapshot, operation), copyText: full.approvedCopy, policyId: policy.policy_id }); }
       catch (error) { if (error instanceof ServerBoundaryError && error.status < 500) throw error; throw new ServerBoundaryError('server_production_outcome_unknown', 503); }
     },
   };

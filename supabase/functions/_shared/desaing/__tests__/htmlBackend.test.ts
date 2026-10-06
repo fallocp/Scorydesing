@@ -13,12 +13,13 @@ import { htmlPng, htmlRequest, htmlResult, HTML_ACTOR as actor, HTML_BUSINESS as
 import { isServerHtmlCapabilities } from '../serverHtmlContract.ts';
 import { PILOT_LIMITS } from '../pilotHttp.ts';
 import { makeTextlessCompositionCopy } from '../composition.ts';
-const config: ServerHtmlConfig = { enabled: true, actorId: actor, businessId: business, policyId: 'html-pilot',
+const policyId = 'html-pilot', secondActor = 'a0000000-0000-4000-8000-000000000005', secondBusiness = 'a0000000-0000-4000-8000-000000000006';
+const config: ServerHtmlConfig = { enabled: true,
   expectedSupabaseOrigin: 'https://project.supabase.co', actualSupabaseOrigin: 'https://project.supabase.co', expiresAt: 100000 };
 const token = 'a0000000-0000-4000-8000-000000000003';
 async function fixture(overrides: Partial<ServerHtmlConfig> = {}) {
   const request = await htmlRequest(), entries = new Map<string, HtmlJournalEntry>();
-  const policy = { business_id: business, enabled: true, policy_id: config.policyId, limit_micro_usd: PILOT_LIMITS.budgetMicroUsd,
+  const policy = { business_id: business, enabled: true, policy_id: policyId, limit_micro_usd: PILOT_LIMITS.budgetMicroUsd,
     reservation_per_output_micro_usd: PILOT_LIMITS.reservationMicroUsd, max_image_outputs: PILOT_LIMITS.maxOutputs, enabled_image_profiles: ['flare_candidate' as const], responses_image_enabled: true };
   const snapshot = createServerSnapshot(business, policy);
   snapshot.assets = registerAssetVersion(snapshot.assets, { identity: request.design_reference, brand_id: 'presentation', project_id: 'deck',
@@ -70,11 +71,12 @@ describe('authenticated HTML vision admission and existing shared budget', () =>
     expect(await f.boundary.plan(actor, f.request)).toEqual(htmlResult(f.request)); expect(f.plan).toHaveBeenCalledTimes(1);
     expect(isServerHtmlCapabilities(await f.boundary.capabilities(business, actor))).toBe(true);
   });
-  it('shares the twenty-attempt, one-dollar text and configured combined limits before pixel reads or claims', async () => {
+  it('does not apply lifetime attempt, text or combined quotas', async () => {
     for (const limit of ['attempts', 'text', 'total']) { const f = await fixture();
-      if (limit === 'attempts') f.attempts(20); if (limit === 'text') f.text(750001); if (limit === 'total') { f.image(PILOT_LIMITS.budgetMicroUsd - 100000); }
-      await expect(f.boundary.plan(actor, f.request)).rejects.toMatchObject({ code: 'html_quota_exceeded', status: 429 });
-      expect(f.storage.get).not.toHaveBeenCalled(); expect(f.journal.claim).not.toHaveBeenCalled(); expect(f.plan).not.toHaveBeenCalled(); }
+      if (limit === 'attempts') f.attempts(500); if (limit === 'text') f.text(50_000_000); if (limit === 'total') { f.image(PILOT_LIMITS.budgetMicroUsd * 10); }
+      expect(await f.boundary.capabilities(business, actor)).toMatchObject({ remaining_attempts: 4, remaining_micro_usd: 1000000 });
+      await f.boundary.plan(actor, f.request);
+      expect(f.journal.claim).toHaveBeenCalledTimes(1); expect(f.plan).toHaveBeenCalledTimes(1); }
   });
   it('advertises and preserves textless conversion without another dispatch on recovery', async () => {
     const f = await fixture(); f.request.copy = await makeTextlessCompositionCopy(); f.request.context.copy_version_id = f.request.copy.version_id;
@@ -85,13 +87,33 @@ describe('authenticated HTML vision admission and existing shared budget', () =>
     expect(await f.boundary.recover(actor, business, f.request.request_key)).toEqual(result);
     expect(f.plan).toHaveBeenCalledTimes(1);
   });
-  it.each(['disabled', 'expired', 'origin', 'actor', 'role', 'policy', 'paused'])('blocks new work under invalid %s', async variant => {
+  it.each(['disabled', 'expired', 'origin', 'actor', 'role', 'viewer', 'foreign_policy', 'policy', 'paused'])('blocks new work under invalid %s', async variant => {
     const f = await fixture(variant === 'disabled' ? { enabled: false } : variant === 'origin' ? { actualSupabaseOrigin: 'https://foreign.supabase.co' } : {});
     if (variant === 'expired') f.expire(); if (variant === 'role') f.state.role = 'editor';
     if (variant === 'policy') f.state.policy.limit_micro_usd++; if (variant === 'paused') f.state.policy.enabled = false;
-    if (variant === 'actor') f.request.context.actor_id = token;
+    if (variant === 'actor') f.request.context.actor_id = token; if (variant === 'viewer') f.state.role = 'viewer';
+    if (variant === 'foreign_policy') f.state.policy.business_id = secondBusiness;
     await expect(f.boundary.plan(actor, f.request)).rejects.toBeInstanceOf(ServerBoundaryError);
     expect(f.journal.claim).not.toHaveBeenCalled(); expect(f.plan).not.toHaveBeenCalled();
+  });
+  it('admits another owner/admin actor of another business under that business policy row', async () => {
+    const f = await fixture(); f.state.role = 'admin';
+    Object.assign(f.state.policy, { business_id: secondBusiness, policy_id: 'second-business-policy' });
+    f.request.design_reference.business_id = secondBusiness; f.request.context.references[0].business_id = secondBusiness;
+    Object.assign(f.request.context, { business_id: secondBusiness, actor_id: secondActor });
+    const snapshot = createServerSnapshot(secondBusiness, f.state.policy);
+    snapshot.assets = registerAssetVersion(snapshot.assets, { identity: f.request.design_reference, brand_id: 'presentation', project_id: 'deck',
+      provenance: { kind: 'imported', origin: 'upload' }, storage: { storage_key: `${secondBusiness}/design.png`, mime_type: 'image/png', width: 1, height: 1, size_bytes: htmlPng().length } });
+    f.state.state.snapshot = snapshot;
+    expect(isServerHtmlCapabilities(await f.boundary.capabilities(secondBusiness, secondActor))).toBe(true);
+    expect(await f.boundary.plan(secondActor, f.request)).toEqual(htmlResult(f.request));
+    expect(f.journal.claim).toHaveBeenCalledWith(expect.objectContaining({ businessId: secondBusiness, actorId: secondActor, expectedPolicyId: 'second-business-policy' }));
+    await f.boundary.import(secondActor, { businessId: secondBusiness, uploadId: token, brandId: 'presentation', projectId: 'deck' }, htmlPng());
+    expect(f.repository.commit).toHaveBeenCalledWith(expect.objectContaining({ businessId: secondBusiness, actorId: secondActor }));
+    expect(vi.mocked(f.repository.read).mock.calls.every(([biz, who]) => biz === secondBusiness && who === secondActor)).toBe(true);
+    f.state.role = 'editor'; expect(await f.boundary.capabilities(secondBusiness, secondActor)).toBeNull();
+    await expect(f.boundary.import(secondActor, { businessId: secondBusiness, uploadId: secondActor, brandId: 'presentation', projectId: 'deck' }, htmlPng()))
+      .rejects.toMatchObject({ code: 'business_write_denied', status: 403 });
   });
   it.each(['copy', 'pixels', 'hash', 'missing', 'size'])('rejects substituted %s before a reservation', async variant => {
     const f = await fixture(); if (variant === 'copy') f.request.copy.blocks[0].text = 'Changed';

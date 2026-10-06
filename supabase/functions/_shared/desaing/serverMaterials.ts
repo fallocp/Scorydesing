@@ -8,7 +8,7 @@ import type { MaterialJournalEntry, MaterialsRepository } from './materialsRepos
 import { canonicalExploration } from './explorationRepository.ts';
 import { MaterialsProviderError } from './materialsProvider.ts';
 import { inspectMaterialBytes, MaterialBytesError } from './materialBytes.ts';
-import { PILOT_LIMITS } from './pilotHttp.ts';
+import { TEXT_HEADROOM } from './serverExploration.ts';
 import { isGenerationProfilePolicy } from './catalog.ts';
 import { ServerBoundaryError, type ServerRepository, type ServerRead } from './serverRepository.ts';
 import type { ServerHtmlConfig } from './serverHtml.ts';
@@ -44,25 +44,24 @@ export function createServerMaterials(settings: ServerHtmlConfig, deps: ServerMa
     return { actorId, businessId, collectionId }; };
   function assertWindow() { requireValue(config.enabled, 'server_feature_disabled', 503); const at = now(); requireValue(Number.isSafeInteger(at) && at >= 0 && at < config.expiresAt, 'server_materials_expired', 403); }
   function assertScope(businessId: string, actorId: string, read: ServerRead) {
-    try { assertBusinessId(config.businessId); assertBusinessId(config.actorId);
+    try {
       const origin = new URL(config.expectedSupabaseOrigin), actual = new URL(config.actualSupabaseOrigin);
       requireValue(origin.protocol === 'https:' && origin.origin === config.expectedSupabaseOrigin && actual.origin === config.actualSupabaseOrigin && origin.origin === actual.origin
-        && /^[A-Za-z0-9_.:-]{1,200}$/.test(config.policyId) && Number.isSafeInteger(config.expiresAt) && config.expiresAt > 0, 'server_materials_configuration_invalid', 503);
+        && Number.isSafeInteger(config.expiresAt) && config.expiresAt > 0, 'server_materials_configuration_invalid', 503);
     } catch { throw new ServerBoundaryError('server_materials_configuration_invalid', 503); }
-    requireValue(businessId === config.businessId && actorId === config.actorId && ['owner', 'admin'].includes(read.role), 'business_write_denied', 403);
-    const p = read.policy; requireValue(p.business_id === businessId && p.policy_id === config.policyId
+    requireValue(['owner', 'admin'].includes(read.role), 'business_write_denied', 403);
+    const p = read.policy; requireValue(p.business_id === businessId
       && p.limit_micro_usd > 0 && p.max_image_outputs > 0 && p.reservation_per_output_micro_usd > 0
       && isGenerationProfilePolicy(p.enabled_image_profiles) && p.responses_image_enabled === true, 'server_policy_changed', 409);
   }
   async function gate(businessId: string, actorId: string, paid = true) { const read = await deps.repository.read(businessId, actorId); assertScope(businessId, actorId, read);
     if (paid) { assertWindow(); requireValue(read.policy.enabled, 'server_feature_disabled', 503); } return read; }
-  async function remaining(businessId: string, actorId: string): Promise<MaterialsCapabilities> { const b = await repo.budget(businessId, actorId);
-    const available = Math.max(0, Math.min(1000000 - b.committed_micro_usd, PILOT_LIMITS.budgetMicroUsd - b.committed_micro_usd - b.image_committed_micro_usd));
-    return { model: 'gpt-5.4-mini', analyzer_version: MATERIALS_ANALYZER_VERSION, remaining_micro_usd: available,
-      remaining_attempts: Math.max(0, Math.min(20 - b.attempts, Math.floor(available / 250000))), reservation_micro_usd: 250000,
+  /** No lifetime quota: steady per-request headroom, see TEXT_HEADROOM. */
+  function remaining(): MaterialsCapabilities {
+    return { model: 'gpt-5.4-mini', analyzer_version: MATERIALS_ANALYZER_VERSION, ...TEXT_HEADROOM, reservation_micro_usd: 250000,
       max_file_bytes: 8388608, max_text_bytes: 65536, max_pdf_pages: 20, max_selected: 4, max_input_tokens: 80000, max_output_tokens: 8192 }; }
-  async function commit(collection: MaterialCollection, expectedRevision: number) { assertMaterialCollection(collection);
-    return repo.commit({ ...scope(collection.actor_id, collection.business_id, collection.collection_id), collection, expectedRevision, policyId: config.policyId, expiresAt: config.expiresAt }); }
+  async function commit(collection: MaterialCollection, expectedRevision: number, policyId: string) { assertMaterialCollection(collection);
+    return repo.commit({ ...scope(collection.actor_id, collection.business_id, collection.collection_id), collection, expectedRevision, policyId, expiresAt: config.expiresAt }); }
   function replay(entry: MaterialJournalEntry, request: MaterialAnalysisRequest) { requireValue(same(entry.request, request), 'materials_request_conflict', 409);
     if (entry.status === 'completed' && entry.result) return structuredClone(entry.result); throw new ServerBoundaryError('server_materials_outcome_unknown', 503); }
   async function current(request: MaterialAnalysisRequest) { const c = await repo.read(scope(request.context.actor_id, request.context.business_id, request.context.collection_id));
@@ -70,7 +69,7 @@ export function createServerMaterials(settings: ServerHtmlConfig, deps: ServerMa
   return {
     async read(actorId, businessId, collectionId) { return repo.read(scope(actorId, businessId, collectionId)); },
     async capabilities(businessId, actorId) { assertBusinessId(businessId); assertBusinessId(actorId);
-      try { await gate(businessId, actorId); } catch { return null; } return remaining(businessId, actorId); },
+      try { await gate(businessId, actorId); } catch { return null; } return remaining(); },
     async source(actorId, businessId, collectionId, identity) { validate(() => assertMaterialIdentity(identity)); const c = await repo.read(scope(actorId, businessId, collectionId));
       const version = c.materials.find(m => identityKey(m) === identityKey(identity)); requireValue(version, 'material_not_found', 404);
       return { url: await deps.storage.signedUrl(version.storage_key, 60), expires_in: 60 }; },
@@ -87,7 +86,7 @@ export function createServerMaterials(settings: ServerHtmlConfig, deps: ServerMa
       }
       if (same(next, c)) return c;
       requireValue(c.revision === value.expected_revision, 'materials_revision_conflict', 409);
-      await gate(s.businessId, actorId, false); return commit({ ...next, revision: c.revision + 1 }, c.revision);
+      const read = await gate(s.businessId, actorId, false); return commit({ ...next, revision: c.revision + 1 }, c.revision, read.policy.policy_id);
     },
     async upload(actorId, input, inputBytes) {
       const value = structuredClone(input), bytes = inputBytes.slice(); validate(() => assertMaterialUploadInput(value)); const s = scope(actorId, value.business_id, value.collection_id);
@@ -108,7 +107,7 @@ export function createServerMaterials(settings: ServerHtmlConfig, deps: ServerMa
       if (!selected.some(m => m.material_id === value.material_id) && selected.length < 4) selected = [...selected, identity];
       const next = { ...c, revision: c.revision + 1, materials: [...c.materials, version], selected, review: null };
       assertMaterialCollection(next); await deps.storage.putImmutable(version.storage_key, bytes, value.mime_type);
-      await gate(s.businessId, actorId); return commit(next, c.revision);
+      const read = await gate(s.businessId, actorId); return commit(next, c.revision, read.policy.policy_id);
     },
     async recover(actorId, businessId, key) { assertBusinessId(actorId); assertBusinessId(businessId);
       requireValue(typeof key === 'string' && /^materials:[a-f0-9]{64}$/.test(key), 'invalid_materials_request');
@@ -121,7 +120,7 @@ export function createServerMaterials(settings: ServerHtmlConfig, deps: ServerMa
       const businessId = request.context.business_id; assertBusinessId(actorId); requireValue(actorId === request.context.actor_id, 'materials_scope_mismatch', 403);
       requireValue(new TextEncoder().encode(JSON.stringify(request)).length <= MATERIALS_LIMITS.maxRequestBytes, 'request_too_large', 413);
       const previous = await repo.recover(businessId, actorId, request.request_key); if (previous) return replay(previous, request);
-      await gate(businessId, actorId); requireValue((await remaining(businessId, actorId)).remaining_attempts > 0, 'materials_quota_exceeded', 429);
+      const read = await gate(businessId, actorId);
       const collection = await current(request), sources: MaterialSource[] = [];
       for (const identity of request.sources) {
         const version = collection.materials.find(m => identityKey(m) === identityKey(identity)); requireValue(version, 'material_not_found', 404);
@@ -133,7 +132,8 @@ export function createServerMaterials(settings: ServerHtmlConfig, deps: ServerMa
         requireValue(metadata.page_count === version.page_count, 'materials_source_invalid');
         sources.push({ version, bytes });
       }
-      const verifyDispatch = async () => { await gate(businessId, actorId); await current(request); };
+      const verifyDispatch = async () => { const fresh = await gate(businessId, actorId);
+        requireValue(fresh.policy.policy_id === read.policy.policy_id, 'server_policy_changed', 409); await current(request); };
       await verifyDispatch(); const provider = deps.createProvider();
       let prepared;
       try { prepared = await provider.prepare(request, sources, verifyDispatch); }
@@ -142,7 +142,7 @@ export function createServerMaterials(settings: ServerHtmlConfig, deps: ServerMa
       requireValue(Number.isSafeInteger(prepared.inputTokens) && prepared.inputTokens > 0 && prepared.inputTokens <= 80000, 'materials_input_limit', 413);
       await verifyDispatch();
       let claim: Awaited<ReturnType<MaterialsRepository['claim']>>;
-      try { claim = await repo.claim({ businessId, actorId, request, policyId: config.policyId, expiresAt: config.expiresAt }); }
+      try { claim = await repo.claim({ businessId, actorId, request, policyId: read.policy.policy_id, expiresAt: config.expiresAt }); }
       catch (error) { if (error instanceof ServerBoundaryError && error.status < 500) throw error; throw new ServerBoundaryError('server_materials_outcome_unknown', 503); }
       if (!claim.claimed) return replay(claim.entry, request); requireValue(claim.claim_token, 'server_materials_outcome_unknown', 503);
       let result: MaterialAnalysisResult | null = null, responseId: string | null = null, usage: ExplorationUsage | null = null, errorCode: string | null = null;

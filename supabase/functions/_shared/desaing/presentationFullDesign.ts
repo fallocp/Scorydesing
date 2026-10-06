@@ -1,7 +1,7 @@
 import type { DesignContext } from './contracts.ts';
 import type { ExplorationScope } from './explorationContracts.ts';
 import { assertDesignSurfaceDestination, designSurfaceSessionId, type DesignSurfaceDestination, type ProductionImageAction } from './designSurface.ts';
-import { validateImageSize } from './formats.ts';
+import { FORMAT_PRESETS, validateImageSize } from './formats.ts';
 
 export const FULL_DESIGN_MARKER = 'ScoryDesign: diseño completo de diapositiva (full_design v1).';
 const COPY_MODE_PREFIX = 'ScoryDesign: modo de texto del diseño ';
@@ -84,6 +84,13 @@ export function fullDesignImageSize(canvas: { width: number; height: number }, p
     if (!validateImageSize(canvas).valid || Math.max(canvas.width, canvas.height) > 1536) throw new Error('unsupported_production_dimensions');
     return { ...canvas };
   }
+  // A catalog canvas renders at its documented generation size (same ratio, no crop).
+  // 1920×1080 keeps 1536×864: existing slides and their low→medium drafts depend on it.
+  const preset = !(canvas.width === 1920 && canvas.height === 1080) && FORMAT_PRESETS.find(item => item.generation.mode === 'single_image'
+    && item.generation.size && item.canvas?.width === canvas.width && item.canvas.height === canvas.height);
+  if (preset && preset.generation.size) return { ...preset.generation.size };
+  // 3:1 source band for ultrawide covers (LinkedIn), cropped to the final canvas afterwards.
+  if (canvas.width === canvas.height * 3 && canvas.width <= 1536 && validateImageSize(canvas).valid) return { ...canvas };
   return canvas.width > canvas.height ? { width: 1536, height: 864 }
     : canvas.width < canvas.height ? { width: 1088, height: 1408 } : { width: 1024, height: 1024 };
 }

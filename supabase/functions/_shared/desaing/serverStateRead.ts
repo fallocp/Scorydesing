@@ -8,9 +8,6 @@ import type { ServerPolicy, ServerSnapshot } from './serverState.ts';
 export interface ServerStateReadConfig {
   enabled: boolean;
   executor: 'image_api' | 'responses_image';
-  businessId: string;
-  actorId: string;
-  policyId: string;
   expectedSupabaseOrigin: string;
   actualSupabaseOrigin: string;
   expiresAt: number;
@@ -32,18 +29,17 @@ function remaining(state: ServerSnapshot, policy: ServerPolicy) {
 function capabilities(config: ServerStateReadConfig, businessId: string, actorId: string,
   read: ServerRead, state: ServerSnapshot): ServerGenerationCapabilities | null {
   try {
-    assertBusinessId(config.businessId); assertBusinessId(config.actorId);
+    assertBusinessId(businessId); assertBusinessId(actorId);
     const expected = new URL(config.expectedSupabaseOrigin), actual = new URL(config.actualSupabaseOrigin);
     requireValue(expected.protocol === 'https:' && expected.origin === config.expectedSupabaseOrigin
       && actual.origin === config.actualSupabaseOrigin && expected.origin === actual.origin
       && ['image_api', 'responses_image'].includes(config.executor)
-      && typeof config.policyId === 'string' && /^[A-Za-z0-9_.:-]{1,200}$/.test(config.policyId)
       && Number.isSafeInteger(config.expiresAt) && config.expiresAt > Date.now()
       && [config.maxReferenceEdge, config.maxBriefBytes, config.maxReferences].every(value => Number.isSafeInteger(value) && value > 0),
     'server_generation_configuration_invalid', 503);
-    requireValue(config.enabled && businessId === config.businessId && actorId === config.actorId
+    requireValue(config.enabled
       && ['owner', 'admin'].includes(read.role) && read.policy.enabled
-      && read.policy.business_id === config.businessId && read.policy.policy_id === config.policyId
+      && read.policy.business_id === businessId
       && read.policy.limit_micro_usd > 0 && read.policy.max_image_outputs > 0 && read.policy.reservation_per_output_micro_usd > 0
       && isGenerationProfilePolicy(read.policy.enabled_image_profiles) && read.policy.responses_image_enabled === true,
     'server_feature_disabled', 503);

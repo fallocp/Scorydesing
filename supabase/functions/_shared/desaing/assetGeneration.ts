@@ -3,7 +3,7 @@ import { SELECTABLE_IMAGE_PROFILES, SELECTABLE_IMAGE_QUALITIES } from './catalog
 import { validateImageSize, type PixelSize } from './formats.ts';
 
 /** Existing product workflows prepare their own prompts but share one image job. */
-export const ASSET_GENERATION_PROCESSES = ['carousel', 'news', 'fx', 'stock', 'pipeline'] as const;
+export const ASSET_GENERATION_PROCESSES = ['carousel', 'news', 'fx', 'stock', 'pipeline', 'create_edit'] as const;
 export type AssetGenerationProcess = typeof ASSET_GENERATION_PROCESSES[number];
 export const ASSET_GENERATION_MARKER = 'ScoryDesign: generación de recurso (asset_generation v1).';
 export const ASSET_MAX_PROMPT_CHARACTERS = 30000;
@@ -47,7 +47,7 @@ export function readAssetGeneration(context: DesignContext): AssetGeneration | n
     || elements.some(value => value.startsWith(MARKER_PREFIX) || value.startsWith(SETTINGS_PREFIX));
   if (!identified) return null;
   need(elements.length === 2 && elements[0] === ASSET_GENERATION_MARKER);
-  const matched = /^ScoryDesign: formato de recurso (carousel|news|fx|stock|pipeline); (\d+)×(\d+); (opaque|transparent)\.$/.exec(elements[1]);
+  const matched = /^ScoryDesign: formato de recurso (carousel|news|fx|stock|pipeline|create_edit); (\d+)×(\d+); (opaque|transparent)\.$/.exec(elements[1]);
   need(matched);
   const process = matched[1] as AssetGenerationProcess, canvas = { width: Number(matched[2]), height: Number(matched[3]) },
     background = matched[4] as AssetGeneration['background'];

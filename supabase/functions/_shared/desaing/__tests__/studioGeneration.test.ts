@@ -14,9 +14,10 @@ import { IMAGE_PROFILES, SELECTABLE_IMAGE_PROFILES, SELECTABLE_IMAGE_QUALITIES }
 import { productionPng } from './fixtures/productionFixture.ts';
 
 const business = '80000000-0000-4000-8000-000000000001', actor = '80000000-0000-4000-8000-000000000002';
-const config: ServerGenerationConfig = { enabled: true, executor: 'image_api', businessId: business, actorId: actor,
-  policyId: 'studio-unification', expectedSupabaseOrigin: 'https://project.supabase.co', actualSupabaseOrigin: 'https://project.supabase.co', expiresAt: 100000 };
-const policy: ServerPolicy = { business_id: business, enabled: true, policy_id: config.policyId, limit_micro_usd: PILOT_LIMITS.budgetMicroUsd,
+const policyId = 'studio-unification';
+const config: ServerGenerationConfig = { enabled: true, executor: 'image_api',
+  expectedSupabaseOrigin: 'https://project.supabase.co', actualSupabaseOrigin: 'https://project.supabase.co', expiresAt: 100000 };
+const policy: ServerPolicy = { business_id: business, enabled: true, policy_id: policyId, limit_micro_usd: PILOT_LIMITS.budgetMicroUsd,
   max_image_outputs: PILOT_LIMITS.maxOutputs, reservation_per_output_micro_usd: PILOT_LIMITS.reservationMicroUsd,
   enabled_image_profiles: [...SELECTABLE_IMAGE_PROFILES], responses_image_enabled: true };
 function operation(input: Partial<Parameters<typeof createStudioGenerationOperation>[0]> = {}) {
@@ -146,7 +147,7 @@ describe('Studio shares the admitted image job and worker', () => {
     expect(f.generate).toHaveBeenCalledTimes(1);
   });
   it('does not extend the ordinary presentation brief limit or accept production/medium mutations', async () => {
-    const f = fixture(), op = operation({ prompt: 'é'.repeat(3000), canvas: { width: 1024, height: 1024 } });
+    const f = fixture(), op = operation({ prompt: 'é'.repeat(12500), canvas: { width: 1024, height: 1024 } });
     const ordinary: DesignOperation = structuredClone(op);
     ordinary.context.project_id = 'deck'; ordinary.context.session_id = 'presentation'; ordinary.context.workspace = 'presentations';
     ordinary.context.target = { document_type: 'presentation', document_id: 'deck', slide_id: 'slide', revision: '1' }; ordinary.context.immutable_elements = [];

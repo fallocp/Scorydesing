@@ -77,7 +77,7 @@ export function createSupabaseMaterialsRepository(rpc: Rpc): MaterialsRepository
       if (v === null || rec(v) && rec(v.request) && v.request.kind !== 'materials_analysis') return null;
       return entry(v, businessId, actorId, key); },
     async history(s) { const v = await call('desaing_list_explorations', { ...scope(s.businessId, s.actorId), p_session_id: `materials:${s.collectionId}` });
-      if (!Array.isArray(v) || v.length > 20) return invalid(); const entries = v.map(item => entry(item, s.businessId, s.actorId));
+      if (!Array.isArray(v) || v.length > 200) return invalid(); const entries = v.map(item => entry(item, s.businessId, s.actorId));
       if (entries.some(item => item.request.context.collection_id !== s.collectionId) || new Set(entries.map(item => item.request_key)).size !== entries.length) return invalid(); return entries; },
     async claim(input) { const v = await call('desaing_claim_exploration', { ...scope(input.businessId, input.actorId), p_request: input.request,
       p_expected_policy_id: input.policyId, p_expires_at_ms: input.expiresAt, p_reserved_micro_usd: 250000 });

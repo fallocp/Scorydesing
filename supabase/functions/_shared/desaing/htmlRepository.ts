@@ -81,7 +81,7 @@ export function createSupabaseHtmlRepository(rpc: Rpc): HtmlRepository {
     async history(businessId, actorId, sessionId) {
       if (!sessionId.startsWith('html:')) throw new ServerBoundaryError('invalid_html_request');
       const v = await call('desaing_list_explorations', { ...scope(businessId, actorId), p_session_id: sessionId });
-      if (!Array.isArray(v) || v.length > 20) return invalid();
+      if (!Array.isArray(v) || v.length > 200) return invalid();
       const entries = v.map(item => entry(item, businessId, actorId));
       if (entries.some(item => item.session_id !== sessionId) || new Set(entries.map(item => item.request_key)).size !== entries.length) return invalid();
       return entries;

@@ -11,9 +11,10 @@ import { materialsFixture, materialResult, MATERIAL_ACTOR as actor, MATERIAL_BUS
 import { approvedBrandDirection } from './fixtures/onboardingFixture.ts';
 import { PILOT_LIMITS } from '../pilotHttp.ts';
 
-const config = { enabled: true, businessId: business, actorId: actor, policyId: 'brand-pilot', expectedSupabaseOrigin: 'https://project.supabase.co',
+const policyId = 'brand-pilot';
+const config = { enabled: true, expectedSupabaseOrigin: 'https://project.supabase.co',
   actualSupabaseOrigin: 'https://project.supabase.co', expiresAt: 1 };
-const policy: ServerPolicy = { business_id: business, enabled: true, policy_id: config.policyId, limit_micro_usd: PILOT_LIMITS.budgetMicroUsd,
+const policy: ServerPolicy = { business_id: business, enabled: true, policy_id: policyId, limit_micro_usd: PILOT_LIMITS.budgetMicroUsd,
   max_image_outputs: PILOT_LIMITS.maxOutputs, reservation_per_output_micro_usd: PILOT_LIMITS.reservationMicroUsd, enabled_image_profiles: ['flare_candidate'], responses_image_enabled: true };
 
 describe.sequential('SQL004 transactional onboarding, durable revisions and exact approved direction', () => {
@@ -38,14 +39,14 @@ describe.sequential('SQL004 transactional onboarding, durable revisions and exac
   async function draft() { return newBrandSetupDraft(business, actor, (await repo().read(business, actor)).base); }
   async function withMaterials() {
     const f = await materialsFixture(), scope = { businessId: business, actorId: actor, collectionId: f.collection.collection_id };
-    await materials().commit({ ...scope, expectedRevision: 0, collection: f.collection, policyId: config.policyId, expiresAt: Date.now() + 60000 });
-    const claim = await materials().claim({ businessId: business, actorId: actor, request: f.request, policyId: config.policyId, expiresAt: Date.now() + 60000 });
+    await materials().commit({ ...scope, expectedRevision: 0, collection: f.collection, policyId, expiresAt: Date.now() + 60000 });
+    const claim = await materials().claim({ businessId: business, actorId: actor, request: f.request, policyId, expiresAt: Date.now() + 60000 });
     const result = materialResult(f.request);
     await materials().finish({ businessId: business, actorId: actor, requestKey: f.request.request_key, claimToken: claim.claim_token!, status: 'completed',
       result, errorCode: null, responseId: result.response_id, usage: result.usage, settledMicroUsd: 525 });
     f.collection.revision = 2; f.collection.review = { analysis_key: f.request.request_key, source_hash: f.request.source_hash, approved: true,
       corrections: [{ finding_id: 'color_azul', value: 'Verde confirmado' }] };
-    await materials().commit({ ...scope, expectedRevision: 1, collection: f.collection, policyId: config.policyId, expiresAt: 1 });
+    await materials().commit({ ...scope, expectedRevision: 1, collection: f.collection, policyId, expiresAt: 1 });
     const d = await draft(); d.profile.name = 'Marca elegida'; d.confirmed_profile = true;
     d.reviewed_materials = { collection_id: f.collection.collection_id, analysis_key: f.request.request_key, source_hash: f.request.source_hash,
       review_revision: 2, finding_ids: ['color_azul'] }; d.material_context = 'Texto cliente que debe ignorarse'; return save(d);
@@ -67,7 +68,7 @@ describe.sequential('SQL004 transactional onboarding, durable revisions and exac
     await db.query("INSERT INTO public.business_tenants(id,slug,fonts) VALUES ($1,'brand-test','{\"extra\":\"Preserved\"}')", [business]);
     await db.query("INSERT INTO public.user_business_memberships(user_id,business_id,role) VALUES ($1,$2,'owner')", [actor, business]);
     await db.query("INSERT INTO public.desaing_policies(business_id,enabled,policy_id,limit_micro_usd,max_image_outputs,reservation_per_output_micro_usd,enabled_image_profiles,responses_image_enabled) VALUES ($1,true,$2,$3,$4,$5,ARRAY['flare_candidate'],true)",
-      [business, config.policyId, policy.limit_micro_usd, policy.max_image_outputs, policy.reservation_per_output_micro_usd]);
+      [business, policyId, policy.limit_micro_usd, policy.max_image_outputs, policy.reservation_per_output_micro_usd]);
   });
   afterAll(async () => { await db?.close(); });
   it('reads the SQL fingerprint directly and saves free drafts after paid expiry without changing business or budget', async () => {
@@ -147,7 +148,7 @@ describe.sequential('SQL004 transactional onboarding, durable revisions and exac
   });
   it('rechecks state and material revision inside the publication transaction', async () => {
     const f = await ready(), saved = await save({ ...f.draft, direction: f.image.identity });
-    const input = { actorId: actor, request: publishRequest(saved), draft: saved, stateRevision: 0, policyId: config.policyId,
+    const input = { actorId: actor, request: publishRequest(saved), draft: saved, stateRevision: 0, policyId,
       baseBrand: { name: saved.profile.name }, strategicLayer: {}, preferences: {} };
     await expect(repo().publish(input)).rejects.toMatchObject({ code: 'server_onboarding_direction_changed' });
     await db.query("UPDATE public.desaing_material_collections SET revision=3,snapshot=jsonb_set(snapshot,'{revision}','3')");

@@ -34,9 +34,9 @@ export function createServerOnboarding(settings: ServerHtmlConfig, deps: ServerO
       need(expected.protocol === 'https:' && expected.origin === config.expectedSupabaseOrigin && actual.origin === config.actualSupabaseOrigin
         && actual.origin === expected.origin, 'server_onboarding_configuration_invalid', 503);
     } catch { throw new ServerBoundaryError('server_onboarding_configuration_invalid', 503); }
-    need(actorId === config.actorId && businessId === config.businessId && ['owner', 'admin'].includes(read.role), 'business_write_denied', 403);
+    need(['owner', 'admin'].includes(read.role), 'business_write_denied', 403);
     const p = read.policy;
-    need(p.business_id === businessId && p.policy_id === config.policyId
+    need(p.business_id === businessId
       && p.limit_micro_usd > 0 && p.max_image_outputs > 0 && p.reservation_per_output_micro_usd > 0
       && isGenerationProfilePolicy(p.enabled_image_profiles) && p.responses_image_enabled, 'server_policy_changed');
     return read;
@@ -86,7 +86,7 @@ export function createServerOnboarding(settings: ServerHtmlConfig, deps: ServerO
     async recover(actorId, businessId, publishId) { assertBusinessId(actorId); assertBusinessId(businessId); assertBusinessId(publishId); return repo.recover(businessId, actorId, publishId); },
     async save(actorId, input) {
       const value = structuredClone(input); validate(() => assertBrandSetupSaveInput(value)); const proposed = value.draft;
-      need(actorId === proposed.actor_id, 'business_write_denied', 403); await gate(actorId, value.business_id);
+      need(actorId === proposed.actor_id, 'business_write_denied', 403); const { policy } = await gate(actorId, value.business_id);
       const read = await repo.read(value.business_id, actorId), current = read.draft;
       need(read.can_write, 'business_write_denied', 403);
       const rebased = !!current && (proposed.base_fingerprint !== current.base_fingerprint || proposed.base_profile_version !== current.base_profile_version);
@@ -110,20 +110,20 @@ export function createServerOnboarding(settings: ServerHtmlConfig, deps: ServerO
       need((current?.revision ?? 0) === value.expected_revision, 'server_onboarding_revision_conflict');
       if (next.direction) await direction(next);
       next.revision = value.expected_revision + 1; assertBrandSetupDraft(next);
-      try { return await repo.save({ businessId: value.business_id, actorId, expectedRevision: value.expected_revision, draft: next, policyId: config.policyId }); }
+      try { return await repo.save({ businessId: value.business_id, actorId, expectedRevision: value.expected_revision, draft: next, policyId: policy.policy_id }); }
       catch (error) { if (error instanceof ServerBoundaryError && error.status < 500) throw error; throw new ServerBoundaryError('server_onboarding_outcome_unknown', 503); }
     },
     async publish(actorId, input) {
       const request = structuredClone(input); validate(() => assertBrandSetupPublishInput(request)); assertBusinessId(actorId);
       const receipt = await repo.recover(request.business_id, actorId, request.publish_id);
       if (receipt) { need(receipt.draft_id === request.draft_id && receipt.draft_revision === request.expected_revision, 'server_onboarding_publish_conflict'); return receipt; }
-      await gate(actorId, request.business_id); const read = await repo.read(request.business_id, actorId), draft = read.draft;
+      const { policy } = await gate(actorId, request.business_id); const read = await repo.read(request.business_id, actorId), draft = read.draft;
       need(read.can_write, 'business_write_denied', 403);
       need(draft?.status === 'draft' && draft.id === request.draft_id && draft.revision === request.expected_revision, 'server_onboarding_revision_conflict');
       need(read.base.fingerprint === draft.base_fingerprint && read.base.profile_version === draft.base_profile_version, 'server_onboarding_base_changed');
       need(await materialContext(draft) === draft.material_context, 'server_onboarding_materials_changed'); const stateRevision = await direction(draft);
       const p = draft.profile;
-      try { return await repo.publish({ actorId, request, draft, stateRevision, policyId: config.policyId,
+      try { return await repo.publish({ actorId, request, draft, stateRevision, policyId: policy.policy_id,
         baseBrand: { name: p.name, brand_name: p.name, colors: p.colors, fonts: p.fonts, visual_identity: p.style, aesthetic: p.style,
           restrictions: p.restrictions, detected_dont: p.restrictions, onboarding: { draft_id: draft.id, design_revision: draft.design_revision,
             material_refs: draft.reviewed_materials, material_context: draft.material_context, direction: draft.direction, design_hash: await brandSetupDesignHash(draft) } },

@@ -139,9 +139,12 @@ export const FORMAT_PRESETS: readonly Readonly<FormatPreset>[] = Object.freeze([
   preset('tiktok_portrait', 'TikTok imagen vertical', 'social', size(1080, 1920), generation(1152, 2048), 'tiktok', 'static_image'),
   preset('facebook_landscape', 'Facebook horizontal', 'social', size(1200, 628), generation(1216, 640), 'facebook', 'post'),
   preset('linkedin_square', 'LinkedIn cuadrado', 'social', size(1200, 1200), generation(1200, 1200), 'linkedin', 'post'),
-  preset('linkedin_landscape', 'LinkedIn horizontal', 'social', size(1200, 628), generation(1216, 640), 'linkedin', 'post'),
+  // 1200×627 (1.91:1) per LinkedIn Help a563309, checked 2026-09-26.
+  preset('linkedin_landscape', 'LinkedIn horizontal', 'social', size(1200, 627), generation(1216, 640), 'linkedin', 'post'),
+  // 1512×256 per LinkedIn Help a563309. 6:1 exceeds the 3:1 render limit, so it composes assets.
   preset('linkedin_page_cover', 'LinkedIn portada de página', 'cover', size(1512, 256), { mode: 'compose_assets', size: null }, 'linkedin', 'page_cover'),
-  preset('linkedin_personal_cover', 'LinkedIn portada personal: pendiente', 'cover', null, { mode: 'blocked', size: null }, 'linkedin', 'personal_cover'),
+  // 1584×396 (4:1), consistent across 2026 guides citing LinkedIn Help; also above the 3:1 render limit.
+  preset('linkedin_personal_cover', 'LinkedIn portada personal', 'cover', size(1584, 396), { mode: 'compose_assets', size: null }, 'linkedin', 'personal_cover'),
   preset('presentation_16_9', 'Presentación 16:9', 'presentation', size(1920, 1080), generation(2048, 1152)),
   preset('cover_16_9', 'Portada 16:9', 'cover', size(1920, 1080), generation(2048, 1152)),
   preset('page_portrait', 'Página vertical 4:5', 'page', size(1080, 1350), generation(1088, 1360)),

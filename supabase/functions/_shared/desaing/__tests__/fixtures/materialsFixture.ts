@@ -2,8 +2,8 @@ import { emptyMaterialCollection, makeMaterialAnalysisRequest, materialHash, mat
   type MaterialAnalysisResult, type MaterialCollection } from '../../materials.ts';
 export const MATERIAL_ACTOR = 'a0000000-0000-4000-8000-000000000001', MATERIAL_BUSINESS = 'a0000000-0000-4000-8000-000000000002';
 export const materialText = () => new TextEncoder().encode('La marca utiliza azul. Público: diseñadores.');
-export async function materialsFixture(): Promise<{ collection: MaterialCollection; request: MaterialAnalysisRequest }> {
-  const c = emptyMaterialCollection(MATERIAL_BUSINESS, MATERIAL_ACTOR), bytes = materialText();
+export async function materialsFixture(business = MATERIAL_BUSINESS, actor = MATERIAL_ACTOR): Promise<{ collection: MaterialCollection; request: MaterialAnalysisRequest }> {
+  const c = emptyMaterialCollection(business, actor), bytes = materialText();
   const identity = { material_id: 'a0000000-0000-4000-8000-000000000003', version_id: await materialHash(bytes) };
   c.revision = 1; c.materials = [{ ...identity, filename: 'marca.txt', mime_type: 'text/plain', size_bytes: bytes.length,
     storage_key: materialStorageKey(c, identity, 'text/plain'), created_at: '2026-09-18T00:00:00.000Z', page_count: null }];

@@ -13,10 +13,12 @@ import { createServerSnapshot } from '../serverState.ts';
 
 const business = 'a0000000-0000-4000-8000-000000000001', actor = 'a0000000-0000-4000-8000-000000000002', foreign = 'a0000000-0000-4000-8000-000000000003';
 const claimToken = 'a0000000-0000-4000-8000-000000000004';
-const config: ServerExplorationConfig = { enabled: true, businessId: business, actorId: actor, policyId: 'text-pilot',
+const secondActor = 'a0000000-0000-4000-8000-000000000005', secondBusiness = 'a0000000-0000-4000-8000-000000000006';
+const policyId = 'text-pilot';
+const config: ServerExplorationConfig = { enabled: true,
   expectedSupabaseOrigin: 'https://project.supabase.co', actualSupabaseOrigin: 'https://project.supabase.co', expiresAt: 100000 };
 const request = (key = 'request-1') => { const req = baseRequest(key); Object.assign(req.context, { actor_id: actor, business_id: business }); return req; };
-const baseRead: ServerRead = { role: 'owner', policy: { business_id: business, enabled: true, policy_id: config.policyId, limit_micro_usd: PILOT_LIMITS.budgetMicroUsd,
+const baseRead: ServerRead = { role: 'owner', policy: { business_id: business, enabled: true, policy_id: policyId, limit_micro_usd: PILOT_LIMITS.budgetMicroUsd,
   reservation_per_output_micro_usd: PILOT_LIMITS.reservationMicroUsd, max_image_outputs: PILOT_LIMITS.maxOutputs, enabled_image_profiles: ['flare_candidate'], responses_image_enabled: true },
 state: { revision: 0, snapshot: null } };
 function journalEntry(key = 'request-1'): ExplorationJournalEntry {
@@ -39,7 +41,8 @@ function fixture(overrides: Partial<ServerExplorationConfig> = {}) {
         if (canonicalExploration(saved.request) !== canonicalExploration(input.request)) throw new ServerBoundaryError('exploration_request_conflict', 409);
         return { claimed: false, entry: structuredClone(saved), claim_token: null };
       }
-      if ([...entries.values()].some(entry => entry.session_id === input.request.context.session_id && entry.status !== 'completed')) {
+      // Mirrors 202609260001: only a running request holds its session.
+      if ([...entries.values()].some(entry => entry.session_id === input.request.context.session_id && entry.status === 'running')) {
         throw new ServerBoundaryError('exploration_previous_unresolved', 409);
       }
       const next = journalEntry(input.request.request_key); next.request = structuredClone(input.request); next.session_id = input.request.context.session_id;
@@ -97,7 +100,7 @@ describe('durable authenticated textual planning', () => {
     const f = fixture(); const outcomes = await Promise.allSettled([f.boundary.plan(actor, request()), f.boundary.plan(actor, request())]);
     expect(outcomes.filter(value => value.status === 'fulfilled').length).toBeGreaterThanOrEqual(1);
     expect(await f.boundary.plan(actor, request())).toEqual(result()); expect(f.plan).toHaveBeenCalledTimes(1);
-    expect((await f.boundary.capabilities(business, actor))?.remaining_micro_usd).toBe(999025);
+    expect((await f.boundary.capabilities(business, actor))?.remaining_micro_usd).toBe(1000000);
   });
   it('rejects reusing a key with altered instructions, including before any completed response', async () => {
     const f = fixture(); f.entries.set('request-1', journalEntry()); const changed = request(); changed.message = 'Otra dirección';
@@ -123,12 +126,18 @@ describe('durable authenticated textual planning', () => {
     expect(await f.boundary.recover(actor, business, 'request-1')).toEqual(result());
     expect(await f.boundary.plan(actor, request())).toEqual(result()); expect(f.plan).toHaveBeenCalledTimes(1);
   });
-  it('retains unknown reservations and blocks replacing unresolved work with a new key in the same session', async () => {
+  it('keeps an uncertain key unreplayable but lets a new key continue the same session', async () => {
     const f = fixture(); f.plan.mockRejectedValueOnce(Error('secret transport body'));
     await expect(f.boundary.plan(actor, request())).rejects.toMatchObject({ code: 'exploration_provider_unknown' });
     expect(f.entries.get('request-1')).toMatchObject({ status: 'uncertain', settled_micro_usd: null, error_code: 'exploration_provider_unknown' });
+    await expect(f.boundary.plan(actor, request())).rejects.toMatchObject({ code: 'server_exploration_outcome_unknown' });
+    expect(await f.boundary.plan(actor, request('request-2'))).toEqual(result('request-2'));
+    expect(f.plan).toHaveBeenCalledTimes(2);
+  });
+  it('blocks a parallel key while the same session is still running', async () => {
+    const f = fixture(); const running = journalEntry('request-1'); running.session_id = request().context.session_id; f.entries.set('request-1', running);
     await expect(f.boundary.plan(actor, request('request-2'))).rejects.toMatchObject({ code: 'exploration_previous_unresolved' });
-    expect(f.plan).toHaveBeenCalledTimes(1); expect((await f.boundary.capabilities(business, actor))?.remaining_micro_usd).toBe(750000);
+    expect(f.plan).not.toHaveBeenCalled();
   });
   it('accounts valid usage even when structured output was rejected and exposes only a fixed code', async () => {
     const f = fixture(); f.plan.mockRejectedValueOnce(new ExplorationProviderError('exploration_provider_invalid_result', 'resp_text', result().usage));
@@ -141,12 +150,12 @@ describe('durable authenticated textual planning', () => {
     expect((await f.boundary.plan(actor, request())).ideas).toHaveLength(5);
     expect(f.entries.get('request-1')).toMatchObject({ status: 'completed', settled_micro_usd: null });
   });
-  it.each(['disabled', 'expired', 'origin', 'actor', 'role', 'policy', 'budget', 'outputs', 'reserve', 'profiles', 'responses', 'paused'])
+  it.each(['disabled', 'expired', 'origin', 'role', 'viewer', 'policy', 'budget', 'outputs', 'reserve', 'profiles', 'responses', 'paused'])
   ('rejects new planning under invalid %s without a reservation or a provider request', async field => {
-    const f = fixture(field === 'disabled' ? { enabled: false } : field === 'origin' ? { actualSupabaseOrigin: 'https://other.supabase.co' }
-      : field === 'actor' ? { actorId: foreign } : {});
+    const f = fixture(field === 'disabled' ? { enabled: false } : field === 'origin' ? { actualSupabaseOrigin: 'https://other.supabase.co' } : {});
     if (field === 'expired') f.setTime(config.expiresAt);
-    if (field === 'role') f.read.role = 'editor'; if (field === 'policy') f.read.policy.policy_id = 'changed';
+    // `policy`: the row read for this business belongs to another business.
+    if (field === 'role') f.read.role = 'editor'; if (field === 'viewer') f.read.role = 'viewer'; if (field === 'policy') f.read.policy.business_id = foreign;
     if (field === 'budget') f.read.policy.limit_micro_usd++; if (field === 'outputs') f.read.policy.max_image_outputs++;
     if (field === 'reserve') f.read.policy.reservation_per_output_micro_usd++; if (field === 'profiles') f.read.policy.enabled_image_profiles.push('flare_candidate');
     if (field === 'responses') f.read.policy.responses_image_enabled = false; if (field === 'paused') f.read.policy.enabled = false;
@@ -168,18 +177,38 @@ describe('durable authenticated textual planning', () => {
     expect(await paused.history(foreign, business, 'session')).toEqual([]); expect(await paused.recover(foreign, business, 'request-1')).toBeNull();
     expect(f.plan).toHaveBeenCalledTimes(1);
   });
+  it('admits another owner/admin actor of another business under that business policy row', async () => {
+    const f = fixture(), req = request(); Object.assign(req.context, { actor_id: secondActor, business_id: secondBusiness });
+    f.read.role = 'admin'; Object.assign(f.read.policy, { business_id: secondBusiness, policy_id: 'second-business-policy' });
+    expect(await f.boundary.capabilities(secondBusiness, secondActor)).not.toBeNull();
+    expect(await f.boundary.plan(secondActor, req)).toEqual(result());
+    expect(f.repository.read).toHaveBeenCalledWith(secondBusiness, secondActor);
+    expect(f.journal.claim).toHaveBeenCalledWith(expect.objectContaining({ businessId: secondBusiness, actorId: secondActor, expectedPolicyId: 'second-business-policy' }));
+    f.read.role = 'editor'; const next = request('request-2'); Object.assign(next.context, { actor_id: secondActor, business_id: secondBusiness });
+    await expect(f.boundary.plan(secondActor, next)).rejects.toMatchObject({ code: 'business_write_denied', status: 403 });
+    expect(f.plan).toHaveBeenCalledTimes(1);
+  });
+  it('rejects a policy row swapped after the claim before dispatching', async () => {
+    const f = fixture();
+    vi.mocked(f.journal.claim).mockImplementationOnce(async input => {
+      const entry = journalEntry(input.request.request_key); f.entries.set(entry.request_key, entry);
+      f.read.policy.policy_id = 'swapped'; return { claimed: true, entry, claim_token: claimToken };
+    });
+    await expect(f.boundary.plan(actor, request())).rejects.toMatchObject({ code: 'exploration_provider_unknown' });
+    expect(f.plan).not.toHaveBeenCalled(); expect(f.entries.get('request-1')?.status).toBe('uncertain');
+  });
   it('rejects spoofed request ownership before journal access', async () => {
     const f = fixture(); await expect(f.boundary.plan(foreign, request())).rejects.toMatchObject({ status: 403 });
     expect(f.journal.read).not.toHaveBeenCalled(); expect(f.plan).not.toHaveBeenCalled();
   });
-  it('derives capabilities from both the text subcap and shared image budget', async () => {
+  it('reports steady headroom and never applies lifetime quotas', async () => {
     const f = fixture(), caps = await f.boundary.capabilities(business, actor);
     expect(caps).toMatchObject({ remaining_attempts: 4, remaining_micro_usd: 1000000, reservation_micro_usd: 250000 });
     expect(isServerExplorationCapabilities(caps)).toBe(true);
-    f.setImageCommitted(PILOT_LIMITS.budgetMicroUsd - 200000); expect(await f.boundary.capabilities(business, actor)).toMatchObject({ remaining_attempts: 0, remaining_micro_usd: 200000 });
-    await expect(f.boundary.plan(actor, request())).rejects.toMatchObject({ code: 'exploration_quota_exceeded', status: 429 });
-    expect(f.plan).not.toHaveBeenCalled();
-    f.setImageCommitted(3000000); f.setAttempts(20); expect((await f.boundary.capabilities(business, actor))?.remaining_attempts).toBe(0);
+    f.setImageCommitted(PILOT_LIMITS.budgetMicroUsd * 10); f.setAttempts(500);
+    expect(await f.boundary.capabilities(business, actor)).toEqual(caps);
+    expect(await f.boundary.plan(actor, request())).toEqual(result());
+    expect(f.journal.budget).not.toHaveBeenCalled();
   });
 });
 
@@ -249,7 +278,7 @@ describe('conservative text accounting and repository boundary', () => {
   });
   it('validates fresh claim tokens and matching completion acknowledgements', async () => {
     const rpc = vi.fn().mockResolvedValue({ data: { claimed: true, entry: journalEntry(), claim_token: claimToken }, error: null });
-    const repository = createSupabaseExplorationRepository(rpc), input = { businessId: business, actorId: actor, request: request(), expectedPolicyId: config.policyId,
+    const repository = createSupabaseExplorationRepository(rpc), input = { businessId: business, actorId: actor, request: request(), expectedPolicyId: policyId,
       expiresAt: config.expiresAt, reservedMicroUsd: 250000 };
     expect((await repository.claim(input)).claim_token).toBe(claimToken);
     rpc.mockResolvedValueOnce({ data: { claimed: false, entry: journalEntry(), claim_token: claimToken }, error: null });

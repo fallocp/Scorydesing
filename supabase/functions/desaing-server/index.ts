@@ -23,7 +23,9 @@ import { createServerPromptAdmin } from '../_shared/desaing/serverPromptAdmin.ts
 import { prepareAuthorizedStudioMockup } from '../_shared/studioMockupPrompt.ts';
 
 // JWT-authenticated application boundary. New paid work additionally needs the
-// separate server-only UI gate, exact owner/project/policy pins and unspent quota.
+// separate server-only UI gate, the business policy row and unspent quota.
+// Access is authorized by business membership (owner/admin) and the business policy row;
+// there is no pilot actor/business pin and no expiry (expiresAt is the SQL-accepted maximum).
 const enabled = Deno.env.get('DESAING_SERVER_ENABLED') === 'true';
 const options = { auth: { persistSession: false, autoRefreshToken: false } };
 const client = (key: string) => createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get(key) ?? '', options);
@@ -40,12 +42,9 @@ const storage = createPrivateStorage({
 const generation = createServerGeneration({
   enabled: Deno.env.get('DESAING_UI_GENERATION_ENABLED') === 'true',
   executor: (Deno.env.get('DESAING_UI_EXECUTOR') ?? 'image_api') as 'image_api' | 'responses_image',
-  businessId: Deno.env.get('DESAING_PILOT_BUSINESS_ID') ?? '',
-  actorId: Deno.env.get('DESAING_PILOT_ACTOR_ID') ?? '',
-  policyId: Deno.env.get('DESAING_PILOT_POLICY_ID') ?? '',
   expectedSupabaseOrigin: Deno.env.get('DESAING_PILOT_SUPABASE_ORIGIN') ?? '',
   actualSupabaseOrigin: Deno.env.get('SUPABASE_URL') ?? '',
-  expiresAt: Number(Deno.env.get('DESAING_UI_EXPIRES_AT_MS') ?? ''),
+  expiresAt: Number.MAX_SAFE_INTEGER,
 }, {
   repository,
   validateProduction: (operation, _state, _stage, options) => production.validateOperation(operation.context.actor_id, operation, options),
@@ -61,12 +60,9 @@ const generation = createServerGeneration({
 
 const exploration = createServerExploration({
   enabled: Deno.env.get('DESAING_EXPLORATION_ENABLED') === 'true',
-  businessId: Deno.env.get('DESAING_PILOT_BUSINESS_ID') ?? '',
-  actorId: Deno.env.get('DESAING_PILOT_ACTOR_ID') ?? '',
-  policyId: Deno.env.get('DESAING_PILOT_POLICY_ID') ?? '',
   expectedSupabaseOrigin: Deno.env.get('DESAING_PILOT_SUPABASE_ORIGIN') ?? '',
   actualSupabaseOrigin: Deno.env.get('SUPABASE_URL') ?? '',
-  expiresAt: Number(Deno.env.get('DESAING_EXPLORATION_EXPIRES_AT_MS') ?? ''),
+  expiresAt: Number.MAX_SAFE_INTEGER,
 }, {
   repository,
   explorationRepository: createSupabaseExplorationRepository((name, args) => backend().rpc(name, args)),
@@ -81,9 +77,8 @@ const exploration = createServerExploration({
 
 const html = createServerHtml({
   enabled: Deno.env.get('DESAING_EXPLORATION_ENABLED') === 'true',
-  businessId: Deno.env.get('DESAING_PILOT_BUSINESS_ID') ?? '', actorId: Deno.env.get('DESAING_PILOT_ACTOR_ID') ?? '',
-  policyId: Deno.env.get('DESAING_PILOT_POLICY_ID') ?? '', expectedSupabaseOrigin: Deno.env.get('DESAING_PILOT_SUPABASE_ORIGIN') ?? '',
-  actualSupabaseOrigin: Deno.env.get('SUPABASE_URL') ?? '', expiresAt: Number(Deno.env.get('DESAING_EXPLORATION_EXPIRES_AT_MS') ?? ''),
+  expectedSupabaseOrigin: Deno.env.get('DESAING_PILOT_SUPABASE_ORIGIN') ?? '',
+  actualSupabaseOrigin: Deno.env.get('SUPABASE_URL') ?? '', expiresAt: Number.MAX_SAFE_INTEGER,
 }, {
   repository, htmlRepository: createSupabaseHtmlRepository((name, args) => backend().rpc(name, args)),
   storage: { ...storage, async get(key) {
@@ -102,9 +97,8 @@ const materialBytes = async (key: string) => {
 };
 const materials = createServerMaterials({
   enabled: Deno.env.get('DESAING_EXPLORATION_ENABLED') === 'true',
-  businessId: Deno.env.get('DESAING_PILOT_BUSINESS_ID') ?? '', actorId: Deno.env.get('DESAING_PILOT_ACTOR_ID') ?? '',
-  policyId: Deno.env.get('DESAING_PILOT_POLICY_ID') ?? '', expectedSupabaseOrigin: Deno.env.get('DESAING_PILOT_SUPABASE_ORIGIN') ?? '',
-  actualSupabaseOrigin: Deno.env.get('SUPABASE_URL') ?? '', expiresAt: Number(Deno.env.get('DESAING_EXPLORATION_EXPIRES_AT_MS') ?? ''),
+  expectedSupabaseOrigin: Deno.env.get('DESAING_PILOT_SUPABASE_ORIGIN') ?? '',
+  actualSupabaseOrigin: Deno.env.get('SUPABASE_URL') ?? '', expiresAt: Number.MAX_SAFE_INTEGER,
 }, {
   repository, materialsRepository: createSupabaseMaterialsRepository((name, args) => backend().rpc(name, args)),
   storage: {
@@ -126,9 +120,8 @@ const materials = createServerMaterials({
 
 const onboarding = createServerOnboarding({
   enabled,
-  businessId: Deno.env.get('DESAING_PILOT_BUSINESS_ID') ?? '', actorId: Deno.env.get('DESAING_PILOT_ACTOR_ID') ?? '',
-  policyId: Deno.env.get('DESAING_PILOT_POLICY_ID') ?? '', expectedSupabaseOrigin: Deno.env.get('DESAING_PILOT_SUPABASE_ORIGIN') ?? '',
-  actualSupabaseOrigin: Deno.env.get('SUPABASE_URL') ?? '', expiresAt: Number(Deno.env.get('DESAING_EXPLORATION_EXPIRES_AT_MS') ?? ''),
+  expectedSupabaseOrigin: Deno.env.get('DESAING_PILOT_SUPABASE_ORIGIN') ?? '',
+  actualSupabaseOrigin: Deno.env.get('SUPABASE_URL') ?? '', expiresAt: Number.MAX_SAFE_INTEGER,
 }, { repository, onboardingRepository: createSupabaseOnboardingRepository((name, args) => backend().rpc(name, args)),
   materialsRepository: createSupabaseMaterialsRepository((name, args) => backend().rpc(name, args)) });
 
@@ -139,9 +132,9 @@ const legacyBytes = async (key: string) => {
   return new Uint8Array(await data.arrayBuffer());
 };
 const production = createServerProduction({
-  enabled, businessId: Deno.env.get('DESAING_PILOT_BUSINESS_ID') ?? '', actorId: Deno.env.get('DESAING_PILOT_ACTOR_ID') ?? '',
-  policyId: Deno.env.get('DESAING_PILOT_POLICY_ID') ?? '', expectedSupabaseOrigin: Deno.env.get('DESAING_PILOT_SUPABASE_ORIGIN') ?? '',
-  actualSupabaseOrigin: Deno.env.get('SUPABASE_URL') ?? '', expiresAt: Number(Deno.env.get('DESAING_EXPLORATION_EXPIRES_AT_MS') ?? ''),
+  enabled,
+  expectedSupabaseOrigin: Deno.env.get('DESAING_PILOT_SUPABASE_ORIGIN') ?? '',
+  actualSupabaseOrigin: Deno.env.get('SUPABASE_URL') ?? '', expiresAt: Number.MAX_SAFE_INTEGER,
 }, { repository, productionRepository: createSupabaseProductionRepository((name, args) => backend().rpc(name, args)),
   privateStorage: { ...storage, async get(key) { const { data, error } = await bucket().download(key);
     if (error || !data || data.size > 8388608) throw new ServerBoundaryError('production_storage_unavailable', 503);
@@ -156,9 +149,8 @@ const production = createServerProduction({
 
 const promptAdmin = createServerPromptAdmin({
   enabled: enabled && Deno.env.get('DESAING_PROMPT_ADMIN_ENABLED') === 'true',
-  businessId: Deno.env.get('DESAING_PILOT_BUSINESS_ID') ?? '', actorId: Deno.env.get('DESAING_PILOT_ACTOR_ID') ?? '',
-  policyId: Deno.env.get('DESAING_PILOT_POLICY_ID') ?? '', expectedSupabaseOrigin: Deno.env.get('DESAING_PILOT_SUPABASE_ORIGIN') ?? '',
-  actualSupabaseOrigin: Deno.env.get('SUPABASE_URL') ?? '', expiresAt: Number(Deno.env.get('DESAING_UI_EXPIRES_AT_MS') ?? ''),
+  expectedSupabaseOrigin: Deno.env.get('DESAING_PILOT_SUPABASE_ORIGIN') ?? '',
+  actualSupabaseOrigin: Deno.env.get('SUPABASE_URL') ?? '', expiresAt: Number.MAX_SAFE_INTEGER,
 }, { repository, promptAdminRepository: createSupabasePromptAdminRepository((name, args) => backend().rpc(name, args)) });
 
 Deno.serve(createServerHandler({

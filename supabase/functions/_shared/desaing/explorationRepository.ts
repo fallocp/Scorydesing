@@ -89,7 +89,7 @@ export function createSupabaseExplorationRepository(rpc: Rpc): ExplorationReposi
     },
     async history(businessId, actorId, sessionId) {
       const value = await call('desaing_list_explorations', { ...scope(businessId, actorId), p_session_id: sessionId });
-      if (!Array.isArray(value) || value.length > 20) return invalid();
+      if (!Array.isArray(value) || value.length > 200) return invalid();
       if (sessionId.startsWith('html:') || sessionId.startsWith('materials:')) return [];
       const entries = value.map(value => entry(value, businessId, actorId));
       if (entries.some(value => value.session_id !== sessionId) || new Set(entries.map(value => value.request_key)).size !== entries.length) return invalid();

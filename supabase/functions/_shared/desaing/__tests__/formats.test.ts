@@ -110,10 +110,11 @@ describe('DAI-03 catalog preserves destination and verification metadata', () =>
       .toThrowError(expect.objectContaining({ code: 'composition_required' }));
   });
 
-  it('blocks the unspecified personal cover instead of borrowing page-cover dimensions', () => {
-    expect(getFormatPreset('linkedin_personal_cover').canvas).toBeNull();
+  it('keeps the 4:1 personal cover as composition with its own fixed canvas', () => {
+    expect(resolveFormatPlan('linkedin_personal_cover')).toMatchObject({ canvas: { width: 1584, height: 396 },
+      generation_mode: 'compose_assets', generation_size: null, placement: null });
     expect(() => resolveFormatPlan('linkedin_personal_cover', { canvas: { width: 1512, height: 256 } }))
-      .toThrowError(expect.objectContaining({ code: 'unresolved_preset' }));
+      .toThrowError(expect.objectContaining({ code: 'fixed_canvas' }));
   });
 
   it('returns independent metadata snapshots and prevents overriding a fixed final canvas', () => {

@@ -22,14 +22,12 @@ Deno.serve(createServerStateHandler({
   generation: {
     enabled: Deno.env.get('DESAING_UI_GENERATION_ENABLED') === 'true',
     executor: (Deno.env.get('DESAING_UI_EXECUTOR') ?? 'image_api') as 'image_api' | 'responses_image',
-    businessId: Deno.env.get('DESAING_PILOT_BUSINESS_ID') ?? '',
-    actorId: Deno.env.get('DESAING_PILOT_ACTOR_ID') ?? '',
-    policyId: Deno.env.get('DESAING_PILOT_POLICY_ID') ?? '',
+    // Access is authorized by business membership (owner/admin) and the business policy row; no pilot actor/business pin or expiry.
     expectedSupabaseOrigin: Deno.env.get('DESAING_PILOT_SUPABASE_ORIGIN') ?? '',
     actualSupabaseOrigin: Deno.env.get('SUPABASE_URL') ?? '',
-    expiresAt: Number(Deno.env.get('DESAING_UI_EXPIRES_AT_MS') ?? ''),
+    expiresAt: Number.MAX_SAFE_INTEGER,
     maxReferenceEdge: 1024,
-    maxBriefBytes: 4000,
+    maxBriefBytes: 24000,
     maxReferences: 4,
   },
 }));

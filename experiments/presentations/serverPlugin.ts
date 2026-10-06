@@ -148,11 +148,10 @@ export function presentationServerPlugin(options: { generation?: boolean; explor
     const productionRepository=createSupabaseProductionRepository(journalRpc);
     const promptAdminRepository=createSupabasePromptAdminRepository(journalRpc);
     if(promptAdminTest)await seedPromptAdminEvidence(repository,objects,TEST_BUSINESS_ID,ACTOR);
-    const promptAdminBoundary=promptAdminTest?createServerPromptAdmin({enabled:true,businessId:TEST_BUSINESS_ID,actorId:ACTOR,policyId:'local-generation-pilot',
+    const promptAdminBoundary=promptAdminTest?createServerPromptAdmin({enabled:true,
       expectedSupabaseOrigin:'https://local-generation.invalid',actualSupabaseOrigin:'https://local-generation.invalid',expiresAt:Date.now()+3600000},
       {repository,promptAdminRepository}):undefined;
-    const makeExploration = () => createServerExploration({ enabled: textEnabled, businessId: TEST_BUSINESS_ID,
-      actorId: ACTOR, policyId: 'local-generation-pilot', expectedSupabaseOrigin: 'https://local-generation.invalid',
+    const makeExploration = () => createServerExploration({ enabled: textEnabled, expectedSupabaseOrigin: 'https://local-generation.invalid',
       actualSupabaseOrigin: 'https://local-generation.invalid', expiresAt: Date.now() + 3600000 }, {
       repository, explorationRepository, createProvider: () => createExplorationProvider({ apiKey: 'sk-local-text-fixture-never-valid',
         model: 'gpt-5.4-mini', maxOutputTokens: 4096, fetch: async (url, init) => {
@@ -182,13 +181,12 @@ export function presentationServerPlugin(options: { generation?: boolean; explor
       const bytes = objects.get(key); if (!bytes) throw new Error('missing_private_asset');
       metrics.references_read++; return bytes.slice();
     } };
-    const productionBoundary=productionTest?createServerProduction({enabled:true,businessId:TEST_BUSINESS_ID,actorId:ACTOR,policyId:'local-generation-pilot',
+    const productionBoundary=productionTest?createServerProduction({enabled:true,
       expectedSupabaseOrigin:PRODUCTION_FIXTURE_ORIGIN,actualSupabaseOrigin:PRODUCTION_FIXTURE_ORIGIN,expiresAt:Date.now()+3600000},
       {repository,productionRepository,privateStorage:workerStorage,legacyStorage:{async get(key){const bytes=legacyObjects.get(key);if(!bytes)throw Error('legacy_missing');return bytes.slice();},
         async putImmutable(key,bytes){const old=legacyObjects.get(key);if(old&&(old.length!==bytes.length||old.some((value,index)=>value!==bytes[index])))throw Error('legacy_conflict');legacyObjects.set(key,bytes.slice());},
         publicUrl:key=>`${PRODUCTION_FIXTURE_ORIGIN}/storage/v1/object/public/design-images/${key}`}}):undefined;
-    const makeMaterials = () => createServerMaterials({ enabled: textEnabled, businessId: TEST_BUSINESS_ID, actorId: ACTOR,
-      policyId: 'local-generation-pilot', expectedSupabaseOrigin: 'https://local-generation.invalid',
+    const makeMaterials = () => createServerMaterials({ enabled: textEnabled, expectedSupabaseOrigin: 'https://local-generation.invalid',
       actualSupabaseOrigin: 'https://local-generation.invalid', expiresAt: Date.now() + 3600000 }, {
       repository, materialsRepository, storage: { ...workerStorage, async putImmutable(key, bytes, mime) { await putImmutable(key, bytes); objectMimes.set(key, mime); } },
       createProvider: () => createMaterialsProvider({ apiKey: 'sk-local-materials-fixture-never-valid', model: 'gpt-5.4-mini', fetch: async (url, init) => {
@@ -243,8 +241,7 @@ export function presentationServerPlugin(options: { generation?: boolean; explor
           usage: { input_tokens: 1400, output_tokens: 600, total_tokens: 2000 } }), { headers: { 'Content-Type': 'application/json' } });
       } }),
     });
-    const makeHtml = () => createServerHtml({ enabled: textEnabled, businessId: TEST_BUSINESS_ID, actorId: ACTOR,
-      policyId: 'local-generation-pilot', expectedSupabaseOrigin: 'https://local-generation.invalid',
+    const makeHtml = () => createServerHtml({ enabled: textEnabled, expectedSupabaseOrigin: 'https://local-generation.invalid',
       actualSupabaseOrigin: 'https://local-generation.invalid', expiresAt: Date.now() + 3600000 }, {
       repository, htmlRepository, storage: workerStorage,
       createProvider: () => createCompositionProvider({ apiKey: 'sk-local-html-fixture-never-valid', model: 'gpt-5.4-mini', fetch: async (url, init) => {
@@ -316,11 +313,9 @@ export function presentationServerPlugin(options: { generation?: boolean; explor
       ...(materialsTest ? { materials: makeMaterials() } : {}),
       ...(productionBoundary?{production:productionBoundary}:{}),
       ...(promptAdminBoundary?{promptAdmin:promptAdminBoundary}:{}),
-      ...(onboardingTest ? { onboarding: createServerOnboarding({ enabled: true, businessId: TEST_BUSINESS_ID, actorId: ACTOR,
-        policyId: 'local-generation-pilot', expectedSupabaseOrigin: 'https://local-generation.invalid', actualSupabaseOrigin: 'https://local-generation.invalid',
+      ...(onboardingTest ? { onboarding: createServerOnboarding({ enabled: true, expectedSupabaseOrigin: 'https://local-generation.invalid', actualSupabaseOrigin: 'https://local-generation.invalid',
         expiresAt: Date.now() + 3600000 }, { repository, onboardingRepository, materialsRepository }) } : {}),
-      ...(generationTest ? { generation: createServerGeneration({ enabled: true, executor, businessId: TEST_BUSINESS_ID,
-        actorId: ACTOR, policyId: 'local-generation-pilot', expectedSupabaseOrigin: 'https://local-generation.invalid',
+      ...(generationTest ? { generation: createServerGeneration({ enabled: true, executor, expectedSupabaseOrigin: 'https://local-generation.invalid',
         actualSupabaseOrigin: 'https://local-generation.invalid', expiresAt: Date.now() + 3600000 }, {
         repository, storage: workerStorage, ...(productionBoundary?{validateProduction:(operation:DesignOperation)=>productionBoundary.validateOperation(operation.context.actor_id,operation)}:{}),
         ...(promptAdminBoundary?{validatePromptAdmin:(operation:DesignOperation)=>promptAdminBoundary.validateOperation(operation.context.actor_id,operation)}:{}), createProvider: () => createLiveImageProvider({ apiKey: 'sk-local-fixture-never-valid',
@@ -329,8 +324,7 @@ export function presentationServerPlugin(options: { generation?: boolean; explor
     });
     const makeStateApi = () => createServerStateHandler({ enabled: true, allowedOrigins: [ORIGIN], repository,
       authenticate: async token => token === 'local-design-session' ? { id: ACTOR } : null,
-      generation: { enabled: generationTest, executor, businessId: TEST_BUSINESS_ID, actorId: ACTOR,
-        policyId: 'local-generation-pilot', expectedSupabaseOrigin: 'https://local-generation.invalid', actualSupabaseOrigin: 'https://local-generation.invalid',
+      generation: { enabled: generationTest, executor, expectedSupabaseOrigin: 'https://local-generation.invalid', actualSupabaseOrigin: 'https://local-generation.invalid',
         expiresAt: Date.now() + 3600000, maxReferenceEdge: 1024, maxBriefBytes: 4000, maxReferences: 4 },
     });
     let api = makeApi();

@@ -15,8 +15,9 @@ import type { AssetVersion, DesignOperation } from '../contracts.ts';
 
 const biz = 'a1000000-0000-4000-8000-000000000001', actor = 'a1000000-0000-4000-8000-000000000002', other = 'a1000000-0000-4000-8000-000000000003';
 const otherBiz = 'a1000000-0000-4000-8000-000000000004';
-const config = { enabled: true, businessId: biz, actorId: actor, policyId: 'prompt-admin-test', expectedSupabaseOrigin: 'https://project.supabase.co', actualSupabaseOrigin: 'https://project.supabase.co', expiresAt: 1 };
-const policy: ServerPolicy = { business_id: biz, enabled: true, policy_id: config.policyId, limit_micro_usd: 5000000,
+const policyId = 'prompt-admin-test';
+const config = { enabled: true, expectedSupabaseOrigin: 'https://project.supabase.co', actualSupabaseOrigin: 'https://project.supabase.co', expiresAt: 1 };
+const policy: ServerPolicy = { business_id: biz, enabled: true, policy_id: policyId, limit_micro_usd: 5000000,
   max_image_outputs: 4, reservation_per_output_micro_usd: 1000000, enabled_image_profiles: ['flare_candidate'], responses_image_enabled: true };
 const visual_case = { instruction: 'Diseña un mundo editorial.', approved_copy: 'Marca · 25 USD', references: [] };
 
@@ -60,7 +61,7 @@ describe.sequential('SQL006 explicit administrative prompt proposals and reviewe
     await db.query('INSERT INTO auth.users(id) VALUES ($1),($2)', [actor, other]);
     await db.query("INSERT INTO public.business_tenants(id,slug) VALUES ($1,'prompt-business'),($2,'other-business')", [biz, otherBiz]);
     await db.query("INSERT INTO public.user_business_memberships(user_id,business_id,role) VALUES ($1,$3,'owner'),($2,$3,'owner'),($1,$4,'owner')", [actor, other, biz, otherBiz]);
-    await db.query("INSERT INTO public.desaing_policies(business_id,enabled,policy_id,limit_micro_usd,max_image_outputs,reservation_per_output_micro_usd,enabled_image_profiles,responses_image_enabled) VALUES ($1,true,$2,5000000,4,1000000,ARRAY['flare_candidate'],true)", [biz, config.policyId]);
+    await db.query("INSERT INTO public.desaing_policies(business_id,enabled,policy_id,limit_micro_usd,max_image_outputs,reservation_per_output_micro_usd,enabled_image_profiles,responses_image_enabled) VALUES ($1,true,$2,5000000,4,1000000,ARRAY['flare_candidate'],true)", [biz, policyId]);
     await db.query('INSERT INTO public.desaing_prompt_admin_scopes(business_id) VALUES($1)', [biz]);
     await db.query("INSERT INTO public.desaing_prompt_admin_grants(business_id,actor_id,capability) VALUES($1,$2,'prompt_master.manage')", [biz, actor]);
     await db.query("INSERT INTO public.master_prompts(business_id,prompt_type,prompt_text,version) VALUES ($1,'general','Composición editorial azul.',1),($1,'image','Plantilla de imagen independiente.',7),($2,'general','Otro negocio intacto.',1)", [biz, otherBiz]);
@@ -76,6 +77,11 @@ describe.sequential('SQL006 explicit administrative prompt proposals and reviewe
     const read = await server().read(actor, biz); expect(read.base.version).toBe(1); expect(read.prompt_types).toEqual(['general', 'image']);
     expect(read.evidence[0]).toMatchObject({ asset: evidence, master_origin: 'unknown' });
     await db.query('DELETE FROM public.desaing_prompt_admin_grants'); await expect(server().read(actor, biz)).rejects.toMatchObject({ code: 'prompt_admin_forbidden' });
+  });
+  it('admits another granted owner of the business without a configured actor pin', async () => {
+    await db.query("INSERT INTO public.desaing_prompt_admin_grants(business_id,actor_id,capability) VALUES($1,$2,'prompt_master.manage')", [biz, other]);
+    expect(await server().capabilities(other, biz)).toEqual({ governed: true, can_manage: true });
+    expect((await server().read(other, biz)).base.version).toBe(1);
   });
   it('blocks direct legacy writes for all governed families, preserves other businesses and enforces unique versions', async () => {
     await db.query("SELECT set_config('request.jwt.claim.sub',$1,false)", [actor]); await db.exec('SET ROLE authenticated');
@@ -141,7 +147,7 @@ describe.sequential('SQL006 explicit administrative prompt proposals and reviewe
   it('rechecks the newest visual review inside the transaction after a concurrent rejection', async () => {
     const f = await ready(); await server().review(actor, { ...f.inputReview, request_id: crypto.randomUUID(), decision: 'rejected', criteria: { copy: true, visual: false, regression: false }, notes: 'Revisión posterior rechazada.' });
     await expect(repo().mutate({ businessId: biz, actorId: actor, kind: 'publish', request: f.publish, result: null,
-      stateRevision: (await ledger().read(biz, actor)).state.revision, policyId: config.policyId })).rejects.toMatchObject({ code: 'prompt_admin_comparison_required' });
+      stateRevision: (await ledger().read(biz, actor)).state.revision, policyId })).rejects.toMatchObject({ code: 'prompt_admin_comparison_required' });
     expect((await repo().read(biz, actor)).base.version).toBe(1);
   });
   it('appends an idempotent rollback and rejects version ABA even if the text hash matches', async () => {
@@ -163,9 +169,9 @@ describe.sequential('SQL006 explicit administrative prompt proposals and reviewe
   });
   it('enforces source-base CAS and evidence-state CAS atomically before publication', async () => {
     const f = await ready(), revision = (await ledger().read(biz, actor)).state.revision;
-    await expect(repo().mutate({ businessId: biz, actorId: actor, kind: 'publish', request: f.publish, result: null, stateRevision: revision - 1, policyId: config.policyId })).rejects.toMatchObject({ code: 'prompt_admin_evidence_invalid' });
+    await expect(repo().mutate({ businessId: biz, actorId: actor, kind: 'publish', request: f.publish, result: null, stateRevision: revision - 1, policyId })).rejects.toMatchObject({ code: 'prompt_admin_evidence_invalid' });
     await db.query("UPDATE public.master_prompts SET prompt_text='Changed outside flow' WHERE business_id=$1 AND prompt_type='general'", [biz]);
-    await expect(repo().mutate({ businessId: biz, actorId: actor, kind: 'publish', request: f.publish, result: null, stateRevision: revision, policyId: config.policyId })).rejects.toMatchObject({ code: 'prompt_admin_base_changed' });
+    await expect(repo().mutate({ businessId: biz, actorId: actor, kind: 'publish', request: f.publish, result: null, stateRevision: revision, policyId })).rejects.toMatchObject({ code: 'prompt_admin_base_changed' });
   });
   it('authenticates the new routes and retains fixed errors instead of accepting extra scope fields', async () => {
     const handler = createServerHandler({ enabled: true, allowedOrigins: ['http://localhost'], authenticate: async t => t === 'valid' ? { id: actor } : null,

@@ -3,7 +3,6 @@ import { getAssetVersion } from './assets.ts';
 import { getQuotaUsage } from './jobLedger.ts';
 import type { ServerGenerationCapabilities } from './serverGenerationContract.ts';
 import { executeServerCommand, readServerState, ServerBoundaryError, type ServerRepository, type ServerRead } from './serverRepository.ts';
-import { assertBusinessId } from './serverRequest.ts';
 import { importServerAsset, type PrivateAssetStorage } from './serverStorage.ts';
 import { inspectServerPng } from './serverPng.ts';
 import type { ServerSnapshot } from './serverState.ts';
@@ -16,13 +15,11 @@ import type { ServerPolicy } from './serverState.ts';
 import { readStudioGeneration, STUDIO_MAX_BRIEF_BYTES } from './studioGeneration.ts';
 import { readAssetGeneration, ASSET_MAX_BRIEF_BYTES } from './assetGeneration.ts';
 
-/** All pins come from server configuration. A browser session supplies no permit or pilot token. */
+/** Access comes from the actor's owner/admin membership and the business policy row.
+ * A browser session supplies no permit or pilot token. */
 export interface ServerGenerationConfig {
   enabled: boolean;
   executor: 'image_api' | 'responses_image';
-  businessId: string;
-  actorId: string;
-  policyId: string;
   expectedSupabaseOrigin: string;
   actualSupabaseOrigin: string;
   expiresAt: number;
@@ -44,6 +41,8 @@ const encoder = new TextEncoder();
 // The authenticated presentation workflow supports a capture plus three visual
 // references. The separate administrative pilot endpoint retains its own pins.
 const GENERATION_MAX_REFERENCES = 4;
+/** Design and region briefs carry the Xending visual system block; the provider prompt limit is 32000 characters. */
+export const DESIGN_MAX_BRIEF_BYTES = 24000;
 const canonical = (value: unknown): string => Array.isArray(value) ? `[${value.map(canonical).join(',')}]`
   : value && typeof value === 'object' ? `{${Object.entries(value).filter(([, entry]) => entry !== undefined)
     .sort(([a], [b]) => a.localeCompare(b)).map(([key, entry]) => `${JSON.stringify(key)}:${canonical(entry)}`).join(',')}}`
@@ -57,21 +56,18 @@ export function createServerGeneration(settings: ServerGenerationConfig, deps: S
   const config = structuredClone(settings), now = deps.now ?? Date.now;
   function assertConfig() {
     try {
-      assertBusinessId(config.businessId); assertBusinessId(config.actorId);
       const expected = new URL(config.expectedSupabaseOrigin), actual = new URL(config.actualSupabaseOrigin);
       requireValue(expected.protocol === 'https:' && expected.origin === config.expectedSupabaseOrigin
         && actual.origin === config.actualSupabaseOrigin && actual.origin === expected.origin
         && ['image_api', 'responses_image'].includes(config.executor)
-        && typeof config.policyId === 'string' && /^[A-Za-z0-9_.:-]{1,200}$/.test(config.policyId)
         && Number.isSafeInteger(config.expiresAt) && config.expiresAt > 0, 'server_generation_configuration_invalid', 503);
     } catch { throw new ServerBoundaryError('server_generation_configuration_invalid', 503); }
   }
   function assertScope(businessId: string, actorId: string, read: ServerRead) {
     assertConfig();
-    requireValue(businessId === config.businessId && actorId === config.actorId, 'business_write_denied', 403);
     requireValue(['owner', 'admin'].includes(read.role), 'business_write_denied', 403);
     const p = read.policy;
-    requireValue(p.business_id === config.businessId && p.policy_id === config.policyId
+    requireValue(p.business_id === businessId
       && p.limit_micro_usd > 0 && p.max_image_outputs > 0 && p.reservation_per_output_micro_usd > 0
       && isGenerationProfilePolicy(p.enabled_image_profiles)
       && p.responses_image_enabled === true, 'server_policy_changed', 409);
@@ -103,12 +99,15 @@ export function createServerGeneration(settings: ServerGenerationConfig, deps: S
     const available = remaining(state, read.policy);
     requireValue(available === null || available > 0, 'job_quota_exceeded', 429);
   }
-  function guardedRepository(operationKey?: string, onEnqueueCommit?: () => void, importing = false,
-    validateProduction = deps.validateProduction): ServerRepository {
+  /** `scope` is the business/actor being served and the policy row admitted for it in this request. */
+  function guardedRepository(scope: { businessId: string; actorId: string; policyId: string }, operationKey?: string,
+    onEnqueueCommit?: () => void, importing = false, validateProduction = deps.validateProduction): ServerRepository {
     return {
       async read(businessId, actorId) {
+        requireValue(businessId === scope.businessId && actorId === scope.actorId, 'business_write_denied', 403);
         const read = await deps.repository.read(businessId, actorId);
         assertScope(businessId, actorId, read);
+        requireValue(read.policy.policy_id === scope.policyId, 'server_policy_changed', 409);
         assertResolved(read.state.snapshot, operationKey);
         if (importing) {
           assertWindow(); requireValue(read.policy.enabled, 'server_feature_disabled', 503);
@@ -118,7 +117,7 @@ export function createServerGeneration(settings: ServerGenerationConfig, deps: S
         return read;
       },
       async commit(input) {
-        requireValue(input.businessId === config.businessId && input.actorId === config.actorId, 'business_write_denied', 403);
+        requireValue(input.businessId === scope.businessId && input.actorId === scope.actorId, 'business_write_denied', 403);
         if (['job_enqueued', 'asset_imported', 'call_started'].includes(input.event)) assertWindow();
         if (['job_enqueued', 'call_started'].includes(input.event)) assertResolved(input.snapshot, operationKey);
         if (['job_enqueued', 'call_started'].includes(input.event)) {
@@ -184,7 +183,7 @@ export function createServerGeneration(settings: ServerGenerationConfig, deps: S
       && reference.asset_id === operation.context.base_asset!.asset_id && reference.version_id === operation.context.base_asset!.version_id),
     'server_recreation_source_required');
     requireValue(encoder.encode([operation.context.instruction, ...operation.context.immutable_elements].join('\n')).length
-      <= (asset ? ASSET_MAX_BRIEF_BYTES : studio ? STUDIO_MAX_BRIEF_BYTES : PILOT_LIMITS.maxBriefBytes), 'request_too_large', 413);
+      <= (asset ? ASSET_MAX_BRIEF_BYTES : studio ? STUDIO_MAX_BRIEF_BYTES : DESIGN_MAX_BRIEF_BYTES), 'request_too_large', 413);
     requireValue(operation.context.references.length <= GENERATION_MAX_REFERENCES, 'server_generation_reference_limit');
     for (const identity of [...operation.context.references, ...(operation.context.base_asset ? [operation.context.base_asset] : [])]) {
       const version = getAssetVersion(state.assets, { business_id: identity.business_id, asset_id: identity.asset_id, version_id: identity.version_id });
@@ -220,7 +219,7 @@ export function createServerGeneration(settings: ServerGenerationConfig, deps: S
         requireValue(read.policy.enabled, 'server_feature_disabled', 503);
         generation = { profile: PILOT_LIMITS.imageProfile, executor: config.executor, max_reference_edge: PILOT_LIMITS.maxReferenceEdge,
           profiles: [...read.policy.enabled_image_profiles], qualities: [...SELECTABLE_IMAGE_QUALITIES],
-          max_brief_bytes: PILOT_LIMITS.maxBriefBytes, remaining_outputs: remaining(value.state, read.policy),
+          max_brief_bytes: DESIGN_MAX_BRIEF_BYTES, remaining_outputs: remaining(value.state, read.policy),
           max_references: GENERATION_MAX_REFERENCES, supports_recreation: true, supports_full_design: true, supports_full_design_edit: true, supports_studio_generation: true, supports_asset_generation: true };
       } catch { /* A paused, expired or unavailable execution gate does not hide saved work. */ }
       return { ...value, enabled: value.enabled && !!generation
@@ -232,7 +231,8 @@ export function createServerGeneration(settings: ServerGenerationConfig, deps: S
       requireValue(bytes.length <= 8388608, 'request_too_large', 413);
       const dimensions = await inspectServerPng(bytes);
       requireValue(dimensions.width <= PILOT_LIMITS.maxReferenceEdge && dimensions.height <= PILOT_LIMITS.maxReferenceEdge, 'server_generation_reference_limit');
-      return importServerAsset(guardedRepository(undefined, undefined, true), deps.storage, actorId, input, bytes);
+      return importServerAsset(guardedRepository({ businessId: input.businessId, actorId, policyId: read.policy.policy_id }, undefined, undefined, true),
+        deps.storage, actorId, input, bytes);
     },
     async enqueue(businessId, actorId, operation) {
       const { read, value } = await readOnce(businessId, actorId);
@@ -276,7 +276,8 @@ export function createServerGeneration(settings: ServerGenerationConfig, deps: S
       }) };
       requireValue(provider.mode === 'live', 'server_generation_configuration_invalid', 503);
       let attemptedCommit = false;
-      const repository = guardedRepository(operation.operation_key, () => { attemptedCommit = true; }, false, validateProduction);
+      const repository = guardedRepository({ businessId, actorId, policyId: read.policy.policy_id }, operation.operation_key,
+        () => { attemptedCommit = true; }, false, validateProduction);
       try {
         const queued = await executeServerCommand(repository, businessId, actorId, { kind: 'enqueue', operation }, now);
         if (queued.reused) return { ...queued, execution: { status: 'already_started' } };
@@ -289,7 +290,7 @@ export function createServerGeneration(settings: ServerGenerationConfig, deps: S
           expectedSupabaseOrigin: config.expectedSupabaseOrigin };
         const execution = await runLiveServerCall({ repository, storage: deps.storage, provider, businessId, actorId,
           operationKey: operation.operation_key, callKey: job.calls[0].call_key, now,
-          permit: { ...scope, enabled: true, businessId, actorId, policyId: config.policyId, expiresAt: config.expiresAt,
+          permit: { ...scope, enabled: true, businessId, actorId, policyId: read.policy.policy_id, expiresAt: config.expiresAt,
             maxImageOutputs: 1, maxReservationMicroUsd: read.policy.reservation_per_output_micro_usd,
             approvedBudgetMicroUsd: read.policy.limit_micro_usd, approvedOperation: structuredClone(operation) },
           target: { ...scope, actualSupabaseOrigin: config.actualSupabaseOrigin } });

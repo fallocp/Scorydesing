@@ -6,7 +6,6 @@ import type { ServerExplorationCapabilities } from './serverExplorationContract.
 import type { ServerGenerationConfig } from './serverGeneration.ts';
 import { readServerState, ServerBoundaryError, type ServerRead, type ServerRepository } from './serverRepository.ts';
 import { assertBusinessId } from './serverRequest.ts';
-import { PILOT_LIMITS } from './pilotHttp.ts';
 import { isGenerationProfilePolicy } from './catalog.ts';
 import { getAssetVersion } from './assets.ts';
 import { inspectServerPng } from './serverPng.ts';
@@ -25,8 +24,10 @@ export interface ServerExplorationBoundary {
   recover(actorId: string, businessId: string, requestKey: string): Promise<ExplorationResult | null>;
   history(actorId: string, businessId: string, sessionId: string): Promise<ExplorationAttempt[]>;
 }
-export const EXPLORATION_LIMITS = { reservationMicroUsd: 250000, textLimitMicroUsd: 1000000, maxAttempts: 20,
-  maxOutputTokens: 4096, maxRequestBytes: 131072, model: 'gpt-5.4-mini' } as const;
+export const EXPLORATION_LIMITS = { reservationMicroUsd: 250000, maxOutputTokens: 4096, maxRequestBytes: 131072, model: 'gpt-5.4-mini' } as const;
+/** No lifetime quota. The capability contract still carries these fields, so report
+ * steady per-request headroom (4 × US$0.25) instead of a remaining balance. */
+export const TEXT_HEADROOM = { remaining_micro_usd: 1000000, remaining_attempts: 4 } as const;
 const requireValue = (value: unknown, code: string, status = 400): void => { if (!value) throw new ServerBoundaryError(code, status); };
 const validId = (value: string, max = 256) => typeof value === 'string' && value.trim().length > 0 && value.length <= max && !/[\x00-\x1f\x7f]/.test(value);
 const encoder = new TextEncoder();
@@ -47,15 +48,14 @@ export function createServerExploration(settings: ServerExplorationConfig, deps:
   const config = structuredClone(settings), now = deps.now ?? Date.now, journal = deps.explorationRepository;
   function assertScope(businessId: string, actorId: string, read: ServerRead) {
     try {
-      assertBusinessId(config.businessId); assertBusinessId(config.actorId);
       const expected = new URL(config.expectedSupabaseOrigin), actual = new URL(config.actualSupabaseOrigin);
       requireValue(expected.protocol === 'https:' && expected.origin === config.expectedSupabaseOrigin && actual.origin === config.actualSupabaseOrigin
-        && actual.origin === expected.origin && /^[A-Za-z0-9_.:-]{1,200}$/.test(config.policyId)
+        && actual.origin === expected.origin
         && Number.isSafeInteger(config.expiresAt) && config.expiresAt > 0, 'server_exploration_configuration_invalid', 503);
     } catch { throw new ServerBoundaryError('server_exploration_configuration_invalid', 503); }
-    requireValue(businessId === config.businessId && actorId === config.actorId && ['owner', 'admin'].includes(read.role), 'business_write_denied', 403);
+    requireValue(['owner', 'admin'].includes(read.role), 'business_write_denied', 403);
     const policy = read.policy;
-    requireValue(policy.business_id === businessId && policy.policy_id === config.policyId
+    requireValue(policy.business_id === businessId
       && policy.limit_micro_usd > 0 && policy.max_image_outputs > 0 && policy.reservation_per_output_micro_usd > 0
       && isGenerationProfilePolicy(policy.enabled_image_profiles)
       && policy.responses_image_enabled === true, 'server_policy_changed', 409);
@@ -70,12 +70,8 @@ export function createServerExploration(settings: ServerExplorationConfig, deps:
     if (entry.status === 'completed' && entry.result) return structuredClone(entry.result);
     throw new ServerBoundaryError('server_exploration_outcome_unknown', 503);
   }
-  async function remaining(businessId: string, actorId: string): Promise<ServerExplorationCapabilities> {
-    const budget = await journal.budget(businessId, actorId);
-    const available = Math.max(0, Math.min(EXPLORATION_LIMITS.textLimitMicroUsd - budget.committed_micro_usd,
-      PILOT_LIMITS.budgetMicroUsd - budget.image_committed_micro_usd - budget.committed_micro_usd));
-    return { model: EXPLORATION_LIMITS.model, remaining_micro_usd: available,
-      remaining_attempts: Math.max(0, Math.min(EXPLORATION_LIMITS.maxAttempts - budget.attempts, Math.floor(available / EXPLORATION_LIMITS.reservationMicroUsd))),
+  function remaining(): ServerExplorationCapabilities {
+    return { model: EXPLORATION_LIMITS.model, ...TEXT_HEADROOM,
       reservation_micro_usd: EXPLORATION_LIMITS.reservationMicroUsd, max_output_tokens: EXPLORATION_LIMITS.maxOutputTokens,
       max_request_bytes: EXPLORATION_LIMITS.maxRequestBytes, supports_conversation_actions: 1,
       ...(deps.storage ? { supports_visual_context: true as const, max_references: 4 as const } : {}) };
@@ -106,7 +102,7 @@ export function createServerExploration(settings: ServerExplorationConfig, deps:
       const read = await deps.repository.read(businessId, actorId);
       try { assertScope(businessId, actorId, read); assertWindow(); requireValue(read.policy.enabled, 'server_feature_disabled', 503); }
       catch { return null; }
-      return remaining(businessId, actorId);
+      return remaining();
     },
     async recover(actorId, businessId, requestKey) {
       assertReadScope(businessId, actorId); requireValue(validId(requestKey, 200), 'invalid_exploration_request');
@@ -129,7 +125,6 @@ export function createServerExploration(settings: ServerExplorationConfig, deps:
       assertScope(businessId, actorId, read); assertWindow(); requireValue(read.policy.enabled, 'server_feature_disabled', 503);
       const textBytes = encoder.encode(JSON.stringify(prepareExplorationRequest(request, EXPLORATION_LIMITS.maxOutputTokens))).length;
       requireValue(textBytes <= EXPLORATION_LIMITS.maxRequestBytes, 'exploration_request_too_large', 413);
-      requireValue((await remaining(businessId, actorId)).remaining_attempts > 0, 'exploration_quota_exceeded', 429);
       const versions = await referenceVersions(request, actorId, read), images: ExplorationImageInput[] = [];
       for (const [index, version] of versions.entries()) {
         try {
@@ -145,7 +140,7 @@ export function createServerExploration(settings: ServerExplorationConfig, deps:
       requireValue(preparedBytes <= (images.length ? EXPLORATION_VISUAL_LIMITS.maxWireBytes : EXPLORATION_LIMITS.maxRequestBytes), 'exploration_request_too_large', 413);
       const provider = deps.createProvider();
       let claimed: Awaited<ReturnType<ExplorationRepository['claim']>>;
-      try { claimed = await journal.claim({ businessId, actorId, request, expectedPolicyId: config.policyId,
+      try { claimed = await journal.claim({ businessId, actorId, request, expectedPolicyId: read.policy.policy_id,
         expiresAt: config.expiresAt, reservedMicroUsd: EXPLORATION_LIMITS.reservationMicroUsd }); }
       catch (error) {
         // This fixed SQL refusal occurs before INSERT even if policy was paused after our initial read.
@@ -162,6 +157,7 @@ export function createServerExploration(settings: ServerExplorationConfig, deps:
           assertWindow();
           const fresh = await deps.repository.read(businessId, actorId);
           assertScope(businessId, actorId, fresh); requireValue(fresh.policy.enabled, 'server_feature_disabled', 503);
+          requireValue(fresh.policy.policy_id === read.policy.policy_id, 'server_policy_changed', 409);
           requireValue(canonicalExploration(await referenceVersions(request, actorId, fresh)) === canonicalExploration(versions), 'exploration_reference_invalid');
         };
         await verifyDispatch();

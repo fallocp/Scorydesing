@@ -9,14 +9,13 @@ import { readServerState, ServerBoundaryError, type ServerRead, type ServerRepos
 import { assertBusinessId } from './serverRequest.ts';
 import { importServerAsset, type PrivateAssetStorage } from './serverStorage.ts';
 import { inspectServerPng } from './serverPng.ts';
-import { PILOT_LIMITS } from './pilotHttp.ts';
 import { isGenerationProfilePolicy } from './catalog.ts';
 import type { ServerHtmlCapabilities } from './serverHtmlContract.ts';
+import { TEXT_HEADROOM } from './serverExploration.ts';
 
 export const HTML_LIMITS = { model: 'gpt-5.4-mini', reservationMicroUsd: 250000, textLimitMicroUsd: 1000000,
   maxAttempts: 20, maxOutputTokens: 8192, maxRequestBytes: 98304, maxReferenceEdge: 1536, maxImageBytes: 8388608 } as const;
-export interface ServerHtmlConfig { enabled: boolean; businessId: string; actorId: string; policyId: string;
-  expectedSupabaseOrigin: string; actualSupabaseOrigin: string; expiresAt: number }
+export interface ServerHtmlConfig { enabled: boolean; expectedSupabaseOrigin: string; actualSupabaseOrigin: string; expiresAt: number }
 export interface ServerHtmlDependencies {
   repository: ServerRepository; htmlRepository: HtmlRepository;
   storage: PrivateAssetStorage & { get(key: string): Promise<Uint8Array> };
@@ -46,15 +45,14 @@ export function createServerHtml(settings: ServerHtmlConfig, deps: ServerHtmlDep
   const config = structuredClone(settings), now = deps.now ?? Date.now, journal = deps.htmlRepository;
   function assertScope(businessId: string, actorId: string, read: ServerRead) {
     try {
-      assertBusinessId(config.businessId); assertBusinessId(config.actorId);
       const expected = new URL(config.expectedSupabaseOrigin), actual = new URL(config.actualSupabaseOrigin);
       requireValue(expected.protocol === 'https:' && expected.origin === config.expectedSupabaseOrigin && actual.origin === config.actualSupabaseOrigin
-        && actual.origin === expected.origin && /^[A-Za-z0-9_.:-]{1,200}$/.test(config.policyId)
+        && actual.origin === expected.origin
         && Number.isSafeInteger(config.expiresAt) && config.expiresAt > 0, 'server_html_configuration_invalid', 503);
     } catch { throw new ServerBoundaryError('server_html_configuration_invalid', 503); }
-    requireValue(businessId === config.businessId && actorId === config.actorId && ['owner', 'admin'].includes(read.role), 'business_write_denied', 403);
+    requireValue(['owner', 'admin'].includes(read.role), 'business_write_denied', 403);
     const p = read.policy;
-    requireValue(p.business_id === businessId && p.policy_id === config.policyId
+    requireValue(p.business_id === businessId
       && p.limit_micro_usd > 0 && p.max_image_outputs > 0 && p.reservation_per_output_micro_usd > 0
       && isGenerationProfilePolicy(p.enabled_image_profiles)
       && p.responses_image_enabled === true, 'server_policy_changed', 409);
@@ -79,12 +77,9 @@ export function createServerHtml(settings: ServerHtmlConfig, deps: ServerHtmlDep
       || version.provenance.kind === 'image_operation' && getAssetReviewStatus(value.state.assets, version.identity) === 'approved', 'html_source_not_approved');
     return version;
   }
-  async function remaining(businessId: string, actorId: string): Promise<ServerHtmlCapabilities> {
-    const b = await journal.budget(businessId, actorId);
-    const available = Math.max(0, Math.min(HTML_LIMITS.textLimitMicroUsd - b.committed_micro_usd,
-      PILOT_LIMITS.budgetMicroUsd - b.image_committed_micro_usd - b.committed_micro_usd));
-    return { composition_version: 2, model: HTML_LIMITS.model, remaining_micro_usd: available,
-      remaining_attempts: Math.max(0, Math.min(HTML_LIMITS.maxAttempts - b.attempts, Math.floor(available / HTML_LIMITS.reservationMicroUsd))),
+  /** No lifetime quota: steady per-request headroom, see TEXT_HEADROOM. */
+  function remaining(): ServerHtmlCapabilities {
+    return { composition_version: 2, model: HTML_LIMITS.model, ...TEXT_HEADROOM,
       reservation_micro_usd: HTML_LIMITS.reservationMicroUsd, max_output_tokens: HTML_LIMITS.maxOutputTokens,
       max_request_bytes: HTML_LIMITS.maxRequestBytes, max_reference_edge: HTML_LIMITS.maxReferenceEdge };
   }
@@ -98,7 +93,7 @@ export function createServerHtml(settings: ServerHtmlConfig, deps: ServerHtmlDep
       assertBusinessId(businessId); assertBusinessId(actorId);
       const read = await deps.repository.read(businessId, actorId);
       try { admission(businessId, actorId, read); } catch { return null; }
-      return remaining(businessId, actorId);
+      return remaining();
     },
     async recover(actorId, businessId, key) {
       assertBusinessId(businessId); assertBusinessId(actorId); requireValue(validId(key, 200), 'invalid_html_request');
@@ -118,8 +113,10 @@ export function createServerHtml(settings: ServerHtmlConfig, deps: ServerHtmlDep
       const dimensions = await inspectServerPng(bytes);
       requireValue(dimensions.width <= HTML_LIMITS.maxReferenceEdge && dimensions.height <= HTML_LIMITS.maxReferenceEdge, 'html_source_invalid');
       const guarded: ServerRepository = {
-        async read(businessId, who) { const fresh = await deps.repository.read(businessId, who); admission(businessId, who, fresh); return fresh; },
-        async commit(value) { assertWindow(); requireValue(value.businessId === config.businessId && value.actorId === config.actorId, 'business_write_denied', 403); return deps.repository.commit(value); },
+        async read(businessId, who) { requireValue(businessId === input.businessId && who === actorId, 'business_write_denied', 403);
+          const fresh = await deps.repository.read(businessId, who); admission(businessId, who, fresh);
+          requireValue(fresh.policy.policy_id === read.policy.policy_id, 'server_policy_changed', 409); return fresh; },
+        async commit(value) { assertWindow(); requireValue(value.businessId === input.businessId && value.actorId === actorId, 'business_write_denied', 403); return deps.repository.commit(value); },
       };
       return importServerAsset(guarded, deps.storage, actorId, input, bytes);
     },
@@ -133,7 +130,6 @@ export function createServerHtml(settings: ServerHtmlConfig, deps: ServerHtmlDep
       requireValue(encoder.encode(JSON.stringify(request)).length <= HTML_LIMITS.maxRequestBytes, 'html_request_too_large', 413);
       const prior = await journal.read(businessId, actorId, request.request_key); if (prior) return replay(prior, request);
       const read = await deps.repository.read(businessId, actorId); admission(businessId, actorId, read);
-      requireValue((await remaining(businessId, actorId)).remaining_attempts > 0, 'html_quota_exceeded', 429);
       const version = await source(request, actorId, read);
       let bytes: Uint8Array;
       try {
@@ -146,7 +142,7 @@ export function createServerHtml(settings: ServerHtmlConfig, deps: ServerHtmlDep
       const preparedBytes = encoder.encode(JSON.stringify(prepareCompositionRequest(request, bytes))).length;
       const provider = deps.createProvider();
       let claimed: Awaited<ReturnType<HtmlRepository['claim']>>;
-      try { claimed = await journal.claim({ businessId, actorId, request, expectedPolicyId: config.policyId, expiresAt: config.expiresAt,
+      try { claimed = await journal.claim({ businessId, actorId, request, expectedPolicyId: read.policy.policy_id, expiresAt: config.expiresAt,
         reservedMicroUsd: HTML_LIMITS.reservationMicroUsd }); }
       catch (error) {
         if (error instanceof ServerBoundaryError && (error.status < 500 || error.status === 503 && error.code === 'server_feature_disabled')) throw error;
@@ -158,6 +154,7 @@ export function createServerHtml(settings: ServerHtmlConfig, deps: ServerHtmlDep
       try {
         const verifyDispatch = async () => {
           const fresh = await deps.repository.read(businessId, actorId); admission(businessId, actorId, fresh);
+          requireValue(fresh.policy.policy_id === read.policy.policy_id, 'server_policy_changed', 409);
           const current = await source(request, actorId, fresh);
           requireValue(canonicalExploration(current) === canonicalExploration(version), 'html_source_invalid');
         };

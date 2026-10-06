@@ -144,7 +144,7 @@ export function createMaterialsClient(businessId: string, transport: MaterialsCl
       collectionId(id); const session = await transport.session();
       const data = await transport.post(session, '/materials/history', JSON.stringify({ business_id: businessId, collection_id: id }), 'application/json', false);
       await transport.sameActor(session);
-      if (!record(data) || Object.keys(data).length !== 1 || !Array.isArray(data.attempts) || data.attempts.length > MATERIALS_LIMITS.maxAttempts) fail('server_invalid_response');
+      if (!record(data) || Object.keys(data).length !== 1 || !Array.isArray(data.attempts) || data.attempts.length > 200) fail('server_invalid_response');
       const keys = new Set<string>();
       for (const attempt of data.attempts as unknown[]) {
         try {

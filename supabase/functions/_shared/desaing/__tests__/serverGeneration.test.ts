@@ -20,9 +20,10 @@ import { IMAGE_PROFILES, SELECTABLE_IMAGE_PROFILES, SELECTABLE_IMAGE_QUALITIES }
 
 const business = '80000000-0000-4000-8000-000000000001', actor = '80000000-0000-4000-8000-000000000002';
 const upload = '80000000-0000-4000-8000-000000000003', foreign = '80000000-0000-4000-8000-000000000099';
-const config: ServerGenerationConfig = { enabled: true, executor: 'responses_image', businessId: business, actorId: actor,
-  policyId: 'ui-pilot-policy', expectedSupabaseOrigin: 'https://project.supabase.co', actualSupabaseOrigin: 'https://project.supabase.co', expiresAt: 100000 };
-const policy: ServerPolicy = { business_id: business, enabled: true, policy_id: config.policyId, limit_micro_usd: PILOT_LIMITS.budgetMicroUsd,
+const secondActor = '80000000-0000-4000-8000-000000000005', secondBusiness = '80000000-0000-4000-8000-000000000006', policyId = 'ui-pilot-policy';
+const config: ServerGenerationConfig = { enabled: true, executor: 'responses_image',
+  expectedSupabaseOrigin: 'https://project.supabase.co', actualSupabaseOrigin: 'https://project.supabase.co', expiresAt: 100000 };
+const policy: ServerPolicy = { business_id: business, enabled: true, policy_id: policyId, limit_micro_usd: PILOT_LIMITS.budgetMicroUsd,
   reservation_per_output_micro_usd: PILOT_LIMITS.reservationMicroUsd, max_image_outputs: PILOT_LIMITS.maxOutputs,
   enabled_image_profiles: ['flare_candidate'], responses_image_enabled: true };
 function operation(key = 'ui-first'): DesignOperation {
@@ -148,17 +149,16 @@ describe('authenticated UI capabilities and disabled generation', () => {
   it('returns only trusted capabilities without constructing a provider or extra SQL reads', async () => {
     const f = fixture(), read = await send(f, { kind: 'read' });
     expect(read.body.enabled).toBe(true);
-    expect(read.body.generation).toEqual({ profile: 'flare_candidate', executor: 'responses_image', max_reference_edge: 1024, max_brief_bytes: 4000,
+    expect(read.body.generation).toEqual({ profile: 'flare_candidate', executor: 'responses_image', max_reference_edge: 1024, max_brief_bytes: 24000,
       profiles: ['flare_candidate'], qualities: ['low', 'medium', 'high'],
       remaining_outputs: 4, max_references: 4, supports_recreation: true, supports_full_design: true, supports_full_design_edit: true, supports_studio_generation: true, supports_asset_generation: true });
     expect(f.repository.read).toHaveBeenCalledTimes(1); expect(f.createProvider).not.toHaveBeenCalled(); expect(f.repository.commit).not.toHaveBeenCalled();
   });
-  it.each(['flag', 'expiry', 'origin', 'actor', 'policy', 'budget', 'outputs', 'reserve', 'profile', 'responses', 'role', 'paused'])
+  it.each(['flag', 'expiry', 'origin', 'viewer', 'budget', 'outputs', 'reserve', 'profile', 'responses', 'role', 'paused'])
   ('keeps work readable but blocks new upload/enqueue for invalid %s', async field => {
-    const f = fixture(field === 'flag' ? { enabled: false } : field === 'origin' ? { actualSupabaseOrigin: 'https://other.supabase.co' }
-      : field === 'actor' ? { actorId: foreign } : {});
+    const f = fixture(field === 'flag' ? { enabled: false } : field === 'origin' ? { actualSupabaseOrigin: 'https://other.supabase.co' } : {});
     if (field === 'expiry') f.setTime(config.expiresAt);
-    if (field === 'policy') f.repository.policy.policy_id = 'changed';
+    if (field === 'viewer') f.repository.role = 'viewer';
     if (field === 'budget') f.repository.policy.limit_micro_usd--;
     if (field === 'outputs') f.repository.policy.max_image_outputs++;
     if (field === 'reserve') f.repository.policy.reservation_per_output_micro_usd--;
@@ -171,6 +171,36 @@ describe('authenticated UI capabilities and disabled generation', () => {
     expect((await enqueue(f)).response.status).toBeGreaterThanOrEqual(400);
     await expect(f.generation.import(actor, importInput, capture)).rejects.toThrow();
     expect(f.storage.putImmutable).not.toHaveBeenCalled(); expect(f.createProvider).not.toHaveBeenCalled(); expect(f.repository.commit).not.toHaveBeenCalled();
+  });
+  it('admits another owner/admin actor of another business under that business policy row', async () => {
+    const f = fixture(); f.repository.role = 'admin';
+    Object.assign(f.repository.policy, { business_id: secondBusiness, policy_id: 'second-business-policy' });
+    expect((await f.generation.read(secondBusiness, secondActor)).generation).not.toBeNull();
+    const imported = await f.generation.import(secondActor, { ...importInput, businessId: secondBusiness }, capture);
+    expect((imported.version as RegisteredAssetVersion).identity.business_id).toBe(secondBusiness);
+    const op = operation('second-business'); Object.assign(op.context, { actor_id: secondActor, business_id: secondBusiness });
+    const queued = await f.generation.enqueue(secondBusiness, secondActor, op);
+    expect(queued.execution).toMatchObject({ status: 'completed' }); expect(f.dispatches).toBe(1);
+    expect(f.repository.read.mock.calls.every(([biz, who]) => biz === secondBusiness && who === secondActor)).toBe(true);
+    expect(f.repository.commit.mock.calls.every(([input]) => input.businessId === secondBusiness && input.actorId === secondActor)).toBe(true);
+    f.repository.role = 'editor';
+    await expect(f.generation.enqueue(secondBusiness, secondActor, operation('editor-denied'))).rejects.toMatchObject({ status: 403 });
+    const denied = operation('editor-denied'); Object.assign(denied.context, { actor_id: secondActor, business_id: secondBusiness });
+    await expect(f.generation.enqueue(secondBusiness, secondActor, denied)).rejects.toMatchObject({ code: 'business_write_denied', status: 403 });
+    expect(f.dispatches).toBe(1);
+  });
+  it('rejects a policy row that belongs to another business', async () => {
+    const f = fixture(); f.repository.policy.business_id = foreign;
+    await expect(f.generation.read(business, actor)).rejects.toThrow();
+    expect((await enqueue(f)).response.status).toBeGreaterThanOrEqual(400);
+    await expect(f.generation.import(actor, importInput, capture)).rejects.toThrow();
+    expect(f.storage.putImmutable).not.toHaveBeenCalled(); expect(f.createProvider).not.toHaveBeenCalled(); expect(f.repository.commit).not.toHaveBeenCalled();
+  });
+  it('does not dispatch when the policy row is swapped after admission', async () => {
+    const f = fixture(); f.beforeDispatch(() => { f.repository.policy.policy_id = 'swapped'; });
+    await f.generation.enqueue(business, actor, operation()); expect(f.dispatches).toBe(0);
+    // As with the former configured pin, the claimed call stays unresolved rather than being sent.
+    expect(f.repository.snapshot!.jobs.jobs[0].calls[0].state).toBe('running');
   });
 });
 
@@ -236,8 +266,8 @@ describe('bounded explicit UI admission, claims and recovery', () => {
     if (field === 'outputs') op.image!.output_count = 5;
     if (field === 'size') op.image!.size.width = 2048;
     if (field === 'background') op.image!.background = 'transparent';
-    if (field === 'brief') op.context.instruction = 'é'.repeat(2001);
-    if (field === 'constraints') op.context.immutable_elements = ['x'.repeat(4000)];
+    if (field === 'brief') op.context.instruction = 'é'.repeat(12001);
+    if (field === 'constraints') op.context.immutable_elements = ['x'.repeat(24000)];
     if (field === 'refs') op.context.references = [1, 2, 3, 4, 5].map(id => ({ business_id: business, asset_id: `ref${id}`, version_id: 'v1', reference_id: `r${id}`, mime_type: 'image/png', roles: ['target_render'] }));
     if (field === 'combined') op.action = 'approve_and_generate_medium';
     expect((await enqueue(f, op)).response.status).toBeGreaterThanOrEqual(400);

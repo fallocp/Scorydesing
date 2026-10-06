@@ -7,14 +7,15 @@ import { createServerSnapshot } from '../serverState.ts';
 import { createServerHandler } from '../serverHttp.ts';
 import { MaterialsProviderError } from '../materialsProvider.ts';
 import { materialsFixture, materialResult, materialText, MATERIAL_ACTOR as actor, MATERIAL_BUSINESS as business } from './fixtures/materialsFixture.ts';
-const config = { enabled: true, businessId: business, actorId: actor, policyId: 'materials-pilot', expectedSupabaseOrigin: 'https://project.supabase.co',
+const policyId = 'materials-pilot', secondActor = 'a0000000-0000-4000-8000-000000000005', secondBusiness = 'a0000000-0000-4000-8000-000000000006';
+const config = { enabled: true, expectedSupabaseOrigin: 'https://project.supabase.co',
   actualSupabaseOrigin: 'https://project.supabase.co', expiresAt: 100000 };
-async function fixture() {
-  const base = await materialsFixture(); let collection = base.collection, at = 1000, committed = 0, images = 3000000, attempts = 0, lostClaim = false, lostFinish = false;
+async function fixture(biz = business, who = actor) {
+  const base = await materialsFixture(biz, who); let collection = base.collection, at = 1000, committed = 0, images = 3000000, attempts = 0, lostClaim = false, lostFinish = false;
   const entries = new Map<string, MaterialJournalEntry>();
-  const policy = { business_id: business, enabled: true, policy_id: config.policyId, limit_micro_usd: 5000000, max_image_outputs: 4,
+  const policy = { business_id: biz, enabled: true, policy_id: policyId, limit_micro_usd: 5000000, max_image_outputs: 4,
     reservation_per_output_micro_usd: 1000000, enabled_image_profiles: ['flare_candidate' as const], responses_image_enabled: true };
-  const state: ServerRead = { role: 'owner', policy, state: { revision: 0, snapshot: createServerSnapshot(business, policy) } };
+  const state: ServerRead = { role: 'owner', policy, state: { revision: 0, snapshot: createServerSnapshot(biz, policy) } };
   const repository: ServerRepository = { read: vi.fn(async () => structuredClone(state)), commit: vi.fn() };
   const journal: MaterialsRepository = {
     read: vi.fn(async () => structuredClone(collection)),
@@ -49,11 +50,32 @@ describe('durable materials admission, source identity and recovery', () => {
     expect(f.provider.prepare).toHaveBeenCalledTimes(1); expect(f.provider.analyze).toHaveBeenCalledTimes(1);
     expect(f.entries.get(f.request.request_key)?.settled_micro_usd).toBe(525); expect(f.repository.commit).not.toHaveBeenCalled();
   });
-  it.each(['attempts', 'text', 'total', 'expiry', 'policy', 'actor'])('rejects %s before count/claim', async kind => {
-    const f = await fixture(); if (kind === 'attempts') f.budget(0, 0, 20); if (kind === 'text') f.budget(750001); if (kind === 'total') f.budget(0, 4900000);
+  it.each(['attempts', 'text', 'total'])('does not apply a lifetime %s quota', async kind => {
+    const f = await fixture(); if (kind === 'attempts') f.budget(0, 0, 500); if (kind === 'text') f.budget(50_000_000); if (kind === 'total') f.budget(0, 50_000_000);
+    expect(await f.boundary.capabilities(business, actor)).toMatchObject({ remaining_attempts: 4, remaining_micro_usd: 1000000 });
+    await f.boundary.analyze(actor, f.request); expect(f.journal.claim).toHaveBeenCalledTimes(1);
+  });
+  it.each(['expiry', 'policy', 'actor', 'viewer', 'foreign_policy'])('rejects %s before count/claim', async kind => {
+    const f = await fixture();
     if (kind === 'expiry') f.expire(); if (kind === 'policy') f.state.policy.max_image_outputs++; if (kind === 'actor') f.request.context.actor_id = business;
+    if (kind === 'viewer') f.state.role = 'viewer'; if (kind === 'foreign_policy') f.state.policy.business_id = secondBusiness;
     await expect(f.boundary.analyze(actor, f.request)).rejects.toThrow(); expect(f.provider.prepare).not.toHaveBeenCalled(); expect(f.journal.claim).not.toHaveBeenCalled();
   });
+  it('admits another owner/admin actor of another business under that business policy row', async () => {
+    const f = await fixture(secondBusiness, secondActor); f.state.role = 'admin'; f.state.policy.policy_id = 'second-business-policy';
+    expect(await f.boundary.capabilities(secondBusiness, secondActor)).not.toBeNull();
+    expect(await f.boundary.analyze(secondActor, f.request)).toEqual(materialResult(f.request));
+    expect(f.journal.claim).toHaveBeenCalledWith(expect.objectContaining({ businessId: secondBusiness, actorId: secondActor, policyId: 'second-business-policy' }));
+    const input = { business_id: secondBusiness, collection_id: f.collection.collection_id, expected_revision: 1, selected: f.collection.selected, brief: 'Otra indicación', review: null };
+    expect((await f.boundary.save(secondActor, input)).revision).toBe(2);
+    expect(f.journal.commit).toHaveBeenCalledWith(expect.objectContaining({ businessId: secondBusiness, actorId: secondActor, policyId: 'second-business-policy' }));
+    expect(vi.mocked(f.repository.read).mock.calls.every(([biz, who]) => biz === secondBusiness && who === secondActor)).toBe(true);
+    f.state.role = 'editor'; expect(await f.boundary.capabilities(secondBusiness, secondActor)).toBeNull();
+    await expect(f.boundary.save(secondActor, { ...input, expected_revision: 2, brief: 'Tercera indicación' })).rejects.toMatchObject({ code: 'business_write_denied', status: 403 });
+  });
+  it('rejects a policy row swapped after the token count before claiming', async () => { const f = await fixture();
+    vi.mocked(f.provider.prepare).mockImplementationOnce(async () => { f.state.policy.policy_id = 'swapped'; return { inputTokens: 100, token: {} }; });
+    await expect(f.boundary.analyze(actor, f.request)).rejects.toMatchObject({ code: 'server_policy_changed' }); expect(f.journal.claim).not.toHaveBeenCalled(); });
   it('rejects token overflow before reservation and reports 413', async () => { const f = await fixture();
     vi.mocked(f.provider.prepare).mockRejectedValueOnce(new MaterialsProviderError('materials_input_limit'));
     await expect(f.boundary.analyze(actor, f.request)).rejects.toMatchObject({ code: 'materials_input_limit', status: 413 }); expect(f.journal.claim).not.toHaveBeenCalled(); });

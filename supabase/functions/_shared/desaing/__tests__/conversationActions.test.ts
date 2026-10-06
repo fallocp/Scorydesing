@@ -154,9 +154,10 @@ describe('conversation journal and capability compatibility', () => {
     req.message = 'Crea HTML con el texto aprobado.';
     const output = result(req, { ...action('create_html'), reference_ids: [] });
     output.design_understanding = { ...visualUnderstanding(), references: [], copy: req.design_brief!.copy };
-    const config: ServerExplorationConfig = { enabled: true, businessId: business, actorId: actor, policyId: 'conversation-test',
+    const policyId = 'conversation-test';
+    const config: ServerExplorationConfig = { enabled: true,
       expectedSupabaseOrigin: 'https://project.supabase.co', actualSupabaseOrigin: 'https://project.supabase.co', expiresAt: 10000 };
-    const read: ServerRead = { role: 'owner', policy: { business_id: business, enabled: true, policy_id: config.policyId,
+    const read: ServerRead = { role: 'owner', policy: { business_id: business, enabled: true, policy_id: policyId,
       limit_micro_usd: PILOT_LIMITS.budgetMicroUsd, max_image_outputs: PILOT_LIMITS.maxOutputs,
       reservation_per_output_micro_usd: PILOT_LIMITS.reservationMicroUsd, enabled_image_profiles: ['flare_candidate'], responses_image_enabled: true }, state: { revision: 0, snapshot: null } };
     let saved: ExplorationJournalEntry | null = null;

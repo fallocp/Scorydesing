@@ -166,7 +166,8 @@ function normalize(body: unknown, request: ExplorationRequest): ExplorationResul
 /** One injected transport call. No retries, image tools, file reads or persisted credentials.
  * Paid use is admitted and journaled by createServerExploration before this adapter is called. */
 export function createExplorationProvider(config: ExplorationProviderConfig): ExplorationProvider {
-  const timeoutMs = config.timeoutMs ?? 30000, maxOutputTokens = config.maxOutputTokens ?? 4096;
+  // Two high-detail references plus strict JSON routinely exceed 30 s.
+  const timeoutMs = config.timeoutMs ?? 60000, maxOutputTokens = config.maxOutputTokens ?? 4096;
   if (config.model !== 'gpt-5.4-mini' || typeof config.fetch !== 'function' || typeof config.apiKey !== 'string'
     || !config.apiKey.length || config.apiKey.length > 8192 || /[\x00-\x20\x7f]/.test(config.apiKey)
     || !Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 60000

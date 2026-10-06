@@ -12,9 +12,10 @@ import type { ServerPolicy } from '../serverState.ts';
 import { PILOT_LIMITS } from '../pilotHttp.ts';
 const biz = 'a0000000-0000-4000-8000-000000000001', actor = 'a0000000-0000-4000-8000-000000000002';
 const mockup = 'a0000000-0000-4000-8000-000000000003', rowId = 'a0000000-0000-4000-8000-000000000004', group = 'a0000000-0000-4000-8000-000000000005';
-const config = { enabled: true, businessId: biz, actorId: actor, policyId: 'production-pilot', expectedSupabaseOrigin: 'https://project.supabase.co',
+const policyId = 'production-pilot';
+const config = { enabled: true, expectedSupabaseOrigin: 'https://project.supabase.co',
   actualSupabaseOrigin: 'https://project.supabase.co', expiresAt: Date.now() + 600000 };
-const policy: ServerPolicy = { business_id: biz, enabled: true, policy_id: config.policyId, limit_micro_usd: PILOT_LIMITS.budgetMicroUsd,
+const policy: ServerPolicy = { business_id: biz, enabled: true, policy_id: policyId, limit_micro_usd: PILOT_LIMITS.budgetMicroUsd,
   max_image_outputs: PILOT_LIMITS.maxOutputs, reservation_per_output_micro_usd: PILOT_LIMITS.reservationMicroUsd, enabled_image_profiles: ['flare_candidate'], responses_image_enabled: true };
 const imageSource: ProductionSource = { kind: 'image', mockup_id: mockup }, publicUrl = (key: string) => `${config.expectedSupabaseOrigin}/storage/v1/object/public/design-images/${key}`;
 const sourceBytes = productionPng(80, 2, 2), outputBytes = productionPng(100), sourceKey = `${biz}/mockups/original.png`;
@@ -39,11 +40,11 @@ describe.sequential('SQL005 exact production source and explicit image-only appl
     const boundary = createServerProduction(config, { repository: stateRepo(), productionRepository: repo(), privateStorage, legacyStorage }); return { boundary, privateStorage, legacyStorage }; };
   async function prepare(source: ProductionSource = imageSource, confirmed?: string) { const input = { business_id: biz, prepare_id: crypto.randomUUID(), source, ...(confirmed !== undefined ? { confirmed_copy: confirmed } : {}) };
     return { input, snapshot: await fixture().boundary.prepare(actor, input) }; }
-  async function result(snapshot: ProductionSnapshot, approved = true, operation = productionTestOperation(snapshot)) {
-    const read = await stateRepo().read(biz, actor);
-    const result = await productionTestResult(read.state.snapshot!, policy, operation, outputBytes, approved); privateObjects.set(result.storage_key, outputBytes);
-    await db.query('UPDATE public.desaing_state SET revision=revision+1,snapshot=$1 WHERE business_id=$2', [JSON.stringify(result.state), biz]);
-    const request = { business_id: biz, apply_id: crypto.randomUUID(), snapshot_id: snapshot.id, source_hash: snapshot.source_hash, base_asset: snapshot.base_asset, result_asset: result.identity };
+  async function result(snapshot: ProductionSnapshot, approved = true, operation = productionTestOperation(snapshot), rowPolicy = policy) {
+    const read = await stateRepo().read(snapshot.business_id, snapshot.actor_id);
+    const result = await productionTestResult(read.state.snapshot!, rowPolicy, operation, outputBytes, approved); privateObjects.set(result.storage_key, outputBytes);
+    await db.query('UPDATE public.desaing_state SET revision=revision+1,snapshot=$1 WHERE business_id=$2', [JSON.stringify(result.state), snapshot.business_id]);
+    const request = { business_id: snapshot.business_id, apply_id: crypto.randomUUID(), snapshot_id: snapshot.id, source_hash: snapshot.source_hash, base_asset: snapshot.base_asset, result_asset: result.identity };
     return { ...result, operation, request };
   }
   async function carousel(table: 'copy_bank_items' | 'generated_ideas') {
@@ -70,7 +71,7 @@ describe.sequential('SQL005 exact production source and explicit image-only appl
     await db.query('INSERT INTO auth.users(id) VALUES ($1)', [actor]); await db.query("INSERT INTO public.business_tenants(id,slug) VALUES ($1,'production-test')", [biz]);
     await db.query("INSERT INTO public.user_business_memberships(user_id,business_id,role) VALUES ($1,$2,'owner')", [actor, biz]);
     await db.query("INSERT INTO public.desaing_policies(business_id,enabled,policy_id,limit_micro_usd,max_image_outputs,reservation_per_output_micro_usd,enabled_image_profiles,responses_image_enabled) VALUES ($1,true,$2,$3,$4,$5,ARRAY['flare_candidate'],true)",
-      [biz, config.policyId, policy.limit_micro_usd, policy.max_image_outputs, policy.reservation_per_output_micro_usd]);
+      [biz, policyId, policy.limit_micro_usd, policy.max_image_outputs, policy.reservation_per_output_micro_usd]);
     await db.query("INSERT INTO public.design_mockups(id,business_id,created_by,image_url,platform,selections,prompt_used,uploaded_at) VALUES ($1,$2,$3,$4,'instagram-post',$5,'Estilo original azul',now())", [mockup, biz, actor, publicUrl(sourceKey), JSON.stringify({ keep: true, pieceCopy: { headline: 'Marca exacta', body: '25 USD', cta: 'Visita' } })]);
   });
   afterAll(async () => { await db?.close(); });
@@ -105,8 +106,8 @@ describe.sequential('SQL005 exact production source and explicit image-only appl
   });
   it('replays the same prepared request through SQL even when a competing acknowledgement carried a later timestamp', async () => {
     const { snapshot, input } = await prepare();
-    expect(await repo().prepare(actor, input, { ...snapshot, created_at: '2026-09-18T23:59:00.000Z' }, config.policyId)).toEqual(snapshot);
-    await expect(repo().prepare(actor, { ...input, confirmed_copy: 'different' }, snapshot, config.policyId)).rejects.toMatchObject({ code: 'production_request_conflict' });
+    expect(await repo().prepare(actor, input, { ...snapshot, created_at: '2026-09-18T23:59:00.000Z' }, policyId)).toEqual(snapshot);
+    await expect(repo().prepare(actor, { ...input, confirmed_copy: 'different' }, snapshot, policyId)).rejects.toMatchObject({ code: 'production_request_conflict' });
     expect((await db.query('SELECT * FROM public.desaing_production_snapshots')).rows).toHaveLength(1);
   });
   it('refuses arbitrary URLs, renamed non-PNG bytes and a mutated original under the same trusted URL', async () => {
@@ -205,8 +206,28 @@ describe.sequential('SQL005 exact production source and explicit image-only appl
     const { snapshot } = await prepare(), generated = await result(snapshot);
     legacyObjects.set(sourceKey, productionPng(90, 2, 2)); await expect(fixture().boundary.apply(actor, generated.request)).rejects.toMatchObject({ code: 'production_base_changed' });
     legacyObjects.set(sourceKey, sourceBytes);
-    await expect(repo().apply({ actorId: actor, request: generated.request, stateRevision: 0, imageUrl: publicUrl(`${biz}/mockups/result.png`), prompt: 'Prompt', instruction: 'Edit', policyId: config.policyId })).rejects.toMatchObject({ code: 'production_result_mismatch' });
+    await expect(repo().apply({ actorId: actor, request: generated.request, stateRevision: 0, imageUrl: publicUrl(`${biz}/mockups/result.png`), prompt: 'Prompt', instruction: 'Edit', policyId })).rejects.toMatchObject({ code: 'production_result_mismatch' });
     expect((await db.query('SELECT * FROM public.design_mockups')).rows).toHaveLength(1);
+  });
+  it('admits another owner/admin actor of another business under that business policy row', async () => {
+    const biz2 = 'a0000000-0000-4000-8000-000000000006', admin = 'a0000000-0000-4000-8000-000000000007', mockup2 = 'a0000000-0000-4000-8000-000000000008';
+    const key2 = `${biz2}/mockups/original.png`, policy2: ServerPolicy = { ...policy, business_id: biz2, policy_id: 'second-business-policy' };
+    await db.query('INSERT INTO auth.users(id) VALUES ($1)', [admin]); await db.query("INSERT INTO public.business_tenants(id,slug) VALUES ($1,'production-second')", [biz2]);
+    await db.query("INSERT INTO public.user_business_memberships(user_id,business_id,role) VALUES ($1,$2,'admin')", [admin, biz2]);
+    await db.query("INSERT INTO public.desaing_policies(business_id,enabled,policy_id,limit_micro_usd,max_image_outputs,reservation_per_output_micro_usd,enabled_image_profiles,responses_image_enabled) VALUES ($1,true,$2,$3,$4,$5,ARRAY['flare_candidate'],true)",
+      [biz2, policy2.policy_id, policy2.limit_micro_usd, policy2.max_image_outputs, policy2.reservation_per_output_micro_usd]);
+    await db.query("INSERT INTO public.design_mockups(id,business_id,created_by,image_url,platform,selections,prompt_used,uploaded_at) VALUES ($1,$2,$3,$4,'instagram-post',$5,'Estilo original azul',now())",
+      [mockup2, biz2, admin, publicUrl(key2), JSON.stringify({ pieceCopy: { headline: 'Otra marca', body: '25 USD', cta: 'Visita' } })]);
+    legacyObjects.set(key2, sourceBytes);
+    const f = fixture(), source: ProductionSource = { kind: 'image', mockup_id: mockup2 };
+    const snapshot = await f.boundary.prepare(admin, { business_id: biz2, prepare_id: crypto.randomUUID(), source });
+    expect(snapshot).toMatchObject({ business_id: biz2, actor_id: admin });
+    const generated = await result(snapshot, true, productionTestOperation(snapshot), policy2);
+    await f.boundary.validateOperation(admin, generated.operation);
+    const receipt = await f.boundary.apply(admin, generated.request);
+    expect((await db.query<{ business_id: string }>('SELECT business_id FROM public.design_mockups WHERE id=$1', [receipt.mockup_id])).rows[0].business_id).toBe(biz2);
+    await db.query("UPDATE public.user_business_memberships SET role='editor' WHERE user_id=$1", [admin]);
+    await expect(f.boundary.prepare(admin, { business_id: biz2, prepare_id: crypto.randomUUID(), source })).rejects.toMatchObject({ code: 'business_write_denied' });
   });
   it('denies foreign actors, viewer mutations and direct writes to the immutable snapshots', async () => {
     await expect(repo().inspect(biz, biz, imageSource)).rejects.toMatchObject({ code: 'business_access_denied' });

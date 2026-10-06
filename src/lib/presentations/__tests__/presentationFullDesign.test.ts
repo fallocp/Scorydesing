@@ -35,7 +35,9 @@ describe('full presentation design before editable composition', () => {
     expect(presentationDesignSessionId('deck', 'slide', 'full_design')).toBe('presentation:deck:slide:full_design');
     expect(fullDesignImageSize(canvas)).toEqual({ width: 1536, height: 864 });
     expect(fullDesignImageSize({ width: 850, height: 1100 })).toEqual({ width: 1088, height: 1408 });
-    expect(fullDesignImageSize({ width: 1080, height: 1080 })).toEqual({ width: 1024, height: 1024 });
+    // 1080×1080 is the catalog square post: it renders at its documented generation size.
+    expect(fullDesignImageSize({ width: 1080, height: 1080 })).toEqual({ width: 1088, height: 1088 });
+    expect(fullDesignImageSize({ width: 1000, height: 1000 })).toEqual({ width: 1024, height: 1024 });
   });
   it('creates five distinct full drafts, keeps literal copy, and preserves the piece-only guard', () => {
     const { session, set } = fixture();

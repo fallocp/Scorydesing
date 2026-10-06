@@ -16,9 +16,10 @@ import { IMAGE_PROFILES, SELECTABLE_IMAGE_PROFILES, SELECTABLE_IMAGE_QUALITIES }
 import { productionPng } from './fixtures/productionFixture.ts';
 
 const business = '80000000-0000-4000-8000-000000000001', actor = '80000000-0000-4000-8000-000000000002';
-const config: ServerGenerationConfig = { enabled: true, executor: 'image_api', businessId: business, actorId: actor,
-  policyId: 'asset-unification', expectedSupabaseOrigin: 'https://project.supabase.co', actualSupabaseOrigin: 'https://project.supabase.co', expiresAt: 100000 };
-const policy: ServerPolicy = { business_id: business, enabled: true, policy_id: config.policyId, limit_micro_usd: PILOT_LIMITS.budgetMicroUsd,
+const policyId = 'asset-unification';
+const config: ServerGenerationConfig = { enabled: true, executor: 'image_api',
+  expectedSupabaseOrigin: 'https://project.supabase.co', actualSupabaseOrigin: 'https://project.supabase.co', expiresAt: 100000 };
+const policy: ServerPolicy = { business_id: business, enabled: true, policy_id: policyId, limit_micro_usd: PILOT_LIMITS.budgetMicroUsd,
   max_image_outputs: PILOT_LIMITS.maxOutputs, reservation_per_output_micro_usd: PILOT_LIMITS.reservationMicroUsd,
   enabled_image_profiles: [...SELECTABLE_IMAGE_PROFILES], responses_image_enabled: true };
 function operation(input: Partial<Parameters<typeof createAssetGenerationOperation>[0]> = {}) {

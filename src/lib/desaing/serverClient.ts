@@ -332,7 +332,7 @@ export function createDesignServerClient(options: DesignServerClientOptions): De
           const session = await authenticated();
           const data = await post(session, '/html/history', JSON.stringify({ business_id: businessId, session_id: sessionId }), 'application/json', false);
           await sameActor(session);
-          if (!record(data) || Object.keys(data).length !== 1 || !Array.isArray(data.attempts) || data.attempts.length > 20) fail('server_invalid_response');
+          if (!record(data) || Object.keys(data).length !== 1 || !Array.isArray(data.attempts) || data.attempts.length > 200) fail('server_invalid_response');
           const seen = new Set<string>();
           const attempts: HtmlAttempt[] = [];
           for (const attempt of data.attempts) {
