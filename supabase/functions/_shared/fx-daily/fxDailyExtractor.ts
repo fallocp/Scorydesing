@@ -28,13 +28,30 @@ const MIRA_CATEGORIES: FxMiraCategory[] = [
   'generic',
 ];
 
-export function buildExtractMessages(rawInput: string): OpenAIMessage[] {
+/** Etiqueta fija de "Tendencia" según la dirección de USD/MXN (no la escribe el LLM). */
+export const FX_ES_TREND_LABELS: Record<FxScenarioDirection, string> = {
+  up: 'Al alza',
+  down: 'A la baja',
+  lateral: 'Lateral',
+};
+
+export function extractApprovedHeadline(rawInput: string): string {
+  const heading = rawInput.match(/^#\s+(.+)$/m)?.[1]?.trim() ?? '';
+  // ((Titular)) primero; luego (Titular) como siempre.
+  const m = heading.match(/\(\(\s*([^()\n]+?)\s*\)\)\s*$/) ?? heading.match(/\(([^()\n]+)\)\s*$/);
+  return m?.[1]?.trim() ?? '';
+}
+
+export function buildExtractMessages(rawInput: string, approvedHeadline = ''): OpenAIMessage[] {
+  const headlineRule = approvedHeadline
+    ? `- headline: propone UNA alternativa editorial breve y fiel al titular aprobado: "${approvedHeadline}". Conserva los factores centrales, no agregues ni sustituyas drivers y no repitas el titular literalmente.`
+    : '- headline: titular editorial breve en español (una frase, estilo periodismo financiero premium). Ej: "El peso opera lateral por inflación y riesgo global".';
   const system = `Eres el editor del "Daily Report FX" de Xending. Recibes un análisis diario USD/MXN en Markdown y lo condensas en un JSON editorial. Resumes y seleccionas; NO inventas cifras, fuentes ni datos que no estén en el texto.
 
 REGLAS:
-- headline: titular editorial breve en español (una frase, estilo periodismo financiero premium). Ej: "El peso opera lateral por inflación y riesgo global".
-- commentary: 1 o 2 párrafos cortos, 75–105 palabras EN TOTAL. Tono editorial, no pega el reporte crudo.
-- pulso.apertura: el nivel de apertura/actual (ej "16.94"). pulso.variacion: variación % del día si está o se puede inferir del contexto (ej "-0.12%"); si no hay, deja "". variacion_dir: "up" si el USD sube, "down" si baja, "flat" si lateral. rango_dia: rango del día "min - max". tendencia: en palabras breves (ej "lateral", "positiva para el peso"). tendencia_dir: sesgo de la tendencia como SENTIMIENTO — "up" si es positiva/alcista, "down" si negativa/bajista, "lateral" si neutral/de rango.
+${headlineRule}
+- commentary: 1 o 2 párrafos cortos, 55–75 palabras EN TOTAL. Condensa únicamente "Apertura y contexto" si existe; conserva su cadena causal y sus factores centrales, sin introducir ni sustituir factores.
+- pulso.apertura: el nivel de apertura/actual (ej "16.94"). pulso.variacion: variación % del día si está o se puede inferir del contexto (ej "-0.12%"); si no hay, deja "". variacion_dir: "up" si el USD sube, "down" si baja, "flat" si lateral. rango_dia: rango del día "min - max". tendencia_dir: dirección de la tendencia de USD/MXN — "up" si USD/MXN tiende al alza (peso más débil), "down" si tiende a la baja (peso más fuerte), "lateral" si opera en rango.
 - drivers: entre 1 y 3 columnas. Usa "MÉXICO", "EE.UU." y "ENTORNO GLOBAL" según haya datos. Si no hay nada de México o de EE.UU., NO inventes esa columna: incluye solo las que tengan contenido. Cada columna: 2–4 viñetas concretas y cortas (con cifras cuando existan, ej "Composite PMI 54.8 vs 53.5").
 - lectura_clave: 1–2 frases con la conclusión operativa.
 - escenario_central: el rango del escenario base (ej "16.93 - 16.97").
@@ -48,7 +65,7 @@ Responde SOLO con JSON válido, sin markdown, con esta forma exacta:
   "pair": "USD/MXN",
   "headline": "",
   "commentary": ["", ""],
-  "pulso": { "apertura": "", "variacion": "", "variacion_dir": "flat", "rango_dia": "", "tendencia": "", "tendencia_dir": "lateral" },
+  "pulso": { "apertura": "", "variacion": "", "variacion_dir": "flat", "rango_dia": "", "tendencia_dir": "lateral" },
   "drivers": [ { "title": "MÉXICO", "bullets": [""] } ],
   "lectura_clave": "",
   "escenario_central": "",
@@ -68,6 +85,7 @@ export function coerceFxDaily(data: unknown): FxDailyReport | null {
   if (!o || typeof o !== 'object') return null;
 
   const pulsoRaw = (o.pulso ?? {}) as Record<string, unknown>;
+  const tendenciaDir = dir(pulsoRaw.tendencia_dir);
   const drivers: FxDriver[] = Array.isArray(o.drivers)
     ? (o.drivers as unknown[])
         .map((d) => {
@@ -117,8 +135,10 @@ export function coerceFxDaily(data: unknown): FxDailyReport | null {
       variacion: str(pulsoRaw.variacion),
       variacion_dir: vdir(pulsoRaw.variacion_dir),
       rango_dia: str(pulsoRaw.rango_dia),
-      tendencia: str(pulsoRaw.tendencia),
-      tendencia_dir: dir(pulsoRaw.tendencia_dir),
+      // Texto fijo desde la dirección del par: siempre coincide con el compás
+      // (el usuario lo puede editar después en el panel).
+      tendencia: FX_ES_TREND_LABELS[tendenciaDir],
+      tendencia_dir: tendenciaDir,
     },
     drivers,
     lectura_clave: str(o.lectura_clave),
@@ -129,18 +149,18 @@ export function coerceFxDaily(data: unknown): FxDailyReport | null {
   };
 }
 
-function miraCat(v: unknown): FxMiraCategory {
+export function miraCat(v: unknown): FxMiraCategory {
   const s = str(v).toLowerCase() as FxMiraCategory;
   return MIRA_CATEGORIES.includes(s) ? s : 'generic';
 }
 
 // --- helpers ---------------------------------------------------------------
 
-function str(v: unknown): string {
+export function str(v: unknown): string {
   return typeof v === 'string' ? v.trim() : v == null ? '' : String(v).trim();
 }
 
-function toNum(v: unknown): number | null {
+export function toNum(v: unknown): number | null {
   if (typeof v === 'number' && Number.isFinite(v)) return v;
   if (typeof v === 'string') {
     const n = parseFloat(v.replace('%', ''));
@@ -149,18 +169,18 @@ function toNum(v: unknown): number | null {
   return null;
 }
 
-function toStrArray(v: unknown): string[] {
+export function toStrArray(v: unknown): string[] {
   if (Array.isArray(v)) return v.map(str).filter(Boolean);
   if (typeof v === 'string' && v.trim()) return [v.trim()];
   return [];
 }
 
-function vdir(v: unknown): FxVariacionDir {
+export function vdir(v: unknown): FxVariacionDir {
   const s = str(v).toLowerCase();
   return s === 'up' || s === 'down' ? s : 'flat';
 }
 
-function dir(v: unknown): FxScenarioDirection {
+export function dir(v: unknown): FxScenarioDirection {
   const s = str(v).toLowerCase();
   return s === 'up' || s === 'down' ? s : 'lateral';
 }

@@ -18,6 +18,8 @@ import { buildFxDailyHtml, type FxKitUrls } from '@/utils/design-studio/buildFxD
 import { renderHtmlToPng } from '@/utils/xendingDesign/canvasRenderer';
 import type {
   FxDailyReport,
+  FxHeadlineOption,
+  FxLocale,
   GenerateFxDailyResponse,
 } from '../../supabase/functions/_shared/fx-daily/fx-daily-types';
 
@@ -28,12 +30,29 @@ const FX_PLATFORM = 'instagram-story';
 
 type FxStatus = 'idle' | 'processing' | 'generating' | 'done' | 'error';
 
+/**
+ * En respuestas no-2xx `functions.invoke` devuelve data = null y el Response en
+ * `error.context`; de ahí sacamos el `message` del servidor (ej. 422 del modo EN).
+ */
+async function readFnErrorMessage(fnError: unknown): Promise<string | null> {
+  const ctx = (fnError as { context?: unknown } | null)?.context;
+  if (!(ctx instanceof Response)) return null;
+  try {
+    const body = (await ctx.clone().json()) as { message?: unknown };
+    return typeof body?.message === 'string' ? body.message : null;
+  } catch {
+    return null;
+  }
+}
+
 export function useFxDaily() {
   const { activeBusinessId } = useActiveBusiness();
   const saveMockup = useSaveMockup();
 
   const [rawInput, setRawInput] = useState('');
+  const [locale, setLocale] = useState<FxLocale>('es');
   const [report, setReport] = useState<FxDailyReport | null>(null);
+  const [headlineOptions, setHeadlineOptions] = useState<FxHeadlineOption[]>([]);
   const [imagePrompt, setImagePrompt] = useState('');
   const [imageBase64, setImageBase64] = useState<string | undefined>();
   const [imageUrl, setImageUrl] = useState<string | undefined>();
@@ -57,13 +76,21 @@ export function useFxDaily() {
     setError(null);
     try {
       const { data, error: fnError } = await supabase.functions.invoke('generate-fx-daily', {
-        body: { business_id: activeBusinessId, raw_input: rawInput },
+        body: { business_id: activeBusinessId, raw_input: rawInput, locale },
       });
       const res = data as GenerateFxDailyResponse | undefined;
       if (fnError || !res?.report) {
-        throw new Error((data as { message?: string })?.message ?? fnError?.message ?? 'No se procesó el análisis');
+        const serverMessage = data ? null : await readFnErrorMessage(fnError);
+        throw new Error(
+          serverMessage ?? (data as { message?: string })?.message ?? fnError?.message ?? 'No se procesó el análisis',
+        );
       }
       applyReport(res.report);
+      setHeadlineOptions(
+        res.headline_options?.length
+          ? res.headline_options
+          : [{ value: res.report.headline, source: 'alternative' }],
+      );
       setImagePrompt(res.image_prompt);
       // Un report nuevo invalida la imagen previa.
       sceneRef.current = null;
@@ -77,7 +104,7 @@ export function useFxDaily() {
       setStatus('error');
       return false;
     }
-  }, [activeBusinessId, rawInput, applyReport]);
+  }, [activeBusinessId, rawInput, locale, applyReport]);
 
   // --- Composición: hero FIJO + kit de objetos + texto editable → PNG --------
   // El hero es un asset fijo del kit (se genera una vez); aquí NO se llama a la IA.
@@ -155,6 +182,7 @@ export function useFxDaily() {
   const reset = useCallback(() => {
     setRawInput('');
     applyReport(null);
+    setHeadlineOptions([]);
     setImagePrompt('');
     sceneRef.current = null;
     setImageBase64(undefined);
@@ -167,7 +195,10 @@ export function useFxDaily() {
   return {
     rawInput,
     setRawInput,
+    locale,
+    setLocale,
     report,
+    headlineOptions,
     imagePrompt,
     imageBase64,
     imageUrl,

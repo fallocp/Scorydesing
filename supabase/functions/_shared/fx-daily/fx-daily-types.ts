@@ -10,6 +10,9 @@
  * (callOpenAI, parseModelJson, auth, storage, render) pero no su ADN.
  */
 
+/** Idioma de salida del reporte. El MD de entrada siempre es español. */
+export type FxLocale = 'es' | 'en';
+
 /** Dirección de la variación (para la flechita). */
 export type FxVariacionDir = 'up' | 'down' | 'flat';
 
@@ -44,9 +47,15 @@ export interface FxPulso {
   variacion_dir: FxVariacionDir;
   /** Rango del día, ej "16.91 - 16.97". */
   rango_dia: string;
-  /** Tendencia en palabras, ej "positiva para el peso" / "lateral". */
+  /**
+   * Tendencia en palabras. Al generar se fija desde tendencia_dir (ES 'Al alza'/'A la baja'/'Lateral',
+   * EN 'Uptrend'/'Downtrend'/'Range-bound'); el usuario puede editarla.
+   */
   tendencia: string;
-  /** Sesgo de la tendencia, para elegir el compás (up verde / down rojo / lateral). */
+  /**
+   * Dirección de la tendencia del par USD/MXN (elige el compás): up = al alza (peso más débil),
+   * down = a la baja (peso más fuerte), lateral = en rango.
+   */
   tendencia_dir: FxScenarioDirection;
 }
 
@@ -91,11 +100,23 @@ export interface FxDailyReport {
   en_la_mira: FxMiraItem[];
   /** Nota/disclaimer (fija). */
   nota: string;
+  /** Idioma del reporte; las etiquetas fijas del HTML lo siguen. Ausente = 'es'. */
+  locale?: FxLocale;
 }
 
 /** Disclaimer por defecto (regulatorio, informativo). */
 export const FX_DEFAULT_NOTA =
   'El desempeño pasado no garantiza resultados futuros. Este material es únicamente informativo y no constituye asesoría de inversión.';
+
+/** Disclaimer por defecto en inglés (modo locale 'en'). */
+export const FX_DEFAULT_NOTA_EN =
+  'Past performance is not indicative of future results. This material is for informational purposes only and does not constitute investment advice.';
+
+/** Una opción de titular para elegir antes de componer la pieza. */
+export interface FxHeadlineOption {
+  value: string;
+  source: 'approved' | 'alternative';
+}
 
 // ---------------------------------------------------------------------------
 // Contrato de la edge function
@@ -105,10 +126,14 @@ export interface GenerateFxDailyRequest {
   business_id: string;
   /** MD del análisis diario tal cual lo pega el usuario. */
   raw_input: string;
+  /** Idioma de salida ('es' por defecto). 'en' = redacción nativa, no traducción literal. */
+  locale?: FxLocale;
 }
 
 export interface GenerateFxDailyResponse {
   report: FxDailyReport;
+  /** Titular aprobado y alternativa editorial fiel, cuando el input aporta uno. */
+  headline_options: FxHeadlineOption[];
   /** Prompt de imagen listo (escena AI-baked) con los valores del día inyectados. */
   image_prompt: string;
 }

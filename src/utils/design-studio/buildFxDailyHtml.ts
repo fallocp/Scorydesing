@@ -15,6 +15,7 @@
 
 import type {
   FxDailyReport,
+  FxLocale,
   FxScenario,
 } from '../../../supabase/functions/_shared/fx-daily/fx-daily-types';
 import { FX_MIRA_CATEGORY_OBJECT, type FxKitObjectId } from './fxDailyKit';
@@ -31,6 +32,51 @@ const XENDING_LOGO_URL =
   'https://gdfhytvjnzdovjfovqfv.supabase.co/storage/v1/object/sign/Brand/Xending%20bola%20logoabril26.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV8zNDdhNjgwZi1hZGU3LTQ3OGYtYjdkNy1kMGY5YzJjMDc4NDEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJCcmFuZC9YZW5kaW5nIGJvbGEgbG9nb2FicmlsMjYucG5nIiwiaWF0IjoxNzc3MTU1Nzg2LCJleHAiOjE4MDg2OTE3ODZ9.8ZrGD1_TGdtzJn5lSP3X3pvlqvFV-mfgwxLySRQUO3U';
 
 export type FxKitUrls = Partial<Record<FxKitObjectId, string>>;
+
+/** Etiquetas fijas horneadas en el HTML; siguen el idioma del report (no el selector). */
+const FX_HTML_LABELS: Record<
+  FxLocale,
+  {
+    lang: string;
+    pulso: string;
+    apertura: string;
+    rango: string;
+    tendencia: string;
+    drivers: string;
+    lectura: string;
+    lecturaAlt: string;
+    escenarios: string;
+    mira: string;
+    nota: string;
+  }
+> = {
+  es: {
+    lang: 'es',
+    pulso: 'PULSO DE MERCADO',
+    apertura: 'APERTURA',
+    rango: 'RANGO DEL DÍA',
+    tendencia: 'TENDENCIA',
+    drivers: 'LO QUE MUEVE AL MERCADO',
+    lectura: 'LECTURA CLAVE',
+    lecturaAlt: 'Lectura clave',
+    escenarios: 'ESCENARIOS',
+    mira: 'EN LA MIRA',
+    nota: 'Nota:',
+  },
+  en: {
+    lang: 'en',
+    pulso: 'MARKET PULSE',
+    apertura: 'OPEN',
+    rango: 'DAY RANGE',
+    tendencia: 'TREND',
+    drivers: 'MARKET DRIVERS',
+    lectura: 'KEY TAKEAWAY',
+    lecturaAlt: 'Key takeaway',
+    escenarios: 'SCENARIOS',
+    mira: 'WATCHLIST',
+    nota: 'Note:',
+  },
+};
 
 export interface FxDailyHtmlInput {
   report: FxDailyReport;
@@ -71,6 +117,7 @@ export function buildFxDailyHtml(input: FxDailyHtmlInput): string {
   const logoUrl = input.logoUrl ?? XENDING_LOGO_URL;
   const W = input.width ?? 1920;
   const H = input.height ?? 2485;
+  const L = FX_HTML_LABELS[report.locale ?? 'es'] ?? FX_HTML_LABELS.es;
 
   // --- Comentario (párrafos) ---
   const summary = report.commentary
@@ -80,9 +127,9 @@ export function buildFxDailyHtml(input: FxDailyHtmlInput): string {
 
   // --- PULSO DE MERCADO (3 stats, sin iconos) ---
   const pulsoCols = [
-    { label: 'APERTURA', value: report.pulso.apertura, valueSize: 58 },
-    { label: 'RANGO DEL DÍA', value: report.pulso.rango_dia, valueSize: 54 },
-    { label: 'TENDENCIA', value: report.pulso.tendencia, valueSize: 42 },
+    { label: L.apertura, value: report.pulso.apertura, valueSize: 58 },
+    { label: L.rango, value: report.pulso.rango_dia, valueSize: 54 },
+    { label: L.tendencia, value: report.pulso.tendencia, valueSize: 42 },
   ];
   const pulso = pulsoCols
     .map((c, i) => `${i > 0 ? '<div class="divider"></div>' : ''}
@@ -134,7 +181,7 @@ export function buildFxDailyHtml(input: FxDailyHtmlInput): string {
     })
     .join('');
 
-  return `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+  return `<!DOCTYPE html><html lang="${L.lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Poppins:wght@400;500;600;700&family=Fraunces:wght@400;600&display=swap" rel="stylesheet" />
 <style>
 :root{--mint:${MINT};--coral:${CORAL};--navy:#0F1419;--navy-title:${NAVY_TITLE};--gray:${GRAY};}
@@ -218,25 +265,25 @@ body{margin:0;overflow:hidden;background:#ffffff;}
       <div class="hero-summary">${summary}</div>
     </div>
   </div>
-  <div class="section-title" style="margin-top:4px;"><div class="section-text">PULSO DE MERCADO</div><div class="section-line"></div></div>
+  <div class="section-title" style="margin-top:4px;"><div class="section-text">${L.pulso}</div><div class="section-line"></div></div>
   <div class="cols">${pulso}</div>
-  <div class="section-title"><div class="section-text">LO QUE MUEVE AL MERCADO</div><div class="section-line" style="flex:1;"></div></div>
+  <div class="section-title"><div class="section-text">${L.drivers}</div><div class="section-line" style="flex:1;"></div></div>
   <div class="split-row">${drivers}</div>
   <div class="cards" style="margin-top:16px;">
     <div class="card">
-      <div class="mini-label">LECTURA CLAVE</div>
-      <div class="icon-slot" style="margin-top:18px;">${kitSlot(kit.magnifier, 'Lectura clave')}</div>
+      <div class="mini-label">${L.lectura}</div>
+      <div class="icon-slot" style="margin-top:18px;">${kitSlot(kit.magnifier, L.lecturaAlt)}</div>
       <div class="card-body" style="text-align:left;margin-top:8px;">${escapeHtml(report.lectura_clave)}</div>
     </div>
     <div class="card">
-      <div class="mini-label">ESCENARIOS</div>
+      <div class="mini-label">${L.escenarios}</div>
       <div class="mini-grid" style="grid-template-columns:1fr;gap:18px;">${escenarios}</div>
     </div>
     <div class="card">
-      <div class="mini-label">EN LA MIRA</div>
+      <div class="mini-label">${L.mira}</div>
       <div class="mini-grid" style="grid-template-columns:1fr;gap:16px;">${enLaMira}</div>
     </div>
   </div>
-  <div class="footer-note">Nota: ${escapeHtml(report.nota)}</div>
+  <div class="footer-note">${L.nota} ${escapeHtml(report.nota)}</div>
 </div></body></html>`;
 }

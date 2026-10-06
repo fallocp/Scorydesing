@@ -31,6 +31,7 @@ import { useFxDaily } from '@/hooks/useFxDaily';
 import { useFxKit } from '@/hooks/useFxKit';
 import { FX_KIT } from '@/utils/design-studio/fxDailyKit';
 import type {
+  FxLocale,
   FxMiraCategory,
   FxScenarioDirection,
   FxVariacionDir,
@@ -86,7 +87,7 @@ export function FxDailyPanel() {
       const blob = await res.blob();
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = `xending-fx-${(report?.date ?? 'daily').replace(/\s+/g, '-').toLowerCase()}.png`;
+      a.download = `xending-fx-${(report?.date ?? 'daily').replace(/[\s,]+/g, '-').toLowerCase()}.png`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -184,6 +185,22 @@ export function FxDailyPanel() {
       {/* Paso 1 — MD */}
       <Card>
         <CardContent className="space-y-3 pt-6">
+          <div className="space-y-1">
+            <Label htmlFor="fx-locale">Idioma del reporte</Label>
+            <select
+              id="fx-locale"
+              value={fx.locale}
+              onChange={(e) => fx.setLocale(e.target.value as FxLocale)}
+              disabled={fx.isProcessing}
+              className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
+            >
+              <option value="es">Español</option>
+              <option value="en">English</option>
+            </select>
+            <p className="text-xs text-muted-foreground">
+              English: redacción nativa de mercado para lectores corporativos internacionales (no traducción literal).
+            </p>
+          </div>
           <Label htmlFor="fx-input">Análisis diario (Markdown)</Label>
           <Textarea
             id="fx-input"
@@ -235,6 +252,36 @@ export function FxDailyPanel() {
               </div>
 
               <FieldArea label="Headline" value={report.headline} onChange={(v) => fx.updateReport({ headline: v })} />
+
+              {fx.headlineOptions.length > 0 && (
+                <div className="space-y-2 rounded-md border border-border/60 p-2">
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground">Opciones de headline</p>
+                    <p className="text-[10px] text-muted-foreground">Elige el titular que irá en la pieza. Puedes editarlo después.</p>
+                  </div>
+                  <div className="space-y-2">
+                    {fx.headlineOptions.map((option) => {
+                      const selected = report.headline.trim() === option.value.trim();
+                      return (
+                        <button
+                          key={`${option.source}-${option.value}`}
+                          type="button"
+                          aria-pressed={selected}
+                          onClick={() => fx.updateReport({ headline: option.value })}
+                          className={`w-full rounded-md border px-3 py-2 text-left text-xs transition-colors ${
+                            selected ? 'border-primary bg-primary/5' : 'border-border/60 hover:bg-muted/50'
+                          }`}
+                        >
+                          <span className="mb-1 block text-[10px] font-semibold uppercase text-muted-foreground">
+                            {option.source === 'approved' ? 'Titular aprobado' : 'Alternativa del agente'}
+                          </span>
+                          <span className="block text-foreground">{option.value}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               <FieldArea
                 label="Comentario (párrafos separados por línea en blanco)"

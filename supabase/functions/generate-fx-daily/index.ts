@@ -8,6 +8,12 @@
  * No genera la imagen ni compone el HTML: eso lo hace el frontend reutilizando
  * `generate-design-image` (mode generate) y `buildFxDailyHtml`.
  *
+ * `locale` ('es' por defecto | 'en'): el MD de entrada siempre es español. En 'en'
+ * el reporte se redacta nativo en inglés a partir de hechos (facts-first, una
+ * llamada) + post-check determinístico; si falla, una reparación y luego 422
+ * `en_validation_failed` (ver _shared/fx-daily/fxDailyEnglishPipeline.ts).
+ * El prompt de imagen es el mismo en ambos idiomas.
+ *
  * Auth: JWT obligatorio + membresía validada, igual que el resto del pipeline.
  */
 
@@ -17,7 +23,12 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.53.0';
 
 import { callOpenAI } from '../_shared/callOpenAI.ts';
 import { parseModelJson } from '../_shared/parseModelJson.ts';
-import { buildExtractMessages, coerceFxDaily } from '../_shared/fx-daily/fxDailyExtractor.ts';
+import {
+  buildExtractMessages,
+  coerceFxDaily,
+  extractApprovedHeadline,
+} from '../_shared/fx-daily/fxDailyExtractor.ts';
+import { runFxEnglishPipeline } from '../_shared/fx-daily/fxDailyEnglishPipeline.ts';
 import { buildFxDailyImagePrompt } from '../_shared/fx-daily/fxDailyImagePrompt.ts';
 import type {
   GenerateFxDailyRequest,
@@ -74,6 +85,10 @@ serve(async (req) => {
     if (!body.raw_input?.trim()) {
       return jsonResponse({ error: 'parse_error', message: 'Missing raw_input' }, 400);
     }
+    const locale = body.locale ?? 'es';
+    if (locale !== 'es' && locale !== 'en') {
+      return jsonResponse({ error: 'parse_error', message: 'Invalid locale' }, 400);
+    }
 
     const { data: membership } = await userClient
       .from('user_business_memberships')
@@ -86,9 +101,23 @@ serve(async (req) => {
       return jsonResponse({ error: 'forbidden', message: 'Access denied' }, 403);
     }
 
-    // Agente: condensa el MD a los campos editables.
+    // Agente: condensa el MD a los campos editables. Si el encabezado trae un
+    // titular aprobado entre paréntesis, ese texto queda seleccionado por defecto.
+    const approvedHeadline = extractApprovedHeadline(body.raw_input);
+
+    if (locale === 'en') {
+      const en = await runFxEnglishPipeline(body.raw_input, approvedHeadline, callOpenAI);
+      if (!en.ok) return jsonResponse(en.body, en.status);
+      const enResponse: GenerateFxDailyResponse = {
+        report: en.report,
+        headline_options: en.headline_options,
+        image_prompt: buildFxDailyImagePrompt(en.report),
+      };
+      return jsonResponse(enResponse, 200);
+    }
+
     const result = await callOpenAI({
-      messages: buildExtractMessages(body.raw_input),
+      messages: buildExtractMessages(body.raw_input, approvedHeadline),
       max_completion_tokens: 3000,
       temperature: 0.3,
     });
@@ -109,15 +138,29 @@ serve(async (req) => {
     }
 
     const report = coerceFxDaily(parsed.data);
-    if (!report || !report.headline) {
+    if (!report || (!report.headline && !approvedHeadline)) {
       return jsonResponse(
         { error: 'empty_report', message: 'No se pudieron extraer los campos del análisis.' },
         422,
       );
     }
 
+    const alternativeHeadline = report.headline;
+    if (approvedHeadline) report.headline = approvedHeadline;
+
+    const headlineOptions = approvedHeadline
+      ? [
+          { value: approvedHeadline, source: 'approved' as const },
+          ...(alternativeHeadline && alternativeHeadline !== approvedHeadline
+            ? [{ value: alternativeHeadline, source: 'alternative' as const }]
+            : []),
+        ]
+      : [{ value: report.headline, source: 'alternative' as const }];
+
+    report.locale = 'es';
     const response: GenerateFxDailyResponse = {
       report,
+      headline_options: headlineOptions,
       image_prompt: buildFxDailyImagePrompt(report),
     };
     return jsonResponse(response, 200);
