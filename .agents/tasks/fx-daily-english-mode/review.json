@@ -1,0 +1,15 @@
+{
+  "verdict": "APPROVED",
+  "findings": [
+    {
+      "id": "en-empty-headline-asymmetry",
+      "blocking": false,
+      "confidence": "confirmed",
+      "criterion": 6,
+      "location": "supabase/functions/_shared/fx-daily/fxDailyEnglishPipeline.ts:117; supabase/functions/generate-fx-daily/index.ts:142",
+      "issue": "The ES path accepts an empty LLM headline when an approved headline exists; the EN path returns 422 empty_report whenever the English headline is empty, even with an approved headline. Defensible, since a Spanish headline can't go on the English piece.",
+      "action": "Optional: add a one-line comment documenting that the EN path intentionally requires an English headline."
+    }
+  ],
+  "reviewDoc": "f:\\ScoryDesign\\.agents\\tasks\\fx-daily-english-mode/review.md"
+}

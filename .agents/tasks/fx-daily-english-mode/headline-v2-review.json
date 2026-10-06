@@ -1,0 +1,30 @@
+{
+  "verdict": "APPROVED",
+  "findings": [
+    {
+      "id": "repaired-alt-discarded",
+      "severity": "non-blocking",
+      "confidence": "confirmed",
+      "file": "supabase/functions/_shared/fx-daily/fxDailyEnglishPipeline.ts",
+      "summary": "In the drifted-repair branch (alt-only first pass, repair adds a violation elsewhere) the pipeline uses the generic buildFallbackHeadlineEn even when the repair returned a valid alternative (e.g. 'Mexican Peso Slips After Strong U.S. Jobs Data' in the new test), losing the driver-specific option.",
+      "action": "Before falling back, try validate(current.report, next.headlineAlternative, sourceNumbers); use the repaired alternative with the first-pass report when clean, otherwise the deterministic fallback."
+    },
+    {
+      "id": "summary-compass-claim",
+      "severity": "non-blocking",
+      "confidence": "confirmed",
+      "file": ".agents/tasks/fx-daily-english-mode/headline-v2.md",
+      "summary": "The summary says 'The compass arrow follows the pair direction in both locales', but buildFxDailyHtml renders no compass and tendencia_dir is only read by the FxDailyPanel select.",
+      "action": "Reword the line so the open color question is not framed on a rendered compass."
+    },
+    {
+      "id": "prompt-only-headline-quality",
+      "severity": "non-blocking",
+      "confidence": "possible",
+      "file": "supabase/functions/_shared/fx-daily/fxDailyExtractorEn.ts, fxEnglishStyleGuide.ts",
+      "summary": "Keeping every approved element (Fed), naming the body driver in one option and peso-led framing are enforced only by the prompt; tests assert prompt text, not model output.",
+      "action": "Live-check after deploying generate-fx-daily, including an MD without Fed or LatAm drivers."
+    }
+  ],
+  "reviewDoc": "f:\\ScoryDesign\\.agents\\tasks\\fx-daily-english-mode/headline-v2-review.md"
+}

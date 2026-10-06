@@ -3,7 +3,7 @@ dist
 dist-ssr
 dist-desaing-lab/
 dist-presentations-test/
-artifacts/desaing-lab/
+artifacts/
 *.local
 .env
 
