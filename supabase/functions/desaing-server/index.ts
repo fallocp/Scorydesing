@@ -72,9 +72,7 @@ const exploration = createServerExploration({
     return new Uint8Array(await data.arrayBuffer());
   } },
   createProvider: () => createExplorationProvider({ apiKey: Deno.env.get('OPENAI_API_KEY') ?? '',
-    // El encargo con texto literal pegado + referencias se repite en copy, instrucción y mensaje:
-    // 4096 tokens cortaba la respuesta (exploration_provider_incomplete).
-    model: 'gpt-5.4-mini', maxOutputTokens: 8192, fetch }),
+    model: 'gpt-5.4-mini', maxOutputTokens: 4096, fetch }),
 });
 
 const html = createServerHtml({

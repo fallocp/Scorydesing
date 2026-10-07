@@ -1,36 +1,43 @@
 # Verificación: regresión del visor GPT (referencia → visión → réplica)
 
-## Causa confirmada
-- Tras exponer los códigos del proveedor (paso 1), el usuario reenvió con la referencia nueva y la UI mostró
-  "La IA devolvió una respuesta incompleta…" → `exploration_provider_incomplete` (OpenAI devolvió `status != completed`).
-- Flujo del usuario: pega el texto literal + diseño actual seleccionado + referencia nueva con el acomodo. La respuesta
-  estructurada repite ese texto en `design_understanding.copy.text`, `resolved_instruction`, `references[].instruction`,
-  `message` y `next_action.instruction`; con 4096 tokens de salida se cortaba. Fix: `maxOutputTokens: 8192` en
-  `desaing-server/index.ts` (la validación del proveedor ya permite ≤ 8192). No se tocó `EXPLORATION_LIMITS.maxOutputTokens`
-  (contrato de capacidades fijo en 4096).
+## Causa confirmada (corregida)
+- La UI muestra el mismo texto ("La IA devolvió una respuesta incompleta…") para `exploration_provider_incomplete` y
+  `exploration_provider_invalid_result`. La tabla `desaing_explorations` del usuario mostró `exploration_provider_invalid_result`
+  con 580–759 tokens de salida: **no era el tope de tokens**. El cambio a 8192 de `b7dce77` se revirtió a 4096.
+- Causa real: la respuesta cumple el JSON schema estricto pero se contradice en reglas cruzadas que el schema no expresa
+  (`intent=requested` con `pending_questions`/copy pendiente → `conversation_action_not_ready`; ideas sin `explore_ideas`;
+  `clarify` con acción de render; copy pendiente con texto; instrucción vacía). El servidor descartaba el turno entero.
+  Intermitente: 2 de 5 turnos pasaron.
 - El 503 posterior es "Recuperar solicitud" sobre la entrada `uncertain` (por diseño). Hay que usar "Descartar".
+
+## Fase 1 (este commit)
+- `conversationActions.ts`: prompt de asistente natural (órdenes explícitas se ejecutan; dudas menores se asumen y se avisan;
+  una sola pregunta cuando cambia el resultado; analizar/proponer no ejecuta; `pending_action` se retoma al responder).
+  Campo opcional `conversation.pending_action` validado en `assertConversationTurn`.
+- `explorationProvider.ts`: regla de copy pegado = literal; `repairConversationOutput` corrige contradicciones sólo hacia el
+  estado seguro (nunca hacia ejecución); log `exploration_result_rejected <código fijo>` si aún es inválida.
+- `useDesignConversation.ts`: envía la acción en espera (`next_action` no `discuss` ni `requested`) como `pending_action`.
+- `desaing-server/index.ts`: `maxOutputTokens` vuelve a 4096.
 
 ## Comandos ejecutados y resultado
 | Comando | Resultado | Baseline |
 |---|---|---|
 | `npm run type-check` | exit 0 | exit 0 |
-| `npm run lint` | 604 problemas, **2 errores** (`useCarouselQueue.sharedGeneration.test.ts:77`, `useGenerateSlide.canvas.test.ts:10`) | 603 / mismos 2 errores |
-| `npx eslint` sobre los 5 archivos `src/` tocados | 0 errores | — |
-| `npm test` | 7 archivos / **15 tests fallando** (htmlBackend 1, materialsBackend 1, pilotHttp 4, productionBackend 2, serverExploration 3, serverGeneration 4, demo-controller.test.mjs) ; 3205 pasan | mismos 15 |
-| `npx vitest run serverClient, useDesignConversation, explorationProvider, conversationActions, designConversationImages` | todos pasan | — |
+| `npm run lint` | 604 problemas, **2 errores** (`useCarouselQueue.sharedGeneration.test.ts:77`, `useGenerateSlide.canvas.test.ts:10`) | mismos 2 errores |
+| `npm test` | 7 archivos / **15 tests fallando** (htmlBackend 1, materialsBackend 1, pilotHttp 4, productionBackend 2, serverExploration 3, serverGeneration 4, demo-controller.test.mjs); 3209 pasan | mismos 15 |
+| `npx vitest run conversationActions, explorationProvider, useDesignConversation, designConversationStore, presentationConversation` | 75/75 pasan | — |
 | `deno check --no-lock supabase/functions/desaing-server/index.ts` | exit 0 | exit 0 |
 | `git grep DEBUG-TEMP -- src supabase` | 0 coincidencias | — |
 
-## Tests nuevos (la referencia llega a visión y el análisis llega al prompt)
-- `useDesignConversation.test.ts` › "sends a new reference image to the vision planner and carries its analysis into the image generation prompt":
-  `planner.plan` recibe la referencia en `context.references`; `buildConversationImageOperation` recibe
-  `instruction` = `next_action.instruction` del análisis y la misma referencia.
-- `designConversationImages.test.ts` › "puts the uploaded style reference and the vision analysis instruction into the generation operation":
-  subida real + builder real → `op.context.instruction` contiene la instrucción y `op.context.references` la referencia (`image_style_reference`, `version_id` = sha256).
-- `serverClient.test.ts` › 502 `exploration_provider_timeout` conserva su código; código desconocido → `server_request_rejected`.
-- `explorationProvider.test.ts` › con `maxOutputTokens: 8192` el body a OpenAI lleva `max_output_tokens: 8192`.
+## Tests
+- `conversationActions.test.ts`: pregunta + `requested` → `suggested` con la pregunta (sin error); `clarify` en `create_html`,
+  copy pendiente con texto e ids duplicados se reparan; orden completa sigue `requested` y `pending_action` viaja al prompt;
+  `pending_action` inválido se rechaza; log sólo con el código fijo.
+- `useDesignConversation.test.ts`: "asks once, then resumes the waiting action when the user answers"; y (commit anterior)
+  la referencia nueva llega a `planner.plan` y su instrucción a `buildConversationImageOperation`.
+- `designConversationImages.test.ts`, `serverClient.test.ts`: del commit anterior.
 
 ## Pendiente (no verificable desde aquí)
-- Desplegar: `supabase functions deploy desaing-server`.
-- Navegador: `image_library` responde 200 (límite 24) y ya no aparece "Maximum update depth exceeded" (guardas de igualdad; el ciclo no se reprodujo localmente).
-- Respuestas > 4096 tokens: el estimador conserva la reserva completa (US$0.25) en vez del costo real (comportamiento conservador existente). Si la migración `202609260001` no está aplicada en remoto, eso consume el tope piloto de US$1 más rápido.
+- Desplegar: `supabase functions deploy desaing-server` (cliente y servidor comparten el contrato `pending_action`).
+- Navegador: `image_library` 200 (límite 24) y sin "Maximum update depth exceeded".
+- Si vuelve a fallar: Supabase → Edge Functions → desaing-server → Logs, buscar `exploration_result_rejected`.

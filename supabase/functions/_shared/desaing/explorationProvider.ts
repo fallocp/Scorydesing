@@ -37,6 +37,7 @@ En resolved_instruction y render_instruction identifica las fuentes por su refer
 Cuando recibas design_brief devuelve también design_understanding, incluso en discussion, para actualizar el encargo con lo que el usuario acaba de decir y el contexto anterior.
 Si pide hacerlo igual, conservar la composición o usar texto de una referencia y un objeto de otra, clasifica recreate y respeta esa combinación y jerarquía; no sustituyas el encargo por cinco estilos sin relación. En directions las cinco ideas sólo varían aspectos que el usuario dejó abiertos.
 Usa el nombre, paleta, tipografía y resumen de marca adjuntos como contexto de esta pieza, sin afirmar cambios o publicación del prompt maestro.
+Si el usuario escribe o pega en su mensaje el texto que debe llevar el diseño (o dice «usa este texto»), ese es el copy: status=literal con ese texto exacto, sin fuentes y sin preguntar por él.
 Interpreta frases como "lo que viene en las referencias" como una instrucción para leer, NUNCA como el texto a imprimir. Transcribe literalmente el texto visible de la fuente indicada; conserva tildes, signos, marca, URL y orden. No corrijas ni inventes caracteres dudosos: usa copy.status=pending, text vacío y una pregunta concreta si no puedes resolverlos.
 copy.status=literal significa texto resuelto, no aprobado. Usa source_reference_ids sólo de imágenes realmente adjuntas que sustentan el texto. Para copy explícito proporcionado por el usuario no inventes fuentes. Si no quiere texto usa status=none, text vacío y ninguna fuente. Conversar no exige copy final.
 Conserva copy literal y restricciones anteriores si el feedback sólo cambia el mundo, avión, color o composición. No agregues etiquetas de marca al copy si no fueron solicitadas. Expón en references qué aporta cada fuente, en preserve qué se debe mantener y en pending_questions sólo lo necesario para continuar.
@@ -135,6 +136,47 @@ function responseMetadata(body: unknown): { responseId: string | null; usage: Ex
     ? { input_tokens: counters.input_tokens, output_tokens: counters.output_tokens, total_tokens: counters.total_tokens } : null;
   return { responseId, usage };
 }
+const CONTROL = /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g;
+const unique = (value: unknown) => Array.isArray(value) ? [...new Set(value)] : value;
+/** The strict schema cannot express cross-field rules, so the model can still contradict itself
+ * (asks a question yet requests a render, ideas without explore_ideas, pending copy with text…).
+ * Repair only towards the safer state: never towards execution, approval or a new paid call. */
+export function repairConversationOutput(parsed: Record<string, unknown>, request: ExplorationRequest): void {
+  const turn = request.conversation, understanding = parsed.design_understanding, action = parsed.next_action;
+  if (!turn || !record(understanding) || !record(action)) return;
+  const copy = understanding.copy;
+  if (record(copy)) {
+    copy.source_reference_ids = unique(copy.source_reference_ids);
+    if (copy.status === 'literal' && (typeof copy.text !== 'string' || !copy.text.trim())) copy.status = 'pending';
+    if (copy.status !== 'literal') copy.text = '';
+    if (copy.status === 'none') copy.source_reference_ids = [];
+  }
+  if (Array.isArray(understanding.references)) {
+    const seen = new Set<unknown>();
+    understanding.references = (understanding.references as unknown[])
+      .filter((item): item is Record<string, unknown> => record(item) && !seen.has(item.reference_id) && !!seen.add(item.reference_id))
+      .map(item => ({ ...item, roles: unique(item.roles) }));
+  }
+  for (const key of ['instruction', 'reason'] as const) if (typeof action[key] === 'string') action[key] = (action[key] as string).replace(CONTROL, '');
+  action.reference_ids = unique(action.reference_ids);
+  if (action.intent === 'clarify' && action.kind !== 'discuss') action.intent = 'suggested';
+  if (action.kind === 'discuss' && action.intent === 'requested') action.intent = 'suggested';
+  if (action.kind !== 'discuss' && typeof action.instruction === 'string' && !action.instruction.trim()
+    && typeof understanding.resolved_instruction === 'string') action.instruction = understanding.resolved_instruction;
+  const selected = turn.selected_image;
+  if ((action.kind === 'edit_image' || action.kind === 'convert_image_to_html') && selected && Array.isArray(action.reference_ids)) {
+    const ref = request.context.references.find(item => item.business_id === selected.business_id && item.asset_id === selected.asset_id
+      && item.version_id === selected.version_id);
+    if (ref && !action.reference_ids.includes(ref.reference_id)) action.reference_ids = [ref.reference_id, ...action.reference_ids].slice(0, 4);
+  }
+  // A question left open means: ask now, run after the answer (pending_action on the next turn).
+  const questions = Array.isArray(understanding.pending_questions) ? understanding.pending_questions.length : 0;
+  if (action.intent === 'requested' && action.kind !== 'explore_ideas'
+    && (questions > 0 || request.scope === 'full_design' && record(copy) && copy.status === 'pending')) action.intent = 'suggested';
+  if (action.kind === 'explore_ideas' && action.intent === 'requested' && (!Array.isArray(parsed.ideas) || parsed.ideas.length !== 5)) action.intent = 'suggested';
+  if (!(action.kind === 'explore_ideas' && action.intent === 'requested')) parsed.ideas = [];
+  else if (Array.isArray(parsed.ideas)) parsed.ideas = parsed.ideas.map(idea => record(idea) ? { ...idea, reference_ids: unique(idea.reference_ids) } : idea);
+}
 function normalize(body: unknown, request: ExplorationRequest): ExplorationResult {
   const { responseId, usage } = responseMetadata(body);
   const fail = (code: string): never => { throw new ExplorationProviderError(code, responseId, usage); };
@@ -156,10 +198,16 @@ function normalize(body: unknown, request: ExplorationRequest): ExplorationResul
   if (!record(parsed) || Object.keys(parsed).length !== 2 + Number(!!request.design_brief) + Number(!!request.conversation) || !('message' in parsed) || !('ideas' in parsed)
     || (request.design_brief ? !('design_understanding' in parsed) : 'design_understanding' in parsed)
     || (request.conversation ? !('next_action' in parsed) : 'next_action' in parsed)) return fail('exploration_provider_invalid_result');
+  repairConversationOutput(parsed, request);
   const result = { request_key: request.request_key, message: parsed.message, ideas: parsed.ideas, response_id: responseId, usage,
     ...(request.design_brief ? { design_understanding: parsed.design_understanding } : {}),
     ...(request.conversation ? { next_action: parsed.next_action } : {}) };
-  try { assertExplorationResult(result, request); } catch { return fail('exploration_provider_invalid_result'); }
+  try { assertExplorationResult(result, request); } catch (error) {
+    // Fixed validation code only (never model text, references or credentials) to diagnose rejected turns.
+    const code = error instanceof Error && 'code' in error && typeof error.code === 'string' ? error.code : 'unknown';
+    console.warn('exploration_result_rejected', code);
+    return fail('exploration_provider_invalid_result');
+  }
   return result;
 }
 

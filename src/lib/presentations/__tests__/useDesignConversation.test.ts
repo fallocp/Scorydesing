@@ -235,6 +235,21 @@ describe('unified conversation orchestration', () => {
     } finally { vi.mocked(prepareConversationReferences).mockImplementation(async () => []); }
   });
 
+  it('asks once, then resumes the waiting action when the user answers', async () => {
+    const { options, planner, client } = fixture();
+    planner.plan.mockImplementationOnce(async request => {
+      const response = result(request, 'generate_image');
+      response.design_understanding!.pending_questions = ['¿Conservo la foto actual o uso la de la referencia?']; return response;
+    }).mockImplementationOnce(async request => result(request, 'generate_image', true));
+    render(options); await flush(); await render(options).send('Haz la portada con el acomodo de la referencia.');
+    expect(client.command).not.toHaveBeenCalled();
+    await render(options).send('La de la referencia.');
+    expect(planner.plan.mock.calls[0][0].conversation).not.toHaveProperty('pending_action');
+    expect(planner.plan.mock.calls[1][0].conversation!.pending_action).toEqual({ kind: 'generate_image',
+      instruction: 'Conserva el texto y cambia el globo.', questions: ['¿Conservo la foto actual o uso la de la referencia?'] });
+    expect(render(options).error).toBe(''); expect(client.command).toHaveBeenCalledTimes(1);
+  });
+
   it('discussion and suggestions render nothing until an explicit action button, without a second planner call', async () => {
     const { options, planner, client } = fixture(); render(options); await flush(); await render(options).send('¿Qué cambiarías?');
     expect(render(options).error).toBe(''); expect(client.command).not.toHaveBeenCalled();

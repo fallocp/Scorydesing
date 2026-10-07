@@ -284,7 +284,7 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
     const hasHtml = selected?.kind === 'html' && viewRef.current !== 'history' && same(selected.target, value.target)
       && !selected.composition?.unresolved_slots.length || !selected && viewRef.current === 'html';
     if (hasHtml) actions.push('refine_html');
-    const actionId = crypto.randomUUID(), turnId = crypto.randomUUID(), destination = latest.current.destination;
+    const actionId = crypto.randomUUID(), turnId = crypto.randomUUID(), destination = latest.current.destination, waiting = value.next_action;
     const projectCopy = (copy: DesignCopy) => ({ ...copy, source_reference_ids: copy.source_reference_ids.filter(id => visualRefs.some(ref => ref.reference_id === id)) });
     const previousUnderstanding = value.understanding ? { ...value.understanding, copy: projectCopy(value.understanding.copy),
       references: value.understanding.references.filter(ref => visualRefs.some(item => item.reference_id === ref.reference_id)) } : null;
@@ -301,6 +301,9 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
         ...(previousUnderstanding ? { previous_understanding: previousUnderstanding } : {}) },
       conversation: { schema_version: 1, canvas, surface: hasHtml ? 'html' : selectedImage ? 'image' : 'empty',
         selected_image: selectedImage?.kind === 'image' ? selectedImage.asset : null, available_actions: resolvingCopy ? ['discuss'] : actions,
+        // The action left waiting for this answer, so a reply such as «sí» or «HTML» resumes it instead of asking again.
+        ...(!resolvingCopy && waiting && waiting.kind !== 'discuss' && waiting.intent !== 'requested' ? { pending_action: {
+          kind: waiting.kind, instruction: waiting.instruction, questions: value.understanding?.pending_questions ?? [] } } : {}),
         ...(hasHtml ? { current_html: { revision: String(value.target.revision),
           summary: buildConversationHtmlSummary(selected?.kind === 'html' ? selected.proposal.html : latest.current.slide.html) } } : {}) } };
     await save(life, before => beginConversationAction(before, { action_id: actionId, turn_id: turnId, kind: 'understand', phase: 'prepared',

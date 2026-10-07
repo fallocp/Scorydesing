@@ -36,10 +36,6 @@ describe('single-call textual Responses adapter with mandatory injected transpor
     expect(body.input.flatMap((message: { content: { type: string }[] }) => message.content).some((part: { type: string }) => part.type === 'input_image')).toBe(false);
     expect(JSON.parse(body.input[1].content[0].text).history).toEqual(req.history);
   });
-  it('forwards the server output ceiling of 8192 tokens so long literal copy is not truncated', async () => {
-    const f = fixture(wire(), { maxOutputTokens: 8192 }); await f.provider.plan(request());
-    expect(JSON.parse(f.fetch.mock.calls[0][1]!.body as string)).toMatchObject({ max_output_tokens: 8192 });
-  });
   it('refuses absent transport, unbounded configuration and invalid input before fetch', async () => {
     expect(() => createExplorationProvider({ apiKey: key, model: 'gpt-5.4-mini' } as ExplorationProviderConfig)).toThrow('exploration_provider_invalid_configuration');
     for (const override of [{ maxOutputTokens: 0 }, { maxOutputTokens: 9000 }, { timeoutMs: 60001 }, { model: 'other' }, { apiKey: '' }]) {

@@ -135,6 +135,51 @@ describe('unified conversation using the existing exploration planner', () => {
     expect(() => assertExplorationResult(output, req)).not.toThrow();
   });
 
+  it('repairs a self-contradicting answer into a question that waits for the user instead of failing the turn', async () => {
+    const req = request(), output = result(req);
+    output.design_understanding = { ...visualUnderstanding(), pending_questions: ['¿La quieres como imagen o como HTML?'] };
+    output.ideas = legacyResult().ideas; output.next_action = { ...action(), instruction: '' };
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const f = fixture(output), planned = await f.provider.plan(req, f.images);
+    expect(planned.next_action).toMatchObject({ kind: 'generate_image', intent: 'suggested', instruction: visualUnderstanding().resolved_instruction });
+    expect(planned.ideas).toEqual([]); expect(planned.design_understanding!.pending_questions).toHaveLength(1);
+    expect(warn).not.toHaveBeenCalled(); warn.mockRestore();
+  });
+
+  it('repairs clarify on a render action, pending copy with text and duplicated ids without enabling execution', async () => {
+    const req = request(), output = result(req);
+    output.design_understanding = { ...visualUnderstanding(), copy: { status: 'pending', text: 'Texto dudoso', source_reference_ids: ['source-1', 'source-1'] } };
+    output.next_action = { ...action('create_html'), intent: 'clarify', reference_ids: ['source-1', 'source-1'] };
+    const f = fixture(output), planned = await f.provider.plan(req, f.images);
+    expect(planned.design_understanding!.copy).toEqual({ status: 'pending', text: '', source_reference_ids: ['source-1'] });
+    expect(planned.next_action).toMatchObject({ kind: 'create_html', intent: 'suggested', reference_ids: ['source-1'] });
+  });
+
+  it('keeps an explicit, complete order as requested and sends the waiting action as context for the answer', async () => {
+    const req = request(); req.message = 'HTML.';
+    req.conversation!.pending_action = { kind: 'create_html', instruction: 'Recrea source-1 con el texto literal.', questions: ['¿Imagen o HTML?'] };
+    expect(() => assertExplorationRequest(req)).not.toThrow();
+    const f = fixture(result(req, action('create_html'))), planned = await f.provider.plan(req, f.images);
+    expect(planned.next_action).toMatchObject({ kind: 'create_html', intent: 'requested' });
+    const body = JSON.parse(f.fetch.mock.calls[0][1]!.body as string);
+    expect(JSON.parse(body.input[1].content[0].text).conversation.pending_action).toEqual(req.conversation!.pending_action);
+    expect(body.input[0].content[0].text).toContain('conversation.pending_action');
+    for (const pending of [{ kind: 'discuss', instruction: '', questions: [] }, { kind: 'create_html', instruction: 'x', questions: [''] },
+      { kind: 'create_html', instruction: 'x', questions: [], extra: true }]) {
+      const bad = request(); Object.assign(bad.conversation!, { pending_action: pending });
+      expect(() => assertExplorationRequest(bad)).toThrow('invalid_conversation_turn');
+    }
+  });
+
+  it('logs only the fixed validation code when a repaired answer is still invalid', async () => {
+    const req = request(), output = result(req, { ...action(), kind: 'refine_html' as never });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const f = fixture(output);
+    await expect(f.provider.plan(req, f.images)).rejects.toMatchObject({ code: 'exploration_provider_invalid_result' });
+    expect(warn).toHaveBeenCalledWith('exploration_result_rejected', 'invalid_conversation_action');
+    expect(JSON.stringify(warn.mock.calls)).not.toContain('Xending'); warn.mockRestore();
+  });
+
   it('requires the selected image reference in edit/conversion and rejects unrequested action output on legacy planning', () => {
     const req = request(), ref = req.context.references[1];
     req.conversation!.selected_image = { business_id: ref.business_id, asset_id: ref.asset_id, version_id: ref.version_id };
