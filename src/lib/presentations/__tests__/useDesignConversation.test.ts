@@ -269,6 +269,15 @@ describe('unified conversation orchestration', () => {
     expect(turn.design_format).toBe('image'); expect(turn).not.toHaveProperty('design_base');
   });
 
+  it('«Estilo de la presentación» sends the deck style kit and creates a new slide instead of refining the current one', async () => {
+    const { options, planner } = fixture(); options.format = 'html'; options.base = 'deck';
+    options.deckStyle = [{ title: 'Beneficios', summary: 'Tarjetas con ícono' }];
+    render(options); await flush(); await render(options).send('Crea esta diapositiva con el estilo de la presentación.');
+    const turn = planner.plan.mock.calls[0][0].conversation!;
+    expect(turn).toMatchObject({ design_format: 'html', design_base: 'deck', deck_style: { slides: options.deckStyle }, surface: 'empty' });
+    expect(turn).not.toHaveProperty('current_html'); expect(turn.available_actions).not.toContain('refine_html');
+  });
+
   it('discussion and suggestions render nothing until an explicit action button, without a second planner call', async () => {
     const { options, planner, client } = fixture(); render(options); await flush(); await render(options).send('¿Qué cambiarías?');
     expect(render(options).error).toBe(''); expect(client.command).not.toHaveBeenCalled();

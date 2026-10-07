@@ -1269,7 +1269,7 @@ function PresentationsPageContent({ activeBusinessId }: { activeBusinessId: stri
       {designTarget?.initialScope === 'full_design' && activeBusinessId && designService && <UnifiedDesignWorkspace
         key={`conversation:${activeBusinessId}:${designTarget.documentId}:${designTarget.slide.id}`}
         service={designService} businessId={activeBusinessId} documentId={designTarget.documentId} slide={designTarget.slide}
-        initialView="html" onClose={() => setDesignTarget(null)} onApply={next => {
+        deckSlides={slides} initialView="html" onClose={() => setDesignTarget(null)} onApply={next => {
           if (!alive.current || (slidesOwnerIdRef.current ?? `draft:${activeBusinessId}`) !== designTarget.documentId) throw new Error('slide_revision_conflict');
           setSlides(previous => reviseSlide(previous, { slide_id: designTarget.slide.id, expected_revision: designTarget.slide.revision,
             html: next.html, mounted_assets: next.mounted_assets }));
@@ -1322,7 +1322,7 @@ function PresentationsPageContent({ activeBusinessId }: { activeBusinessId: stri
       {generatorOpen && designService && activeBusinessId && slides[currentSlide] && <UnifiedDesignWorkspace
         key={`conversation:${activeBusinessId}:${slidesOwnerIdRef.current}:${slides[currentSlide].id}`}
         service={designService} businessId={activeBusinessId} documentId={slidesOwnerIdRef.current ?? `draft:${activeBusinessId}`} slide={slides[currentSlide]}
-        initialView="html" onClose={() => setGeneratorOpen(false)}
+        deckSlides={slides} initialView="html" onClose={() => setGeneratorOpen(false)}
         onApply={next => handleApplyGeneratedToCurrent(next.html, { document: slidesOwnerIdRef.current ?? `draft:${activeBusinessId}`,
           slide: slides[currentSlide].id, revision: slides[currentSlide].revision }, next.mounted_assets)}
         onInsert={next => handleInsertGeneratedSlide(next.html, { document: slidesOwnerIdRef.current ?? `draft:${activeBusinessId}`,

@@ -188,6 +188,22 @@ describe('unified conversation using the existing exploration planner', () => {
     expect(prepareExplorationRequest(html).input).toEqual(expect.arrayContaining([expect.objectContaining({ role: 'developer' })]));
   });
 
+  it('accepts the presentation style kit only with the «deck» base and bounded summaries', async () => {
+    const kit = { slides: [{ title: 'Beneficios', summary: 'Resumen de HTML; tarjetas con ícono.' }] };
+    const req = request(); Object.assign(req.conversation!, { design_format: 'html', design_base: 'deck', deck_style: kit, available_actions: ['discuss', 'create_html'] });
+    expect(() => assertExplorationRequest(req)).not.toThrow();
+    const f = fixture(result(req, action('create_html'))); await f.provider.plan(req, f.images);
+    const body = JSON.parse(f.fetch.mock.calls[0][1]!.body as string);
+    expect(JSON.parse(body.input[1].content[0].text).conversation.deck_style).toEqual(kit);
+    expect(body.input[0].content[0].text).toContain('design_base=deck');
+    for (const mutate of [
+      (bad: ExplorationRequest) => Object.assign(bad.conversation!, { design_base: 'current' }),
+      (bad: ExplorationRequest) => Object.assign(bad.conversation!, { deck_style: { slides: [] } }),
+      (bad: ExplorationRequest) => Object.assign(bad.conversation!, { deck_style: { slides: Array(4).fill(kit.slides[0]) } }),
+      (bad: ExplorationRequest) => Object.assign(bad.conversation!, { deck_style: { slides: [{ title: 'x', summary: 'a'.repeat(4001) }] } }),
+    ]) { const bad = structuredClone(req); mutate(bad); expect(() => assertExplorationRequest(bad)).toThrow('invalid_conversation_turn'); }
+  });
+
   it('logs only the fixed validation code when a repaired answer is still invalid', async () => {
     const req = request(), output = result(req, { ...action(), kind: 'refine_html' as never });
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});

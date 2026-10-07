@@ -31,6 +31,8 @@ export interface SlideGeneratorPanelProps {
   onApplyToCurrent(html: string, target?: HtmlDesignTarget, mounted?: PresentationMountedAsset[]): void | Promise<void>;
   onClose(): void;
   slides?: Array<{ title: string; html: string }>; currentSlide?: number; onSelectSlide?(idx: number): void;
+  /** Other slides of the deck (inert markup + CSS) to reuse their components when creating. */
+  styleExamples?: string[];
 }
 export type SlideProposalReason = 'generated' | 'refined' | 'edited' | 'recovered' | 'imported';
 export interface SlideGeneratorContext {
@@ -164,6 +166,7 @@ function HtmlDesignWorkspace(props: SlideGeneratorPanelProps & { actorId: string
         canvas: size, instruction: before.instruction || undefined, references,
         ...(before.copyMode !== 'instruction' ? { copy_mode: before.copyMode, approved_copy: before.copyMode === 'literal' ? before.copy : undefined } : {}),
         ...(refine ? { current_html: base, iteration_feedback: before.feedback, render_base64: render } : {}),
+        ...(!refine && latest.current.styleExamples?.length ? { style_examples: structuredClone(latest.current.styleExamples) } : {}),
       });
       await assertSession(life);
       const html = sanitizePresentationHtml(response.html);

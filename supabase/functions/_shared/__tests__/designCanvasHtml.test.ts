@@ -44,6 +44,18 @@ describe('shared Presentations HTML canvas contract', () => {
     expect(JSON.stringify(messages)).not.toContain('Xending');
   });
 
+  it('sends up to three slides of the presentation as style examples for a new slide', () => {
+    const example = '<style>.card{border-radius:16px}</style><div class="slide"><div class="card"><h3>Capital</h3></div></div>';
+    const request = parseDesignCanvasHtmlRequest({ ...base(), style_examples: [example] });
+    const messages = buildDesignCanvasHtmlMessages(request, { name: 'Marca' });
+    expect(messages[0].content).toContain('ESTILO DE LA PRESENTACIÓN');
+    const content = messages[1].content;
+    if (!Array.isArray(content)) throw Error('Expected multimodal parts');
+    expect(content.find(part => part.type === 'text' && part.text.startsWith('ESTILO DE LA PRESENTACIÓN 1'))).toMatchObject({ text: expect.stringContaining(example) });
+    for (const style_examples of [[], Array(4).fill(example), ['a'.repeat(40001)], [42], 'texto'])
+      expect(() => parseDesignCanvasHtmlRequest({ ...base(), style_examples })).toThrow();
+  });
+
   it('accepts text-only creation without generating reference images', () => {
     const request = parseDesignCanvasHtmlRequest(base());
     const content = buildDesignCanvasHtmlMessages(request, { name: 'Una marca' })[1].content;

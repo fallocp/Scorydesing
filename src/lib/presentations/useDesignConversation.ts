@@ -32,7 +32,9 @@ export interface UseDesignConversationOptions {
   service: PresentationDesignService; businessId: string; documentId: string; slide: PresentationSlide;
   destination?: DesignSurfaceDestination; initialCopy?: string | DesignCopy; initialView?: 'image' | 'html'; settings: ImageGenerationSettings;
   /** Output and starting point chosen in the workspace; undefined keeps every action available. */
-  format?: 'html' | 'image'; base?: 'current' | 'new';
+  format?: 'html' | 'image'; base?: 'current' | 'deck' | 'new';
+  /** Style kit of the presentation (other slides), used when base is 'deck'. */
+  deckStyle?: Array<{ title: string; summary: string }>;
   htmlController: RefObject<SlideGeneratorController | null>; compositionController: RefObject<DesignToHtmlController | null>;
   htmlState?: RefObject<SlideGeneratorState | null>; compositionState?: RefObject<DesignToHtmlState | null>;
   onView(view: DesignConversationView): void; onApply(slide: PresentationSlide): void | Promise<void>;
@@ -286,7 +288,7 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
     if (selectedImage?.kind === 'image') actions.push('edit_image', 'convert_image_to_html');
     // «Diseño actual» in HTML: the slide's existing HTML is the design to adjust, even when an image version is selected.
     const hasHtml = selected?.kind === 'html' && viewRef.current !== 'history' && same(selected.target, value.target)
-      && !selected.composition?.unresolved_slots.length || !selected && viewRef.current === 'html' && base !== 'new'
+      && !selected.composition?.unresolved_slots.length || !selected && viewRef.current === 'html' && base !== 'new' && base !== 'deck'
       || format === 'html' && base === 'current' && selected?.kind !== 'html';
     if (hasHtml) actions.push('refine_html');
     const excluded: ConversationActionKind[] = format === 'html' ? ['generate_image', 'edit_image']
@@ -314,6 +316,8 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
           kind: waiting.kind, instruction: waiting.instruction, questions: value.understanding?.pending_questions ?? [] } } : {}),
         ...(!resolvingCopy && format ? { design_format: format } : {}),
         ...(!resolvingCopy && format === 'html' && base ? { design_base: base } : {}),
+        ...(!resolvingCopy && format === 'html' && base === 'deck' && latest.current.deckStyle?.length
+          ? { deck_style: { slides: structuredClone(latest.current.deckStyle) } } : {}),
         ...(hasHtml ? { current_html: { revision: String(value.target.revision),
           summary: buildConversationHtmlSummary(selected?.kind === 'html' ? selected.proposal.html : latest.current.slide.html) } } : {}) } };
     await save(life, before => beginConversationAction(before, { action_id: actionId, turn_id: turnId, kind: 'understand', phase: 'prepared',

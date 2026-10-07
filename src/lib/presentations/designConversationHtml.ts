@@ -9,9 +9,7 @@ const withoutLocations = (value: string) => value
   // eslint-disable-next-line no-control-regex
   .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '');
 
-/** Detached structural context for planning. Image bytes go through registered
- * references; this summary neither loads resources nor renders a screenshot. */
-export function buildConversationHtmlSummary(html: string): string {
+function inert(html: string) {
   const document = new DOMParser().parseFromString('', 'text/html');
   // Template contents remain inert, including image/resource elements, and are
   // never connected to a document or an iframe.
@@ -31,6 +29,29 @@ export function buildConversationHtmlSummary(html: string): string {
   root.querySelectorAll('style').forEach(node => node.remove());
   const visibleText = withoutLocations(root.textContent ?? '').replace(/\s+/g, ' ').trim();
   const structure = withoutLocations(template.innerHTML).replace(/>\s+</g, '><').trim();
+  return { styles, visibleText, structure };
+}
+
+/** Detached structural context for planning. Image bytes go through registered
+ * references; this summary neither loads resources nor renders a screenshot. */
+export function buildConversationHtmlSummary(html: string): string {
+  const { styles, visibleText, structure } = inert(html);
   const summary = `Resumen de HTML; no es una captura.\nTexto: ${clip(visibleText, 3800)}\nCSS: ${clip(styles, 3200)}\nEstructura: ${clip(structure, 4700)}`;
   return clip(summary, LIMIT);
+}
+
+const visibleTextOf = (html: string) => html.replace(/<style[\s\S]*?<\/style>|<script[\s\S]*?<\/script>|<[^>]+>/gi, ' ').replace(/\s+/g, ' ').trim();
+export interface DeckStyleKit { slides: Array<{ title: string; summary: string }>; examples: string[] }
+/** Style kit of the presentation: up to three other slides with content, nearest to the current one.
+ * The planner gets short summaries; the HTML engine gets inert markup + CSS (no scripts, URLs or image bytes). */
+export function buildDeckStyleKit(slides: ReadonlyArray<{ id: string; title?: string; html: string }>, currentId: string): DeckStyleKit {
+  const index = slides.findIndex(slide => slide.id === currentId);
+  const picked = slides.map((slide, position) => ({ slide, distance: Math.abs(position - (index < 0 ? 0 : index)) }))
+    .filter(({ slide }) => slide.id !== currentId && visibleTextOf(slide.html))
+    .sort((a, b) => a.distance - b.distance).slice(0, 3).map(item => item.slide);
+  return {
+    slides: picked.map((slide, position) => ({ title: clip(slide.title?.trim() || `Diapositiva ${position + 1}`, 200),
+      summary: clip(buildConversationHtmlSummary(slide.html), 4000) })),
+    examples: picked.map(slide => { const { styles, structure } = inert(slide.html); return clip(`<style>${styles}</style>${structure}`, 40000); }),
+  };
 }

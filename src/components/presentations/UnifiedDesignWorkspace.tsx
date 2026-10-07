@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { buildDeckStyleKit } from '@/lib/presentations/designConversationHtml';
 import { ArrowUp, Check, ImagePlus, Layers, Loader2, MessageSquare, Pencil, Sparkles, X } from 'lucide-react';
 import type { PresentationSlide } from '@/lib/presentations/presentationDocument';
 import { getSlideDimensions, reviseSlide } from '@/lib/presentations/presentationDocument';
@@ -19,6 +20,8 @@ import './UnifiedDesignWorkspace.css';
 export interface UnifiedDesignWorkspaceProps {
   service: PresentationDesignService; businessId: string; documentId: string; slide: PresentationSlide;
   destination?: DesignSurfaceDestination; initialInstruction?: string; initialCopy?: string; initialView?: 'image' | 'html';
+  /** Slides of the presentation, for the «Estilo de la presentación» base. */
+  deckSlides?: ReadonlyArray<PresentationSlide>;
   onApply(slide: PresentationSlide): void | Promise<void>; onInsert?(slide: PresentationSlide): void | Promise<void>; onClose(): void;
 }
 const actionLabels: Partial<Record<ConversationActionKind, string>> = {
@@ -40,9 +43,12 @@ export function UnifiedDesignWorkspace(props: UnifiedDesignWorkspaceProps) {
   }, [applyTarget, props.onApply, props.onInsert, props.onClose]);
   // Formato y base los elige el usuario; la IA sólo puede proponer acciones de ese formato.
   const [format, setFormat] = useState<'html' | 'image'>(props.initialView === 'html' ? 'html' : 'image');
-  const [base, setBase] = useState<'current' | 'new'>(() => props.slide.html
-    .replace(/<style[\s\S]*?<\/style>|<script[\s\S]*?<\/script>|<[^>]+>/gi, '').trim() ? 'current' : 'new');
-  const work = useDesignConversation({ ...props, onApply: applyResult, settings, htmlController, compositionController, htmlState, compositionState, onView, format, base });
+  // Kit de estilo: hasta 3 diapositivas con contenido, las más cercanas a la actual.
+  const deckKit = useMemo(() => props.deckSlides?.length ? buildDeckStyleKit(props.deckSlides, props.slide.id) : null, [props.deckSlides, props.slide.id]);
+  const [base, setBase] = useState<'current' | 'deck' | 'new'>(() => props.slide.html
+    .replace(/<style[\s\S]*?<\/style>|<script[\s\S]*?<\/script>|<[^>]+>/gi, '').trim() ? 'current' : deckKit?.slides.length ? 'deck' : 'new');
+  const work = useDesignConversation({ ...props, onApply: applyResult, settings, htmlController, compositionController, htmlState, compositionState, onView,
+    format, base, deckStyle: deckKit?.slides });
   const [message, setMessage] = useState(props.initialInstruction ?? ''), [referencesOpen, setReferencesOpen] = useState(false);
   const [fileBusy, setFileBusy] = useState(false), [localError, setLocalError] = useState('');
   const [htmlUi, setHtmlUi] = useState({ ready: false, busy: false, error: '' });
@@ -109,7 +115,7 @@ export function UnifiedDesignWorkspace(props: UnifiedDesignWorkspaceProps) {
         <label className="dc-mode"><span className="sr-only">Formato</span><select aria-label="Formato del diseño" value={format} disabled={blocked || pending}
           onChange={event => setFormat(event.target.value as typeof format)}><option value="html">HTML editable</option><option value="image">Imagen IA</option></select></label>
         {format === 'html' && <label className="dc-mode"><span className="sr-only">Base</span><select aria-label="Base del diseño" value={base} disabled={blocked || pending}
-          onChange={event => setBase(event.target.value as typeof base)}><option value="current">Diseño actual</option><option value="new">Diseño nuevo</option></select></label>}</div>
+          onChange={event => setBase(event.target.value as typeof base)}><option value="current">Diseño actual</option>{!!deckKit?.slides.length && <option value="deck">Estilo de la presentación</option>}<option value="new">Diseño nuevo</option></select></label>}</div>
         <button className="dc-button dc-reference-toggle" disabled={fileBusy} onClick={() => setReferencesOpen(value => !value)} aria-expanded={referencesOpen}><ImagePlus size={16} />Referencias · {state.references.length}</button></div>
       {referencesOpen && <div className="dc-reference-drawer"><PresentationReferencePicker items={state.references} disabled={busy || pending || !work.ready} onBusyChange={setFileBusy}
         onChange={items => work.changeReferences(items)} maxReferences={3} conversationReadsImages />
@@ -152,7 +158,9 @@ export function UnifiedDesignWorkspace(props: UnifiedDesignWorkspaceProps) {
           {format === 'image' && <button className="dc-button" disabled={blocked || pending} onClick={() => void send('Crea una imagen con las referencias y el diseño que hemos acordado.')}>Crear imagen</button>}
           {format === 'html' && <button className="dc-button" disabled={blocked || pending} onClick={() => void send(base === 'current'
             ? 'Aplica lo acordado al diseño actual de la diapositiva: conserva su estructura y acomoda el texto con las referencias.'
-            : 'Crea HTML editable nuevo a partir de las referencias y lo que hemos acordado.')}>{base === 'current' ? 'Aplicar al diseño actual' : 'Crear HTML'}</button>}</div>
+            : base === 'deck' ? 'Crea esta diapositiva con los componentes y el estilo de la presentación, con la información de las referencias y lo que hemos acordado.'
+            : 'Crea HTML editable nuevo a partir de las referencias y lo que hemos acordado.')}>
+            {base === 'current' ? 'Aplicar al diseño actual' : base === 'deck' ? 'Crear con el estilo del deck' : 'Crear HTML'}</button>}</div>
         <div className="dc-input"><textarea ref={composer} aria-label="Mensaje de diseño" value={message} onChange={event => setMessage(event.target.value)} maxLength={6000} rows={3}
           disabled={blocked || pending} onPaste={paste} placeholder="Usa el texto de la primera imagen y el mundo de la segunda…"
           onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void send(); } }} />
@@ -174,6 +182,7 @@ export function UnifiedDesignWorkspace(props: UnifiedDesignWorkspaceProps) {
           <p>{quality ? `${quality.charAt(0).toUpperCase()}${quality.slice(1)} · ` : ''}{approved ? 'Versión aprobada' : result?.direction ? 'Dirección elegida' : 'Lista para revisar'}</p></div>
           : <div className="dc-empty"><div className="dc-empty-symbol"><Sparkles size={30} /></div><h3>Tu diseño, con espacio para probar</h3><p>La imagen o el HTML aparecerán aquí. Puedes conversar antes de generar.</p></div>)}
         <div hidden={view !== 'html'}><SlideGeneratorPanel embedded externalConversation controllerRef={htmlController} onState={receiveHtmlState}
+          styleExamples={format === 'html' && base === 'deck' ? deckKit?.examples : undefined}
           onProposal={(proposal, reason) => { if (reason === 'edited' && work.ready) void act(() => work.recordHtmlEdit(proposal, reason)); }} businessId={props.businessId} documentId={props.documentId}
           slideId={props.slide.id} revision={props.slide.revision} currentHtml={props.slide.html} mountedAssets={props.slide.mounted_assets} canvas={canvas}
           surfaceLabel={source === 'presentation' ? 'diapositiva' : source === 'cover' ? 'portada' : 'página'}
