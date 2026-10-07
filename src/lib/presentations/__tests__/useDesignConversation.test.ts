@@ -273,7 +273,9 @@ describe('unified conversation orchestration', () => {
     const slideTurn = planner.plan.mock.calls[1][0].conversation!;
     expect(slideTurn.current_html!.summary).toBe('<main>base</main>'); expect(slideTurn).not.toHaveProperty('slide_html');
     expect(slideTurn.available_actions).not.toContain('create_html');
-    for (const call of controller.refine.mock.calls) { expect(call[0]).toMatchObject({ fromCurrent: true }); expect(call[0]).not.toHaveProperty('proposal'); }
+    for (const call of controller.refine.mock.calls) {
+      expect(call[0]).toMatchObject({ fromCurrent: true, references: [] }); expect(call[0]).not.toHaveProperty('proposal');
+    }
     options.base = 'version'; await render(options).send('Haz el título más grande.');
     const versionTurn = planner.plan.mock.calls[2][0].conversation!;
     expect(versionTurn).toMatchObject({ design_base: 'version', current_html: { summary: '<main>versión literal</main>' }, slide_html: { revision: '1', summary: '<main>base</main>' } });

@@ -459,7 +459,10 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
       } else {
         show('html'); const selected = selectedOf(value), fromSlide = action.kind === 'refine_html'
           && (action.from_slide === true || input.format === 'html' && (input.base === 'current' || input.base === 'version' && selected?.kind !== 'html'));
-        const context = { ...htmlInput, ...(selected?.kind === 'html' && !fromSlide ? { proposal: selected.proposal } : {}), ...(fromSlide ? { fromCurrent: true } : {}) };
+        const context = { ...htmlInput, ...(selected?.kind === 'html' && !fromSlide ? { proposal: selected.proposal } : {}), ...(fromSlide ? { fromCurrent: true } : {}),
+          // Adapting the slide: its own design defines the look. With the text already resolved, the reference pixels
+          // add nothing but a competing layout (the engine copied its grey panel), so they are not sent.
+          ...(fromSlide && value.copy.status === 'literal' ? { references: [] } : {}) };
         const proposal = action.kind === 'refine_html' ? await input.htmlController.current!.refine({ ...context, feedback: action.instruction, compare: true })
           : await input.htmlController.current!.create(context);
         await finishHtml(life, proposal);

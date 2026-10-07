@@ -118,6 +118,16 @@ describe('shared Presentations HTML canvas contract', () => {
     expect(finalizeDesignCanvasHtml(refined.replace('data-eid="mounted-world"', ''), request)).toContain(img);
   });
 
+  it('lets an adapted design keep its own texts (written logo, tagline) next to the approved copy, but nothing invented', () => {
+    const current = doc('<h1>Xending <span>Capital</span></h1><p>Texto viejo</p><p>Liquidez para importar.</p>');
+    const request: DesignCanvasHtmlRequest = { ...base(), current_html: current, iteration_feedback: 'Pon la información nueva.',
+      copy_mode: 'literal', approved_copy: 'Una línea diseñada alrededor de tu flujo.\nLiquidez ágil' };
+    expect(finalizeDesignCanvasHtml(doc('<header><b>Xending</b> Capital</header><h2>Una línea diseñada alrededor de tu flujo.</h2><p>Liquidez ágil</p><p>Liquidez para importar.</p>'), request)).toContain('Capital');
+    expect(() => finalizeDesignCanvasHtml(doc('<h1>Xending Capital</h1><h2>Una línea diseñada alrededor de tu flujo.</h2><p>Liquidez ágil</p><p>Inventado</p>'), request)).toThrow('texto aprobado');
+    expect(() => finalizeDesignCanvasHtml(doc('<h1>Xending Capital</h1><p>Liquidez ágil</p><h2>Una línea diseñada alrededor de tu flujo.</h2>'), request)).toThrow('texto aprobado');
+    expect(buildDesignCanvasHtmlMessages(request, { name: 'Marca' })[0].content).toContain('puedes conservar, tal cual y en su propio bloque');
+  });
+
   it('keeps literal copy through editable inline spans and refuses missing, reordered or invented content', () => {
     const request: DesignCanvasHtmlRequest = { ...base(), copy_mode: 'literal', approved_copy: 'Conectamos tu empresa con el mundo.\nPagos & créditos.' };
     expect(finalizeDesignCanvasHtml(doc('<h1>Conectamos tu empresa con el <span>mundo.</span></h1><p>Pagos &amp; créditos.</p>'), request)).toContain('<span>mundo.</span>');
