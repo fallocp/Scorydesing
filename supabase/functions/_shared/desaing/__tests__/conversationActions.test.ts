@@ -172,6 +172,20 @@ describe('unified conversation using the existing exploration planner', () => {
     }
   });
 
+  it('accepts the chosen format/base only when the offered actions match that format', () => {
+    const html = request(); Object.assign(html.conversation!, { design_format: 'html', design_base: 'current', available_actions: ['discuss', 'create_html'] });
+    expect(() => assertExplorationRequest(html)).not.toThrow();
+    const image = request(); Object.assign(image.conversation!, { design_format: 'image', available_actions: ['discuss', 'generate_image'] });
+    expect(() => assertExplorationRequest(image)).not.toThrow();
+    for (const mutate of [
+      (bad: ExplorationRequest) => Object.assign(bad.conversation!, { design_format: 'html' }),
+      (bad: ExplorationRequest) => Object.assign(bad.conversation!, { design_format: 'image' }),
+      (bad: ExplorationRequest) => Object.assign(bad.conversation!, { design_format: 'pdf', available_actions: ['discuss'] }),
+      (bad: ExplorationRequest) => Object.assign(bad.conversation!, { design_base: 'other' }),
+    ]) { const bad = request(); mutate(bad); expect(() => assertExplorationRequest(bad)).toThrow('invalid_conversation_turn'); }
+    expect(prepareExplorationRequest(html).input).toEqual(expect.arrayContaining([expect.objectContaining({ role: 'developer' })]));
+  });
+
   it('logs only the fixed validation code when a repaired answer is still invalid', async () => {
     const req = request(), output = result(req, { ...action(), kind: 'refine_html' as never });
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});

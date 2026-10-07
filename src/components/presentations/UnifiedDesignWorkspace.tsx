@@ -38,7 +38,11 @@ export function UnifiedDesignWorkspace(props: UnifiedDesignWorkspaceProps) {
     if (applyTarget === 'new' && props.onInsert) await props.onInsert(next); else await props.onApply(next);
     props.onClose();
   }, [applyTarget, props.onApply, props.onInsert, props.onClose]);
-  const work = useDesignConversation({ ...props, onApply: applyResult, settings, htmlController, compositionController, htmlState, compositionState, onView });
+  // Formato y base los elige el usuario; la IA sólo puede proponer acciones de ese formato.
+  const [format, setFormat] = useState<'html' | 'image'>(props.initialView === 'html' ? 'html' : 'image');
+  const [base, setBase] = useState<'current' | 'new'>(() => props.slide.html
+    .replace(/<style[\s\S]*?<\/style>|<script[\s\S]*?<\/script>|<[^>]+>/gi, '').trim() ? 'current' : 'new');
+  const work = useDesignConversation({ ...props, onApply: applyResult, settings, htmlController, compositionController, htmlState, compositionState, onView, format, base });
   const [message, setMessage] = useState(props.initialInstruction ?? ''), [referencesOpen, setReferencesOpen] = useState(false);
   const [fileBusy, setFileBusy] = useState(false), [localError, setLocalError] = useState('');
   const [htmlUi, setHtmlUi] = useState({ ready: false, busy: false, error: '' });
@@ -100,8 +104,12 @@ export function UnifiedDesignWorkspace(props: UnifiedDesignWorkspaceProps) {
       <button className="dc-button dc-icon" aria-label="Cerrar conversación de diseño" disabled={busy || fileBusy} onClick={props.onClose}><X size={20} /></button>
     </header>
     <div className="dc-body"><aside className="dc-conversation">
-      <div className="dc-context-bar"><label className="dc-mode"><span className="sr-only">Modo de diseño</span><select aria-label="Modo de diseño" value={state.mode} disabled={blocked || pending}
+      <div className="dc-context-bar"><div className="dc-context-controls"><label className="dc-mode"><span className="sr-only">Modo de diseño</span><select aria-label="Modo de diseño" value={state.mode} disabled={blocked || pending}
         onChange={event => void act(() => work.setMode(event.target.value as typeof state.mode))}><option value="execute_change">Ejecutar cambio</option><option value="explore_design">Explorar diseño</option></select></label>
+        <label className="dc-mode"><span className="sr-only">Formato</span><select aria-label="Formato del diseño" value={format} disabled={blocked || pending}
+          onChange={event => setFormat(event.target.value as typeof format)}><option value="html">HTML editable</option><option value="image">Imagen IA</option></select></label>
+        {format === 'html' && <label className="dc-mode"><span className="sr-only">Base</span><select aria-label="Base del diseño" value={base} disabled={blocked || pending}
+          onChange={event => setBase(event.target.value as typeof base)}><option value="current">Diseño actual</option><option value="new">Diseño nuevo</option></select></label>}</div>
         <button className="dc-button dc-reference-toggle" disabled={fileBusy} onClick={() => setReferencesOpen(value => !value)} aria-expanded={referencesOpen}><ImagePlus size={16} />Referencias · {state.references.length}</button></div>
       {referencesOpen && <div className="dc-reference-drawer"><PresentationReferencePicker items={state.references} disabled={busy || pending || !work.ready} onBusyChange={setFileBusy}
         onChange={items => work.changeReferences(items)} maxReferences={3} conversationReadsImages />
@@ -141,8 +149,10 @@ export function UnifiedDesignWorkspace(props: UnifiedDesignWorkspaceProps) {
         {pending && !busy && <div className="dc-recovery"><p>Hay una solicitud pendiente. Recupera su estado para continuar con este trabajo.</p><button className="dc-button" onClick={() => void act(() => work.recover())}>Recuperar solicitud</button>
           <button className="dc-button" onClick={() => void act(() => work.discard())}>Descartar</button></div>}
         <div className="dc-quick"><button className="dc-button" disabled={blocked || pending} onClick={() => void send('Propón cinco ideas de diseño con mis referencias y lo que hemos acordado. No generes imágenes todavía.')}>Dame cinco ideas</button>
-          <button className="dc-button" disabled={blocked || pending} onClick={() => void send('Crea una imagen con las referencias y el diseño que hemos acordado.')}>Crear imagen</button>
-          <button className="dc-button" disabled={blocked || pending} onClick={() => void send('Crea HTML editable con las referencias y lo que hemos acordado.')}>Crear HTML</button></div>
+          {format === 'image' && <button className="dc-button" disabled={blocked || pending} onClick={() => void send('Crea una imagen con las referencias y el diseño que hemos acordado.')}>Crear imagen</button>}
+          {format === 'html' && <button className="dc-button" disabled={blocked || pending} onClick={() => void send(base === 'current'
+            ? 'Aplica lo acordado al diseño actual de la diapositiva: conserva su estructura y acomoda el texto con las referencias.'
+            : 'Crea HTML editable nuevo a partir de las referencias y lo que hemos acordado.')}>{base === 'current' ? 'Aplicar al diseño actual' : 'Crear HTML'}</button>}</div>
         <div className="dc-input"><textarea ref={composer} aria-label="Mensaje de diseño" value={message} onChange={event => setMessage(event.target.value)} maxLength={6000} rows={3}
           disabled={blocked || pending} onPaste={paste} placeholder="Usa el texto de la primera imagen y el mundo de la segunda…"
           onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void send(); } }} />

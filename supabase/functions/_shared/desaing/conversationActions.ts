@@ -16,6 +16,10 @@ export interface ConversationTurnContext {
   available_actions: ConversationActionKind[];
   /** The action the assistant left waiting for the user's answer (previous turn). Context only; never executes by itself. */
   pending_action?: ConversationPendingAction;
+  /** Output chosen by the user in the workspace. The client also restricts available_actions to it. */
+  design_format?: 'html' | 'image';
+  /** current = keep the slide's existing design (template) and adjust it; new = design from the references. */
+  design_base?: 'current' | 'new';
 }
 export interface ConversationPendingAction { kind: ConversationActionKind; instruction: string; questions: string[] }
 export interface ConversationNextAction {
@@ -42,7 +46,7 @@ const sameAsset = (left: AssetVersion, right: AssetVersion) => left.business_id 
 export function assertConversationTurn(value: unknown, context: DesignContext): asserts value is ConversationTurnContext {
   const code = 'invalid_conversation_turn';
   check(record(value) && keys(value, ['schema_version', 'canvas', 'surface', 'selected_image', 'available_actions',
-    ...('current_html' in value ? ['current_html'] : []), ...('pending_action' in value ? ['pending_action'] : [])]) && value.schema_version === 1
+    ...['current_html', 'pending_action', 'design_format', 'design_base'].filter(key => key in value)]) && value.schema_version === 1
     && ['empty', 'image', 'html'].includes(String(value.surface)) && keys(value.canvas, ['width', 'height'])
     && [value.canvas.width, value.canvas.height].every(n => typeof n === 'number' && Number.isSafeInteger(n) && n >= 256 && n <= 3840), code);
   check(Array.isArray(value.available_actions) && value.available_actions.length > 0 && value.available_actions.length <= CONVERSATION_ACTIONS.length
@@ -63,6 +67,12 @@ export function assertConversationTurn(value: unknown, context: DesignContext): 
       && pending.kind !== 'discuss' && text(pending.instruction, 6000, true) && Array.isArray(pending.questions) && pending.questions.length <= 8
       && pending.questions.every(question => text(question, 1200)), code);
   }
+  if ('design_format' in value) {
+    const excluded: ConversationActionKind[] = value.design_format === 'html' ? ['generate_image', 'edit_image']
+      : value.design_format === 'image' ? ['create_html', 'refine_html', 'convert_image_to_html'] : [];
+    check(excluded.length > 0 && !value.available_actions.some(kind => excluded.includes(kind)), code);
+  }
+  if ('design_base' in value) check(value.design_base === 'current' || value.design_base === 'new', code);
   check(!value.available_actions.includes('refine_html') || value.surface === 'html', code);
   check(!value.available_actions.some(kind => kind === 'edit_image' || kind === 'convert_image_to_html') || value.selected_image !== null, code);
 }
@@ -101,6 +111,8 @@ Compórtate como un asistente de diseño natural que sigue instrucciones:
 - conversation.pending_action, cuando existe, es la acción que dejaste esperando su respuesta. Si el último mensaje la responde o la confirma («sí», «va», «HTML», «la segunda», el texto pedido), aplica esa respuesta y devuelve esa acción con intent=requested y pending_questions vacío. Si cambia de pedido, sigue el nuevo pedido.
 - Si todavía no hay diseño (surface=empty) y el último mensaje ajusta el encargo («más de cerca», «más grande», «cambia el color»), y el encargo ya tiene texto, fuentes y destino claros, trátalo como «créalo así»: generate_image con intent=requested (o create_html si es lo acordado). Si aún falta algo, termina message con «¿Lo creo ya?» y deja next_action con la acción y intent=suggested. Nunca cierres un turno sin un siguiente paso: kind=discuss sólo para preguntas, análisis o propuestas.
 - Un «sí» sin pending_action ni sugerencia previa en el historial debe aclararse. Para una sugerencia que no fue pedida usa intent=suggested.
+conversation.design_format, cuando existe, es el formato que eligió el usuario (html = HTML editable, image = imagen IA) y available_actions ya sólo incluye ese formato. Si pide el otro formato, dile que puede cambiar «Formato» arriba del chat; no lo sustituyas.
+conversation.design_base=current significa conservar el diseño actual de la diapositiva (current_html): estructura, tarjetas, jerarquía, marca, tipografía y piezas montadas. Acomoda ahí el texto nuevo y toma de las referencias sólo lo que el usuario pida (acomodo, estilo, objeto); usa refine_html, no rehagas desde cero. design_base=new significa diseñar a partir de las referencias (create_html o generate_image). Si el último mensaje contradice claramente la base elegida, pregunta una vez si quiere cambiar «Base» arriba del chat.
 generate_image replica o mejora la referencia o el diseño actual según las instrucciones. create_html recrea lo más fielmente posible la composición, jerarquía, texto, paleta y tipografía de la fuente indicada; las fotos o ilustraciones quedan como piezas por montar después.
 No traduzcas «aprobar», «usar», «guardar» o «publicar» como un render nuevo. Nunca selecciones modelo, calidad, tamaño ni versión distintos a los controles y estado proporcionados. No cambies el modo ejecutar/explorar por una orden concreta.
 instruction debe ser autocontenida para el siguiente paso, conservar todos los elementos indicados y referirse a fuentes por reference_id. Para edit_image/convert_image_to_html incluye el reference_id de selected_image. No incluyas ids/URLs de fuentes no adjuntas.

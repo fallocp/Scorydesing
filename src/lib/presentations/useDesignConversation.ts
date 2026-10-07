@@ -31,6 +31,8 @@ export type DesignConversationView = 'image' | 'html' | 'composition' | 'history
 export interface UseDesignConversationOptions {
   service: PresentationDesignService; businessId: string; documentId: string; slide: PresentationSlide;
   destination?: DesignSurfaceDestination; initialCopy?: string | DesignCopy; initialView?: 'image' | 'html'; settings: ImageGenerationSettings;
+  /** Output and starting point chosen in the workspace; undefined keeps every action available. */
+  format?: 'html' | 'image'; base?: 'current' | 'new';
   htmlController: RefObject<SlideGeneratorController | null>; compositionController: RefObject<DesignToHtmlController | null>;
   htmlState?: RefObject<SlideGeneratorState | null>; compositionState?: RefObject<DesignToHtmlState | null>;
   onView(view: DesignConversationView): void; onApply(slide: PresentationSlide): void | Promise<void>;
@@ -279,11 +281,17 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
     const canvas = getSlideDimensions(latest.current.slide.html), visualRefs: DesignReference[] = uploaded.map(item => item.reference);
     if (selectedImage?.kind === 'image') visualRefs.push({ ...selectedImage.asset, reference_id: `image:${selectedImage.asset.asset_id}:${selectedImage.asset.version_id}`,
       mime_type: 'image/png', roles: ['object_reference', 'layout_reference'] });
-    const actions: ConversationActionKind[] = ['discuss', 'generate_image', 'create_html', 'explore_ideas'];
+    const { format, base } = latest.current;
+    let actions: ConversationActionKind[] = ['discuss', 'generate_image', 'create_html', 'explore_ideas'];
     if (selectedImage?.kind === 'image') actions.push('edit_image', 'convert_image_to_html');
+    // «Diseño actual» in HTML: the slide's existing HTML is the design to adjust, even when an image version is selected.
     const hasHtml = selected?.kind === 'html' && viewRef.current !== 'history' && same(selected.target, value.target)
-      && !selected.composition?.unresolved_slots.length || !selected && viewRef.current === 'html';
+      && !selected.composition?.unresolved_slots.length || !selected && viewRef.current === 'html' && base !== 'new'
+      || format === 'html' && base === 'current' && selected?.kind !== 'html';
     if (hasHtml) actions.push('refine_html');
+    const excluded: ConversationActionKind[] = format === 'html' ? ['generate_image', 'edit_image']
+      : format === 'image' ? ['create_html', 'refine_html', 'convert_image_to_html'] : [];
+    actions = actions.filter(kind => !excluded.includes(kind));
     const actionId = crypto.randomUUID(), turnId = crypto.randomUUID(), destination = latest.current.destination, waiting = value.next_action;
     const projectCopy = (copy: DesignCopy) => ({ ...copy, source_reference_ids: copy.source_reference_ids.filter(id => visualRefs.some(ref => ref.reference_id === id)) });
     const previousUnderstanding = value.understanding ? { ...value.understanding, copy: projectCopy(value.understanding.copy),
@@ -304,6 +312,8 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
         // The action left waiting for this answer, so a reply such as «sí» or «HTML» resumes it instead of asking again.
         ...(!resolvingCopy && waiting && waiting.kind !== 'discuss' && waiting.intent !== 'requested' ? { pending_action: {
           kind: waiting.kind, instruction: waiting.instruction, questions: value.understanding?.pending_questions ?? [] } } : {}),
+        ...(!resolvingCopy && format ? { design_format: format } : {}),
+        ...(!resolvingCopy && format === 'html' && base ? { design_base: base } : {}),
         ...(hasHtml ? { current_html: { revision: String(value.target.revision),
           summary: buildConversationHtmlSummary(selected?.kind === 'html' ? selected.proposal.html : latest.current.slide.html) } } : {}) } };
     await save(life, before => beginConversationAction(before, { action_id: actionId, turn_id: turnId, kind: 'understand', phase: 'prepared',
@@ -538,7 +548,7 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
     startIdea: (idea: IdeaContent) => run(async life => {
       await assertCurrent(life); if (current(life).pending) throw Error('conversation_pending_unresolved');
       if (!current(life).ideas.some(item => same(item, idea))) throw Error('Esta idea ya no pertenece a la conversación actual.');
-      const action: ConversationNextAction = { kind: 'generate_image', intent: 'suggested', instruction: idea.render_instruction,
+      const action: ConversationNextAction = { kind: latest.current.format === 'html' ? 'create_html' : 'generate_image', intent: 'suggested', instruction: idea.render_instruction,
         reference_ids: idea.reference_ids, reason: 'Elegiste generar esta idea.' };
       await save(life, value => ({ ...value, next_action: action })); await executeAction(life, action);
     }),

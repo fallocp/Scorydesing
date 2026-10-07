@@ -250,6 +250,25 @@ describe('unified conversation orchestration', () => {
     expect(render(options).error).toBe(''); expect(client.command).toHaveBeenCalledTimes(1);
   });
 
+  it('HTML + «Diseño actual» sends the slide HTML as the design to adjust and never offers image actions', async () => {
+    const { options, planner } = fixture(); options.format = 'html'; options.base = 'current';
+    render(options); await flush(); await render(options).send('Acomoda este texto en el diseño que ya tenemos.');
+    const turn = planner.plan.mock.calls[0][0].conversation!;
+    expect(turn).toMatchObject({ surface: 'html', design_format: 'html', design_base: 'current', current_html: { revision: '1', summary: '<main>base</main>' } });
+    expect(turn.available_actions).toEqual(['discuss', 'create_html', 'explore_ideas', 'refine_html']);
+  });
+
+  it('HTML + «Diseño nuevo» and «Imagen IA» restrict the planner to their own actions', async () => {
+    const { options, planner } = fixture(); options.format = 'html'; options.base = 'new';
+    render(options); await flush(); await render(options).send('Crea un diseño nuevo con la referencia.');
+    expect(planner.plan.mock.calls[0][0].conversation).toMatchObject({ surface: 'empty', design_format: 'html', design_base: 'new',
+      available_actions: ['discuss', 'create_html', 'explore_ideas'] });
+    options.format = 'image'; await render(options).send('Ahora como imagen.');
+    const turn = planner.plan.mock.calls[1][0].conversation!;
+    expect(turn.available_actions).toEqual(['discuss', 'generate_image', 'explore_ideas']);
+    expect(turn.design_format).toBe('image'); expect(turn).not.toHaveProperty('design_base');
+  });
+
   it('discussion and suggestions render nothing until an explicit action button, without a second planner call', async () => {
     const { options, planner, client } = fixture(); render(options); await flush(); await render(options).send('¿Qué cambiarías?');
     expect(render(options).error).toBe(''); expect(client.command).not.toHaveBeenCalled();

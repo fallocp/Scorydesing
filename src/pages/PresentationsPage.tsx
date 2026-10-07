@@ -1269,7 +1269,7 @@ function PresentationsPageContent({ activeBusinessId }: { activeBusinessId: stri
       {designTarget?.initialScope === 'full_design' && activeBusinessId && designService && <UnifiedDesignWorkspace
         key={`conversation:${activeBusinessId}:${designTarget.documentId}:${designTarget.slide.id}`}
         service={designService} businessId={activeBusinessId} documentId={designTarget.documentId} slide={designTarget.slide}
-        initialView="image" onClose={() => setDesignTarget(null)} onApply={next => {
+        initialView="html" onClose={() => setDesignTarget(null)} onApply={next => {
           if (!alive.current || (slidesOwnerIdRef.current ?? `draft:${activeBusinessId}`) !== designTarget.documentId) throw new Error('slide_revision_conflict');
           setSlides(previous => reviseSlide(previous, { slide_id: designTarget.slide.id, expected_revision: designTarget.slide.revision,
             html: next.html, mounted_assets: next.mounted_assets }));
