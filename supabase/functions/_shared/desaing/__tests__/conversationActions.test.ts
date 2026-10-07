@@ -164,6 +164,7 @@ describe('unified conversation using the existing exploration planner', () => {
     const body = JSON.parse(f.fetch.mock.calls[0][1]!.body as string);
     expect(JSON.parse(body.input[1].content[0].text).conversation.pending_action).toEqual(req.conversation!.pending_action);
     expect(body.input[0].content[0].text).toContain('conversation.pending_action');
+    expect(body.input[0].content[0].text).toContain('¿Lo creo ya?');
     for (const pending of [{ kind: 'discuss', instruction: '', questions: [] }, { kind: 'create_html', instruction: 'x', questions: [''] },
       { kind: 'create_html', instruction: 'x', questions: [], extra: true }]) {
       const bad = request(); Object.assign(bad.conversation!, { pending_action: pending });

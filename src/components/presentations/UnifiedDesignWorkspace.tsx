@@ -130,7 +130,8 @@ export function UnifiedDesignWorkspace(props: UnifiedDesignWorkspaceProps) {
             if (await work.resolveCopy(message)) setMessage('');
           })}>Resolver texto</button>}
         </div>}
-        {work.syncStatus && <div className="dc-recovery" aria-live="polite"><p>{work.syncStatus === 'synced' ? 'Guardado en Supabase. Puedes continuar en otro dispositivo.'
+        {/* Sólo cuando hay algo que hacer: conflicto, guardado sin confirmar, carga o copias locales conservadas. */}
+        {work.syncStatus && (work.syncStatus !== 'synced' || work.localCopies) && <div className="dc-recovery" aria-live="polite"><p>{work.syncStatus === 'synced' ? 'Guardado en Supabase. Puedes continuar en otro dispositivo.'
           : work.syncStatus === 'conflict' ? 'Otra sesión guardó cambios. Sincroniza para cargar esa revisión; tu copia local se conserva.'
           : work.syncStatus === 'offline' ? 'Guardado remoto sin confirmar. Conservamos la copia local; sincroniza antes de continuar.' : 'Cargando el trabajo guardado…'}</p>
           {work.localCopies && <p>Hay copias locales conservadas de guardados interrumpidos o en conflicto.</p>}
