@@ -37,6 +37,23 @@
   la referencia nueva llega a `planner.plan` y su instrucción a `buildConversationImageOperation`.
 - `designConversationImages.test.ts`, `serverClient.test.ts`: del commit anterior.
 
+## «El HTML no conservó el texto aprobado» al pulsar «Crear el HTML»
+- Causa (reproducida en `supabase/functions/_shared/__tests__/designCanvasHtmlCopy.test.ts` con HTML realista de la diapositiva de 6 puntos):
+  1. Falso rechazo: título y descripción de tarjeta como `<span>` contiguos con `display:block` (sin espacio entre ellos) se unían
+     («Liquidez ágilAccede…») y la igualdad exacta fallaba. También `<small>`/`<aside>`/`<figcaption>` no separaban bloques,
+     y comillas tipográficas, `&shy;`, espacios de ancho cero o `&nbsp;` contaban como diferencia.
+  2. Rechazo correcto: con «Diseño nuevo» el modelo ve la referencia y copiaba texto visible que no está en el texto aprobado
+     (la etiqueta «DIAPOSITIVA 2»), escribía el logo como texto («Xending Capital») o reescribía títulos en MAYÚSCULAS.
+- Fix mínimo en `designCanvasHtml.ts`:
+  - Comparación: mismos caracteres en el mismo orden; sólo puede diferir el espacio en blanco. Comillas tipográficas = rectas;
+    se ignoran caracteres invisibles. Más etiquetas de bloque. Letras, mayúsculas, dígitos, guiones y puntuación se comparan tal cual.
+  - El error ahora dice qué sobra o qué falta («sobra: «DIAPOSITIVA 2»»).
+  - Prompt: no copiar texto de referencias, estilo del deck ni marca; mayúsculas con CSS `text-transform`.
+- Sigue rechazado (tests): texto de la referencia, logo escrito, texto faltante, reordenado y mayúsculas tecleadas.
+- Comandos: `npx vitest run designCanvasHtmlCopy.test.ts designCanvasHtml.test.ts` → 18/18; `npm run type-check` exit 0;
+  `npm test` 15 fallos preexistentes, 3231 pasan; `npm run lint` 2 errores preexistentes; `deno check --no-lock generate-design-html/index.ts` exit 0;
+  `git grep DEBUG-TEMP` 0.
+
 ## Pendiente (no verificable desde aquí)
 - Desplegar: `supabase functions deploy desaing-server` (cliente y servidor comparten el contrato `pending_action`).
 - Navegador: `image_library` 200 (límite 24) y sin "Maximum update depth exceeded".
