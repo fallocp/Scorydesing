@@ -34,6 +34,8 @@ export interface SlideGeneratorPanelProps {
   slides?: Array<{ title: string; html: string }>; currentSlide?: number; onSelectSlide?(idx: number): void;
   /** Other slides of the deck (inert markup + CSS) to reuse their components when creating. */
   styleExamples?: string[];
+  /** «Ficha de estilo» measured from the base design; sent with every request. */
+  styleSpec?: string;
 }
 export type SlideProposalReason = 'generated' | 'refined' | 'edited' | 'recovered' | 'imported';
 export interface SlideGeneratorContext {
@@ -173,6 +175,7 @@ function HtmlDesignWorkspace(props: SlideGeneratorPanelProps & { actorId: string
       ...(before.copyMode !== 'instruction' ? { copy_mode: before.copyMode, approved_copy: before.copyMode === 'literal' ? before.copy : undefined } : {}),
       ...(refine ? { current_html: base, iteration_feedback: before.feedback, render_base64: render } : {}),
       ...(!refine && latest.current.styleExamples?.length ? { style_examples: structuredClone(latest.current.styleExamples) } : {}),
+      ...(latest.current.styleSpec?.trim() ? { style_spec: latest.current.styleSpec.slice(0, 4000) } : {}),
     };
     // Large bodies reach the function truncated («Unexpected end of JSON input»). The comparison capture is optional.
     const bytes = () => new TextEncoder().encode(JSON.stringify(request)).length;

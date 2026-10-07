@@ -36,6 +36,8 @@ export interface UseDesignConversationOptions {
   format?: 'html' | 'image'; base?: 'current' | 'version' | 'deck' | 'new';
   /** Style kit of the presentation (other slides), used when base is 'deck'. */
   deckStyle?: Array<{ title: string; summary: string }>;
+  /** «Ficha de estilo» measured from the base design (slide or deck). */
+  styleSpec?: string;
   htmlController: RefObject<SlideGeneratorController | null>; compositionController: RefObject<DesignToHtmlController | null>;
   htmlState?: RefObject<SlideGeneratorState | null>; compositionState?: RefObject<DesignToHtmlState | null>;
   onView(view: DesignConversationView): void; onApply(slide: PresentationSlide): void | Promise<void>;
@@ -328,6 +330,7 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
         ...(!resolvingCopy && format ? { design_format: format } : {}),
         ...(!resolvingCopy && showSlide ? { slide_html: { revision: String(value.target.revision), summary: buildConversationHtmlSummary(slideHtml) } } : {}),
         ...(!resolvingCopy && format === 'html' && base ? { design_base: base } : {}),
+        ...(!resolvingCopy && format === 'html' && base !== 'new' && latest.current.styleSpec?.trim() ? { style_spec: latest.current.styleSpec.slice(0, 4000) } : {}),
         ...(!resolvingCopy && format === 'html' && base === 'deck' && latest.current.deckStyle?.length
           ? { deck_style: { slides: structuredClone(latest.current.deckStyle) } } : {}),
         ...(hasHtml ? { current_html: { revision: String(value.target.revision), summary: buildConversationHtmlSummary(baseHtml) } } : {}) } };

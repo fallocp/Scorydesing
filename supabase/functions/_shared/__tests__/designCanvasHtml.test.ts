@@ -118,6 +118,14 @@ describe('shared Presentations HTML canvas contract', () => {
     expect(finalizeDesignCanvasHtml(refined.replace('data-eid="mounted-world"', ''), request)).toContain(img);
   });
 
+  it('sends the measured style spec as fixed design data', () => {
+    const request = parseDesignCanvasHtmlRequest({ ...base(), style_spec: 'FICHA DE ESTILO\n- 3 cuadros: fondo #FFFFFF, esquinas 16 px' });
+    const messages = buildDesignCanvasHtmlMessages(request, { name: 'Marca' });
+    expect(messages[0].content).toContain('Si recibes FICHA DE ESTILO');
+    expect(JSON.stringify(messages[1].content)).toContain('esquinas 16 px');
+    expect(() => parseDesignCanvasHtmlRequest({ ...base(), style_spec: 'a'.repeat(4001) })).toThrow();
+  });
+
   it('lets an adapted design keep its own texts (written logo, tagline) next to the approved copy, but nothing invented', () => {
     const current = doc('<h1>Xending <span>Capital</span></h1><p>Texto viejo</p><p>Liquidez para importar.</p>');
     const request: DesignCanvasHtmlRequest = { ...base(), current_html: current, iteration_feedback: 'Pon la información nueva.',

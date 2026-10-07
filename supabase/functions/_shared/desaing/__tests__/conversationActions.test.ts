@@ -222,6 +222,15 @@ describe('unified conversation using the existing exploration planner', () => {
     expect(() => assertExplorationRequest(bad)).toThrow('invalid_conversation_html_context');
   });
 
+  it('accepts a bounded style spec as conversation data', () => {
+    const req = request(); Object.assign(req.conversation!, { style_spec: 'FICHA DE ESTILO\n- cuadros blancos' });
+    expect(() => assertExplorationRequest(req)).not.toThrow();
+    expect(prepareExplorationRequest(req).input).toEqual(expect.arrayContaining([expect.objectContaining({ role: 'developer' })]));
+    for (const style_spec of ['', 'a'.repeat(4001)]) {
+      const bad = request(); Object.assign(bad.conversation!, { style_spec }); expect(() => assertExplorationRequest(bad)).toThrow('invalid_conversation_turn');
+    }
+  });
+
   it('logs only the fixed validation code when a repaired answer is still invalid', async () => {
     const req = request(), output = result(req, { ...action(), kind: 'refine_html' as never });
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});

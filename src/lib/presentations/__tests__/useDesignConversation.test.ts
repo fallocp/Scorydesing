@@ -260,6 +260,14 @@ describe('unified conversation orchestration', () => {
     expect(turn.available_actions).toEqual(['discuss', 'explore_ideas', 'refine_html']);
   });
 
+  it('sends the measured style spec with an existing base, never with «Diseño nuevo»', async () => {
+    const { options, planner } = fixture(); options.format = 'html'; options.base = 'current'; options.styleSpec = 'FICHA DE ESTILO\n- cuadros blancos';
+    render(options); await flush(); await render(options).send('Acomoda esto.');
+    expect(planner.plan.mock.calls[0][0].conversation!.style_spec).toBe(options.styleSpec);
+    options.base = 'new'; await render(options).send('Ahora uno nuevo.');
+    expect(planner.plan.mock.calls[1][0].conversation).not.toHaveProperty('style_spec');
+  });
+
   it('«Diseño de la diapositiva» always starts from the slide, even with a generated version selected; «Esta versión» keeps adjusting it', async () => {
     const { options, planner } = fixture(); options.format = 'html'; options.base = 'current'; options.initialCopy = 'Conectamos con el mundo.';
     const proposal = { html: '<main>versión literal</main>', target: { document: 'document', slide: 'canvas', revision: 1 },

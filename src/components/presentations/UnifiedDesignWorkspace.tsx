@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { buildDeckStyleKit } from '@/lib/presentations/designConversationHtml';
+import { measureStyleSpec } from '@/lib/presentations/styleSpec';
 import { ArrowUp, Check, ImagePlus, Layers, Loader2, MessageSquare, Pencil, Sparkles, X } from 'lucide-react';
 import type { PresentationSlide } from '@/lib/presentations/presentationDocument';
 import { getSlideDimensions, reviseSlide } from '@/lib/presentations/presentationDocument';
@@ -47,8 +48,19 @@ export function UnifiedDesignWorkspace(props: UnifiedDesignWorkspaceProps) {
   const deckKit = useMemo(() => props.deckSlides?.length ? buildDeckStyleKit(props.deckSlides, props.slide.id) : null, [props.deckSlides, props.slide.id]);
   const [chosenBase, setBase] = useState<'current' | 'version' | 'deck' | 'new'>(() => props.slide.html
     .replace(/<style[\s\S]*?<\/style>|<script[\s\S]*?<\/script>|<[^>]+>/gi, '').trim() ? 'current' : deckKit?.slides.length ? 'deck' : 'new');
+  // Ficha de estilo: se mide del diseño base (la diapositiva, o la diapositiva del deck más cercana) en el navegador.
+  const specSource = format !== 'html' || chosenBase === 'new' ? null : chosenBase === 'deck'
+    ? props.deckSlides?.find(slide => slide.id === deckKit?.ids[0])?.html ?? null : props.slide.html;
+  const [styleSpec, setStyleSpec] = useState({ source: '', spec: '' });
+  useEffect(() => {
+    if (!specSource) return;
+    let alive = true;
+    void measureStyleSpec(specSource, getSlideDimensions(specSource)).then(spec => { if (alive) setStyleSpec({ source: specSource, spec }); }, () => {});
+    return () => { alive = false; };
+  }, [specSource]);
+  const spec = specSource && styleSpec.source === specSource ? styleSpec.spec : '';
   const work = useDesignConversation({ ...props, onApply: applyResult, settings, htmlController, compositionController, htmlState, compositionState, onView,
-    format, base: chosenBase, deckStyle: deckKit?.slides });
+    format, base: chosenBase, deckStyle: deckKit?.slides, styleSpec: spec });
   const [message, setMessage] = useState(props.initialInstruction ?? ''), [referencesOpen, setReferencesOpen] = useState(false);
   const [fileBusy, setFileBusy] = useState(false), [localError, setLocalError] = useState('');
   const [htmlUi, setHtmlUi] = useState({ ready: false, busy: false, error: '' });
@@ -123,6 +135,7 @@ export function UnifiedDesignWorkspace(props: UnifiedDesignWorkspaceProps) {
         onChange={items => work.changeReferences(items)} maxReferences={3} conversationReadsImages />
         {state.copy.status === 'literal' && <details><summary>Texto del diseño</summary><p className="dc-copy">{state.copy.text}</p></details>}
         {state.copy.status === 'none' && <p className="dc-muted">Diseño sin texto.</p>}
+        {spec && <details><summary>Ficha de estilo</summary><p className="dc-muted">Medida del diseño base; se envía siempre a la IA.</p><pre className="dc-spec">{spec}</pre></details>}
         {brand && <details><summary>Identidad de {brand.name}</summary><p className="dc-muted">{[brand.style, brand.tone].filter(Boolean).join(' · ') || 'Paleta, tipografías y recursos guardados de esta marca.'}</p>
           <div className="dc-swatches">{Object.values(brand.colors).filter(Boolean).map((color, index) => <span key={index} style={{ background: color }} title={color} />)}</div></details>}
       </div>}
@@ -190,7 +203,7 @@ export function UnifiedDesignWorkspace(props: UnifiedDesignWorkspaceProps) {
           <p>{quality ? `${quality.charAt(0).toUpperCase()}${quality.slice(1)} · ` : ''}{approved ? 'Versión aprobada' : result?.direction ? 'Dirección elegida' : 'Lista para revisar'}</p></div>
           : <div className="dc-empty"><div className="dc-empty-symbol"><Sparkles size={30} /></div><h3>Tu diseño, con espacio para probar</h3><p>La imagen o el HTML aparecerán aquí. Puedes conversar antes de generar.</p></div>)}
         <div hidden={view !== 'html'}><SlideGeneratorPanel embedded externalConversation controllerRef={htmlController} onState={receiveHtmlState}
-          styleExamples={format === 'html' && base === 'deck' ? deckKit?.examples : undefined}
+          styleExamples={format === 'html' && base === 'deck' ? deckKit?.examples : undefined} styleSpec={spec || undefined}
           onProposal={(proposal, reason) => { if (reason === 'edited' && work.ready) void act(() => work.recordHtmlEdit(proposal, reason)); }} businessId={props.businessId} documentId={props.documentId}
           slideId={props.slide.id} revision={props.slide.revision} currentHtml={props.slide.html} mountedAssets={props.slide.mounted_assets} canvas={canvas}
           surfaceLabel={source === 'presentation' ? 'diapositiva' : source === 'cover' ? 'portada' : 'página'}

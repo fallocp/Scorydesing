@@ -24,6 +24,8 @@ export interface ConversationTurnContext {
   deck_style?: { slides: Array<{ title: string; summary: string }> };
   /** The slide's original design when current_html is a generated version that differs from it. */
   slide_html?: { revision: string; summary: string };
+  /** «Ficha de estilo» measured from the base design (fonts, colors, components). Constant, data only. */
+  style_spec?: string;
 }
 export interface ConversationPendingAction { kind: ConversationActionKind; instruction: string; questions: string[] }
 export interface ConversationNextAction {
@@ -52,7 +54,7 @@ const sameAsset = (left: AssetVersion, right: AssetVersion) => left.business_id 
 export function assertConversationTurn(value: unknown, context: DesignContext): asserts value is ConversationTurnContext {
   const code = 'invalid_conversation_turn';
   check(record(value) && keys(value, ['schema_version', 'canvas', 'surface', 'selected_image', 'available_actions',
-    ...['current_html', 'pending_action', 'design_format', 'design_base', 'deck_style', 'slide_html'].filter(key => key in value)]) && value.schema_version === 1
+    ...['current_html', 'pending_action', 'design_format', 'design_base', 'deck_style', 'slide_html', 'style_spec'].filter(key => key in value)]) && value.schema_version === 1
     && ['empty', 'image', 'html'].includes(String(value.surface)) && keys(value.canvas, ['width', 'height'])
     && [value.canvas.width, value.canvas.height].every(n => typeof n === 'number' && Number.isSafeInteger(n) && n >= 256 && n <= 3840), code);
   check(Array.isArray(value.available_actions) && value.available_actions.length > 0 && value.available_actions.length <= CONVERSATION_ACTIONS.length
@@ -79,6 +81,7 @@ export function assertConversationTurn(value: unknown, context: DesignContext): 
     check(excluded.length > 0 && !value.available_actions.some(kind => excluded.includes(kind)), code);
   }
   if ('design_base' in value) check(['current', 'version', 'deck', 'new'].includes(String(value.design_base)), code);
+  if ('style_spec' in value) check(text(value.style_spec, 4000), code);
   if ('slide_html' in value) check('current_html' in value && keys(value.slide_html, ['revision', 'summary'])
     && value.slide_html.revision === context.target.revision && text(value.slide_html.summary, 12000), 'invalid_conversation_html_context');
   if ('deck_style' in value) {
@@ -129,6 +132,7 @@ conversation.design_format, cuando existe, es el formato que eligió el usuario 
 conversation.design_base=current significa conservar el diseño actual de la diapositiva (current_html): estructura, tarjetas, jerarquía, marca, tipografía y piezas montadas. Acomoda ahí el texto nuevo y toma de las referencias sólo lo que el usuario pida (acomodo, estilo, objeto); usa refine_html, no rehagas desde cero.
 Con design_base=current el patrón visual lo define SIEMPRE la diapositiva, nunca la referencia: no copies la maquetación, colores, fondos ni estilo de bloques de la referencia. Seguir el patrón NO es dejar la diapositiva tal cual: la composición se rediseña para la información nueva con el mismo lenguaje visual. Con design_base=current, current_html ES la diapositiva original y todo refine_html parte de ella, aunque existan versiones generadas.
 design_base=version significa seguir ajustando la versión generada seleccionada (current_html); conversation.slide_html es la diapositiva original. Con version usa from_slide=true sólo si el usuario pide volver a la base o la plantilla; en los demás casos from_slide=false. En cualquier otra acción o base from_slide=false.
+conversation.style_spec, cuando existe, es la ficha de estilo MEDIDA del diseño base (tipografías, colores, componentes, íconos, sombras). Es una constante: úsala para explicar y en instruction cita los valores concretos que deben mantenerse (por ejemplo «tarjetas blancas, esquinas 16 px, sombra suave, ícono 56 px a la izquierda»).
 Con design_base=current y referencias, compara la información que hay que poner con la estructura de current_html (número de tarjetas, puntos, columnas, secciones y bloques). Si no coinciden (por ejemplo, la referencia tiene seis puntos y el diseño actual tres tarjetas) o sobra un bloque del diseño actual, y el usuario no dijo cómo resolverlo, pregunta UNA vez proponiendo la adaptación concreta, por ejemplo: «La referencia tiene 6 puntos y tu diapositiva 3 tarjetas. ¿Adapto el estilo actual a 6 tarjetas en 2 filas de 3 con su texto? ¿Conservo la franja "Precalificación en 48 hrs" o la quito?». Deja refine_html con intent=suggested y esa adaptación como instruction.
 Adaptar significa: conservar el sistema visual del diseño actual (logo, colores, tipografía, estilo de tarjeta, sombras, espaciado, íconos) y repetir o ajustar sus componentes para TODA la información nueva. Cada elemento nuevo usa el mismo componente que sus hermanos, con su ícono del mismo estilo; ningún punto queda sin su tarjeta ni se resume. La composición puede cambiar libremente (filas, columnas, tamaños, posiciones, qué bloque destaca) para que la información nueva luzca bien; lo que se conserva es el patrón. De la referencia se toman la información y, si se pide, el orden; no su apariencia. En instruction de refine_html describe esa adaptación de forma explícita (cuántos componentes, en qué cuadrícula, qué bloques se conservan o se quitan).
 Cuando el copy es literal y design_base=current, copy.text debe contener TODO el texto visible final: los textos del diseño actual que se conservan (logo escrito, lemas, notas) y el texto nuevo, en orden de lectura. El HTML sólo puede mostrar ese texto.

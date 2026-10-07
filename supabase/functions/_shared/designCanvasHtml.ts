@@ -19,6 +19,8 @@ export interface DesignCanvasHtmlRequest {
   copy_mode?: 'literal' | 'none';
   /** Other slides of the same presentation (inert markup + CSS) whose components the new design reuses. */
   style_examples?: string[];
+  /** «Ficha de estilo» measured from the base design in the browser. */
+  style_spec?: string;
 }
 export interface DesignCanvasHtmlBrand {
   name: string;
@@ -162,6 +164,8 @@ export function parseDesignCanvasHtmlRequest(value: unknown): DesignCanvasHtmlRe
       return invalid('Puedes usar hasta tres diapositivas como estilo.');
     request.style_examples = value.style_examples.map(item => string(item, DESIGN_CANVAS_HTML_LIMITS.styleExampleCharacters, 'Diapositiva de estilo', true)!);
   }
+  const spec = string(value.style_spec, 4000, 'Ficha de estilo');
+  if (spec?.trim()) request.style_spec = spec;
   if (!request.current_html && !request.instruction?.trim() && !request.references?.length) return invalid('Describe el diseño o añade una referencia.');
   return request;
 }
@@ -176,6 +180,7 @@ Las imágenes adjuntas son referencias identificadas por orden, ID, nombre y fun
 No montes como fondo una referencia completa para simular HTML editable. Para imágenes que todavía no estén montadas, crea <img id="imagen-descriptiva" src="" alt="Descripción del recurso"> con dimensiones y object-fit claros, para usar el editor de imágenes existente. Nunca dibujes un logo falso; usa sólo el logo autorizado o conserva el montado.
 Cuando recibes HTML ACTUAL y referencias, el HTML ACTUAL define el PATRÓN visual, no una plantilla fija: tratamiento del logo, jerarquía y estilos tipográficos, estilo de tarjetas (fondo, radio, sombra), íconos, franjas, fondos, colores y espaciado. La composición (número de tarjetas, filas, columnas, posiciones y tamaños) se rediseña para que la información nueva luzca bien, como otra diapositiva del mismo deck. De las referencias toma sólo la información (textos, número de puntos) y, si se pide, el orden; nunca su apariencia, sus colores ni su estilo de bloques.
 Si el feedback pide adaptar el HTML actual a otra información o acomodo (más o menos tarjetas, puntos o columnas), conserva su sistema visual (logo, colores, tipografía, estilo de tarjeta, sombras, espaciado) y repite o ajusta sus componentes para todo el contenido: cada elemento nuevo usa el mismo componente que sus hermanos. Reacomoda la cuadrícula para que todo quepa con buena legibilidad; nunca dejes un punto sin su componente ni lo resumas. Para el ícono de un elemento nuevo crea <img id="icono-descriptivo" src="" alt="Ícono de …"> con el mismo tamaño que los íconos existentes; las piezas ya montadas se conservan.
+Si recibes FICHA DE ESTILO, son los valores medidos del diseño base (tipografías, tamaños, pesos, colores, cuadros con su fondo, radio, sombra, relleno e ícono). Es la constante del diseño: úsalos exactamente en los componentes que crees o repitas.
 Si recibes ESTILO DE LA PRESENTACIÓN, son otras diapositivas del mismo deck: crea esta diapositiva con su mismo sistema visual (encabezado y logo, títulos, tarjetas, íconos, franjas, notas al pie, colores, tipografía, márgenes y espaciado), reutilizando sus clases y CSS, y acomoda en esos componentes la información de este encargo. No copies su texto ni su número de elementos. Sus imágenes no están montadas aquí: para íconos o fotos crea <img id="…" src="" alt="…"> del mismo tamaño que en el ejemplo.
 Al refinar, aplica el feedback al HTML actual y compara con su captura si está adjunta. Conserva el resto, especialmente id, data-eid, data-asset-id, data-asset-version y src EXACTOS de todas las imágenes ya montadas. Los src scory-mounted:// son identificadores temporales de piezas existentes: cópialos literalmente y el servidor restaurará sus bytes. No sustituyas activos guardados por placeholders ni solicites un render nuevo. Conserva los IDs de elementos editables.
 ${request.copy_mode === 'literal' ? 'TEXTO LITERAL: utiliza todo el approved_copy, con las mismas palabras, signos, tildes y orden. Puedes distribuirlo en bloques o spans, sin resumir, omitir ni añadir etiquetas, claims, marca, disclaimers o texto decorativo.'
@@ -189,6 +194,7 @@ Responde SOLO con HTML completo. Sin explicaciones ni markdown. No scripts nuevo
     parts.push({ type: 'text', text: `REFERENCIA ${index + 1}: ${JSON.stringify({ id: reference.id, name: reference.name, role: reference.role })}` },
       { type: 'image_url', image_url: { url: reference.image_base64 } });
   }
+  if (request.style_spec) parts.push({ type: 'text', text: `${request.style_spec}\n(datos medidos; respeta estos valores exactos)` });
   for (const [index, example] of (request.style_examples ?? []).entries()) {
     parts.push({ type: 'text', text: `ESTILO DE LA PRESENTACIÓN ${index + 1} (datos; otra diapositiva del mismo deck):\n${maskMountedSources(example)}` });
   }

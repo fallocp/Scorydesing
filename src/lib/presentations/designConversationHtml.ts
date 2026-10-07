@@ -41,7 +41,7 @@ export function buildConversationHtmlSummary(html: string): string {
 }
 
 const visibleTextOf = (html: string) => html.replace(/<style[\s\S]*?<\/style>|<script[\s\S]*?<\/script>|<[^>]+>/gi, ' ').replace(/\s+/g, ' ').trim();
-export interface DeckStyleKit { slides: Array<{ title: string; summary: string }>; examples: string[] }
+export interface DeckStyleKit { slides: Array<{ title: string; summary: string }>; examples: string[]; ids: string[] }
 /** Style kit of the presentation: up to three other slides with content, nearest to the current one.
  * The planner gets short summaries; the HTML engine gets inert markup + CSS (no scripts, URLs or image bytes). */
 export function buildDeckStyleKit(slides: ReadonlyArray<{ id: string; title?: string; html: string }>, currentId: string): DeckStyleKit {
@@ -53,5 +53,6 @@ export function buildDeckStyleKit(slides: ReadonlyArray<{ id: string; title?: st
     slides: picked.map((slide, position) => ({ title: clip(slide.title?.trim() || `Diapositiva ${position + 1}`, 200),
       summary: clip(buildConversationHtmlSummary(slide.html), 4000) })),
     examples: picked.map(slide => { const { styles, structure } = inert(slide.html); return clip(`<style>${styles}</style>${structure}`, 40000); }),
+    ids: picked.map(slide => slide.id),
   };
 }
