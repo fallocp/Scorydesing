@@ -159,6 +159,8 @@ export function repairConversationOutput(parsed: Record<string, unknown>, reques
   }
   for (const key of ['instruction', 'reason'] as const) if (typeof action[key] === 'string') action[key] = (action[key] as string).replace(CONTROL, '');
   action.reference_ids = unique(action.reference_ids);
+  // The schema always asks for from_slide; keep it only where it means something.
+  if (action.from_slide !== true || action.kind !== 'refine_html') delete action.from_slide;
   if (action.intent === 'clarify' && action.kind !== 'discuss') action.intent = 'suggested';
   if (action.kind === 'discuss' && action.intent === 'requested') action.intent = 'suggested';
   if (action.kind !== 'discuss' && typeof action.instruction === 'string' && !action.instruction.trim()

@@ -85,7 +85,8 @@ function contextFor(value: DesignConversationState, scope: DesignConversationSco
     ] };
 }
 function assertNextAction(action: ConversationNextAction, refs: string[]) {
-  check(keys(action, ['kind', 'intent', 'instruction', 'reference_ids', 'reason'])
+  check(keys(action, ['kind', 'intent', 'instruction', 'reference_ids', 'reason', ...('from_slide' in action ? ['from_slide'] : [])])
+    && (action.from_slide === undefined || action.from_slide === true && action.kind === 'refine_html')
     && ['discuss', 'generate_image', 'edit_image', 'create_html', 'refine_html', 'convert_image_to_html', 'explore_ideas'].includes(action.kind)
     && ['requested', 'suggested', 'clarify'].includes(action.intent) && text(action.instruction, 6000, action.kind === 'discuss') && text(action.reason, 1200)
     && (action.intent !== 'clarify' || action.kind === 'discuss') && (action.kind !== 'discuss' || action.intent !== 'requested')

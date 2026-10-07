@@ -22,6 +22,8 @@ export interface ConversationTurnContext {
   design_base?: 'current' | 'deck' | 'new';
   /** Short summaries of other slides of the same presentation (style kit). Data only. */
   deck_style?: { slides: Array<{ title: string; summary: string }> };
+  /** The slide's original design when current_html is a generated version that differs from it. */
+  slide_html?: { revision: string; summary: string };
 }
 export interface ConversationPendingAction { kind: ConversationActionKind; instruction: string; questions: string[] }
 export interface ConversationNextAction {
@@ -32,6 +34,8 @@ export interface ConversationNextAction {
   instruction: string;
   reference_ids: string[];
   reason: string;
+  /** refine_html only: true = adapt the slide's original design (its template), not the selected generated version. */
+  from_slide?: boolean;
 }
 export class ConversationActionError extends Error {
   constructor(public readonly code: string) { super(code); this.name = 'ConversationActionError'; }
@@ -48,7 +52,7 @@ const sameAsset = (left: AssetVersion, right: AssetVersion) => left.business_id 
 export function assertConversationTurn(value: unknown, context: DesignContext): asserts value is ConversationTurnContext {
   const code = 'invalid_conversation_turn';
   check(record(value) && keys(value, ['schema_version', 'canvas', 'surface', 'selected_image', 'available_actions',
-    ...['current_html', 'pending_action', 'design_format', 'design_base', 'deck_style'].filter(key => key in value)]) && value.schema_version === 1
+    ...['current_html', 'pending_action', 'design_format', 'design_base', 'deck_style', 'slide_html'].filter(key => key in value)]) && value.schema_version === 1
     && ['empty', 'image', 'html'].includes(String(value.surface)) && keys(value.canvas, ['width', 'height'])
     && [value.canvas.width, value.canvas.height].every(n => typeof n === 'number' && Number.isSafeInteger(n) && n >= 256 && n <= 3840), code);
   check(Array.isArray(value.available_actions) && value.available_actions.length > 0 && value.available_actions.length <= CONVERSATION_ACTIONS.length
@@ -75,6 +79,8 @@ export function assertConversationTurn(value: unknown, context: DesignContext): 
     check(excluded.length > 0 && !value.available_actions.some(kind => excluded.includes(kind)), code);
   }
   if ('design_base' in value) check(['current', 'deck', 'new'].includes(String(value.design_base)), code);
+  if ('slide_html' in value) check('current_html' in value && keys(value.slide_html, ['revision', 'summary'])
+    && value.slide_html.revision === context.target.revision && text(value.slide_html.summary, 12000), 'invalid_conversation_html_context');
   if ('deck_style' in value) {
     const deck = value.deck_style;
     check(value.design_base === 'deck' && keys(deck, ['slides']) && Array.isArray(deck.slides) && deck.slides.length >= 1 && deck.slides.length <= 3
@@ -88,7 +94,8 @@ export function assertConversationNextAction(value: unknown, request: Exploratio
   understanding: DesignUnderstanding): asserts value is ConversationNextAction {
   const code = 'invalid_conversation_action', turn = request.conversation;
   check(!!turn, code); assertConversationTurn(turn, request.context);
-  check(keys(value, ['kind', 'intent', 'instruction', 'reference_ids', 'reason'])
+  check(keys(value, ['kind', 'intent', 'instruction', 'reference_ids', 'reason', ...(record(value) && 'from_slide' in value ? ['from_slide'] : [])])
+    && (value.from_slide === undefined || value.from_slide === false || value.from_slide === true && value.kind === 'refine_html')
     && turn.available_actions.includes(value.kind as ConversationActionKind)
     && ['requested', 'suggested', 'clarify'].includes(String(value.intent))
     && text(value.instruction, 6000, value.kind === 'discuss') && text(value.reason, 1200), code);
@@ -120,6 +127,7 @@ Compórtate como un asistente de diseño natural que sigue instrucciones:
 - Un «sí» sin pending_action ni sugerencia previa en el historial debe aclararse. Para una sugerencia que no fue pedida usa intent=suggested.
 conversation.design_format, cuando existe, es el formato que eligió el usuario (html = HTML editable, image = imagen IA) y available_actions ya sólo incluye ese formato. Si pide el otro formato, dile que puede cambiar «Formato» arriba del chat; no lo sustituyas.
 conversation.design_base=current significa conservar el diseño actual de la diapositiva (current_html): estructura, tarjetas, jerarquía, marca, tipografía y piezas montadas. Acomoda ahí el texto nuevo y toma de las referencias sólo lo que el usuario pida (acomodo, estilo, objeto); usa refine_html, no rehagas desde cero.
+Con design_base=current el aspecto lo define SIEMPRE la diapositiva, nunca la referencia: no copies su maquetación, colores, fondos ni estilo de bloques. current_html es lo que se ajusta (la versión seleccionada si existe). conversation.slide_html, cuando existe, es el diseño original de la diapositiva (su plantilla). En refine_html usa from_slide=true si el usuario pide volver o apegarse a la base, la plantilla o «el diseño que teníamos», o si la versión seleccionada ya se alejó de ese diseño; usa from_slide=false para retocar la versión seleccionada. En cualquier otra acción from_slide=false.
 Con design_base=current y referencias, compara la información que hay que poner con la estructura de current_html (número de tarjetas, puntos, columnas, secciones y bloques). Si no coinciden (por ejemplo, la referencia tiene seis puntos y el diseño actual tres tarjetas) o sobra un bloque del diseño actual, y el usuario no dijo cómo resolverlo, pregunta UNA vez proponiendo la adaptación concreta, por ejemplo: «La referencia tiene 6 puntos y tu diapositiva 3 tarjetas. ¿Adapto el estilo actual a 6 tarjetas en 2 filas de 3 con su texto? ¿Conservo la franja "Precalificación en 48 hrs" o la quito?». Deja refine_html con intent=suggested y esa adaptación como instruction.
 Adaptar significa: conservar el sistema visual del diseño actual (logo, colores, tipografía, estilo de tarjeta, sombras, espaciado, íconos) y repetir o ajustar sus componentes para TODA la información nueva. Cada elemento nuevo usa el mismo componente que sus hermanos, con su ícono del mismo estilo; ningún punto queda sin su tarjeta ni se resume. Reacomoda la cuadrícula para que todo quepa; de la referencia se toman la información y el acomodo, no su apariencia. En instruction de refine_html describe esa adaptación de forma explícita (cuántos componentes, en qué cuadrícula, qué bloques se conservan o se quitan).
 Cuando el copy es literal y design_base=current, copy.text debe contener TODO el texto visible final: los textos del diseño actual que se conservan (logo escrito, lemas, notas) y el texto nuevo, en orden de lectura. El HTML sólo puede mostrar ese texto.
@@ -132,8 +140,9 @@ instruction debe ser autocontenida para el siguiente paso, conservar todos los e
 La acción es sólo una propuesta estructurada. NO la ejecutes ni afirmes que generaste, modificaste, convertiste, aprobaste o publicaste. El servidor no tiene herramientas de imagen/HTML en este turno. Una orden sobre el aspecto visual conserva copy y restricciones anteriores; no vuelve a extraer ni reescribir texto aprobado sin petición explícita.`;
 
 export function conversationActionSchema(turn: ConversationTurnContext, referenceIds: string[]) {
-  return { type: 'object', additionalProperties: false, required: ['kind', 'intent', 'instruction', 'reference_ids', 'reason'], properties: {
+  return { type: 'object', additionalProperties: false, required: ['kind', 'intent', 'instruction', 'reference_ids', 'reason', 'from_slide'], properties: {
     kind: { type: 'string', enum: turn.available_actions }, intent: { type: 'string', enum: ['requested', 'suggested', 'clarify'] },
+    from_slide: { type: 'boolean' },
     instruction: { type: 'string', maxLength: 6000 }, reason: { type: 'string', minLength: 1, maxLength: 1200 },
     reference_ids: { type: 'array', maxItems: Math.min(4, referenceIds.length), items: referenceIds.length
       ? { type: 'string', enum: referenceIds } : { type: 'string' } },

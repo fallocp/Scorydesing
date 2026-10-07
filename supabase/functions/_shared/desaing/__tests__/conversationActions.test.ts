@@ -204,6 +204,24 @@ describe('unified conversation using the existing exploration planner', () => {
     ]) { const bad = structuredClone(req); mutate(bad); expect(() => assertExplorationRequest(bad)).toThrow('invalid_conversation_turn'); }
   });
 
+  it('keeps from_slide only on refine_html and validates the original slide context', async () => {
+    const req = request(); Object.assign(req.conversation!, { surface: 'html', design_format: 'html', design_base: 'current',
+      available_actions: ['discuss', 'refine_html'], current_html: { revision: req.context.target.revision, summary: 'versión' },
+      slide_html: { revision: req.context.target.revision, summary: 'plantilla' } });
+    expect(() => assertExplorationRequest(req)).not.toThrow();
+    const f = fixture(result(req, { ...action('refine_html'), from_slide: true })), planned = await f.provider.plan(req, f.images);
+    expect(planned.next_action).toMatchObject({ kind: 'refine_html', from_slide: true });
+    const body = JSON.parse(f.fetch.mock.calls[0][1]!.body as string);
+    expect(body.text.format.schema.properties.next_action.required).toContain('from_slide');
+    expect(body.input[0].content[0].text).toContain('conversation.slide_html');
+    const discuss = fixture(result(req, { ...action('discuss'), intent: 'suggested', instruction: '', from_slide: false }));
+    expect(await discuss.provider.plan(req, discuss.images).then(value => value.next_action)).not.toHaveProperty('from_slide');
+    expect(() => assertExplorationResult(result(req, { ...action('discuss'), intent: 'suggested', instruction: '', from_slide: true }), req)).toThrow('invalid_conversation_action');
+    const bad = structuredClone(req); delete (bad.conversation as { current_html?: unknown }).current_html;
+    Object.assign(bad.conversation!, { surface: 'empty', available_actions: ['discuss'] });
+    expect(() => assertExplorationRequest(bad)).toThrow('invalid_conversation_html_context');
+  });
+
   it('logs only the fixed validation code when a repaired answer is still invalid', async () => {
     const req = request(), output = result(req, { ...action(), kind: 'refine_html' as never });
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});

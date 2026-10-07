@@ -256,7 +256,24 @@ describe('unified conversation orchestration', () => {
     render(options); await flush(); await render(options).send('Acomoda este texto en el diseño que ya tenemos.');
     const turn = planner.plan.mock.calls[0][0].conversation!;
     expect(turn).toMatchObject({ surface: 'html', design_format: 'html', design_base: 'current', current_html: { revision: '1', summary: '<main>base</main>' } });
-    expect(turn.available_actions).toEqual(['discuss', 'create_html', 'explore_ideas', 'refine_html']);
+    // Adapting the slide never offers «create from scratch», which would copy the reference's look.
+    expect(turn.available_actions).toEqual(['discuss', 'explore_ideas', 'refine_html']);
+  });
+
+  it('«Diseño actual» refines the original slide (not the generated version) when the planner asks to go back to the template', async () => {
+    const { options, planner } = fixture(); options.format = 'html'; options.base = 'current'; options.initialCopy = 'Conectamos con el mundo.';
+    const proposal = { html: '<main>versión literal</main>', target: { document: 'document', slide: 'canvas', revision: 1 },
+      canvas: { width: 1280, height: 720 }, mounted: [], intent: 'replace' as const };
+    const controller = { create: vi.fn(), updateContext: vi.fn(), refine: vi.fn(async (_input: any) => proposal), openEditor: vi.fn(), recover: vi.fn(), apply: vi.fn(), discardPending: vi.fn() };
+    options.htmlController = { current: controller }; options.htmlState = { current: { ready: true, busy: false, status: 'ready' } as any };
+    planner.plan.mockImplementationOnce(async request => result(request, 'refine_html' as never, true))
+      .mockImplementationOnce(async request => { const response = result(request, 'refine_html' as never, true); response.next_action!.from_slide = true; return response; });
+    render(options); await flush(); await render(options).send('Acomoda la referencia en esta diapositiva.');
+    expect(render(options).state.versions).toHaveLength(1); expect(controller.refine.mock.calls[0][0]).not.toHaveProperty('fromCurrent');
+    await render(options).send('No me gusta, debe ser como el diseño que teníamos de base.');
+    const turn = planner.plan.mock.calls[1][0].conversation!;
+    expect(turn.current_html!.summary).toBe('<main>versión literal</main>'); expect(turn.slide_html).toEqual({ revision: '1', summary: '<main>base</main>' });
+    expect(controller.refine.mock.calls[1][0]).toMatchObject({ fromCurrent: true }); expect(controller.refine.mock.calls[1][0]).not.toHaveProperty('proposal');
   });
 
   it('HTML + «Diseño nuevo» and «Imagen IA» restrict the planner to their own actions', async () => {

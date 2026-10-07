@@ -294,7 +294,11 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
     if (hasHtml) actions.push('refine_html');
     const excluded: ConversationActionKind[] = format === 'html' ? ['generate_image', 'edit_image']
       : format === 'image' ? ['create_html', 'refine_html', 'convert_image_to_html'] : [];
+    // «Diseño actual» always adapts the slide: creating from scratch would copy the reference's look instead.
+    if (format === 'html' && base === 'current' && hasHtml) excluded.push('create_html');
     actions = actions.filter(kind => !excluded.includes(kind));
+    const slideHtml = latest.current.slide.html;
+    const showSlide = format === 'html' && base === 'current' && hasHtml && selected?.kind === 'html' && selected.proposal.html !== slideHtml;
     const actionId = crypto.randomUUID(), turnId = crypto.randomUUID(), destination = latest.current.destination, waiting = value.next_action;
     const projectCopy = (copy: DesignCopy) => ({ ...copy, source_reference_ids: copy.source_reference_ids.filter(id => visualRefs.some(ref => ref.reference_id === id)) });
     const previousUnderstanding = value.understanding ? { ...value.understanding, copy: projectCopy(value.understanding.copy),
@@ -316,6 +320,7 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
         ...(!resolvingCopy && waiting && waiting.kind !== 'discuss' && waiting.intent !== 'requested' ? { pending_action: {
           kind: waiting.kind, instruction: waiting.instruction, questions: value.understanding?.pending_questions ?? [] } } : {}),
         ...(!resolvingCopy && format ? { design_format: format } : {}),
+        ...(!resolvingCopy && showSlide ? { slide_html: { revision: String(value.target.revision), summary: buildConversationHtmlSummary(slideHtml) } } : {}),
         ...(!resolvingCopy && format === 'html' && base ? { design_base: base } : {}),
         ...(!resolvingCopy && format === 'html' && base === 'deck' && latest.current.deckStyle?.length
           ? { deck_style: { slides: structuredClone(latest.current.deckStyle) } } : {}),
@@ -447,8 +452,8 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
           copyMode: value.copy.status === 'none' ? 'no_text' : 'approved_text', instruction: action.instruction, replaceCompleted: true });
         await finishHtml(life, fromComposition(proposal), { request_key: proposal.requestKey, source: proposal.source, unresolved_slots: proposal.unresolvedSlots });
       } else {
-        show('html'); const selected = selectedOf(value);
-        const context = { ...htmlInput, ...(selected?.kind === 'html' ? { proposal: selected.proposal } : {}) };
+        show('html'); const selected = selectedOf(value), fromSlide = action.kind === 'refine_html' && action.from_slide === true;
+        const context = { ...htmlInput, ...(selected?.kind === 'html' && !fromSlide ? { proposal: selected.proposal } : {}), ...(fromSlide ? { fromCurrent: true } : {}) };
         const proposal = action.kind === 'refine_html' ? await input.htmlController.current!.refine({ ...context, feedback: action.instruction, compare: true })
           : await input.htmlController.current!.create(context);
         await finishHtml(life, proposal);

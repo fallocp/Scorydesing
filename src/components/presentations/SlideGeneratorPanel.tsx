@@ -39,6 +39,8 @@ export type SlideProposalReason = 'generated' | 'refined' | 'edited' | 'recovere
 export interface SlideGeneratorContext {
   instruction?: string; copy?: string; copyMode?: HtmlDesignDraft['copyMode']; references?: PreparedPresentationReference[];
   proposal?: HtmlDesignProposal;
+  /** Refine the slide's own HTML (its template) instead of the draft's last proposal. */
+  fromCurrent?: boolean;
 }
 export interface SlideGeneratorState {
   ready: boolean; busy: boolean; error: string; status: HtmlDesignDraft['status'];
@@ -147,7 +149,7 @@ function HtmlDesignWorkspace(props: SlideGeneratorPanelProps & { actorId: string
     };
     window.addEventListener('paste', paste); return () => window.removeEventListener('paste', paste);
   }, [ready, fileBusy, editing, props.externalConversation]);
-  async function requestHtml(life: Life, refine: boolean, compare: boolean) {
+  async function requestHtml(life: Life, refine: boolean, compare: boolean, fromCurrent = false) {
     const before = structuredClone(draftRef.current), destination = { ...target };
     if (before.status !== 'ready') throw Error('La solicitud anterior no se confirmó. Conserva la propuesta o prepara explícitamente otra versión.');
     if (!refine && !before.instruction.trim() && !before.references.length) throw Error('Describe el diseño o añade una referencia.');
@@ -157,10 +159,11 @@ function HtmlDesignWorkspace(props: SlideGeneratorPanelProps & { actorId: string
       throw Error('Ese texto indica qué referencia leer. Escríbelo en «Tu idea» y elige «Según mis indicaciones», o pega aquí las palabras exactas del diseño.');
     }
     if (refine && !before.feedback.trim()) throw Error('Escribe el cambio que quieres hacer.');
-    if (refine && before.proposal?.pending) throw Error('Comprueba las piezas de la propuesta antes de pedir otro ajuste.');
-    const base = before.proposal?.html ?? props.currentHtml;
+    const proposalBase = fromCurrent ? undefined : before.proposal;
+    if (refine && proposalBase?.pending) throw Error('Comprueba las piezas de la propuesta antes de pedir otro ajuste.');
+    const base = proposalBase?.html ?? props.currentHtml;
     if (refine && !base) throw Error('Primero crea una propuesta.');
-    if (refine && before.proposal) assertHtmlDesignTarget(before.proposal, destination);
+    if (refine && proposalBase) assertHtmlDesignTarget(proposalBase, destination);
     const size = refine ? getSlideDimensions(base!) : canvas;
     const references = await Promise.all(before.references.map(async item => ({ id: item.id, name: item.name, role: item.role, image_base64: await imageDataUrl(item.blob) })));
     const render = compare && base ? await renderHtmlToPng(base, 'xending', size.width, size.height) : undefined;
@@ -183,9 +186,9 @@ function HtmlDesignWorkspace(props: SlideGeneratorPanelProps & { actorId: string
       const actual = getSlideDimensions(html);
       if (actual.width !== size.width || actual.height !== size.height) throw Error('La respuesta cambió las dimensiones del lienzo. La versión anterior se conserva.');
       const measured = await measureHtmlDesignAssets({ id: props.slideId, revision: destination.revision, title: '', html: refine ? base! : '',
-        mounted_assets: refine ? before.proposal?.mounted ?? props.mountedAssets ?? [] : [] }, html, size);
+        mounted_assets: refine ? proposalBase?.mounted ?? props.mountedAssets ?? [] : [] }, html, size);
       await assertSession(life);
-      const proposal: HtmlDesignProposal = { ...measured, target: destination, canvas: size, intent: refine ? before.proposal?.intent ?? 'replace' : intent };
+      const proposal: HtmlDesignProposal = { ...measured, target: destination, canvas: size, intent: refine ? proposalBase?.intent ?? 'replace' : intent };
       const next = patch({ proposal, status: 'ready', feedback: '', messages: [...before.messages,
         { role: 'user' as const, text: refine ? before.feedback : before.instruction || 'Diseña a partir de mis referencias.' },
         { role: 'assistant' as const, text: 'La propuesta está lista. Puedes pedir ajustes, editarla directamente o aplicarla al documento.' }].slice(-40) });
@@ -243,7 +246,7 @@ function HtmlDesignWorkspace(props: SlideGeneratorPanelProps & { actorId: string
     async create(input = {}) { const frozen = structuredClone(input); return (await run(async life => { await updateContext(life, frozen); return requestHtml(life, false, false); }, true))!; },
     async refine(input) { const frozen = structuredClone(input); return (await run(async life => {
       await updateContext(life, frozen); await persist(patch({ feedback: frozen.feedback }));
-      return requestHtml(life, true, frozen.compare === true);
+      return requestHtml(life, true, frozen.compare === true, frozen.fromCurrent === true);
     }, true))!; },
     async openEditor() { await run(async life => {
       if (!draftRef.current.proposal) throw Error('Primero crea o recupera una propuesta.');
