@@ -87,13 +87,23 @@ describe('shared Presentations HTML canvas contract', () => {
     expect(() => parseDesignCanvasHtmlRequest({ ...base(), references: Array(5).fill(ref) })).toThrow('cuatro');
   });
 
-  it('preserves mounted image IDs and source URLs across a refinement, refusing replacement or loss', () => {
+  it('preserves mounted image IDs and source URLs across a refinement, refusing re-labeled pixels but allowing a layout to drop a piece', () => {
     const img = '<img id="mundo" src="https://assets.test/world.png?version=7&amp;token=keep">';
     const request = { ...base(), current_html: doc(img), iteration_feedback: 'Mueve el mundo a la derecha.' };
     expect(finalizeDesignCanvasHtml(doc(`<section style="margin-left:40px">${img}</section>`), request)).toContain(img);
-    expect(() => finalizeDesignCanvasHtml(doc(img.replace('version=7', 'version=8')), request)).toThrow('imagen montada');
-    expect(() => finalizeDesignCanvasHtml(doc(img.replace('id="mundo"', 'id="nuevo"')), request)).toThrow('imagen montada');
-    expect(() => finalizeDesignCanvasHtml(doc(''), request)).toThrow('imagen montada');
+    expect(() => finalizeDesignCanvasHtml(doc(img.replace('id="mundo"', 'id="nuevo"')), request)).toThrow('identidad de una imagen montada');
+    // Adapting the layout (e.g. removing a band) may legitimately drop a mounted piece; the proposal is reviewed before applying.
+    expect(finalizeDesignCanvasHtml(doc('<p>Sin el mundo</p>'), request)).not.toContain('world.png');
+  });
+
+  it('restores identity of masked mounted pieces and turns a repeated piece into an empty slot to mount', () => {
+    const icon = `<img data-eid="icon-drop" data-asset-id="drop" data-asset-version="v1" src="${first}">`;
+    const request = { ...base(), current_html: doc(icon), iteration_feedback: 'Pasa a seis tarjetas.' };
+    const output = finalizeDesignCanvasHtml(doc('<img data-eid="otro" src="scory-mounted://asset-0"><img data-eid="icon-drop" src="scory-mounted://asset-0" alt="Ícono">'
+      + '<img src="scory-mounted://asset-9" alt="Inexistente">'), request);
+    expect(output).toContain(icon); expect(output.split(first)).toHaveLength(2);
+    expect(output).toContain('<img src="" alt="Ícono">'); expect(output).toContain('<img src="" alt="Inexistente">');
+    expect(output).not.toContain('scory-mounted://');
   });
 
   it('keeps reusable asset identities and restores original raster bytes without sending base64 as HTML text', () => {
@@ -103,8 +113,9 @@ describe('shared Presentations HTML canvas contract', () => {
     expect(JSON.stringify(messages)).not.toContain(first); expect(JSON.stringify(messages)).toContain('scory-mounted://asset-0');
     const refined = doc(img.replace(first, 'scory-mounted://asset-0'));
     expect(finalizeDesignCanvasHtml(refined, request)).toContain(img);
-    expect(() => finalizeDesignCanvasHtml(refined.replace('data-asset-version="v3"', 'data-asset-version="v4"'), request)).toThrow('imagen montada');
-    expect(() => finalizeDesignCanvasHtml(refined.replace('data-eid="mounted-world"', ''), request)).toThrow('imagen montada');
+    // Edited identity attributes on a masked piece are put back, never trusted.
+    expect(finalizeDesignCanvasHtml(refined.replace('data-asset-version="v3"', 'data-asset-version="v4"'), request)).toContain(img);
+    expect(finalizeDesignCanvasHtml(refined.replace('data-eid="mounted-world"', ''), request)).toContain(img);
   });
 
   it('keeps literal copy through editable inline spans and refuses missing, reordered or invented content', () => {

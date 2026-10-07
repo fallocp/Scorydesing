@@ -217,6 +217,16 @@ function replaceImageSource(tag: string, source: string): string {
   const escaped = source.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   return tag.replace(/(\ssrc\s*=\s*)(?:"[^"]*"|'[^']*')/i, (_match, prefix: string) => `${prefix}"${escaped}"`);
 }
+const IDENTITY_ATTRIBUTES = ['id', 'data-eid', 'data-asset-id', 'data-asset-version'];
+const withoutAttribute = (tag: string, name: string) => tag.replace(new RegExp(`\\s${name}\\s*=\\s*(?:"[^"]*"|'[^']*')`, 'gi'), '');
+const escapeAttribute = (value: string) => value.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+/** Put back the exact identity of a mounted piece. */
+function withIdentity(tag: string, identity: Record<string, string>): string {
+  const attributes = Object.entries(identity).map(([name, value]) => ` ${name}="${escapeAttribute(value)}"`).join('');
+  return IDENTITY_ATTRIBUTES.reduce(withoutAttribute, tag).replace(/^<img\s+/i, '<img ').replace(/^<img\b/i, `<img${attributes}`);
+}
+/** A slot to mount later with the image editor: no source and no borrowed identity. */
+const emptySlot = (tag: string) => replaceImageSource(IDENTITY_ATTRIBUTES.reduce(withoutAttribute, tag), '');
 /** Avoid sending large base64 assets as text tokens or asking the model to copy
  * opaque bytes. The render provides visual evidence; references remain separate. */
 function maskMountedSources(html: string): string {
@@ -228,16 +238,22 @@ export function finalizeDesignCanvasHtml(output: string, request: DesignCanvasHt
   const reject = (message: string): never => { throw new DesignCanvasHtmlError('invalid_canvas_html', message, 502); };
   if (html.length > DESIGN_CANVAS_HTML_LIMITS.htmlCharacters || !/<html\b/i.test(html) || !/<head\b/i.test(html) || !/<body\b/i.test(html) || !/<\/head\s*>/i.test(html) || !/<\/body\s*>/i.test(html)) return reject('El modelo no devolvió un documento HTML completo.');
   if (request.current_html) {
-    const previous = imageAssets(request.current_html);
+    const previous = imageAssets(request.current_html), used = new Set<number>();
+    // Adapting a layout may move, drop or repeat mounted pieces. The proposal is reviewed before it is applied, so:
+    // a mounted piece keeps its exact bytes and identity (restored here even if the model edited its attributes),
+    // a repeated piece becomes an empty slot to mount, and an unknown placeholder never survives as a broken src.
     html = html.replace(/<img\b[^>]*>/gi, tag => {
       const match = /^scory-mounted:\/\/asset-(\d+)$/.exec(attributeMap(tag).src ?? '');
-      return match && previous[Number(match[1])] ? replaceImageSource(tag, previous[Number(match[1])].src) : tag;
+      if (!match) return tag;
+      const index = Number(match[1]);
+      if (!previous[index] || used.has(index)) return emptySlot(tag);
+      used.add(index); return withIdentity(replaceImageSource(tag, previous[index].src), previous[index].identity);
     });
-    const next = imageAssets(html);
-    for (const asset of previous) {
-      const index = next.findIndex(item => item.src === asset.src && JSON.stringify(item.identity) === JSON.stringify(asset.identity));
-      if (index < 0) return reject('El ajuste cambió o eliminó una imagen montada. Conserva la versión actual e inténtalo con una indicación más concreta.');
-      next.splice(index, 1);
+    // A mounted source may only appear with its own identity: never re-label stored pixels as another asset.
+    for (const item of imageAssets(html)) {
+      const owners = previous.filter(asset => asset.src === item.src);
+      if (owners.length && !owners.some(asset => JSON.stringify(asset.identity) === JSON.stringify(item.identity)))
+        return reject('El ajuste cambió la identidad de una imagen montada. Conserva la versión actual e inténtalo con una indicación más concreta.');
     }
     if (html.length > DESIGN_CANVAS_HTML_LIMITS.htmlCharacters) return reject('El HTML con sus piezas montadas excede el tamaño admitido.');
   }
