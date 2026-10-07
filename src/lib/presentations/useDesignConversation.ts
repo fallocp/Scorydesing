@@ -33,7 +33,7 @@ export interface UseDesignConversationOptions {
   service: PresentationDesignService; businessId: string; documentId: string; slide: PresentationSlide;
   destination?: DesignSurfaceDestination; initialCopy?: string | DesignCopy; initialView?: 'image' | 'html'; settings: ImageGenerationSettings;
   /** Output and starting point chosen in the workspace; undefined keeps every action available. */
-  format?: 'html' | 'image'; base?: 'current' | 'deck' | 'new';
+  format?: 'html' | 'image'; base?: 'current' | 'version' | 'deck' | 'new';
   /** Style kit of the presentation (other slides), used when base is 'deck'. */
   deckStyle?: Array<{ title: string; summary: string }>;
   htmlController: RefObject<SlideGeneratorController | null>; compositionController: RefObject<DesignToHtmlController | null>;
@@ -284,21 +284,27 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
     const canvas = getSlideDimensions(latest.current.slide.html), visualRefs: DesignReference[] = uploaded.map(item => item.reference);
     if (selectedImage?.kind === 'image') visualRefs.push({ ...selectedImage.asset, reference_id: `image:${selectedImage.asset.asset_id}:${selectedImage.asset.version_id}`,
       mime_type: 'image/png', roles: ['object_reference', 'layout_reference'] });
-    const { format, base } = latest.current;
+    const { format } = latest.current;
     let actions: ConversationActionKind[] = ['discuss', 'generate_image', 'create_html', 'explore_ideas'];
     if (selectedImage?.kind === 'image') actions.push('edit_image', 'convert_image_to_html');
-    // «Diseño actual» in HTML: the slide's existing HTML is the design to adjust, even when an image version is selected.
-    const hasHtml = selected?.kind === 'html' && viewRef.current !== 'history' && same(selected.target, value.target)
-      && !selected.composition?.unresolved_slots.length || !selected && viewRef.current === 'html' && base !== 'new' && base !== 'deck'
-      || format === 'html' && base === 'current' && selected?.kind !== 'html';
+    const selectedHtml = selected?.kind === 'html' && viewRef.current !== 'history' && same(selected.target, value.target)
+      && !selected.composition?.unresolved_slots.length;
+    // «Esta versión» without a usable HTML version falls back to the slide itself.
+    const base = latest.current.base === 'version' && !selectedHtml ? 'current' : latest.current.base;
+    // «Diseño de la diapositiva»: the slide's own HTML is ALWAYS the base, never a generated version (deterministic).
+    const slideBase = format === 'html' && base === 'current';
+    // «Esta versión»: keep adjusting the selected generated HTML version.
+    const versionBase = format === 'html' && base === 'version' && selectedHtml;
+    const hasHtml = slideBase || (base === 'version' ? versionBase : selectedHtml || !selected && viewRef.current === 'html' && base !== 'new' && base !== 'deck');
     if (hasHtml) actions.push('refine_html');
     const excluded: ConversationActionKind[] = format === 'html' ? ['generate_image', 'edit_image']
       : format === 'image' ? ['create_html', 'refine_html', 'convert_image_to_html'] : [];
-    // «Diseño actual» always adapts the slide: creating from scratch would copy the reference's look instead.
-    if (format === 'html' && base === 'current' && hasHtml) excluded.push('create_html');
+    // Adapting an existing design never offers «create from scratch», which would copy the reference's look instead.
+    if (slideBase || versionBase) excluded.push('create_html');
     actions = actions.filter(kind => !excluded.includes(kind));
     const slideHtml = latest.current.slide.html;
-    const showSlide = format === 'html' && base === 'current' && hasHtml && selected?.kind === 'html' && selected.proposal.html !== slideHtml;
+    const baseHtml = !slideBase && selected?.kind === 'html' ? selected.proposal.html : slideHtml;
+    const showSlide = versionBase && selected?.kind === 'html' && selected.proposal.html !== slideHtml;
     const actionId = crypto.randomUUID(), turnId = crypto.randomUUID(), destination = latest.current.destination, waiting = value.next_action;
     const projectCopy = (copy: DesignCopy) => ({ ...copy, source_reference_ids: copy.source_reference_ids.filter(id => visualRefs.some(ref => ref.reference_id === id)) });
     const previousUnderstanding = value.understanding ? { ...value.understanding, copy: projectCopy(value.understanding.copy),
@@ -324,8 +330,7 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
         ...(!resolvingCopy && format === 'html' && base ? { design_base: base } : {}),
         ...(!resolvingCopy && format === 'html' && base === 'deck' && latest.current.deckStyle?.length
           ? { deck_style: { slides: structuredClone(latest.current.deckStyle) } } : {}),
-        ...(hasHtml ? { current_html: { revision: String(value.target.revision),
-          summary: buildConversationHtmlSummary(selected?.kind === 'html' ? selected.proposal.html : latest.current.slide.html) } } : {}) } };
+        ...(hasHtml ? { current_html: { revision: String(value.target.revision), summary: buildConversationHtmlSummary(baseHtml) } } : {}) } };
     await save(life, before => beginConversationAction(before, { action_id: actionId, turn_id: turnId, kind: 'understand', phase: 'prepared',
       epoch: before.epoch, target: before.target, request: { kind: 'understand', request } }, { id: `user:${actionId}`, turn_id: turnId, role: 'user', text: message }));
     onSaved?.();
@@ -452,7 +457,8 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
           copyMode: value.copy.status === 'none' ? 'no_text' : 'approved_text', instruction: action.instruction, replaceCompleted: true });
         await finishHtml(life, fromComposition(proposal), { request_key: proposal.requestKey, source: proposal.source, unresolved_slots: proposal.unresolvedSlots });
       } else {
-        show('html'); const selected = selectedOf(value), fromSlide = action.kind === 'refine_html' && action.from_slide === true;
+        show('html'); const selected = selectedOf(value), fromSlide = action.kind === 'refine_html'
+          && (action.from_slide === true || input.format === 'html' && (input.base === 'current' || input.base === 'version' && selected?.kind !== 'html'));
         const context = { ...htmlInput, ...(selected?.kind === 'html' && !fromSlide ? { proposal: selected.proposal } : {}), ...(fromSlide ? { fromCurrent: true } : {}) };
         const proposal = action.kind === 'refine_html' ? await input.htmlController.current!.refine({ ...context, feedback: action.instruction, compare: true })
           : await input.htmlController.current!.create(context);
