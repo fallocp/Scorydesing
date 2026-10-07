@@ -10,6 +10,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { DesignCanvasHtmlRequest } from '../../supabase/functions/_shared/designCanvasHtml';
+import { DesignHtmlRequestError } from '@/lib/presentations/htmlRequestError';
 
 export interface GenerateSlideRequest {
   /** Intención / texto del usuario (opcional si se manda imagen). */
@@ -35,6 +36,7 @@ export interface GenerateSlideRequest {
 export interface GenerateSlideResponse {
   html: string;
 }
+export { DesignHtmlRequestError, isDefinitiveHtmlFailure } from '@/lib/presentations/htmlRequestError';
 
 async function generateSlide(
   request: GenerateSlideRequest | (DesignCanvasHtmlRequest & { expectedActorId?: string }),
@@ -52,9 +54,17 @@ async function generateSlide(
     body: { ...body, design_system: canvasRequest ? 'design-canvas' : 'xending-slide' },
   });
 
-  if (error) throw new Error(error.message || 'Error generando el slide');
-  if (data?.error) throw new Error(data.message || data.error);
-  if (!data?.html) throw new Error('La IA no devolvió HTML del slide');
+  if (error) {
+    // The function answered (non-2xx): no HTML was produced, so the caller can retry right away.
+    let message = error.message;
+    const context = (error as { context?: unknown }).context;
+    if (context instanceof Response) {
+      try { const body = await context.clone().json(); message = body?.message || body?.error || message; } catch { /* keep the generic message */ }
+    }
+    throw new DesignHtmlRequestError(message || 'Error generando el slide', error.name === 'FunctionsHttpError');
+  }
+  if (data?.error) throw new DesignHtmlRequestError(data.message || data.error, true);
+  if (!data?.html) throw new DesignHtmlRequestError('La IA no devolvió HTML del slide', true);
   await assertActor();
   return { html: data.html };
 }

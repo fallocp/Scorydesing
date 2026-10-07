@@ -1,6 +1,7 @@
 import { useEffect, useImperativeHandle, useRef, useState, type Ref } from 'react';
 import { X, Sparkles, Wand2, Loader2, Pencil, Plus } from 'lucide-react';
 import { useGenerateSlide } from '@/hooks/useGenerateSlide';
+import { DesignHtmlRequestError, isDefinitiveHtmlFailure } from '@/lib/presentations/htmlRequestError';
 import { useAuth } from '@/hooks/useAuth';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { supabase } from '@/integrations/supabase/client';
@@ -50,9 +51,13 @@ export interface SlideGeneratorController {
   refine(input: SlideGeneratorContext & { feedback: string; compare?: boolean }): Promise<HtmlDesignProposal>;
   openEditor(): Promise<void>;
   recover(): Promise<HtmlDesignDraft>;
+  /** Releases an unconfirmed request (HTML generation has no server-side result to recover). Keeps the proposal. */
+  discardPending(): Promise<void>;
   apply(): Promise<void>;
 }
 type Store = Awaited<ReturnType<typeof openHtmlDesignDraft>>;
+/** Requests above ~5 MB fail at the Edge Function boundary. */
+const MAX_HTML_REQUEST_BYTES = 5 * 1048576;
 type Life = { active: boolean; store?: Store; revision: number; queue: Promise<unknown> };
 
 /** Same workspace for presentation slides and independent covers/pages. */
@@ -160,14 +165,19 @@ function HtmlDesignWorkspace(props: SlideGeneratorPanelProps & { actorId: string
     const references = await Promise.all(before.references.map(async item => ({ id: item.id, name: item.name, role: item.role, image_base64: await imageDataUrl(item.blob) })));
     const render = compare && base ? await renderHtmlToPng(base, 'xending', size.width, size.height) : undefined;
     await assertSession(life); if (JSON.stringify(destination) !== JSON.stringify(currentTarget())) throw Error('El lienzo cambió mientras se preparaba el encargo.');
+    const request = { design_system: 'design-canvas' as const, business_id: props.businessId, expectedActorId: props.actorId,
+      canvas: size, instruction: before.instruction || undefined, references,
+      ...(before.copyMode !== 'instruction' ? { copy_mode: before.copyMode, approved_copy: before.copyMode === 'literal' ? before.copy : undefined } : {}),
+      ...(refine ? { current_html: base, iteration_feedback: before.feedback, render_base64: render } : {}),
+      ...(!refine && latest.current.styleExamples?.length ? { style_examples: structuredClone(latest.current.styleExamples) } : {}),
+    };
+    // Large bodies reach the function truncated («Unexpected end of JSON input»). The comparison capture is optional.
+    const bytes = () => new TextEncoder().encode(JSON.stringify(request)).length;
+    if (request.render_base64 && bytes() > MAX_HTML_REQUEST_BYTES) delete request.render_base64;
+    if (bytes() > MAX_HTML_REQUEST_BYTES) throw new DesignHtmlRequestError(`El diseño y sus referencias pesan ${(bytes() / 1048576).toFixed(1)} MB y el límite es ${MAX_HTML_REQUEST_BYTES / 1048576} MB. Quita una referencia o usa imágenes más ligeras.`, true);
     await persist(patch({ status: 'sending' }));
     try {
-      const response = await generate.mutateAsync({ design_system: 'design-canvas', business_id: props.businessId, expectedActorId: props.actorId,
-        canvas: size, instruction: before.instruction || undefined, references,
-        ...(before.copyMode !== 'instruction' ? { copy_mode: before.copyMode, approved_copy: before.copyMode === 'literal' ? before.copy : undefined } : {}),
-        ...(refine ? { current_html: base, iteration_feedback: before.feedback, render_base64: render } : {}),
-        ...(!refine && latest.current.styleExamples?.length ? { style_examples: structuredClone(latest.current.styleExamples) } : {}),
-      });
+      const response = await generate.mutateAsync(request);
       await assertSession(life);
       const html = sanitizePresentationHtml(response.html);
       const actual = getSlideDimensions(html);
@@ -184,7 +194,8 @@ function HtmlDesignWorkspace(props: SlideGeneratorPanelProps & { actorId: string
       notifyProposal(proposal, refine ? 'refined' : 'generated');
       return structuredClone(proposal);
     } catch (e) {
-      if (active(life)) { patch({ status: 'uncertain' }); await persist().catch(() => {}); }
+      // A server answer without HTML is final: the draft stays usable for another attempt.
+      if (active(life)) { patch({ status: isDefinitiveHtmlFailure(e) ? 'ready' : 'uncertain' }); await persist().catch(() => {}); }
       throw e;
     }
   }
@@ -247,6 +258,7 @@ function HtmlDesignWorkspace(props: SlideGeneratorPanelProps & { actorId: string
       }
       return structuredClone(draftRef.current);
     }, true))!; },
+    async discardPending() { await run(async () => { if (draftRef.current.status !== 'ready') await persist(patch({ status: 'ready' })); }, true); },
     async apply() { await run(apply, true); },
   }));
   if (editing && draft.proposal) return <><VisualDesignEditor html={draft.proposal.html} pieceIndex={props.currentSlide ?? 0}

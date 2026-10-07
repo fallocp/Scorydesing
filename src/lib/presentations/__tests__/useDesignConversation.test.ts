@@ -44,6 +44,7 @@ vi.mock('../presentationServerDesign', async importOriginal => {
 import { useDesignConversation, type UseDesignConversationOptions } from '../useDesignConversation';
 import { buildConversationImageOperation, prepareConversationReferences } from '../designConversationImages';
 import { emptyDesignConversation } from '../designConversationStore';
+import { DesignHtmlRequestError } from '../htmlRequestError';
 import { assertConversationTransition, assertDesignConversation, beginConversationAction, type DesignConversationState } from '../designConversationStore';
 import { createContinuityStore, type ContinuityRemoteRecord, type ContinuityRecord, type ContinuityAttempt } from '../../desaing/continuityStore';
 
@@ -351,19 +352,31 @@ describe('unified conversation orchestration', () => {
     const { options, client } = fixture(); options.initialCopy = 'Conectamos con el mundo.';
     const proposal = { html: '<main>HTML aplicado</main>', target: { document: 'document', slide: 'canvas', revision: 1 },
       canvas: { width: 1280, height: 720 }, mounted: [], intent: 'replace' as const };
-    const controller = { create: vi.fn(async () => proposal), updateContext: vi.fn(), refine: vi.fn(), openEditor: vi.fn(), recover: vi.fn(), apply: vi.fn() };
+    const controller = { create: vi.fn(async () => proposal), updateContext: vi.fn(), refine: vi.fn(), openEditor: vi.fn(), recover: vi.fn(), apply: vi.fn(),
+      discardPending: vi.fn(async () => { options.htmlState!.current!.status = 'ready'; }) };
     options.htmlController = { current: controller }; options.htmlState = { current: { ready: false, busy: false, status: 'ready' } as any };
     render(options); await flush(); await render(options).executeAction('create_html');
     expect(render(options).state.pending).toBeNull(); expect(controller.create).not.toHaveBeenCalled();
+    // An unconfirmed HTML draft left by an earlier failure (no conversation action pending) is released, not a dead end.
     options.htmlState.current!.ready = true; options.htmlState.current!.status = 'uncertain'; await render(options).executeAction('create_html');
-    expect(render(options).state.pending).toBeNull(); expect(controller.create).not.toHaveBeenCalled();
-    options.htmlState.current!.status = 'ready'; await render(options).executeAction('create_html');
+    expect(controller.discardPending).toHaveBeenCalledTimes(1);
     expect(render(options).error).toBe(''); expect(render(options).state.versions).toHaveLength(1); expect(controller.apply).not.toHaveBeenCalled();
     for (const cleanup of harness.cleanups) cleanup?.(); harness.values = []; harness.cleanups = []; harness.effects = [];
     options.slide = { ...options.slide, revision: 2, html: proposal.html }; render(options); await flush();
     const state = render(options).state; expect(render(options).error).toBe(''); expect(state.target.revision).toBe(2);
     expect(state.versions).toHaveLength(2); expect(state.versions[0].target.revision).toBe(1); expect(state.versions[1].target.revision).toBe(2);
     expect(state.selected_version_id).toBe(state.versions[1].id); expect(client.command).not.toHaveBeenCalled();
+  });
+
+  it('closes the HTML action when the service answered without HTML, so the user can retry without a pending request', async () => {
+    const { options } = fixture(); options.initialCopy = 'Conectamos con el mundo.';
+    const controller = { create: vi.fn(async () => { throw new DesignHtmlRequestError('Unexpected end of JSON input', true); }), updateContext: vi.fn(),
+      refine: vi.fn(), openEditor: vi.fn(), recover: vi.fn(), apply: vi.fn(), discardPending: vi.fn() };
+    options.htmlController = { current: controller }; options.htmlState = { current: { ready: true, busy: false, status: 'ready' } as any };
+    render(options); await flush(); await render(options).executeAction('create_html');
+    const hook = render(options);
+    expect(hook.state.pending).toBeNull(); expect(hook.error).toContain('Unexpected end of JSON input');
+    expect(hook.state.messages.at(-1)!.text).toContain('puedes intentarlo de nuevo');
   });
 
   it('does not hydrate another actor’s saved messages when the session changes during initialization', async () => {

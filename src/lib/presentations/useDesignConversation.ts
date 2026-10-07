@@ -18,6 +18,7 @@ import { preparePresentationReference, type PreparedPresentationReference } from
 import type { ImageGenerationSettings } from '../imageGenerationSettings';
 import { imageDataUrl } from '../desaing/labImages';
 import { DesignServerClientError } from '../desaing/serverClient';
+import { isDefinitiveHtmlFailure } from './htmlRequestError';
 import { beginConversationAction, completeConversationAction, emptyDesignConversation, markConversationAction, advanceConversationEpoch,
   openDesignConversationStore, type DesignConversationState, type DesignConversationRecord, type DesignConversationVersion } from './designConversationStore';
 import { buildConversationImageOperation, prepareConversationReferences, readConversationImage, sameConversationAsset } from './designConversationImages';
@@ -422,7 +423,9 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
     } else {
       if (!input.htmlController.current || input.htmlState?.current && (!input.htmlState.current.ready || input.htmlState.current.busy))
         throw Error('El editor está cargando. Inténtalo cuando esté listo.');
-      if (input.htmlState?.current && input.htmlState.current.status !== 'ready') throw Error('Recupera la solicitud HTML pendiente antes de preparar otra.');
+      // No conversation action is pending here, so an unconfirmed HTML draft is an orphan of an earlier failure:
+      // HTML generation keeps no server result to recover, release it instead of blocking every new request.
+      if (input.htmlState?.current && input.htmlState.current.status !== 'ready') await input.htmlController.current.discardPending();
       const selected = selectedOf(value);
       if (selected?.kind === 'html' && selected.composition?.unresolved_slots.length) throw Error('Completa las piezas de esta composición antes de ajustar su HTML.');
       const image = imageOf(value);
@@ -457,7 +460,10 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
         const admissionRefusal = problem instanceof DesignServerClientError && ['html_quota_exceeded', 'html_previous_unresolved', 'server_html_expired',
           'server_feature_disabled', 'business_access_denied', 'business_write_denied', 'invalid_html_request', 'html_source_not_approved',
           'html_source_invalid', 'html_source_unavailable', 'server_policy_changed', 'html_request_too_large'].includes(problem.code);
-        if (localRefusal || admissionRefusal) await save(life, state => completeConversationAction(state, id, { message: {
+        if (isDefinitiveHtmlFailure(problem)) await save(life, state => completeConversationAction(state, id, { message: {
+          id: `assistant:${id}`, turn_id: state.pending!.turn_id, role: 'assistant',
+          text: `No se generó el HTML (${(problem as Error).message}). Tu diseño se conserva; puedes intentarlo de nuevo.` } }));
+        else if (localRefusal || admissionRefusal) await save(life, state => completeConversationAction(state, id, { message: {
           id: `assistant:${id}`, turn_id: state.pending!.turn_id, role: 'assistant',
           text: 'No se generó otro HTML. Conservamos tu diseño; revisa la disponibilidad y el contexto del editor antes de continuar.' } }));
         else await save(life, state => markConversationAction(state, id, 'uncertain'));

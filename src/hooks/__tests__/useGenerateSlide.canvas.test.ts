@@ -70,4 +70,12 @@ describe('useGenerateSlide shared canvas transport', () => {
     await expect(options.mutationFn(request())).rejects.toThrow(expected as string);
     expect(options.retry).toBe(false); expect(ports.invoke).toHaveBeenCalledTimes(1);
   });
+
+  it('marks a server answer without HTML as definitive (retry allowed) and a lost connection as unknown', async () => {
+    const answered = new Response(JSON.stringify({ error: 'server_error', message: 'Unexpected end of JSON input' }), { status: 500 });
+    ports.invoke.mockResolvedValueOnce({ data: null, error: { name: 'FunctionsHttpError', message: 'Edge Function returned a non-2xx status code', context: answered } });
+    await expect(mutation().mutationFn(request())).rejects.toMatchObject({ message: 'Unexpected end of JSON input', definitive: true });
+    ports.invoke.mockResolvedValueOnce({ data: null, error: { name: 'FunctionsFetchError', message: 'Failed to send a request' } });
+    await expect(mutation().mutationFn(request())).rejects.toMatchObject({ definitive: false });
+  });
 });

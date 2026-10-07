@@ -154,6 +154,10 @@ export function UnifiedDesignWorkspace(props: UnifiedDesignWorkspaceProps) {
         {work.brand.status === 'error' && <p className="dc-error">No se pudo cargar la marca. <button className="dc-button" disabled={blocked || pending} onClick={work.brand.refresh}>Volver a cargar</button></p>}
         {pending && !busy && <div className="dc-recovery"><p>Hay una solicitud pendiente. Recupera su estado para continuar con este trabajo.</p><button className="dc-button" onClick={() => void act(() => work.recover())}>Recuperar solicitud</button>
           <button className="dc-button" onClick={() => void act(() => work.discard())}>Descartar</button></div>}
+        <p className="dc-basis" role="status">{format === 'image' ? 'Se creará una imagen IA a partir de tus referencias' + (result ? ' y la imagen seleccionada.' : '.')
+          : base === 'current' ? 'Se ajustará esta diapositiva: conserva su diseño y acomoda la información nueva.'
+          : base === 'deck' ? `Se creará con el estilo de la presentación (${deckKit?.slides.map(slide => slide.title).join(', ')}).`
+          : 'Se creará un HTML nuevo a partir de tus referencias.'} Puedes cambiarlo arriba en «Formato» y «Base».</p>
         <div className="dc-quick"><button className="dc-button" disabled={blocked || pending} onClick={() => void send('Propón cinco ideas de diseño con mis referencias y lo que hemos acordado. No generes imágenes todavía.')}>Dame cinco ideas</button>
           {format === 'image' && <button className="dc-button" disabled={blocked || pending} onClick={() => void send('Crea una imagen con las referencias y el diseño que hemos acordado.')}>Crear imagen</button>}
           {format === 'html' && <button className="dc-button" disabled={blocked || pending} onClick={() => void send(base === 'current'
