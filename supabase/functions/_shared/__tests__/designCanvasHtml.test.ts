@@ -31,6 +31,7 @@ describe('shared Presentations HTML canvas contract', () => {
     const messages = buildDesignCanvasHtmlMessages(request, { name: 'Marca nueva', primary_color: '#653ABC', fonts: { display: 'Lato' },
       profile: { version: 7, base_brand: { visual_style: 'Editorial cálido' } } });
     expect(messages[0].content).toContain('1280 × 720');
+    expect(messages[0].content).toContain('cada elemento nuevo usa el mismo componente que sus hermanos');
     const content = messages[1].content;
     expect(Array.isArray(content)).toBe(true);
     if (!Array.isArray(content)) throw Error('Expected multimodal parts');
