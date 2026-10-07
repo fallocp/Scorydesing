@@ -28,7 +28,7 @@ const slide = { id: 'slide', revision: 3, title: 'Portada', html: '<style>.slide
 const imageInput = () => ({ businessId: business, actorId: actor, documentId: 'deck', slide: { ...slide }, instruction: 'Crea la portada.',
   copy: { status: 'literal' as const, text: 'Conectamos tu empresa con el mundo.', source_reference_ids: [] }, brand: null,
   operationKey: 'conversation-image', generation: structuredClone(generation), settings: { model: 'gpt-image-2.5-flare' as const, quality: 'medium' as const }, references: [] });
-async function prepared(color: number, role: 'object_reference' | 'content_source') {
+async function prepared(color: number, role: 'object_reference' | 'content_source' | 'image_style_reference') {
   return preparePresentationReference(new File([htmlPng(color)], `${role}.png`, { type: 'image/png' }), role,
     async file => file.slice(0, file.size, 'image/png'));
 }
@@ -88,6 +88,17 @@ describe('conversation image actions reuse the existing registered pipeline', ()
     expect(() => buildConversationImageOperation({ ...input, brand: { ...brand, business_id: 'foreign' } })).toThrow('no pertenece');
     expect(() => buildConversationImageOperation({ ...input, copy: { status: 'pending', text: '', source_reference_ids: [] } })).toThrow('Resuelve el texto');
     expect(() => buildConversationImageOperation({ ...input, copy: { ...input.copy, text: 'lo que viene en las referencias' } })).toThrow('reference_copy_unresolved');
+  });
+
+  it('puts the uploaded style reference and the vision analysis instruction into the generation operation', async () => {
+    const reference = await prepared(50, 'image_style_reference'), api = client();
+    const uploaded = await prepareConversationReferences({ client: api as unknown as DesignServerClient, actor, business, document: 'deck', slide: 'slide',
+      references: [reference], assertCurrent: async () => {} });
+    const op = buildConversationImageOperation({ ...imageInput(), instruction: 'Replica el estilo de la referencia nueva.', references: uploaded });
+    expect(op.action).toBe('generate_image');
+    expect(op.context.instruction).toContain('Replica el estilo de la referencia nueva.');
+    expect(op.context.references).toContainEqual(expect.objectContaining({ reference_id: uploaded[0].reference.reference_id,
+      version_id: reference.sha256, roles: ['image_style_reference'] }));
   });
 
   it('edits the exact generated parent without promoting quality, changing exploration mode or inserting the large parent as an extra reference', () => {

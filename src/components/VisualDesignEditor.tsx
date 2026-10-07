@@ -684,7 +684,8 @@ function ImagePickerPanel({ businessId, onSelect, onUpload }: ImagePickerPanelPr
         .select('id, image_url, image_base64, image_type, created_at')
         .eq('business_id', scope)
         .order('created_at', { ascending: false })
-        .limit(500);
+        // El base64 pesa ~0.5 MB por fila: 500 filas exceden el statement timeout (HTTP 500).
+        .limit(24);
       if (error) throw error;
       if (data && isCurrent()) {
         setImages(
@@ -1282,7 +1283,7 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
   const [copyError, setCopyError] = useState<string | null>(null);
   const [copySectionOpen, setCopySectionOpen] = useState(false);
   // Al cambiar de elemento seleccionado, limpia las opciones/errores de copy previos.
-  useEffect(() => { setCopyOptions([]); setCopyError(null); }, [selectedId]);
+  useEffect(() => { setCopyOptions((prev) => (prev.length ? [] : prev)); setCopyError(null); }, [selectedId]);
   // Estado colapsar/expandir de las secciones del panel de propiedades (por título).
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
   const isSecOpen = (k: string, def = true) => openSections[k] ?? def;
@@ -2016,7 +2017,7 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
 
   // Read computed styles when selection changes or iframe reloads
   useEffect(() => {
-    if (!selectedId) { setSelectedStyles({}); return; }
+    if (!selectedId) { setSelectedStyles((prev) => (Object.keys(prev).length ? {} : prev)); return; }
     const readStyles = () => {
       const iframe = iframeRef.current;
       if (!iframe?.contentDocument || !iframe?.contentWindow) return;
@@ -2640,15 +2641,16 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
   // Sincroniza los sliders de filtro con el elemento seleccionado
   useEffect(() => {
     const f = selectedStyles.filter;
-    if (!f || f === 'none') { setImgFilter({ brightness: 100, contrast: 100, saturate: 100, blur: 0 }); return; }
-    const pct = (re: RegExp, def: number) => { const m = f.match(re); return m ? Math.round(parseFloat(m[1]) * 100) : def; };
-    const blurM = f.match(/blur\(([\d.]+)px\)/);
-    setImgFilter({
+    const pct = (re: RegExp, def: number) => { const m = f?.match(re); return m ? Math.round(parseFloat(m[1]) * 100) : def; };
+    const blurM = f?.match(/blur\(([\d.]+)px\)/);
+    const next = !f || f === 'none' ? { brightness: 100, contrast: 100, saturate: 100, blur: 0 } : {
       brightness: pct(/brightness\(([\d.]+)\)/, 100),
       contrast: pct(/contrast\(([\d.]+)\)/, 100),
       saturate: pct(/saturate\(([\d.]+)\)/, 100),
       blur: blurM ? Math.round(parseFloat(blurM[1])) : 0,
-    });
+    };
+    setImgFilter((prev) => (prev.brightness === next.brightness && prev.contrast === next.contrast
+      && prev.saturate === next.saturate && prev.blur === next.blur ? prev : next));
   }, [selectedStyles.filter, selectedId]);
 
   // Aplica un estilo EN VIVO sobre el elemento del iframe, sin reconstruir el
@@ -3009,7 +3011,9 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
   // Sincroniza los sliders con el elemento seleccionado (y tras cada re-escaneo).
   useEffect(() => {
     const o = overlays.find((x) => x.id === selectedId);
-    setSizeDraft(o ? { w: Math.round(o.rect.width), h: Math.round(o.rect.height) } : null);
+    const next = o ? { w: Math.round(o.rect.width), h: Math.round(o.rect.height) } : null;
+    // Conserva la misma referencia si no cambió: evita un render extra en cada arrastre.
+    setSizeDraft((prev) => (prev === next || (prev && next && prev.w === next.w && prev.h === next.h) ? prev : next));
   }, [selectedId, overlays]);
 
   const handleResizeStart = useCallback((e: React.MouseEvent, overlay: ElementOverlay, corner: string) => {

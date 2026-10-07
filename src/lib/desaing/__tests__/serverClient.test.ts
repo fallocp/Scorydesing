@@ -187,6 +187,16 @@ describe('authenticated exploration journal client', () => {
     expect(error).toMatchObject({ code: 'exploration_quota_exceeded', httpStatus: 429 });
     expect(error.message).not.toContain(token); expect(f.fetch).toHaveBeenCalledTimes(1);
   });
+  it('exposes the provider failure code of a 502 so the conversation can explain it', async () => {
+    const f = fixture();
+    f.fetch.mockResolvedValueOnce(json({ error: 'exploration_provider_timeout', debug: token }, 502));
+    const error = await f.client.exploration(business).plan(explorationRequest()).catch(problem => problem);
+    expect(error).toMatchObject({ code: 'exploration_provider_timeout', httpStatus: 502 });
+    expect(error.message).not.toContain(token);
+    f.fetch.mockResolvedValueOnce(json({ error: 'exploration_provider_made_up' }, 502));
+    await expect(f.client.exploration(business).plan(explorationRequest()))
+      .rejects.toMatchObject({ code: 'server_request_rejected', httpStatus: 502 });
+  });
 });
 
 describe('reusable authenticated design server client', () => {

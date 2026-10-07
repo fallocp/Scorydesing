@@ -42,7 +42,7 @@ vi.mock('../presentationServerDesign', async importOriginal => {
     presentationLibraryResults: () => harness.result ? [harness.result] : [] };
 });
 import { useDesignConversation, type UseDesignConversationOptions } from '../useDesignConversation';
-import { buildConversationImageOperation } from '../designConversationImages';
+import { buildConversationImageOperation, prepareConversationReferences } from '../designConversationImages';
 import { emptyDesignConversation } from '../designConversationStore';
 import { assertConversationTransition, assertDesignConversation, beginConversationAction, type DesignConversationState } from '../designConversationStore';
 import { createContinuityStore, type ContinuityRemoteRecord, type ContinuityRecord, type ContinuityAttempt } from '../../desaing/continuityStore';
@@ -211,6 +211,28 @@ describe('unified conversation orchestration', () => {
     expect(vi.mocked(buildConversationImageOperation).mock.calls[1][0].base?.identity).toEqual(base);
     expect(hook.state.messages.map(message => message.role)).toEqual(['user', 'assistant', 'assistant', 'user', 'assistant', 'assistant']);
     expect(options.onApply).not.toHaveBeenCalled();
+  });
+
+  it('sends a new reference image to the vision planner and carries its analysis into the image generation prompt', async () => {
+    const hash = 'a'.repeat(64);
+    const prepared = { reference: { business_id: business, asset_id: 'asset:reference', version_id: hash, reference_id: `reference:${hash}`,
+      mime_type: 'image/png', roles: ['image_style_reference'] }, version: { identity: { business_id: business, asset_id: 'asset:reference', version_id: hash } } } as any;
+    vi.mocked(prepareConversationReferences).mockResolvedValue([prepared]);
+    try {
+      const { options, planner, client } = fixture();
+      planner.plan.mockImplementationOnce(async request => {
+        const response = result(request, 'generate_image', true);
+        response.next_action!.instruction = 'Replica el estilo de la referencia nueva.'; return response;
+      });
+      render(options); await flush(); await render(options).send('Haz la portada con el estilo de la referencia nueva.');
+      expect(render(options).error).toBe('');
+      expect(planner.plan).toHaveBeenCalledTimes(1);
+      expect(planner.plan.mock.calls[0][0].context.references).toContainEqual(prepared.reference);
+      expect(client.command).toHaveBeenCalledTimes(1);
+      const generation = vi.mocked(buildConversationImageOperation).mock.calls[0][0];
+      expect(generation.instruction).toBe('Replica el estilo de la referencia nueva.');
+      expect(generation.references).toContainEqual(prepared);
+    } finally { vi.mocked(prepareConversationReferences).mockImplementation(async () => []); }
   });
 
   it('discussion and suggestions render nothing until an explicit action button, without a second planner call', async () => {
