@@ -132,15 +132,17 @@ describe('shared Presentations HTML canvas contract', () => {
       copy_mode: 'literal', approved_copy: 'Una línea diseñada alrededor de tu flujo.\nLiquidez ágil' };
     expect(finalizeDesignCanvasHtml(doc('<header><b>Xending</b> Capital</header><h2>Una línea diseñada alrededor de tu flujo.</h2><p>Liquidez ágil</p><p>Liquidez para importar.</p>'), request)).toContain('Capital');
     expect(() => finalizeDesignCanvasHtml(doc('<h1>Xending Capital</h1><h2>Una línea diseñada alrededor de tu flujo.</h2><p>Liquidez ágil</p><p>Inventado</p>'), request)).toThrow('texto aprobado');
-    expect(() => finalizeDesignCanvasHtml(doc('<h1>Xending Capital</h1><p>Liquidez ágil</p><h2>Una línea diseñada alrededor de tu flujo.</h2>'), request)).toThrow('texto aprobado');
+    expect(finalizeDesignCanvasHtml(doc('<h1>Xending Capital</h1><p>Liquidez ágil</p><h2>Una línea diseñada alrededor de tu flujo.</h2>'), request)).toContain('Liquidez ágil');
+    expect(() => finalizeDesignCanvasHtml(doc('<h1>Xending Capital</h1><p>Liquidez rápida</p><h2>Una línea diseñada alrededor de tu flujo.</h2>'), request)).toThrow('texto aprobado');
     expect(buildDesignCanvasHtmlMessages(request, { name: 'Marca' })[0].content).toContain('puedes conservar, tal cual y en su propio bloque');
   });
 
-  it('keeps literal copy through editable inline spans and refuses missing, reordered or invented content', () => {
+  it('keeps literal copy through editable inline spans and refuses missing, changed or invented content', () => {
     const request: DesignCanvasHtmlRequest = { ...base(), copy_mode: 'literal', approved_copy: 'Conectamos tu empresa con el mundo.\nPagos & créditos.' };
     expect(finalizeDesignCanvasHtml(doc('<h1>Conectamos tu empresa con el <span>mundo.</span></h1><p>Pagos &amp; créditos.</p>'), request)).toContain('<span>mundo.</span>');
     expect(() => finalizeDesignCanvasHtml(doc('<h1>Conectamos tu empresa con el mundo.</h1>'), request)).toThrow('texto aprobado');
-    expect(() => finalizeDesignCanvasHtml(doc('<p>Pagos &amp; créditos.</p><h1>Conectamos tu empresa con el mundo.</h1>'), request)).toThrow('texto aprobado');
+    expect(finalizeDesignCanvasHtml(doc('<p>Pagos &amp; créditos.</p><h1>Conectamos tu empresa con el mundo.</h1>'), request)).toContain('Pagos');
+    expect(() => finalizeDesignCanvasHtml(doc('<p>Pagos &amp; créditos.</p><h1>Conectamos tu negocio con el mundo.</h1>'), request)).toThrow('texto aprobado');
     expect(() => finalizeDesignCanvasHtml(doc('<h1>Conectamos tu empresa con el mundo.</h1><p>Pagos &amp; créditos.</p><p>¡Llámanos!</p>'), request)).toThrow('texto aprobado');
     expect(() => finalizeDesignCanvasHtml(doc('<h1>Hola</h1>'), { ...base(), copy_mode: 'none' })).toThrow('texto aprobado');
     expect(finalizeDesignCanvasHtml(doc('<img id="hero" src="" alt="Descripción para montaje">'), { ...base(), copy_mode: 'none' })).toContain('id="hero"');
