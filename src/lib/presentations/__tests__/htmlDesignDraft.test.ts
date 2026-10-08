@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { assertHtmlDesignDraft, assertHtmlDesignTarget, emptyHtmlDesignDraft, openHtmlDesignDraft,
+import { assertHtmlDesignDraft, assertHtmlDesignTarget, emptyHtmlDesignDraft, leaveHtmlDesignDraft, openHtmlDesignDraft,
   type HtmlDesignDraft, type HtmlDesignProposal, type HtmlDesignScope } from '../htmlDesignDraft';
 import type { PreparedPresentationReference } from '../presentationReferences';
 
@@ -44,6 +44,24 @@ function memoryIndexedDb() {
   return values;
 }
 afterEach(() => vi.unstubAllGlobals());
+
+describe('«Salir conservando el último borrador guardado»', () => {
+  const current = { document: 'document-a', slide: 'slide-a', revision: 3 };
+  it('returns to the saved draft for the current version, dropping a proposal made for an older revision', () => {
+    const saved: HtmlDesignDraft = { ...draft(), status: 'uncertain', references: [reference()], messages: [{ role: 'user', text: 'Aplica lo acordado.' }] };
+    const next = leaveHtmlDesignDraft(saved, emptyHtmlDesignDraft(), current);
+    expect(next.proposal).toBeNull(); expect(next.status).toBe('ready');
+    expect(next.messages).toEqual(saved.messages); expect(next.references).toEqual(saved.references); expect(next.instruction).toBe(saved.instruction);
+    expect(saved.status).toBe('uncertain'); expect(saved.proposal).not.toBeNull();
+    expect(() => assertHtmlDesignDraft(next, scope())).not.toThrow();
+  });
+  it('keeps a proposal of the current revision and falls back to the panel draft when nothing was saved', () => {
+    expect(leaveHtmlDesignDraft(draft(), emptyHtmlDesignDraft(), { ...current, revision: 2 }).proposal).toEqual(proposal());
+    const unsaved = { ...draft(), status: 'sending' as const, feedback: 'Más grande' }, next = leaveHtmlDesignDraft(null, unsaved, current);
+    expect(next).toMatchObject({ status: 'ready', proposal: null, feedback: 'Más grande' });
+    expect(() => assertHtmlDesignDraft(next, scope())).not.toThrow();
+  });
+});
 
 describe('durable HTML design draft', () => {
   it('pins document, slide and revision for both insertion and replacement', () => {

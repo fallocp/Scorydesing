@@ -59,6 +59,14 @@ export function assertHtmlDesignTarget(proposal: HtmlDesignProposal, current: Ht
     throw Error('El lienzo cambió. La propuesta se conserva; vuelve a la versión de origen o inicia un encargo sobre la versión actual.');
   }
 }
+/** «Salir conservando el último borrador guardado»: back to the saved draft (or the panel's) ready for a new request.
+ * An unconfirmed request is released (HTML generation keeps no server result) and a proposal made for another
+ * version is dropped (the conversation keeps it in its versions); instruction, copy, references and messages stay. */
+export function leaveHtmlDesignDraft(saved: HtmlDesignDraft | null, current: HtmlDesignDraft, target: HtmlDesignTarget): HtmlDesignDraft {
+  const next = structuredClone(saved ?? current), p = next.proposal?.target;
+  const same = !!p && p.document === target.document && p.slide === target.slide && p.revision === target.revision;
+  return { ...next, status: 'ready', proposal: same ? next.proposal : null };
+}
 export interface HtmlDesignRecord { revision: number; value: HtmlDesignDraft }
 export async function assertHtmlDesignReferenceBytes(references: PreparedPresentationReference[]) {
   for (const reference of references) {

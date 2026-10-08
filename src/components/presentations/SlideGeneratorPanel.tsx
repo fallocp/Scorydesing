@@ -16,7 +16,7 @@ import { sanitizePresentationHtml } from '@/lib/presentations/presentationHtml';
 import { isUnresolvedReferenceCopy } from '@/lib/presentations/presentationServerDesign';
 import { reconcileMountedAssets } from '@/lib/presentations/presentationManifest';
 import { measureHtmlDesignAssets } from '@/lib/presentations/htmlDesignAssets';
-import { assertHtmlDesignTarget, emptyHtmlDesignDraft, openHtmlDesignDraft,
+import { assertHtmlDesignTarget, emptyHtmlDesignDraft, leaveHtmlDesignDraft, openHtmlDesignDraft,
   type HtmlDesignDraft, type HtmlDesignTarget, type HtmlDesignProposal } from '@/lib/presentations/htmlDesignDraft';
 import './SlideGeneratorPanel.css';
 
@@ -235,6 +235,13 @@ function HtmlDesignWorkspace(props: SlideGeneratorPanelProps & { actorId: string
     await persist(next); patch(change);
     if (change.proposal) { setIntent(change.proposal.intent); notifyProposal(change.proposal, 'imported'); }
   }
+  async function leave(life: Life) {
+    const record = await life.store!.read(); await assertSession(life);
+    if (record) life.revision = record.revision;
+    const next = leaveHtmlDesignDraft(record?.value ?? null, draftRef.current, currentTarget());
+    await persist(next); draftRef.current = next; setDraft(next);
+    if (next.proposal) notifyProposal(next.proposal, 'recovered');
+  }
   async function apply(life: Life) {
     const proposal = draftRef.current.proposal;
     if (!proposal) throw Error('Primero crea o recupera una propuesta.');
@@ -320,7 +327,11 @@ function HtmlDesignWorkspace(props: SlideGeneratorPanelProps & { actorId: string
       <p className="hws-note">El editor completo permite ajustar texto, fuentes, capas e imágenes. Revisar o editar no modifica todavía el documento.</p>
     </main></div>
     <footer className="hws-footer"><div>{error ? <><p role="alert" className="hws-error">{error}</p>
-      <button disabled={busy || fileBusy} onClick={props.onClose}>Salir conservando el último borrador guardado</button></> : <p>{busy ? 'Preparando tu diseño…' : 'Aplica cuando estés conforme con el resultado.'}</p>}</div>
+      <button disabled={busy || fileBusy} onClick={() => {
+        // Inside the conversation the panel stays open: return to the saved draft of the current version.
+        if (!props.externalConversation || !ready) { props.onClose(); return; }
+        void run(async life => { await leave(life); latest.current.onClose(); });
+      }}>Salir conservando el último borrador guardado</button></> : <p>{busy ? 'Preparando tu diseño…' : 'Aplica cuando estés conforme con el resultado.'}</p>}</div>
       {!props.externalConversation && <button className="hws-primary" disabled={blocked || !draft.proposal || !!draft.proposal.pending || !!changed} onClick={() => void run(apply)}>{busy ? <Loader2 size={17} /> : null}Aplicar diseño revisado</button>}</footer>
   </section></div>;
 }
