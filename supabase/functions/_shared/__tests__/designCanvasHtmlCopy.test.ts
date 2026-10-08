@@ -86,6 +86,20 @@ describe('literal copy check on realistic model output', () => {
     expect(() => finalizeDesignCanvasHtml(good(undefined, '<div class="logo">Xending Capital</div>'), request())).toThrow('«Xending Capital»');
     expect(() => finalizeDesignCanvasHtml(good(cards(text => text).replace('Plazos flexibles', '')), request())).toThrow('falta: «Plazos flexibles»');
   });
+  it('accepts the brand name as its own wordmark block only when the brand is allowed, never invented or replacing copy', () => {
+    const brand = ['Xending'];
+    expect(() => finalizeDesignCanvasHtml(good(undefined, '<div class="logo">Xending</div>'), request(), brand)).not.toThrow();
+    expect(() => finalizeDesignCanvasHtml(good(undefined, '<div class="logo"> XENDING </div>'), request(), brand)).not.toThrow();
+    expect(() => finalizeDesignCanvasHtml(good(undefined, '<div class="logo">Xending</div>'), request())).toThrow('sobra: «Xending»');
+    expect(() => finalizeDesignCanvasHtml(good(undefined, '<p>Xending Capital ofrece crédito</p>'), request(), brand)).toThrow('«Xending Capital ofrece crédito»');
+    expect(() => finalizeDesignCanvasHtml(good(cards(text => text).replace('Plazos flexibles', ''), '<div class="logo">Xending</div>'), request(), brand))
+      .toThrow('falta: «Plazos flexibles»');
+    expect(() => finalizeDesignCanvasHtml(good(cards(text => text).replace('Plazos flexibles', 'Xending')), request(), brand)).toThrow('texto aprobado');
+  });
+  it('tells the model to show the brand with its logo image and add no other text', () => {
+    const system = buildDesignCanvasHtmlMessages(request(), { name: 'Xending' })[0].content as string;
+    expect(system).toContain('Muestra la marca con su imagen de logo');
+  });
   it('accepts lines laid out in another order and titles typed in capitals', () => {
     expect(() => finalizeDesignCanvasHtml(good(cards(text => text === 'Liquidez ágil' ? 'Plazos flexibles' : 'Liquidez ágil')), request())).not.toThrow();
     expect(() => finalizeDesignCanvasHtml(good(cards(text => text.toUpperCase())), request())).not.toThrow();

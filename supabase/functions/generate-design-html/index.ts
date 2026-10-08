@@ -785,7 +785,7 @@ serve(async (req) => {
       if (!result.success) return new Response(JSON.stringify({ error: result.error, message: result.message }), {
         status: result.status || 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
-      const html = finalizeDesignCanvasHtml(result.content || '', canvasRequest);
+      const html = finalizeDesignCanvasHtml(result.content || '', canvasRequest, [tenantRead.data.name]);
       return new Response(JSON.stringify({ html, canvas: canvasRequest.canvas, business_id: canvasRequest.business_id }), {
         status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
