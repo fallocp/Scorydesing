@@ -544,6 +544,8 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
   return {
     state, ready: ready && lifeRef.current?.key === scopeKey(options), busy, error, brand, generation, imagePreview, imageResult, view,
     syncStatus: options.service.continuity ? syncStatus : null, localCopies,
+    /** Dismiss the last error once the user left the failed proposal (the work itself stays as saved). */
+    clearError: () => setError(''),
     synchronize: () => run(async life => { await loadConversation(life); await assertCurrent(life); await refreshImage(life); }, true),
     exportLocal: () => run(async life => {
       await assertActor(life);

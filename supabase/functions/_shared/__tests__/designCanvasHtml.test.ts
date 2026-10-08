@@ -137,6 +137,14 @@ describe('shared Presentations HTML canvas contract', () => {
     expect(buildDesignCanvasHtmlMessages(request, { name: 'Marca' })[0].content).toContain('puedes conservar, tal cual y en su propio bloque');
   });
 
+  it('exempts only whole texts of the current HTML, never pieces glued into new text, and ignores control characters', () => {
+    const request: DesignCanvasHtmlRequest = { ...base(), current_html: doc('<p>Xending Capital</p><span class="page">2</span><p>&#1;*</p>'),
+      iteration_feedback: 'Pon la información nueva.', copy_mode: 'literal', approved_copy: 'Liquidez ágil' };
+    expect(finalizeDesignCanvasHtml(doc('<p>XENDING CAPITAL</p><p>Liquidez ágil</p><p>2</p><p>&#1;</p>'), request)).toContain('Liquidez ágil');
+    expect(() => finalizeDesignCanvasHtml(doc('<p>Xending Capital</p><p>Liquidez ágil</p><p>Capital 2</p>'), request)).toThrow('sobra: «Capital 2»');
+    expect(() => finalizeDesignCanvasHtml(doc('<p>Liquidez ágil 2X</p>'), request)).toThrow('texto aprobado');
+  });
+
   it('keeps literal copy through editable inline spans and refuses missing, changed or invented content', () => {
     const request: DesignCanvasHtmlRequest = { ...base(), copy_mode: 'literal', approved_copy: 'Conectamos tu empresa con el mundo.\nPagos & créditos.' };
     expect(finalizeDesignCanvasHtml(doc('<h1>Conectamos tu empresa con el <span>mundo.</span></h1><p>Pagos &amp; créditos.</p>'), request)).toContain('<span>mundo.</span>');

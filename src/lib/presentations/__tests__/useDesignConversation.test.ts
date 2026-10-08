@@ -409,6 +409,8 @@ describe('unified conversation orchestration', () => {
     const hook = render(options);
     expect(hook.state.pending).toBeNull(); expect(hook.error).toContain('Unexpected end of JSON input');
     expect(hook.state.messages.at(-1)!.text).toContain('puedes intentarlo de nuevo');
+    // «Salir conservando el último borrador guardado» dismisses the composer error too.
+    hook.clearError(); expect(render(options).error).toBe('');
   });
 
   it('does not hydrate another actor’s saved messages when the session changes during initialization', async () => {

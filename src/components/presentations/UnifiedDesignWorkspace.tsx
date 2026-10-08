@@ -210,7 +210,7 @@ export function UnifiedDesignWorkspace(props: UnifiedDesignWorkspaceProps) {
           onApplyToCurrent={async (html, target, mounted) => {
             if (!target || target.document !== props.documentId || target.slide !== props.slide.id || target.revision !== props.slide.revision) throw Error('El documento cambió. Reabre la conversación.');
             await applyResult(reviseSlide([props.slide], { slide_id: props.slide.id, expected_revision: props.slide.revision, html, mounted_assets: mounted ?? [] })[0]);
-          }} onInsert={async () => { throw Error('Elige el destino desde la conversación.'); }} onClose={() => setLocalError('')} /></div>
+          }} onInsert={async () => { throw Error('Elige el destino desde la conversación.'); }} onClose={() => { setLocalError(''); work.clearError(); }} /></div>
         <div hidden={view !== 'composition'}><DesignToHtmlPanel embedded externalConversation controllerRef={compositionController} onState={receiveCompositionState}
           onProposal={(proposal, reason) => { if (reason === 'edited' && work.ready) void act(() => work.recordCompositionEdit(proposal, reason)); }} service={props.service} businessId={props.businessId} documentId={props.documentId}
           slide={props.slide} destination={props.destination} onApply={applyResult} onClose={() => {}} /></div>

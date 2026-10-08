@@ -228,7 +228,7 @@ function replaceImageSource(tag: string, source: string): string {
  * invisible characters removed, whitespace collapsed. Letters, case, digits and other punctuation are compared as written. */
 const normalizeCopy = (text: string) => text.replace(/[\u201c\u201d\u201e\u2033]/g, '"').replace(/[\u2018\u2019\u2032]/g, "'")
   .replace(/[\u2010-\u2015\u2212]/g, '-').replace(/\u2026/g, '...')
-  .replace(/[\u00ad\u200b-\u200d\u2060\ufeff]/g, '').replace(/\s+/g, ' ').trim();
+  .replace(/[\u00ad\u200b-\u200d\u2060\ufeff\u0000-\u0008\u000e-\u001f\u007f]/g, '').replace(/\s+/g, ' ').trim();
 /** Visible text of the body split by block elements. */
 function textBlocks(html: string): string[] {
   const body = /<body\b[^>]*>([\s\S]*?)<\/body\s*>/i.exec(html)?.[1] ?? html;
@@ -272,10 +272,16 @@ function copyMismatch(blocks: string[], approved: string, current: string[]): st
   const byLength = [...lines].sort((a, b) => b.key.length - a.key.length);
   let unmatched = byLength.filter(line => !take(line.key, false));
   unmatched = unmatched.filter(line => !take(line.key, true));
-  for (const key of [...new Set(current.map(compact).filter(Boolean))].sort((a, b) => b.length - a.length)) while (take(key, true));
+  // What a block keeps besides approved lines may only be whole texts of the current HTML (ignoring footnote marks,
+  // edge punctuation and an all-caps rendering), never pieces of them.
+  const core = (text: string) => [...text].filter(char => !marks.includes(char)).join('').replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '');
+  const kept = new Set(current.map(text => core(compact(text))).filter(Boolean));
+  const isKept = (piece: string) => kept.has(piece) || (piece === upper(piece) && [...kept].some(text => upper(text) === piece));
   const unexplained: string[] = [];
-  for (let i = 0, start = 0; i < parts.length; start += parts[i++].length)
-    if (/[\p{L}\p{N}]/u.test(hay.slice(start, start + parts[i].length))) unexplained.push(blocks[i]);
+  for (let i = 0, start = 0; i < parts.length; start += parts[i++].length) {
+    const rest = hay.slice(start, start + parts[i].length).split(used).map(core).filter(piece => /[\p{L}\p{N}]/u.test(piece));
+    if (!rest.every(isKept)) unexplained.push(blocks[i]);
+  }
   const missing = unmatched.sort((a, b) => a.index - b.index)[0];
   if (missing) {
     const words = (text: string) => new Set(text.toLocaleLowerCase('es').split(/[^\p{L}\p{N}]+/u).filter(Boolean));
