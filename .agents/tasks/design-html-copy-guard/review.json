@@ -1,0 +1,22 @@
+{
+  "verdict": "APPROVED",
+  "findings": [
+    {
+      "id": "current-text-inside-new-block",
+      "blocking": false,
+      "confidence": "confirmed",
+      "file": "supabase/functions/_shared/designCanvasHtml.ts",
+      "summary": "isKept accepts, inside a block that also holds approved lines, a piece equal to a whole current_html text (e.g. `<p>Liquidez ágil Tasa 12%</p>` passes if the current slide had a «Tasa 12%» block), although the prompt asks for kept texts «en su propio bloque». Only previously existing slide copy can pass this way, never invented or reference text.",
+      "action": "Optional: require a kept piece to fill its whole HTML block."
+    },
+    {
+      "id": "leave-button-wiring-untested",
+      "blocking": false,
+      "confidence": "confirmed",
+      "file": "src/components/presentations/SlideGeneratorPanel.tsx",
+      "summary": "leaveHtmlDesignDraft and clearError are unit-tested, but the conversation-mode onClick (leave + onClose clearing localError and work.error) has no automated test (no DOM test infra) and was not driven in a browser.",
+      "action": "Manual check after Vite reload: click «Salir conservando el último borrador guardado»; the red error and the yellow «El documento cambió…» banner disappear and «Aplicar al diseño actual» can be sent again."
+    }
+  ],
+  "reviewDoc": "f:\\ScoryDesign\\.agents\\tasks\\design-html-copy-guard/review.md"
+}

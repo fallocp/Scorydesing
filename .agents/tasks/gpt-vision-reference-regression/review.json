@@ -1,0 +1,12 @@
+{
+  "verdict": "APPROVED",
+  "findings": [
+    { "label": "Diagnóstico ambiguo del 502", "blocking": false, "confidence": "likely", "detail": "'La IA devolvió una respuesta incompleta' lo muestran tanto exploration_provider_incomplete como exploration_provider_invalid_result; confirmar error_code con la consulta del paso 5a (o el cuerpo JSON del 502 en DevTools) y, si es invalid_result, revisar los topes de assertDesignCopy (4000 caracteres) en lugar del tope de tokens." },
+    { "label": "Reserva completa en respuestas largas", "blocking": false, "confidence": "confirmed", "detail": "estimateExplorationMicroUsd devuelve null si output_tokens > EXPLORATION_LIMITS.maxOutputTokens (4096), así que respuestas de 4097–8192 tokens quedan en US$0.25 en vez de ~US$0.04; aplicar 202609260001 en remoto antes o junto con el deploy (verification.md sólo menciona el deploy) y alinear el estimador con 8192 en el próximo cambio de contrato." },
+    { "label": "Capacidad anunciada desfasada", "blocking": false, "confidence": "confirmed", "detail": "/exploration/capabilities sigue anunciando max_output_tokens: 4096 mientras el servidor pide 8192; resolverlo en el mismo cambio de contrato." },
+    { "label": "Timeout de 60 s con salidas largas", "blocking": false, "confidence": "likely", "detail": "Duplicar la salida con texto literal largo + referencias high-detail puede convertir incomplete en exploration_provider_timeout; observarlo en la prueba del paso 5e." },
+    { "label": "Bucle de VisualDesignEditor sin identificar", "blocking": false, "confidence": "likely", "detail": "Las cuatro guardas están en efectos cuyas dependencias no incluyen el estado que escriben, así que ninguno podía sostener el bucle; si el aviso persiste en navegador, instrumentar con 🔍 DEBUG-TEMP: según el paso 4c del plan." },
+    { "label": "Biblioteca limitada a 24 imágenes", "blocking": false, "confidence": "confirmed", "detail": "'Biblioteca (generadas)' ya no permite llegar a imágenes anteriores a las 24 más recientes y sigue bajando ~12 MB de base64 por apertura (desviación del plan, que quitaba image_base64); avisarlo al usuario junto con la verificación del 200." }
+  ],
+  "reviewDoc": "f:\\ScoryDesign\\.agents\\tasks\\gpt-vision-reference-regression/review.md"
+}
