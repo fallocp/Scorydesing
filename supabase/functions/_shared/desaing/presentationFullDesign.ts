@@ -2,6 +2,7 @@ import type { DesignContext } from './contracts.ts';
 import type { ExplorationScope } from './explorationContracts.ts';
 import { assertDesignSurfaceDestination, designSurfaceSessionId, type DesignSurfaceDestination, type ProductionImageAction } from './designSurface.ts';
 import { FORMAT_PRESETS, validateImageSize } from './formats.ts';
+import { isDesignConversationSessionOf } from './conversationSessions.ts';
 
 export const FULL_DESIGN_MARKER = 'ScoryDesign: diseño completo de diapositiva (full_design v1).';
 const COPY_MODE_PREFIX = 'ScoryDesign: modo de texto del diseño ';
@@ -72,7 +73,7 @@ export function readPresentationFullDesign(context: DesignContext): Presentation
       });
     } else throw new Error('invalid_full_design_context');
   } catch { throw new Error('invalid_full_design_context'); }
-  if (context.session_id !== session || copy.length !== (noText ? 0 : 1) || !match) throw new Error('invalid_full_design_context');
+  if (!isDesignConversationSessionOf(context.session_id, session) || copy.length !== (noText ? 0 : 1) || !match) throw new Error('invalid_full_design_context');
   const result: PresentationFullDesign = { approvedCopy: noText ? '' : copy[0].slice(COPY_PREFIX.length), ...(noText ? { copyMode: 'none' as const } : {}),
     canvas: { width: Number(match[1]), height: Number(match[2]) }, ...(production ? { production } : {}) };
   fullDesignImmutables(result.approvedCopy, result.canvas, production ? { workspace: 'production', document_type: 'image', brand_id: context.business_id,

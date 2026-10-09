@@ -64,6 +64,75 @@ describe('«Salir conservando el último borrador guardado»', () => {
 });
 
 describe('durable HTML design draft', () => {
+  it('isolates three conversation drafts and reset generations without changing their actual destination', async () => {
+    const values = memoryIndexedDb(), main = await openHtmlDesignDraft(scope());
+    await main.write(0, { ...draft(), status: 'uncertain' });
+    expect(values.has(JSON.stringify(['actor-a', 'business-a', 'document-a', 'slide-a']))).toBe(true);
+    const second = await openHtmlDesignDraft({ ...scope(), session: 'session-2:g1' });
+    const third = await openHtmlDesignDraft({ ...scope(), session: 'session-3:g1' });
+    expect(await second.read()).toBeNull(); expect(await third.read()).toBeNull();
+    await second.write(0, { ...draft(), instruction: 'Segunda conversación' });
+    await third.write(0, { ...draft(), instruction: 'Tercera conversación' });
+    expect((await main.read())!.value.status).toBe('uncertain');
+    expect((await second.read())!.value.proposal!.target).toEqual(proposal().target);
+    const reset = await openHtmlDesignDraft({ ...scope(), session: 'session-2:g2' });
+    expect(await reset.read()).toBeNull();
+    await second.write(1, { ...draft(), instruction: 'Respuesta tardía de la sesión eliminada' });
+    expect(await reset.read()).toBeNull();
+    expect((await third.read())!.value.instruction).toBe('Tercera conversación');
+    for (const store of [main, second, third, reset]) store.close();
+  });
+
+  it('rejects unknown slots and noncanonical generations before opening a draft', async () => {
+    memoryIndexedDb();
+    for (const session of ['main', 'main:g1', 'session-4:g1', 'session-2:g0', 'session-2:g01', 'session-3:g1000000001', 'session-2:g1:extra']) {
+      await expect(openHtmlDesignDraft({ ...scope(), session })).rejects.toThrow('invalid_html_design_draft');
+    }
+  });
+
+  it('persists a full native source from another slide while retaining the proposal destination', async () => {
+    memoryIndexedDb(); const store = await openHtmlDesignDraft(scope()), value = draft();
+    value.designSource = { mode: 'adapt_layout', source: { kind: 'slide', slide_id: 'source-3', revision: '9' } };
+    value.sourceSlide = { id: 'source-3', revision: 9, title: 'Fuente', html: '<html><head><style>.card{border-radius:28px}</style></head><body>Original</body></html>', mounted_assets: [] };
+    await store.write(0, value); const recovered = (await store.read())!.value;
+    expect(recovered.sourceSlide).toEqual(value.sourceSlide); expect(recovered.designSource).toEqual(value.designSource);
+    expect(recovered.proposal!.target).toEqual(proposal().target);
+    expect(() => assertHtmlDesignDraft({ ...value, sourceSlide: { ...value.sourceSlide!, revision: 8 } }, scope())).toThrow('invalid_html_design_source');
+    expect(() => assertHtmlDesignDraft({ ...value, designSource: undefined }, scope())).toThrow('invalid_html_design_source');
+  });
+
+  it('validates separately persisted source pixels, including their bytes, without consuming user-reference slots', async () => {
+    memoryIndexedDb(); const store = await openHtmlDesignDraft(scope()), value = draft(), source = reference();
+    value.designSource = { mode: 'replicate', source: { kind: 'reference', reference_id: source.id } }; value.sourceReference = source;
+    expect(() => assertHtmlDesignDraft(value, scope())).not.toThrow();
+    await expect(store.write(0, value)).rejects.toThrow(); // The fixture claims PNG but contains plain text.
+    expect(() => assertHtmlDesignDraft({ ...value, sourceReference: { ...source, id: 'reference:other' } }, scope())).toThrow('invalid_html_design_source');
+    expect(value.references).toEqual([]);
+  });
+
+  it('retains a separate inspection receipt on reload without inventing contact-sheet pixels or consuming attachment slots', async () => {
+    memoryIndexedDb(); const store = await openHtmlDesignDraft(scope()), value = draft();
+    value.inspection = { reference_ids: [`deck:${'a'.repeat(64)}`], examples: ['DIAPOSITIVAS INSPECCIONADAS (datos consultados)\nDiapositiva 4'] };
+    await store.write(0, value);
+    const recovered = (await store.read())!.value;
+    expect(recovered.inspection).toEqual(value.inspection); expect(recovered.references).toEqual([]);
+    expect(recovered.proposal).toEqual(value.proposal);
+    for (const inspection of [
+      { reference_ids: ['unknown'], examples: [] }, { reference_ids: Array(2).fill(`deck:${'a'.repeat(64)}`), examples: [] },
+      { reference_ids: [], examples: Array(4).fill('markup') }, { reference_ids: [], examples: ['a'.repeat(40001)] },
+    ]) expect(() => assertHtmlDesignDraft({ ...value, inspection }, scope())).toThrow('invalid_html_design_inspection');
+  });
+  it('persists review warnings with the proposal and rejects corrupt review metadata', async () => {
+    memoryIndexedDb(); const store = await openHtmlDesignDraft(scope()), value = draft();
+    value.designBase = 'deck';
+    value.proposal!.visualReview = { status: 'needs_review', repairs: 2, issues: ['El párrafo se recorta.'] };
+    await store.write(0, value);
+    expect((await store.read())!.value.proposal!.visualReview).toEqual(value.proposal!.visualReview);
+    expect((await store.read())!.value.designBase).toBe('deck');
+    value.proposal!.visualReview.repairs = 3;
+    expect(() => assertHtmlDesignDraft(value, scope())).toThrow('invalid_html_design_review');
+  });
+
   it('pins document, slide and revision for both insertion and replacement', () => {
     const value = proposal(); expect(() => assertHtmlDesignTarget(value, value.target)).not.toThrow();
     for (const changed of [{ ...value.target, document: 'other' }, { ...value.target, slide: 'other' },

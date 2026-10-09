@@ -1,11 +1,13 @@
 # Dockerfile for Render Service (Node.js + Puppeteer)
-# Optimized for cloud deployment on Fly.io / Railway
+# Runs locally for document conversion or on the application's own server.
 
 FROM node:20-slim
 
 # Install Chromium dependencies required by Puppeteer
 RUN apt-get update && apt-get install -y \
     chromium \
+    poppler-utils \
+    libreoffice-impress \
     fonts-liberation \
     fonts-noto-color-emoji \
     libatk-bridge2.0-0 \

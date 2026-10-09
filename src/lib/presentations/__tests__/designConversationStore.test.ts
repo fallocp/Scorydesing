@@ -6,6 +6,7 @@ import { assertDesignConversation, beginConversationAction, completeConversation
 import { buildDesignBrandContext } from '../designBrandContext';
 import type { DesignContext, DesignOperation } from '../../../../supabase/functions/_shared/desaing/contracts';
 import type { PreparedPresentationReference } from '../presentationReferences';
+import type { ConversationDesignSource } from '../../../../supabase/functions/_shared/desaing/conversationActions';
 
 const business = '50000000-0000-4000-8000-000000000001', actor = '50000000-0000-4000-8000-000000000002';
 const scope = (): DesignConversationScope => ({ actor, business, document: 'document', slide: 'canvas' });
@@ -52,6 +53,127 @@ function context(): DesignContext {
 }
 
 describe('one durable design conversation', () => {
+  it('keeps three slots isolated while explicit main reopens the exact legacy record', async () => {
+    const backend = memory(), legacy = createDesignConversationStore(scope(), backend.storage);
+    const original = emptyDesignConversation(target());
+    original.messages = [{ id: 'main-message', turn_id: 'turn-1', role: 'user', text: 'Conversación anterior' }];
+    await legacy.write(0, original);
+    expect([...backend.values.keys()]).toEqual([JSON.stringify([actor, business, 'document', 'canvas'])]);
+    expect((await createDesignConversationStore({ ...scope(), session: 'main' }, backend.storage).read())?.value).toEqual(original);
+    for (const session of ['session-2', 'session-3'] as const) {
+      const store = createDesignConversationStore({ ...scope(), session }, backend.storage);
+      expect(await store.read()).toBeNull();
+      const value = emptyDesignConversation(target());
+      value.messages = [{ id: `${session}-message`, turn_id: 'turn-1', role: 'user', text: session }];
+      await store.write(0, value);
+      expect((await store.read())?.value.messages[0].text).toBe(session);
+      expect((await legacy.read())?.value).toEqual(original);
+    }
+    expect(backend.values.size).toBe(3);
+    expect(() => createDesignConversationStore({ ...scope(), session: 'session-4' as any }, backend.storage)).toThrow('conversation_scope_mismatch');
+    expect(() => createDesignConversationStore({ ...scope(), session: 'session-2:g1' as any }, backend.storage)).toThrow('conversation_scope_mismatch');
+  });
+
+  it('resets only one explicitly selected slot with a new generation and keeps stale writes blocked', async () => {
+    const backend = memory(), first = createDesignConversationStore(scope(), backend.storage);
+    const second = createDesignConversationStore({ ...scope(), session: 'session-2' }, backend.storage);
+    const state = emptyDesignConversation(target());
+    state.messages = [{ id: 'm1', turn_id: 't1', role: 'user', text: 'Idea anterior' }];
+    await first.write(0, state); await second.write(0, state);
+    const reset = await second.reset(1, { ...target(), revision: 4 });
+    expect(reset).toMatchObject({ revision: 2, value: { epoch: 2, session_generation: 2, messages: [], versions: [], pending: null, target: { revision: 4 } } });
+    expect((await first.read())?.value).toEqual(state);
+    await expect(second.write(1, state)).rejects.toThrow('conversation_revision_conflict');
+    await expect(second.write(2, { ...reset.value, session_generation: 1 })).rejects.toThrow('conversation_session_changed');
+    await expect(second.reset(1, reset.value.target)).rejects.toThrow('conversation_revision_conflict');
+    expect((await second.reset(2, reset.value.target)).value.session_generation).toBe(3);
+  });
+
+  it('requires pending recovery before reset and never resets to an older slide revision', async () => {
+    const backend = memory(), store = createDesignConversationStore(scope(), backend.storage);
+    const state = beginConversationAction(emptyDesignConversation(target()), pending());
+    await store.write(0, state);
+    await expect(store.reset(1, target())).rejects.toThrow('conversation_pending_unresolved');
+    expect((await store.read())?.revision).toBe(1);
+    const resolved = completeConversationAction(state, 'action-1', {}); await store.write(1, resolved);
+    await expect(store.reset(2, { ...target(), revision: 2 })).rejects.toThrow('conversation_target_changed');
+    expect((await store.reset(2, target())).value.messages).toEqual([]);
+  });
+
+  it('persists each version source independently of the destination and keeps old source history immutable', async () => {
+    const backend = memory(), store = createDesignConversationStore(scope(), backend.storage), state = emptyDesignConversation(target());
+    const source: ConversationDesignSource = { mode: 'adapt_layout', source: { kind: 'slide', slide_id: 'slide-3', revision: '7' } };
+    state.design_source = structuredClone(source);
+    state.next_action = { kind: 'create_html', intent: 'suggested', instruction: 'Adapta la slide 3 al nuevo contenido.', reference_ids: [], reason: 'Plan visible.', design_source: structuredClone(source) };
+    state.versions = [{ ...image(), design_source: structuredClone(source) }, { id: 'html-1', turn_id: 'turn-2', parent_id: 'image-1', target: target(), kind: 'html',
+      design_source: { ...structuredClone(source), mode: 'style_only' },
+      proposal: { html: '<h1>Contenido nuevo</h1>', target: target(), intent: 'replace', canvas: { width: 1280, height: 720 }, mounted: [] } }];
+    state.selected_version_id = 'html-1'; await store.write(0, state);
+    const reopened = (await createDesignConversationStore(scope(), backend.storage).read())!;
+    expect(reopened.value.target.slide).toBe('canvas'); expect(reopened.value.next_action!.design_source).toEqual(source);
+    expect(reopened.value.versions.map(version => version.design_source!.mode)).toEqual(['adapt_layout', 'style_only']);
+    expect(reopened.value.versions.every(version => version.target.slide === 'canvas')).toBe(true);
+    const changed = structuredClone(reopened.value); changed.versions[0].design_source!.mode = 'replicate';
+    await expect(store.write(1, changed)).rejects.toThrow('conversation_version_history_changed');
+    reopened.value.design_source!.mode = 'replicate';
+    expect((await store.read())!.value.design_source).toEqual(source);
+  });
+
+  it('freezes remembered and proposed design sources while a dispatched request remains pending', async () => {
+    const backend = memory(), store = createDesignConversationStore(scope(), backend.storage), initial = emptyDesignConversation(target());
+    const source: ConversationDesignSource = { mode: 'adapt_layout', source: { kind: 'slide', slide_id: 'slide-3', revision: '7' } };
+    initial.design_source = structuredClone(source);
+    initial.next_action = { kind: 'create_html', intent: 'suggested', instruction: 'Adapta la fuente.', reference_ids: [], reason: 'Plan visible.', design_source: structuredClone(source) };
+    const state = markConversationAction(beginConversationAction(initial, pending()), 'action-1', 'dispatched');
+    await store.write(0, state);
+    for (const location of ['remembered', 'proposed'] as const) {
+      const changed = structuredClone(state);
+      (location === 'remembered' ? changed.design_source! : changed.next_action!.design_source!).mode = 'style_only';
+      await expect(store.write(1, changed)).rejects.toThrow('conversation_pending_changed');
+    }
+    const complete = completeConversationAction(state, 'action-1', { next_action: null });
+    complete.design_source = { ...source, mode: 'style_only' };
+    await expect(store.write(1, complete)).resolves.toMatchObject({ revision: 2 });
+  });
+
+  it.each(['remembered', 'proposed', 'version'] as const)('rejects foreign-business asset sources in %s state', location => {
+    const state = emptyDesignConversation(target()), source: ConversationDesignSource = { mode: 'replicate', source: { kind: 'asset',
+      asset: { business_id: 'foreign-business', asset_id: 'asset-1', version_id: 'v1' } } };
+    if (location === 'remembered') state.design_source = source;
+    if (location === 'proposed') state.next_action = { kind: 'create_html', intent: 'suggested', instruction: 'Replicar', reference_ids: [], reason: 'Plan', design_source: source };
+    if (location === 'version') state.versions = [{ ...image(), design_source: source }];
+    expect(() => assertDesignConversation(state, scope())).toThrow('conversation_scope_mismatch');
+  });
+
+  it('accepts legacy source-free snapshots and rejects malformed optional source values', () => {
+    expect(() => assertDesignConversation(emptyDesignConversation(target()), scope())).not.toThrow();
+    expect(() => assertDesignConversation({ ...emptyDesignConversation(target()), design_source: null }, scope())).not.toThrow();
+    for (const value of [false, 0, '', { mode: 'free', source: { kind: 'slide', slide_id: 'slide-3', revision: '1' } }]) {
+      const state = { ...emptyDesignConversation(target()), design_source: value } as never;
+      expect(() => assertDesignConversation(state, scope())).toThrow();
+    }
+    for (const value of [null, false, '']) {
+      const state = emptyDesignConversation(target()); state.versions = [{ ...image(), design_source: value } as never];
+      expect(() => assertDesignConversation(state, scope())).toThrow();
+    }
+  });
+
+  it('persists element commands only with their paired exact HTML fingerprint and freezes them while pending', async () => {
+    const backend = memory(), store = createDesignConversationStore(scope(), backend.storage), state = emptyDesignConversation(target());
+    state.next_action = { kind: 'edit_elements', intent: 'suggested', instruction: 'Mueve el título 24 px.', reference_ids: [], reason: 'Ajuste concreto.',
+      element_edits: [{ kind: 'move', element_id: 'e:1', dx: 24, dy: 0 }], element_html_hash: 'a'.repeat(64) };
+    await store.write(0, state); expect((await store.read())!.value.next_action).toEqual(state.next_action);
+    for (const missing of ['element_edits', 'element_html_hash'] as const) {
+      const bad = structuredClone(state); delete bad.next_action![missing];
+      expect(() => assertDesignConversation(bad, scope())).toThrow();
+    }
+    const wrongKind = structuredClone(state); wrongKind.next_action!.kind = 'create_html';
+    expect(() => assertDesignConversation(wrongKind, scope())).toThrow();
+    const active = beginConversationAction(state, pending()); await store.write(1, active);
+    const changed = structuredClone(active); changed.next_action!.element_html_hash = 'b'.repeat(64);
+    await expect(store.write(2, changed)).rejects.toThrow('conversation_pending_changed');
+  });
+
   it('retains PNG references, literal text, brand snapshot and natural messages without aliases between callers or accounts', async () => {
     const backend = memory(), identity = scope(), store = createDesignConversationStore(identity, backend.storage);
     const state = emptyDesignConversation(target()), ref = await reference(); state.references = [ref];

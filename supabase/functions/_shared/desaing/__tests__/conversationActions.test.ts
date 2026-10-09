@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { assertExplorationRequest, assertExplorationResult } from '../exploration.ts';
 import { createExplorationProvider, prepareExplorationRequest } from '../explorationProvider.ts';
-import { CONVERSATION_ACTIONS, type ConversationNextAction } from '../conversationActions.ts';
+import { CONVERSATION_ACTIONS, assertConversationDesignSource, assertConversationDesignSourceContext, assertConversationNextAction, conversationReferenceLabels, resolveConversationSourceMentions, type ConversationNextAction,
+  type ConversationPresentationContext } from '../conversationActions.ts';
 import type { ExplorationRequest, ExplorationResult } from '../explorationContracts.ts';
 import { createServerExploration, type ServerExplorationConfig } from '../serverExploration.ts';
 import type { ExplorationJournalEntry, ExplorationRepository } from '../explorationRepository.ts';
@@ -32,8 +33,216 @@ function fixture(output = result()) {
   return { fetch, provider: createExplorationProvider({ apiKey: 'local-test-key', model: 'gpt-5.4-mini', fetch }),
     images: request().context.references.map((ref, index) => ({ reference_id: ref.reference_id, bytes: htmlPng(10 + index) })) };
 }
+function presentation(req: ExplorationRequest, count = 6): ConversationPresentationContext {
+  return { project: { id: req.context.project_id, name: 'Proyecto Comercio' },
+    presentation: { id: req.context.target.document_id, name: 'Propuesta comercial' }, current_slide_id: req.context.target.slide_id!,
+    slides: Array.from({ length: count }, (_, index) => ({ id: index ? `slide-${index + 1}` : req.context.target.slide_id!,
+      number: index + 1, title: `Página ${index + 1}`, revision: index ? '2' : req.context.target.revision })) };
+}
 
 describe('unified conversation using the existing exploration planner', () => {
+  it('limits image-to-HTML conversion to replication of the exact selected image, without an alternative visual source', () => {
+    const req = request(), first = req.context.references[0], selected = req.context.references[1];
+    const asset = { business_id: selected.business_id, asset_id: selected.asset_id, version_id: selected.version_id };
+    const prior = { business_id: first.business_id, asset_id: first.asset_id, version_id: first.version_id };
+    first.reference_id = `image:${prior.asset_id}:${prior.version_id}`;
+    Object.assign(req.conversation!, { supports_design_source: 1, selected_image: asset,
+      design_source: { mode: 'replicate', source: { kind: 'asset', asset: prior } }, presentation: presentation(req) });
+    const slide = req.conversation!.presentation!.slides[2];
+    req.conversation!.presentation!.inspected_slides = [{ ...slide, summary: 'Plantilla visible' }];
+    req.conversation!.available_actions.push('convert_image_to_html');
+    const next: ConversationNextAction = { ...action('convert_image_to_html'), reference_ids: [selected.reference_id] };
+    expect(() => assertConversationNextAction(next, req, visualUnderstanding())).not.toThrow();
+    expect(() => assertConversationNextAction({ ...next, design_source: { mode: 'replicate', source: { kind: 'asset', asset } } }, req, visualUnderstanding())).not.toThrow();
+    const invalid: NonNullable<ConversationNextAction['design_source']>[] = [
+      { mode: 'replicate', source: { kind: 'slide', slide_id: slide.id, revision: slide.revision } },
+      { mode: 'replicate', source: { kind: 'reference', reference_id: selected.reference_id } },
+      { mode: 'replicate', source: { kind: 'asset', asset: prior } },
+      { mode: 'adapt_layout', source: { kind: 'asset', asset } },
+      { mode: 'style_only', source: { kind: 'asset', asset } },
+    ];
+    for (const design_source of invalid) expect(() => assertConversationNextAction({ ...next, design_source }, req, visualUnderstanding())).toThrow('invalid_conversation_action');
+  });
+
+  it('binds bounded element edits to the exact HTML hash and host-issued element and asset catalogs', () => {
+    const req = request(), hash = 'a'.repeat(64);
+    Object.assign(req.conversation!, { surface: 'html', current_html: { revision: req.context.target.revision, summary: 'Título y logo' },
+      editable_elements: [{ element_id: 'e:1', kind: 'text', label: 'Título', text: 'Título anterior' }, { element_id: 'e:2', kind: 'image', label: 'Logo' }],
+      editable_assets: [{ asset_id: 'brand-logo', label: 'Logo autorizado' }], editable_html_hash: hash });
+    req.conversation!.available_actions.push('edit_elements');
+    const next: ConversationNextAction = { ...action('edit_elements'), intent: 'suggested', element_html_hash: hash,
+      element_edits: [{ kind: 'move', element_id: 'e:1', dx: 20, dy: 0 }, { kind: 'image', element_id: 'e:2', asset_id: 'brand-logo' }] };
+    expect(() => assertExplorationRequest(req)).not.toThrow();
+    expect(() => assertExplorationResult(result(req, next), req)).not.toThrow();
+    expect(() => assertExplorationResult(result(req, { ...next, element_html_hash: 'b'.repeat(64) }), req)).toThrow('conversation_element_edit_stale');
+    for (const element_edits of [[{ kind: 'move', element_id: 'e:99', dx: 20, dy: 0 }],
+      [{ kind: 'text', element_id: 'e:2', text: 'No es texto' }], [{ kind: 'image', element_id: 'e:2', asset_id: 'unavailable' }]]) {
+      expect(() => assertExplorationResult(result(req, { ...next, element_edits: element_edits as never }), req)).toThrow();
+    }
+    expect(() => assertExplorationResult(result(req, { ...next, kind: 'create_html' }), req)).toThrow('invalid_conversation_action');
+    const body = prepareExplorationRequest(req) as any, schema = body.text.format.schema.properties.next_action;
+    expect(schema.required).toEqual(expect.arrayContaining(['element_edits', 'element_html_hash']));
+    expect(schema.properties.element_html_hash.anyOf[1].enum).toEqual([hash]);
+    expect(schema.properties.element_edits.anyOf[1].items.anyOf.find((item: any) => item.properties.kind.enum[0] === 'image').properties.asset_id.enum).toEqual(['brand-logo']);
+    expect(body.input[0].content[0].text).toContain('¿Lo aplico así?');
+  });
+
+  it('keeps direct edits unavailable without a matching catalog and hash, while accepting legacy turns', () => {
+    const req = request();
+    expect((prepareExplorationRequest(req) as any).text.format.schema.properties.next_action.properties).not.toHaveProperty('element_edits');
+    for (const patch of [{ available_actions: ['discuss', 'edit_elements'] }, { editable_html_hash: 'a'.repeat(64) },
+      { editable_assets: [{ asset_id: 'brand-logo', label: 'Logo' }] }, { surface: 'html', current_html: { revision: req.context.target.revision, summary: 'Texto' },
+        editable_elements: [{ element_id: 'e:1', kind: 'text', label: 'Título' }], editable_html_hash: 'invalid' }]) {
+      const bad = structuredClone(req); Object.assign(bad.conversation!, patch);
+      expect(() => assertExplorationRequest(bad)).toThrow('invalid_conversation_turn');
+    }
+  });
+
+  it('binds an inspected source slide to its exact revision while retaining a different destination', () => {
+    const req = request(); req.conversation!.supports_design_source = 1;
+    const deck = presentation(req); req.conversation!.presentation = deck;
+    deck.inspected_slides = [{ ...deck.slides[2], summary: 'Tres tarjetas alineadas.' }];
+    const design_source = { mode: 'adapt_layout' as const, source: { kind: 'slide' as const, slide_id: deck.slides[2].id, revision: deck.slides[2].revision } };
+    const destination = structuredClone(req.context.target);
+    expect(() => assertExplorationResult(result(req, { ...action('create_html'), design_source }), req)).not.toThrow();
+    expect(req.context.target).toEqual(destination); expect(design_source.source.slide_id).not.toBe(destination.slide_id);
+    for (const source of [{ ...design_source.source, revision: 'old' }, { ...design_source.source, slide_id: deck.slides[1].id },
+      { ...design_source.source, slide_id: 'foreign-slide' }]) {
+      expect(() => assertConversationDesignSourceContext({ ...design_source, source }, req)).toThrow('conversation_design_source_unavailable');
+    }
+    expect(() => assertExplorationResult(result(req, { ...action('discuss'), intent: 'suggested', design_source }), req)).toThrow('invalid_conversation_action');
+    delete req.conversation!.supports_design_source;
+    expect(() => assertExplorationResult(result(req, { ...action(), design_source }), req)).toThrow('conversation_design_source_unavailable');
+  });
+
+  it('uses current-slide evidence only when it describes the original slide, not another generated version', () => {
+    const req = request(); Object.assign(req.conversation!, { supports_design_source: 1, surface: 'html', design_base: 'current',
+      current_html: { revision: req.context.target.revision, summary: 'Original' }, presentation: presentation(req) });
+    const source = { mode: 'replicate', source: { kind: 'slide', slide_id: req.context.target.slide_id, revision: req.context.target.revision } };
+    expect(() => assertConversationDesignSourceContext(source, req)).not.toThrow();
+    req.conversation!.design_base = 'version';
+    expect(() => assertConversationDesignSourceContext(source, req)).toThrow('conversation_design_source_unavailable');
+    req.conversation!.slide_html = { revision: req.context.target.revision, summary: 'Original, distinto de la versión' };
+    expect(() => assertConversationDesignSourceContext(source, req)).not.toThrow();
+  });
+
+  it('accepts available visual attachments and the exact selected asset, never text-only or internal captures', () => {
+    const req = request(); req.conversation!.supports_design_source = 1;
+    const reference = { mode: 'style_only', source: { kind: 'reference', reference_id: 'source-1' } };
+    expect(() => assertConversationDesignSourceContext(reference, req)).not.toThrow();
+    req.context.references[0].roles = ['content_source'];
+    expect(() => assertConversationDesignSourceContext(reference, req)).toThrow('conversation_design_source_unavailable');
+    for (const reference_id of ['html:capture', 'deck:sheet']) expect(() => assertConversationDesignSource({ ...reference, source: { kind: 'reference', reference_id } })).toThrow('invalid_conversation_design_source');
+    const ref = req.context.references[1], asset = { business_id: ref.business_id, asset_id: ref.asset_id, version_id: ref.version_id };
+    req.conversation!.selected_image = asset;
+    expect(() => assertConversationDesignSourceContext({ mode: 'replicate', source: { kind: 'asset', asset } }, req)).not.toThrow();
+    for (const changed of [{ ...asset, version_id: 'other' }, { ...asset, business_id: 'foreign' }]) {
+      expect(() => assertConversationDesignSourceContext({ mode: 'replicate', source: { kind: 'asset', asset: changed } }, req)).toThrow('conversation_design_source_unavailable');
+    }
+  });
+
+  it('retains an exact remembered asset source alongside a newer selected image only while its canonical pixels remain attached', () => {
+    const req = request(), [first, selected] = req.context.references;
+    const asset = { business_id: first.business_id, asset_id: first.asset_id, version_id: first.version_id };
+    const source = { mode: 'adapt_layout' as const, source: { kind: 'asset' as const, asset } };
+    Object.assign(req.conversation!, { supports_design_source: 1, design_source: source,
+      selected_image: { business_id: selected.business_id, asset_id: selected.asset_id, version_id: selected.version_id } });
+    first.reference_id = `image:${asset.asset_id}:${asset.version_id}`;
+    req.design_brief!.copy.source_reference_ids = [];
+    expect(() => assertConversationDesignSourceContext(source, req)).not.toThrow();
+    const schema = (prepareExplorationRequest(req) as any).text.format.schema.properties.next_action.properties.design_source;
+    const assetIds = schema.anyOf[1].properties.source.anyOf.filter((variant: any) => variant.properties.kind.enum[0] === 'asset')
+      .map((variant: any) => variant.properties.asset.properties.asset_id.enum[0]);
+    expect(assetIds).toEqual([selected.asset_id, asset.asset_id]);
+    for (const reference_id of [`deck:${asset.asset_id}`, `html:${asset.asset_id}`, `reference:${asset.asset_id}`]) {
+      const bad = structuredClone(req); bad.context.references[0].reference_id = reference_id;
+      expect(() => assertConversationDesignSourceContext(source, bad)).toThrow('conversation_design_source_unavailable');
+    }
+    for (const change of ['missing', 'version', 'different-memory', 'no-memory'] as const) {
+      const bad = structuredClone(req);
+      if (change === 'missing') bad.context.references.shift();
+      if (change === 'version') bad.context.references[0].version_id = 'different';
+      if (change === 'different-memory') bad.conversation!.design_source = { ...source, source: { kind: 'asset', asset: selected } };
+      if (change === 'no-memory') delete bad.conversation!.design_source;
+      expect(() => assertConversationDesignSourceContext(source, bad)).toThrow('conversation_design_source_unavailable');
+    }
+    const missing = structuredClone(req); missing.context.references.shift();
+    const body = prepareExplorationRequest(missing) as any;
+    const available = body.text.format.schema.properties.next_action.properties.design_source.anyOf[1].properties.source.anyOf;
+    expect(available.filter((variant: any) => variant.properties.kind.enum[0] === 'asset')).toHaveLength(1);
+    expect(body.input[0].content[0].text).toContain('continúa ajustando selected_image con edit_image y design_source=null');
+  });
+
+  it('excludes direct HTML element edits in image format even if a valid HTML catalog was supplied', () => {
+    const req = request(); Object.assign(req.conversation!, { design_format: 'image', surface: 'html',
+      current_html: { revision: req.context.target.revision, summary: 'HTML' }, available_actions: ['discuss', 'edit_elements'],
+      editable_elements: [{ element_id: 'e:1', kind: 'text', label: 'Título' }], editable_html_hash: 'a'.repeat(64) });
+    expect(() => assertExplorationRequest(req)).toThrow('invalid_conversation_turn');
+    req.conversation!.design_format = 'html'; expect(() => assertExplorationRequest(req)).not.toThrow();
+  });
+
+  it('keeps prior typed source choices as memory while requiring fresh evidence for a new plan', () => {
+    const req = request(), design_source = { mode: 'adapt_layout' as const, source: { kind: 'slide' as const, slide_id: 'previous-slide', revision: 'old' } };
+    Object.assign(req.conversation!, { supports_design_source: 1, design_source,
+      pending_action: { kind: 'create_html', instruction: 'Usar las tarjetas.', questions: [], phase: 'confirmation', design_source } });
+    expect(() => assertExplorationRequest(req)).not.toThrow();
+    expect(() => assertExplorationResult(result(req, { ...action(), design_source }), req)).toThrow('conversation_design_source_unavailable');
+    delete req.conversation!.supports_design_source;
+    expect(() => assertExplorationRequest(req)).toThrow('invalid_conversation_turn');
+    for (const bad of [null, { ...design_source, approval: true }, { ...design_source, mode: 'approve' },
+      { ...design_source, source: { ...design_source.source, revision: 1 } }, { ...design_source, source: { ...design_source.source, slide_id: 'slide\n1' } }]) {
+      expect(() => assertConversationDesignSource(bad)).toThrow('invalid_conversation_design_source');
+    }
+  });
+
+  it('exposes the nullable source schema only to opted-in clients and pairs inspected IDs with exact revisions', () => {
+    const req = request();
+    const legacy = prepareExplorationRequest(req) as any;
+    expect(legacy.text.format.schema.properties.next_action.properties).not.toHaveProperty('design_source');
+    req.conversation!.supports_design_source = 1;
+    const deck = presentation(req); req.conversation!.presentation = deck;
+    deck.inspected_slides = [{ ...deck.slides[2], summary: 'Tarjetas' }];
+    req.context.references[0].roles = ['content_source'];
+    const body = prepareExplorationRequest(req) as any, schema = body.text.format.schema.properties.next_action;
+    expect(schema.required).toContain('design_source');
+    const variants = schema.properties.design_source.anyOf[1].properties.source.anyOf;
+    expect(variants[0].properties).toEqual({ kind: { type: 'string', enum: ['slide'] },
+      slide_id: { type: 'string', enum: ['slide-3'] }, revision: { type: 'string', enum: ['2'] } });
+    expect(variants[1].properties.reference_id.enum).toEqual(['source-2']);
+    expect(body.input[0].content[0].text).toContain('separa DESTINO de FUENTE');
+    expect(body.input[0].content[0].text).toContain('refluye y ajusta tamaños');
+    expect(body.input[0].content[0].text).toContain('Son memoria, no autorización');
+  });
+
+  it.each(['current', 'version', 'deck'] as const)('labels a single attachment and an internal %s capture without inventing image 2', base => {
+    const req = request(); req.context.references[0].roles = ['content_source'];
+    req.context.references[1] = { ...req.context.references[1], reference_id: 'html:base-capture', roles: ['layout_reference', 'image_style_reference'] };
+    req.conversation!.design_base = base;
+    const expected = base === 'version' ? 'la versión seleccionada' : base === 'deck' ? 'el estilo de la presentación' : 'el diseño base';
+    const body = prepareExplorationRequest(req, 4096, req.context.references.map(ref => ({ reference_id: ref.reference_id, bytes: htmlPng() }))) as any;
+    const parts = body.input[1].content, sources = JSON.parse(parts[0].text).context.references;
+    expect(sources[0]).toMatchObject({ reference_id: 'source-1', position: 1, origin: 'user_attachment' });
+    expect(sources[1]).toMatchObject({ reference_id: 'html:base-capture', origin: 'internal_capture', label: expected });
+    expect(sources[1]).not.toHaveProperty('position');
+    expect(parts[1].text).toContain('Imagen 1'); expect(parts[3].text).toContain(expected); expect(parts[3].text).not.toContain('Imagen 2');
+    const message = resolveConversationSourceMentions('Usaré el texto de la primera imagen y la composición de la segunda.', req);
+    expect(message).toContain('la imagen adjunta 1'); expect(message).not.toMatch(/primera|segunda/);
+    expect(message).toContain(expected.replace(/^el /, ''));
+    const instruction = resolveConversationSourceMentions('Texto de la primera y composición de la segunda imagen.', req, true);
+    expect(instruction).toContain('source-1 (content_source)'); expect(instruction).not.toMatch(/primera|segunda|html:/);
+    expect(resolveConversationSourceMentions('Prefiero la segunda opción y la primera fila.', req)).toBe('Prefiero la segunda opción y la primera fila.');
+  });
+
+  it('keeps two actual user attachments distinct when an auxiliary capture is also present', () => {
+    const req = request(); req.context.references.push({ ...req.context.references[0], reference_id: 'html:capture', asset_id: 'capture' });
+    expect(conversationReferenceLabels(req).map(source => source.position)).toEqual([1, 2, undefined]);
+    expect(resolveConversationSourceMentions('Texto de la primera imagen y objeto de la segunda.', req, true))
+      .toBe('Texto de la fuente source-1 (content_source, layout_reference) y objeto de la fuente source-2 (object_reference).');
+    req.context.references.unshift(req.context.references.pop()!);
+    expect(conversationReferenceLabels(req).map(source => source.position)).toEqual([undefined, 1, 2]);
+    expect(resolveConversationSourceMentions('Usa la imagen 2.', req, true)).toBe('Usa la fuente source-2 (object_reference).');
+  });
+
   it('returns natural answer, literal source copy and one structured action using the two actual image inputs in order', async () => {
     const req = request(), f = fixture();
     const output = await f.provider.plan(req, f.images);
@@ -164,7 +373,7 @@ describe('unified conversation using the existing exploration planner', () => {
     const body = JSON.parse(f.fetch.mock.calls[0][1]!.body as string);
     expect(JSON.parse(body.input[1].content[0].text).conversation.pending_action).toEqual(req.conversation!.pending_action);
     expect(body.input[0].content[0].text).toContain('conversation.pending_action');
-    expect(body.input[0].content[0].text).toContain('¿Lo creo ya?');
+    expect(body.input[0].content[0].text).toContain('¿Lo creo así?');
     expect(body.input[0].content[0].text).toContain('Adaptar significa');
     expect(body.input[0].content[0].text).toContain('copy.text debe contener TODO el texto visible final');
     for (const pending of [{ kind: 'discuss', instruction: '', questions: [] }, { kind: 'create_html', instruction: 'x', questions: [''] },
@@ -229,6 +438,83 @@ describe('unified conversation using the existing exploration planner', () => {
     for (const style_spec of ['', 'a'.repeat(4001)]) {
       const bad = request(); Object.assign(bad.conversation!, { style_spec }); expect(() => assertExplorationRequest(bad)).toThrow('invalid_conversation_turn');
     }
+  });
+
+  it.each(['html', 'image'] as const)('sends the full presentation index and numbered inspection evidence in %s mode independently of the design base', format => {
+    const req = request(), deck = presentation(req);
+    const capture = { ...req.context.references[0], reference_id: 'deck:contact-sheet', asset_id: 'deck-capture', roles: ['layout_reference' as const] };
+    req.context.references.push(capture);
+    deck.inspected_slides = [deck.slides[1], deck.slides[4]].map(slide => ({ ...slide, summary: 'Texto y CSS resumidos.', reference_id: capture.reference_id }));
+    Object.assign(req.conversation!, { presentation: deck, design_format: format, design_base: 'new', available_actions: ['discuss', 'inspect_slides'] });
+    expect(() => assertExplorationRequest(req)).not.toThrow();
+    const body = prepareExplorationRequest(req, 4096, [{ reference_id: capture.reference_id, bytes: htmlPng() }]) as any;
+    const payload = JSON.parse(body.input[1].content[0].text);
+    expect(payload.conversation.presentation).toEqual(deck);
+    expect(payload.conversation.presentation.inspected_slides.map((slide: { number: number }) => slide.number)).toEqual([2, 5]);
+    expect(payload.context.references[2]).toMatchObject({ origin: 'internal_capture', label: 'las diapositivas inspeccionadas', pixels_attached: true });
+    expect(payload.context.references[2]).not.toHaveProperty('position');
+    expect(conversationReferenceLabels(req).map(source => source.position)).toEqual([1, 2, undefined]);
+    expect(resolveConversationSourceMentions('Compara deck:contact-sheet.', req, true)).toBe('Compara las diapositivas inspeccionadas.');
+    expect(body.text.format.schema.properties.next_action.required).toContain('slide_ids');
+    expect(body.text.format.schema.properties.next_action.properties.slide_ids.items.enum).toEqual(deck.slides.map(slide => slide.id));
+  });
+
+  it('requests up to twelve exact slide IDs immediately even while copy and required decisions are pending', async () => {
+    const req = request(); req.conversation!.presentation = presentation(req, 13); req.conversation!.available_actions.push('inspect_slides');
+    const ids = req.conversation!.presentation.slides.slice(0, 12).map(slide => slide.id);
+    const next: ConversationNextAction = { ...action('inspect_slides'), reference_ids: [], slide_ids: ids, instruction: 'Leer las diapositivas solicitadas.' };
+    const output = result(req, next); output.design_understanding!.copy = { status: 'pending', text: '', source_reference_ids: [] };
+    output.design_understanding!.pending_questions = ['¿Qué texto llevará el nuevo diseño?'];
+    expect(() => assertExplorationResult(output, req)).not.toThrow();
+    const f = fixture(output), planned = await f.provider.plan(req, f.images);
+    expect(planned.next_action).toEqual(next);
+    expect(planned.design_understanding!.pending_questions).toHaveLength(1);
+    for (const slide_ids of [[], ['outside-this-deck'], [ids[0], ids[0]], req.conversation!.presentation.slides.map(slide => slide.id)]) {
+      expect(() => assertExplorationResult(result(req, { ...next, slide_ids }), req)).toThrow('invalid_conversation_action');
+    }
+    expect(() => assertExplorationResult(result(req, { ...next, intent: 'suggested' }), req)).toThrow('invalid_conversation_action');
+    expect(() => assertExplorationResult(result(req, { ...action(), slide_ids: [ids[0]] }), req)).toThrow('invalid_conversation_action');
+  });
+
+  it('rejects a stale, misnumbered, foreign or fabricated presentation inspection', () => {
+    const req = request(), deck = presentation(req); req.conversation!.presentation = deck;
+    deck.inspected_slides = [{ ...deck.slides[1], summary: 'Resumen de HTML.' }];
+    for (const mutate of [
+      (bad: ConversationPresentationContext) => { bad.presentation.id = 'another-deck'; },
+      (bad: ConversationPresentationContext) => { bad.current_slide_id = 'slide-2'; },
+      (bad: ConversationPresentationContext) => { bad.slides[0].revision = 'old'; },
+      (bad: ConversationPresentationContext) => { bad.slides[1].number = 1; },
+      (bad: ConversationPresentationContext) => { bad.slides[1].id = bad.slides[0].id; },
+      (bad: ConversationPresentationContext) => { bad.inspected_slides![0].revision = 'old'; },
+      (bad: ConversationPresentationContext) => { bad.inspected_slides![0].reference_id = 'deck:unattached'; },
+      (bad: ConversationPresentationContext) => { bad.inspected_slides![0].summary = 'x'.repeat(1801); },
+      (bad: ConversationPresentationContext) => { bad.inspected_slides!.push(bad.inspected_slides![0]); },
+    ]) { const bad = structuredClone(req); mutate(bad.conversation!.presentation!); expect(() => assertExplorationRequest(bad)).toThrow('invalid_conversation_presentation'); }
+    const missing = request(); missing.conversation!.available_actions.push('inspect_slides');
+    expect(() => assertExplorationRequest(missing)).toThrow('invalid_conversation_turn');
+  });
+
+  it('normalizes strict empty slide_ids off noninspection actions while preserving legacy output', async () => {
+    const req = request(), f = fixture(result(req, { ...action(), slide_ids: [] }));
+    expect((await f.provider.plan(req, f.images)).next_action).toEqual(action());
+    const old = fixture(result(req));
+    expect((await old.provider.plan(req, old.images)).next_action).toEqual(action());
+  });
+
+  it('distinguishes clarification from plan confirmation and keeps evidence claims separate from application approval', () => {
+    for (const phase of ['clarification', 'confirmation'] as const) {
+      const req = request(); req.conversation!.pending_action = { kind: 'create_html', instruction: 'Crear el plan revisado.', questions: [], phase };
+      expect(() => assertExplorationRequest(req)).not.toThrow();
+      const body = prepareExplorationRequest(req) as any;
+      expect(JSON.parse(body.input[1].content[0].text).conversation.pending_action.phase).toBe(phase);
+      const prompt = body.input[0].content[0].text;
+      expect(prompt).toContain('Antes de CADA generación o ajuste');
+      expect(prompt).toContain('phase=clarification'); expect(prompt).toContain('phase=confirmation');
+      expect(prompt).toContain('La aplicación conserva la aprobación real');
+      expect(prompt).toContain('¿Lo creo así?');
+    }
+    const bad = request(); Object.assign(bad.conversation!, { pending_action: { kind: 'create_html', instruction: 'x', questions: [], phase: 'approved' } });
+    expect(() => assertExplorationRequest(bad)).toThrow('invalid_conversation_turn');
   });
 
   it('logs only the fixed validation code when a repaired answer is still invalid', async () => {

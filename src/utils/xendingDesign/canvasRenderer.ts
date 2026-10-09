@@ -1,5 +1,6 @@
 import type { Brand } from '@/types/xendingDesign';
 import { supabase } from '@/integrations/supabase/client';
+import { requestRendererJson } from '@/lib/presentations/rendererTransport';
 
 const RENDER_SERVER_URL = 'http://localhost:3333/render';
 const RENDER_PDF_URL = 'http://localhost:3333/render-pdf';
@@ -73,13 +74,15 @@ export async function renderHtmlToPng(
   html: string,
   brand: string,
   width = 1080,
-  height = 1920
+  height = 1920,
+  options?: { signal?: AbortSignal },
 ): Promise<string> {
   try {
     const renderResponse = await fetch(RENDER_SERVER_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ html, width, height, filename: `${brand}-piece.png` }),
+      signal: options?.signal,
     });
 
     if (!renderResponse.ok) {
@@ -98,6 +101,35 @@ export async function renderHtmlToPng(
     }
     throw err;
   }
+}
+
+export interface DesignLayoutDiagnostics {
+  issues: Array<{ code: string; element?: string; message: string }>;
+  truncated?: boolean;
+}
+
+/** Capture the exact canvas plus measured text clipping/overlap from the same Chromium page. */
+export async function renderHtmlForReview(html: string, width: number, height: number, options: {
+  businessId: string; expectedActorId?: string; signal?: AbortSignal;
+}): Promise<{
+  image: string; diagnostics?: DesignLayoutDiagnostics;
+}> {
+  const data = await requestRendererJson('design-preview', { html, width, height }, options);
+  if (typeof data.pngBase64 !== 'string' || !data.pngBase64.startsWith('iVBORw0KGgo') || data.pngBase64.length > 12 * 1024 * 1024) {
+    throw Error(data.message || 'No se pudo renderizar el diseño para revisarlo.');
+  }
+  const raw = data.diagnostics;
+  if (raw && (!Array.isArray(raw.issues) || raw.issues.some((issue: unknown) => !issue || typeof issue !== 'object'
+    || typeof (issue as { code?: unknown }).code !== 'string' || typeof (issue as { message?: unknown }).message !== 'string'))) {
+    throw Error('El servidor no devolvió mediciones válidas del diseño.');
+  }
+  const diagnostics: DesignLayoutDiagnostics | undefined = raw ? {
+    issues: raw.issues.slice(0, 40).map((issue: { code: string; message: string; element?: unknown }) => ({
+      code: issue.code.slice(0, 80), message: issue.message.slice(0, 500),
+      ...(typeof issue.element === 'string' ? { element: issue.element.slice(0, 160) } : {}),
+    })), truncated: raw.truncated === true || raw.issues.length > 40,
+  } : undefined;
+  return { image: `data:image/png;base64,${data.pngBase64}`, diagnostics };
 }
 
 /**

@@ -10,6 +10,7 @@ import { getSlideDimensions, type PresentationSlide } from './presentationDocume
 import type { ImageGenerationSettings } from '../imageGenerationSettings';
 import type { ServerGenerationCapabilities } from '../../../supabase/functions/_shared/desaing/serverGenerationContract';
 import { designBrandPromptContext, type DesignBrandContext } from './designBrandContext';
+import { withDesignConversationSession } from '../../../supabase/functions/_shared/desaing/conversationSessions';
 
 export const sameConversationAsset = (a: AssetVersion, b: AssetVersion) => a.business_id === b.business_id && a.asset_id === b.asset_id && a.version_id === b.version_id;
 
@@ -17,13 +18,14 @@ export const sameConversationAsset = (a: AssetVersion, b: AssetVersion) => a.bus
 export async function prepareConversationReferences(input: {
   client: DesignServerClient; actor: string; business: string; document: string; slide: string;
   references: PreparedPresentationReference[]; destination?: DesignSurfaceDestination; assertCurrent(): Promise<void>;
+  conversationSessionId?: string;
 }) {
   // Snapshot the selected identities, roles and scope before any asynchronous
   // journal work. Blob bytes are immutable; UI changes belong to another turn.
   const references = input.references.map(item => ({ ...item }));
   const brandId = designSurfaceBrand(input.destination), projectId = input.document;
   const store = await openPresentationReferenceStore({ actor_id: input.actor, business_id: input.business,
-    document_id: input.document, slide_id: `conversation:${input.slide}` });
+    document_id: input.document, slide_id: withDesignConversationSession(`conversation:${input.slide}`, input.conversationSessionId) });
   try {
     await input.assertCurrent();
     const record = await store.read();
@@ -47,6 +49,7 @@ export function buildConversationImageOperation(input: {
   generation: ServerGenerationCapabilities; settings: ImageGenerationSettings;
   references: Awaited<ReturnType<typeof prepareConversationReferences>>; base?: RegisteredAssetVersion;
   mode?: 'execute_change' | 'explore_design';
+  conversationSessionId?: string;
 }): DesignOperation {
   if (input.copy.status === 'pending') throw Error('Resuelve el texto del diseño antes de generar.');
   if (input.brand && input.brand.business_id !== input.businessId) throw Error('La identidad de marca no pertenece a este negocio.');
@@ -56,6 +59,7 @@ export function buildConversationImageOperation(input: {
     generation: input.generation, imageSelection: presentationImageSelection(input.settings), operationKey: input.operationKey,
     region: { x: 0, y: 0, ...canvas }, scope: 'full_design', approvedCopy: input.copy.text, copyMode: input.copy.status === 'none' ? 'none' : 'literal',
     additionalReferences: input.references, interactionMode: input.mode ?? 'execute_change' });
+  operation.context.session_id = withDesignConversationSession(operation.context.session_id, input.conversationSessionId);
   if (input.base) {
     if (!input.generation.supports_full_design_edit) throw Error('Actualiza el servidor para editar imágenes dentro de esta conversación.');
     if (input.base.identity.business_id !== input.businessId || input.base.brand_id !== operation.context.brand_id

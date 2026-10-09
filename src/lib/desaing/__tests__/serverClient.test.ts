@@ -80,6 +80,22 @@ function explorationResult(request = explorationRequest()): ExplorationResult {
 }
 
 describe('authenticated exploration journal client', () => {
+  it.each([
+    ['plan', 'exploration_provider_output_limit'], ['plan', 'exploration_provider_refused'],
+    ['recover', 'exploration_provider_output_limit'], ['recover', 'exploration_provider_refused'],
+  ])('preserves a definitive %s failure %s without exposing provider details or retrying', async (route, code) => {
+    const f = fixture(), request = explorationRequest(), planner = f.client.exploration(business);
+    f.fetch.mockResolvedValueOnce(json({ error: code, details: token, message: signedUrl }, 502));
+    const error = await (route === 'plan' ? planner.plan(request) : planner.recover!(request.request_key, request)).catch(problem => problem);
+    expect(error).toBeInstanceOf(DesignServerClientError);
+    expect(error).toMatchObject({ code, httpStatus: 502 });
+    expect(isExplorationAdmissionRefusal(error)).toBe(false);
+    expect(error.message + JSON.stringify(error)).not.toContain(token);
+    expect(error.message + JSON.stringify(error)).not.toContain(signedUrl);
+    expect(f.fetch).toHaveBeenCalledTimes(1);
+    expect(f.fetch.mock.calls[0][0]).toBe(`${endpoint}/exploration/${route}`);
+  });
+
   it('distinguishes explicit pre-admission refusal from ambiguous dispatch failures', () => {
     expect(isExplorationAdmissionRefusal(new DesignServerClientError('exploration_quota_exceeded', 429))).toBe(true);
     expect(isExplorationAdmissionRefusal(new DesignServerClientError('server_feature_disabled', 503))).toBe(true);

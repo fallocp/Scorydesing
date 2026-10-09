@@ -2,6 +2,7 @@ import type { AssetVersion, DesignContext, DesignTarget } from './contracts.ts';
 import type { ExplorationUsage } from './explorationContracts.ts';
 import { assertExplorationRequest } from './exploration.ts';
 import { DESIGN_FONT_OPTIONS } from './compositionFonts.ts';
+import { isDesignConversationSessionToken } from './conversationSessions.ts';
 
 /** Editable compositions contain approved copy IDs, native shapes and unresolved image slots. */
 export const COMPOSITION_FONTS = DESIGN_FONT_OPTIONS.map(font => font.family);
@@ -90,8 +91,10 @@ export async function makeTextlessCompositionCopy(): Promise<ApprovedComposition
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('{"mode":"none","blocks":[]}'));
   return { mode: 'none', blocks: [], version_id: `sha256:${Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('')}` };
 }
-export function htmlCompositionSessionId(target: DesignTarget): string {
-  return `html:${target.document_type}:${target.document_id}:${target.slide_id ?? target.page_id ?? 'canvas'}`;
+export function htmlCompositionSessionId(target: DesignTarget, conversationSession?: string): string {
+  check(conversationSession === undefined || isDesignConversationSessionToken(conversationSession), 'invalid_composition_session');
+  const base = `html:${target.document_type}:${target.document_id}:${target.slide_id ?? target.page_id ?? 'canvas'}`;
+  return conversationSession ? `${base}:conversation:${conversationSession}` : base;
 }
 export function assertHtmlCompositionRequest(value: unknown): asserts value is HtmlCompositionRequest {
   fields(value, ['request_key', 'context', 'canvas', 'copy', 'design_reference']);
@@ -101,8 +104,11 @@ export function assertHtmlCompositionRequest(value: unknown): asserts value is H
   } catch { throw new CompositionError('invalid_composition_context'); }
   const context = value.context as DesignContext;
   const target = context.target;
+  const session = htmlCompositionSessionId(target), sessionPrefix = `${session}:conversation:`;
+  const matchesSession = context.session_id === session || context.session_id.startsWith(sessionPrefix)
+    && isDesignConversationSessionToken(context.session_id.slice(sessionPrefix.length));
   check(['presentation', 'cover', 'page', 'special'].includes(target.document_type)
-    && context.session_id === htmlCompositionSessionId(target), 'invalid_composition_target');
+    && matchesSession, 'invalid_composition_target');
   check(target.element_id === undefined && (target.document_type === 'presentation'
     ? !!target.slide_id && target.page_id === undefined
     : target.slide_id === undefined), 'invalid_composition_target');

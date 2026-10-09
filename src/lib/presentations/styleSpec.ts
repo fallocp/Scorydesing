@@ -1,7 +1,7 @@
 import { sanitizePresentationHtml } from './presentationHtml';
 
-/** Measured «ficha de estilo» of an HTML design: the constant visual pattern of a slide or template.
- * Collected from the browser's computed styles (exact), formatted as a fixed prompt fragment. */
+/** Measured style evidence from a slide or template; the requested source and
+ * adaptation mode determine which properties to reuse. */
 export interface Rect { x: number; y: number; width: number; height: number }
 export interface TextSample { text: string; family: string; size: number; weight: number; italic: boolean; upper: boolean;
   color: string; align: string; area: number }
@@ -42,7 +42,7 @@ function placement(box: Rect, image: Rect): string {
 
 /** Pure formatter, testable without a browser. */
 export function formatStyleSpec(samples: StyleSamples): string {
-  const lines = ['FICHA DE ESTILO (medida del diseño; es una constante: respétala al crear o adaptar).',
+  const lines = ['FICHA DE ESTILO (valores medidos de la fuente; reutiliza según el modo y los cambios solicitados, no fija la distribución).',
     `Lienzo ${samples.canvas.width}×${samples.canvas.height}${transparent(samples.background) ? '' : `, fondo ${hex(samples.background)}`}.`];
   const weighted = new Map<string, number>();
   for (const text of samples.texts) weighted.set(text.align, (weighted.get(text.align) ?? 0) + text.area);

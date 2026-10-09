@@ -6,6 +6,8 @@
   "description": "ScoryDesign - Marketing as a Service platform for visual campaign generation",
   "scripts": {
     "dev": "vite",
+    "dev:local": "node scripts/dev-local.mjs",
+    "render:local": "npm --prefix renderer start",
     "dev:desaing": "vite --config vite.desaing.config.ts",
     "dev:presentations-test": "vite --config vite.presentations-test.config.ts",
     "build:desaing": "tsc -p tsconfig.desaing.json && vite build --config vite.desaing.config.ts",

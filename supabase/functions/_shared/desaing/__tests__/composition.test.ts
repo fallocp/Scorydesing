@@ -59,6 +59,29 @@ describe('approved composition copy', () => {
 });
 
 describe('whole design composition request', () => {
+  it('isolates conversation and reset histories while keeping legacy main and real slide targets', async () => {
+    const request = await compositionRequest(), target = structuredClone(request.context.target);
+    const legacy = htmlCompositionSessionId(target);
+    expect(legacy).toBe('html:presentation:deck-a:slide-a');
+    const sessions = [undefined, 'session-2:g1', 'session-3:g1', 'main:g2', 'session-2:g2'];
+    const keys = sessions.map(session => htmlCompositionSessionId(target, session));
+    expect(new Set(keys).size).toBe(sessions.length);
+    for (const session of keys) {
+      request.context.session_id = session;
+      await expect(verifyHtmlCompositionRequest(request)).resolves.toBeUndefined();
+      expect(request.context.target).toEqual(target);
+    }
+    request.context.target.slide_id = 'another-slide';
+    expect(() => assertHtmlCompositionRequest(request)).toThrow('invalid_composition_target');
+  });
+  it('rejects invented conversation slots and malformed generation suffixes', async () => {
+    const request = await compositionRequest(), legacy = htmlCompositionSessionId(request.context.target);
+    for (const token of ['main', 'main:g1', 'session-4:g1', 'session-2:g0', 'session-2:g01', 'session-3:g1000000001', 'session-2:g1:extra']) {
+      expect(() => htmlCompositionSessionId(request.context.target, token)).toThrow('invalid_composition_session');
+      request.context.session_id = `${legacy}:conversation:${token}`;
+      expect(() => assertHtmlCompositionRequest(request)).toThrow('invalid_composition_target');
+    }
+  });
   it('accepts the exact layout reference, target revision and verified approved copy', async () => {
     await expect(verifyHtmlCompositionRequest(await compositionRequest())).resolves.toBeUndefined();
   });

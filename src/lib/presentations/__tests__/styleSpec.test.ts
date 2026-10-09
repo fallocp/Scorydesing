@@ -16,6 +16,7 @@ describe('ficha de estilo (formatter)', () => {
       texts: [text('Xending Capital', 64, 700, 'rgb(11, 42, 91)', { italic: true }), text('Liquidez para mantener tu operación', 40, 700, 'rgb(11, 42, 91)'),
         ...cards.flatMap(item => item.texts)] });
     expect(spec).toContain('FICHA DE ESTILO'); expect(spec).toContain('Lienzo 1920×1080, fondo #FFFFFF');
+    expect(spec).toContain('según el modo y los cambios solicitados'); expect(spec).not.toContain('es una constante');
     expect(spec).toContain('Alineación predominante del texto: centrada');
     expect(spec).toContain('Nivel 1 «Xending Capital»: Montserrat, 64 px, 700, itálica, #0B2A5B');
     expect(spec).toContain('3 cuadros en una fila de 3: fondo #FFFFFF, esquinas 16 px, sombra rgba(11, 42, 91, 0.08) 0px 8px 24px 0px');

@@ -4,7 +4,7 @@ import type { DesignCanvasHtmlRequest } from '../../../supabase/functions/_share
 const ports = vi.hoisted(() => ({ invoke: vi.fn(), getSession: vi.fn() }));
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { functions: { invoke: ports.invoke }, auth: { getSession: ports.getSession } } }));
 vi.mock('@tanstack/react-query', () => ({ useMutation: (options: unknown) => options }));
-import { useGenerateSlide, type GenerateSlideRequest } from '../useGenerateSlide';
+import { reviewDesignCanvasHtml, useGenerateSlide, type GenerateSlideRequest } from '../useGenerateSlide';
 
 type Request = GenerateSlideRequest | (DesignCanvasHtmlRequest & { expectedActorId?: string });
 const mutation = () => useGenerateSlide() as unknown as { mutationFn(request: Request): Promise<{ html: string }>; retry: boolean };
@@ -77,5 +77,34 @@ describe('useGenerateSlide shared canvas transport', () => {
     await expect(mutation().mutationFn(request())).rejects.toMatchObject({ message: 'Unexpected end of JSON input', definitive: true });
     ports.invoke.mockResolvedValueOnce({ data: null, error: { name: 'FunctionsFetchError', message: 'Failed to send a request' } });
     await expect(mutation().mutationFn(request())).rejects.toMatchObject({ definitive: false });
+  });
+
+  it('reviews the rendered new canvas with approved copy, references and diagnostics under the same actor', async () => {
+    const verdict = { passed: false, issues: ['Texto tapado.'], feedback: 'Baja las tarjetas.' };
+    ports.invoke.mockResolvedValue({ data: { review: verdict }, error: null });
+    const value = { ...request(), layout_diagnostics: { issues: [{ code: 'covered_text', message: 'Texto tapado.' }] } };
+    expect(await reviewDesignCanvasHtml(value)).toEqual(verdict);
+    const { expectedActorId: _actor, ...body } = value;
+    expect(ports.invoke).toHaveBeenCalledExactlyOnceWith('generate-design-html', { body: { ...body, action: 'review' } });
+    expect(ports.getSession).toHaveBeenCalledTimes(2);
+  });
+
+  it('rejects malformed visual verdicts instead of claiming a pass', async () => {
+    ports.invoke.mockResolvedValue({ data: { review: { passed: 'true', issues: [], feedback: '' } }, error: null });
+    await expect(reviewDesignCanvasHtml(request())).rejects.toThrow('revisión visual válida');
+  });
+
+  it('retains three user references and the derived deck screenshot throughout review and repair', async () => {
+    const original = request();
+    original.references!.push({ id: 'deck-style', name: 'Estilo de la presentación', role: 'image_style_reference', image_base64: 'data:image/png;base64,deck' });
+    const references = structuredClone(original.references);
+    await mutation().mutationFn(original);
+    ports.invoke.mockResolvedValueOnce({ data: { review: { passed: false, issues: ['Texto tapado.'], feedback: 'Corrige el espacio.' } }, error: null });
+    await reviewDesignCanvasHtml({ ...original, current_html: '<html>Generated copy</html>', render_base64: 'data:image/png;base64,generated' });
+    await mutation().mutationFn({ ...original, current_html: '<html>Generated copy</html>', iteration_feedback: 'Corrige el espacio.', render_base64: 'data:image/png;base64,generated' });
+    for (const [, { body }] of ports.invoke.mock.calls) {
+      expect(body.references).toEqual(references); expect(body.approved_copy).toBe(original.approved_copy);
+    }
+    expect(original.references).toEqual(references);
   });
 });

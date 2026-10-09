@@ -1,6 +1,6 @@
 import type { ExplorationPlanner, ExplorationRequest, ExplorationResult, ExplorationUsage } from './explorationContracts.ts';
 import { assertExplorationRequest, assertExplorationResult, EXPLORATION_REFERENCE_ROLES, IDEA_ASPECTS } from './exploration.ts';
-import { CONVERSATION_ACTION_PROMPT, conversationActionSchema } from './conversationActions.ts';
+import { CONVERSATION_ACTION_PROMPT, CONVERSATION_DECK_LIMITS, conversationActionSchema, conversationReferenceLabels } from './conversationActions.ts';
 
 /** Ephemeral server-resolved pixels. Never part of a durable exploration request. */
 export interface ExplorationImageInput { reference_id: string; bytes: Uint8Array }
@@ -33,7 +33,7 @@ Respeta el alcance indicado. asset_in_region significa una pieza independiente p
 full_design permite ideas para una portada, página o composición completa. Conserva las restricciones y el destino del contexto.
 directions pide exactamente cinco ideas concretas, breves y claramente distintas; discussion responde a la pregunta sin ideas nuevas.
 Cada idea separa subject, composition, style y palette y tiene una instrucción de render autocontenida. Usa sólo reference_ids proporcionados.
-En resolved_instruction y render_instruction identifica las fuentes por su reference_id y función (texto, composición, objeto, resultado actual), no sólo por primera/segunda: el orden puede cambiar al añadir una captura para generar. Resuelve los ordinales del usuario según position de los metadatos de esta conversación.
+En resolved_instruction y render_instruction identifica las fuentes por su reference_id y función (texto, composición, objeto, resultado actual), no sólo por primera/segunda: el orden puede cambiar al añadir una captura para generar. Resuelve los ordinales del usuario según position de los metadatos de esta conversación; sólo los adjuntos del usuario tienen position. Las capturas internas y diseños seleccionados tienen label y nunca son otra imagen adjunta del usuario.
 Cuando recibas design_brief devuelve también design_understanding, incluso en discussion, para actualizar el encargo con lo que el usuario acaba de decir y el contexto anterior.
 Si pide hacerlo igual, conservar la composición o usar texto de una referencia y un objeto de otra, clasifica recreate y respeta esa combinación y jerarquía; no sustituyas el encargo por cinco estilos sin relación. En directions las cinco ideas sólo varían aspectos que el usuario dejó abiertos.
 Usa el nombre, paleta, tipografía y resumen de marca adjuntos como contexto de esta pieza, sin afirmar cambios o publicación del prompt maestro.
@@ -79,6 +79,10 @@ export function prepareExplorationRequest(request: ExplorationRequest, maxOutput
       reference_ids: { type: 'array', maxItems: request.context.references.length, items: request.context.references.length
         ? { type: 'string', enum: request.context.references.map(reference => reference.reference_id) } : { type: 'string' } },
     } };
+  const labels = conversationReferenceLabels(request);
+  const actionSchema = request.conversation ? conversationActionSchema(request.conversation, request.context.references.map(ref => ref.reference_id), request.context.references) : undefined;
+  if (actionSchema) Object.assign(actionSchema.properties.slide_ids, { description:
+    'Sólo inspect_slides: selecciona entre 1 y 12 IDs distintos del índice. Para discuss, explore_ideas y cualquier generación o ajuste, devuelve siempre [].' });
   const payload = { kind: request.kind, scope: request.scope, message: request.message, history: request.history,
     ...(request.design_brief ? { design_brief: request.design_brief } : {}),
     ...(request.conversation ? { conversation: request.conversation } : {}),
@@ -86,21 +90,23 @@ export function prepareExplorationRequest(request: ExplorationRequest, maxOutput
       target: request.context.target, instruction: request.context.instruction, immutable_elements: request.context.immutable_elements,
       ...(request.context.copy_version_id ? { copy_version_id: request.context.copy_version_id } : {}),
       ...(request.context.placement ? { placement: request.context.placement } : {}),
-      references: request.context.references.map((reference, index) => ({ reference_id: reference.reference_id, position: index + 1,
+      references: request.context.references.map((reference, index) => ({ ...labels[index],
         pixels_attached: seen.has(reference.reference_id), mime_type: reference.mime_type,
         roles: reference.roles, version_id: reference.version_id })),
     } };
   return { model: 'gpt-5.4-mini', service_tier: 'default', store: false, stream: false, background: false, tools: [], tool_choice: 'none', max_output_tokens: maxOutputTokens,
     input: [{ role: 'developer', content: [{ type: 'input_text', text: SYSTEM + (request.conversation ? `\n\n${CONVERSATION_ACTION_PROMPT}` : '') }] },
       { role: 'user', content: [{ type: 'input_text', text: JSON.stringify(payload) }, ...images.flatMap(image => [
-        { type: 'input_text', text: `Imagen ${request.context.references.findIndex(ref => ref.reference_id === image.reference_id) + 1}; reference_id: ${JSON.stringify(image.reference_id)}` },
+        { type: 'input_text', text: (() => { const source = labels.find(item => item.reference_id === image.reference_id)!;
+          return `${source.position ? `Imagen ${source.position} adjunta por el usuario` : `Contexto interno: ${source.label}; no es otra imagen adjunta`}; reference_id: ${JSON.stringify(image.reference_id)}; funciones: ${source.roles.join(', ')}`;
+        })() },
         { type: 'input_image', image_url: `data:image/png;base64,${encodeImage(image.bytes)}`, detail: 'high' },
       ])] }],
     text: { format: { type: 'json_schema', name: 'scory_design_exploration', strict: true,
       schema: { type: 'object', additionalProperties: false, required: ['message', 'ideas', ...(request.design_brief ? ['design_understanding'] : []), ...(request.conversation ? ['next_action'] : [])], properties: {
         message: boundedString(6000), ideas: { type: 'array', minItems: request.conversation ? 0 : ideaCount, maxItems: request.conversation ? 5 : ideaCount, items: ideaSchema },
         ...(request.design_brief ? { design_understanding: understandingSchema } : {}),
-        ...(request.conversation ? { next_action: conversationActionSchema(request.conversation, request.context.references.map(ref => ref.reference_id)) } : {}),
+        ...(request.conversation ? { next_action: actionSchema } : {}),
       } } } } };
 }
 function encodeImage(bytes: Uint8Array): string {
@@ -136,11 +142,23 @@ function responseMetadata(body: unknown): { responseId: string | null; usage: Ex
     ? { input_tokens: counters.input_tokens, output_tokens: counters.output_tokens, total_tokens: counters.total_tokens } : null;
   return { responseId, usage };
 }
+/** Keep terminal provider reasons distinct without interpreting or exposing provider prose. */
+function responseStopCode(body: unknown): string | null {
+  if (!record(body)) return null;
+  const reason = record(body.incomplete_details) ? body.incomplete_details.reason : undefined;
+  const errorCode = record(body.error) ? body.error.code : undefined;
+  const refused = Array.isArray(body.output) && body.output.some(item => record(item) && item.type === 'message'
+    && Array.isArray(item.content) && item.content.some(part => record(part) && part.type === 'refusal'));
+  if (reason === 'content_filter' || reason === 'refusal' || errorCode === 'content_filter' || refused) return 'exploration_provider_refused';
+  if (reason === 'max_output_tokens') return 'exploration_provider_output_limit';
+  return null;
+}
 const CONTROL = /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g;
 const unique = (value: unknown) => Array.isArray(value) ? [...new Set(value)] : value;
 /** The strict schema cannot express cross-field rules, so the model can still contradict itself
  * (asks a question yet requests a render, ideas without explore_ideas, pending copy with text…).
- * Repair only towards the safer state: never towards execution, approval or a new paid call. */
+ * Repair only towards non-rendering states: never authorizes generation or approval.
+ * Valid inspection selections can request a read; the adapter itself never retries or calls another tool. */
 export function repairConversationOutput(parsed: Record<string, unknown>, request: ExplorationRequest): void {
   const turn = request.conversation, understanding = parsed.design_understanding, action = parsed.next_action;
   if (!turn || !record(understanding) || !record(action)) return;
@@ -159,8 +177,30 @@ export function repairConversationOutput(parsed: Record<string, unknown>, reques
   }
   for (const key of ['instruction', 'reason'] as const) if (typeof action[key] === 'string') action[key] = (action[key] as string).replace(CONTROL, '');
   action.reference_ids = unique(action.reference_ids);
+  // The shared strict schema permits IDs on every action. They have no meaning
+  // for generation/discussion and must not invalidate an otherwise usable answer.
+  if (action.kind !== 'inspect_slides') delete action.slide_ids;
+  else if (Array.isArray(action.slide_ids) && !action.slide_ids.length) {
+    // Never infer source IDs or claim a read when the model selected no slide.
+    const question = '¿Qué números de diapositiva quieres que revise?';
+    action.kind = 'discuss'; action.intent = 'clarify'; action.instruction = '';
+    action.reason = 'Falta seleccionar las diapositivas que se deben consultar.';
+    delete action.slide_ids;
+    parsed.message = `Necesito identificar las diapositivas antes de consultarlas. ${question}`;
+    if (Array.isArray(understanding.pending_questions)) understanding.pending_questions = [question,
+      ...understanding.pending_questions.filter(item => item !== question)].slice(0, 8);
+  } else if (Array.isArray(action.slide_ids) && ['requested', 'suggested', 'clarify'].includes(String(action.intent))
+    && turn.available_actions.includes('inspect_slides') && turn.presentation
+    && action.slide_ids.every(id => turn.presentation!.slides.some(slide => slide.id === id))) {
+    action.slide_ids = unique(action.slide_ids);
+    if ((action.slide_ids as unknown[]).length <= CONVERSATION_DECK_LIMITS.maxInspectionSlides) action.intent = 'requested';
+  }
   // The schema always asks for from_slide; keep it only where it means something.
   if (action.from_slide !== true || action.kind !== 'refine_html') delete action.from_slide;
+  // Null is the strict-schema representation of an absent source. Reading and
+  // discussing cannot bind a generation source or authorize a new operation.
+  if (action.design_source === null || ['discuss', 'inspect_slides', 'explore_ideas', 'edit_elements'].includes(String(action.kind))) delete action.design_source;
+  if (action.kind !== 'edit_elements') { delete action.element_edits; delete action.element_html_hash; }
   if (action.intent === 'clarify' && action.kind !== 'discuss') action.intent = 'suggested';
   if (action.kind === 'discuss' && action.intent === 'requested') action.intent = 'suggested';
   if (action.kind !== 'discuss' && typeof action.instruction === 'string' && !action.instruction.trim()
@@ -173,8 +213,8 @@ export function repairConversationOutput(parsed: Record<string, unknown>, reques
   }
   // A question left open means: ask now, run after the answer (pending_action on the next turn).
   const questions = Array.isArray(understanding.pending_questions) ? understanding.pending_questions.length : 0;
-  if (action.intent === 'requested' && action.kind !== 'explore_ideas'
-    && (questions > 0 || request.scope === 'full_design' && record(copy) && copy.status === 'pending')) action.intent = 'suggested';
+  if (action.intent === 'requested' && action.kind !== 'explore_ideas' && action.kind !== 'inspect_slides'
+    && (questions > 0 || action.kind !== 'edit_elements' && request.scope === 'full_design' && record(copy) && copy.status === 'pending')) action.intent = 'suggested';
   if (action.kind === 'explore_ideas' && action.intent === 'requested' && (!Array.isArray(parsed.ideas) || parsed.ideas.length !== 5)) action.intent = 'suggested';
   if (!(action.kind === 'explore_ideas' && action.intent === 'requested')) parsed.ideas = [];
   else if (Array.isArray(parsed.ideas)) parsed.ideas = parsed.ideas.map(idea => record(idea) ? { ...idea, reference_ids: unique(idea.reference_ids) } : idea);
@@ -182,6 +222,7 @@ export function repairConversationOutput(parsed: Record<string, unknown>, reques
 function normalize(body: unknown, request: ExplorationRequest): ExplorationResult {
   const { responseId, usage } = responseMetadata(body);
   const fail = (code: string): never => { throw new ExplorationProviderError(code, responseId, usage); };
+  const stopped = responseStopCode(body); if (stopped) return fail(stopped);
   if (!record(body) || body.status !== 'completed' || !Array.isArray(body.output) || body.output.length > 16) return fail('exploration_provider_incomplete');
   const texts: string[] = [];
   for (const item of body.output) {
@@ -245,9 +286,10 @@ export function createExplorationProvider(config: ExplorationProviderConfig): Ex
         }, body, redirect: 'error', credentials: 'omit', cache: 'no-store', signal: controller.signal });
         if (!response.ok) {
           // A rejected response can still include usage; retain only bounded counters and its safe identifier.
-          let metadata: ReturnType<typeof responseMetadata> = { responseId: null, usage: null };
-          try { metadata = responseMetadata(await boundedJson(response, controller.signal)); } catch { /* Keep the reservation when accounting is unavailable. */ }
-          throw new ExplorationProviderError('exploration_provider_rejected', metadata.responseId, metadata.usage);
+          let metadata: ReturnType<typeof responseMetadata> = { responseId: null, usage: null }, code = 'exploration_provider_rejected';
+          try { const rejected = await boundedJson(response, controller.signal); metadata = responseMetadata(rejected); code = responseStopCode(rejected) ?? code; }
+          catch { /* Keep the reservation when accounting is unavailable. */ }
+          throw new ExplorationProviderError(code, metadata.responseId, metadata.usage);
         }
         return normalize(await boundedJson(response, controller.signal), request);
       })();

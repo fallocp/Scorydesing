@@ -14,6 +14,8 @@ import { openCompositionStore, emptyCompositionDraft, type CompositionDraft, typ
 import { renderHtmlComposition, type CompositionBindings } from '@/lib/presentations/presentationComposition';
 import { extractPresentationAsset, importPresentationAsset, listPresentationAssets, readPresentationAsset, type PresentationLibraryAsset } from '@/lib/presentations/presentationAssets';
 import { ManualExtractionEditor } from './ManualExtractionEditor';
+import { DesignLogoPicker, type DesignLogoSelection } from './DesignLogoPicker';
+import { insertDesignLogo } from '@/lib/presentations/designLogo';
 import { VisualDesignEditor } from '@/components/VisualDesignEditor';
 import { sanitizePresentationHtml } from '@/lib/presentations/presentationHtml';
 import { reconcileMountedAssets } from '@/lib/presentations/presentationManifest';
@@ -27,6 +29,8 @@ export interface DesignToHtmlPanelProps {
   service: PresentationDesignService; businessId: string; documentId: string; slide: PresentationSlide;
   initialAsset?: RegisteredAssetVersion; initialCopy?: string; initialCopyMode?: 'approved_text' | 'no_text'; initialInstruction?: string;
   embedded?: boolean; externalConversation?: boolean; controllerRef?: Ref<DesignToHtmlController>;
+  /** Separate draft and server recovery history for this conversation generation. */
+  conversationSessionId?: string;
   onProposal?(proposal: DesignToHtmlProposal, reason: 'generated' | 'edited' | 'recovered'): void; onState?(state: DesignToHtmlState): void;
   destination?: DesignSurfaceDestination;
   onApply(slide: PresentationSlide): void | Promise<void>; onClose(): void;
@@ -50,6 +54,7 @@ export interface DesignToHtmlController {
   create(input: DesignToHtmlContext & { approved: true }): Promise<DesignToHtmlProposal>;
   recover(): Promise<DesignToHtmlProposal | null>;
   openEditor(): Promise<void>;
+  openLogos(): Promise<void>;
   apply(): Promise<void>;
 }
 type Life = { active: boolean; store: Awaited<ReturnType<typeof openCompositionStore>> | null; record: CompositionRecord | null; work: Promise<unknown>; locked: boolean; actor: string; blocked: boolean };
@@ -73,18 +78,22 @@ const initialText = (html: string) => {
   return Array.from(doc.querySelectorAll('h1,h2,h3,p,li')).map(node => node.textContent?.trim()).filter(Boolean).join('\n');
 };
 export function DesignToHtmlPanel(props: DesignToHtmlPanelProps) {
+  return <DesignToHtmlWorkspace key={JSON.stringify([props.businessId, props.documentId, props.slide.id, props.conversationSessionId])} {...props} />;
+}
+function DesignToHtmlWorkspace(props: DesignToHtmlPanelProps) {
   const { service, businessId, documentId, slide, initialAsset, initialCopy, initialCopyMode = 'approved_text', initialInstruction, onApply, onClose, destination, embedded, externalConversation } = props;
   const latest = useRef(props); latest.current = props;
   const client = service.client, api = useMemo(() => client.html?.(businessId), [client, businessId]);
   const canvas = useMemo(() => getSlideDimensions(slide.html), [slide.html]);
   const target = useMemo(() => designSurfaceTarget(documentId, slide, destination), [documentId, slide.id, slide.revision, destination?.document_type, destination?.page_id]);
-  const sessionId = htmlCompositionSessionId(target);
+  const sessionId = htmlCompositionSessionId(target, props.conversationSessionId);
   const [draft, setDraft] = useState<CompositionDraft>(emptyCompositionDraft), [copyText, setCopyText] = useState(initialCopy ?? initialText(slide.html));
   const [approved, setApproved] = useState(false), [ready, setReady] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState('');
   const [capabilities, setCapabilities] = useState<HtmlCapabilities | null>(null), [sourceUrl, setSourceUrl] = useState('');
   const [library, setLibrary] = useState<PresentationLibraryAsset[]>([]), [serverAssets, setServerAssets] = useState<RegisteredAssetVersion[]>([]);
   const [bindings, setBindings] = useState<CompositionBindings>({}), [cropping, setCropping] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
+  const [logosOpen, setLogosOpen] = useState(false);
   const lifeRef = useRef<Life | null>(null), frame = useRef<HTMLIFrameElement>(null);
   const sourceLocal = useRef<PresentationLibraryAsset | null>(null);
   const proposalReason = useRef<'generated' | 'edited' | 'recovered'>('recovered');
@@ -122,7 +131,7 @@ export function DesignToHtmlPanel(props: DesignToHtmlPanelProps) {
     a?.business_id === b.business_id && a.asset_id === b.asset_id && a.version_id === b.version_id;
   useEffect(() => {
     const life: Life = { active: true, store: null, record: null, work: Promise.resolve(), locked: true, actor: '', blocked: false };
-    lifeRef.current = life; setReady(false); setBusy(true); setEditing(false); sourceLocal.current = null;
+    lifeRef.current = life; setReady(false); setBusy(true); setEditing(false); setLogosOpen(false); sourceLocal.current = null;
     const task = (async () => {
       if (!api) throw new Error('html_unavailable');
       life.actor = (await client.session()).actorId;
@@ -355,6 +364,13 @@ export function DesignToHtmlPanel(props: DesignToHtmlPanelProps) {
       html: proposal.html, mounted_assets: mountedAssets })[0]);
     if (active(life) && !externalConversation) latest.current.onClose();
   }
+  async function saveLogo(logo: DesignLogoSelection) {
+    await run(async life => {
+      const proposal = await resolveProposal(life, true); if (!proposal) throw Error('composition_result_required');
+      if (proposal.target.revision !== String(latest.current.slide.revision)) throw Error('slide_revision_conflict');
+      await saveEditor(life, insertDesignLogo(proposal.html, { ...logo, canvas: proposal.canvas }), false);
+    }, true);
+  }
   useImperativeHandle(props.controllerRef, () => ({
     async updateContext(input) { const frozen = structuredClone(input); await run(life => updateContext(life, frozen), true); },
     async create(input) { const frozen = structuredClone(input); return (await run(async life => {
@@ -366,6 +382,10 @@ export function DesignToHtmlPanel(props: DesignToHtmlPanelProps) {
     async recover() { return (await run(async life => { await recover(life); return resolveProposal(life); }, true)) ?? null; },
     async openEditor() { await run(async life => {
       if (!await resolveProposal(life, true)) throw Error('composition_result_required'); setEditing(true);
+    }, true); },
+    async openLogos() { await run(async life => {
+      if (editing) throw Error('Guarda los ajustes del editor antes de elegir un logo.');
+      if (!await resolveProposal(life, true)) throw Error('composition_result_required'); setLogosOpen(true);
     }, true); },
     async apply() { await run(apply, true); },
   }));
@@ -444,5 +464,5 @@ export function DesignToHtmlPanel(props: DesignToHtmlPanelProps) {
       onCancel={() => { if (!busy) setEditing(false); }} /></div>
     {busy && <p className="hcp-editor-saving" role="status">Guardando tus ajustes…</p>}
     {error && <p className="mip-error hcp-editor-error" role="alert">{error}</p>}
-  </div>}</div>;
+  </div>}{logosOpen && <DesignLogoPicker businessId={businessId} onSelect={saveLogo} onClose={() => setLogosOpen(false)} />}</div>;
 }

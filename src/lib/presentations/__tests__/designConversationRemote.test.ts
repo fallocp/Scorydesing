@@ -4,8 +4,8 @@ import { PGlite } from '@electric-sql/pglite';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createConversationCodec, createSupabaseContinuityPort } from '../designConversationRemote';
 import { createContinuityStore, type ContinuityCache, type ContinuityAttempt, type ContinuityRecord } from '../../desaing/continuityStore';
-import { assertConversationTransition, beginConversationAction, completeConversationAction, emptyDesignConversation,
-  markConversationAction, type DesignConversationState } from '../designConversationStore';
+import { assertConversationTransition, assertConversationReset, resetDesignConversation, beginConversationAction, completeConversationAction, emptyDesignConversation,
+  markConversationAction, type DesignConversationState, type DesignConversationScope } from '../designConversationStore';
 import { createFreeDesignDocument } from '../../desaing/freeDesignDocument';
 
 const actor = '50000000-0000-4000-8000-000000000002', other = '50000000-0000-4000-8000-000000000003';
@@ -37,7 +37,8 @@ describe.sequential('Supabase continuity: real SQL, two isolated device caches, 
   beforeAll(async () => {
     db = new PGlite();
     for (const path of ['supabase/tests/desaing-bootstrap.sql', 'supabase/migrations/202609170001_desaing_server_foundation.sql',
-      'supabase/migrations/202609190001_desaing_continuity.sql', 'supabase/migrations/202609190002_desaing_continuity_guards.sql']) await db.exec(await readFile(path, 'utf8'));
+      'supabase/migrations/202609190001_desaing_continuity.sql', 'supabase/migrations/202609190002_desaing_continuity_guards.sql',
+      'supabase/migrations/202610080001_design_conversation_sessions.sql']) await db.exec(await readFile(path, 'utf8'));
     // Legacy broad policies must not weaken the new private bucket.
     await db.exec('CREATE POLICY legacy_storage_open ON storage.objects FOR ALL TO authenticated, anon USING (true) WITH CHECK (true)');
   }, 30000);
@@ -65,9 +66,11 @@ describe.sequential('Supabase continuity: real SQL, two isolated device caches, 
         if (control.offline) return { data: null, error: { message: 'network unavailable' } };
         try {
           const params = [args.p_actor_id, args.p_business_id, args.p_kind, args.p_document_id, args.p_slide_id];
-          if (name === 'desaing_commit_continuity') { params.push(args.p_expected_revision, args.p_mutation_id, args.p_snapshot); control.commits++; }
+          const mutation = name === 'desaing_commit_continuity' || name === 'desaing_reset_continuity';
+          if (mutation) { params.push(args.p_expected_revision, args.p_mutation_id, args.p_snapshot); control.commits++; }
+          if (args.p_session_id !== undefined) params.push(args.p_session_id);
           const result = await sql(control.actor, `SELECT public.${name}(${params.map((_, i) => `$${i + 1}`).join(',')}) AS value`, params);
-          if (control.loseAck && name === 'desaing_commit_continuity') { control.loseAck = false; throw Error('lost response'); }
+          if (control.loseAck && mutation) { control.loseAck = false; throw Error('lost response'); }
           return { data: result.rows[0].value, error: null };
         } catch (error: any) { return { data: null, error: { message: error.message, code: error.code } }; }
       },
@@ -84,11 +87,11 @@ describe.sequential('Supabase continuity: real SQL, two isolated device caches, 
     };
     return { fake: fake as any, control };
   }
-  function device(who = actor, local = cache<DesignConversationState>(), legacy: ContinuityRecord<DesignConversationState> | null = null) {
-    const { fake, control } = client(who), identity = { ...scope, actor: who };
+  function device(who = actor, local = cache<DesignConversationState>(), legacy: ContinuityRecord<DesignConversationState> | null = null, session?: DesignConversationScope['session']) {
+    const { fake, control } = client(who), identity = { ...scope, actor: who, ...(session ? { session } : {}) };
     const codec = createConversationCodec(fake, identity), remote = createSupabaseContinuityPort(fake, identity, 'conversation', codec);
     const store = createContinuityStore({ remote, cache: local, legacy: async () => legacy, validate: codec.validate,
-      transition: assertConversationTransition, assertSession: remote.assertSession });
+      transition: assertConversationTransition, resetTransition: assertConversationReset, assertSession: remote.assertSession });
     return { store, control, remote, local, codec, fake };
   }
   async function commit(who: string, value: unknown, revision = 0, changes: Record<string, unknown> = {}) {
@@ -96,6 +99,113 @@ describe.sequential('Supabase continuity: real SQL, two isolated device caches, 
     return fake.rpc('desaing_commit_continuity', { p_actor_id: who, p_business_id: business, p_kind: 'conversation',
       p_document_id: 'document', p_slide_id: 'canvas', p_expected_revision: revision, p_mutation_id: crypto.randomUUID(), p_snapshot: value, ...changes });
   }
+
+  it('keeps legacy main and two additional sessions independent on the same real target', async () => {
+    for (const session of [undefined, 'session-2', 'session-3'] as const) {
+      const pc = device(actor, cache(), null, session); expect(await pc.store.read()).toBeNull();
+      const value = emptyDesignConversation(target);
+      value.messages = [{ id: 'm1', turn_id: 't1', role: 'user', text: session ?? 'legacy' }];
+      await pc.store.write(0, value);
+    }
+    const rows = await db.query<{ session_id: string; slide_id: string; revision: number }>('SELECT session_id,slide_id,revision FROM public.desaing_continuity ORDER BY session_id');
+    expect(rows.rows.map(row => row.session_id)).toEqual(['main', 'session-2', 'session-3']);
+    expect(rows.rows.every(row => row.slide_id === 'canvas' && Number(row.revision) === 1)).toBe(true);
+    expect((await device(actor, cache(), null, 'main').store.read())?.value.messages[0].text).toBe('legacy');
+    for (const session of ['session-2', 'session-3'] as const)
+      expect((await device(actor, cache(), null, session).store.read())?.value.messages[0].text).toBe(session);
+    expect((await commit(actor, emptyDesignConversation(target), 0, { p_session_id: 'session-4' })).error?.message).toContain('invalid_design_conversation');
+    expect((await commit(actor, emptyDesignConversation(target), 0, { p_session_id: 'main:g2' })).error?.message).toContain('invalid_design_conversation');
+  });
+
+  it('upgrades an already populated database without changing the legacy chat or its CAS revision', async () => {
+    const legacyDb = new PGlite();
+    try {
+      for (const path of ['supabase/tests/desaing-bootstrap.sql', 'supabase/migrations/202609170001_desaing_server_foundation.sql',
+        'supabase/migrations/202609190001_desaing_continuity.sql', 'supabase/migrations/202609190002_desaing_continuity_guards.sql'])
+        await legacyDb.exec(await readFile(path, 'utf8'));
+      await legacyDb.query('INSERT INTO auth.users(id) VALUES ($1)', [actor]);
+      await legacyDb.query('INSERT INTO public.business_tenants(id,slug) VALUES ($1,$2)', [business, 'legacy']);
+      await legacyDb.query("INSERT INTO public.user_business_memberships(user_id,business_id,role) VALUES ($1,$2,'owner')", [actor, business]);
+      const value = emptyDesignConversation(target), mutation = crypto.randomUUID();
+      value.messages = [{ id: 'm1', turn_id: 't1', role: 'user', text: 'Antes de las sesiones' }];
+      await legacyDb.query(`INSERT INTO public.desaing_continuity(actor_id,business_id,kind,document_id,slide_id,revision,mutation_id,snapshot)
+        VALUES ($1,$2,'conversation','document','canvas',17,$3,$4)`, [actor, business, mutation, value]);
+      await legacyDb.exec(await readFile('supabase/migrations/202610080001_design_conversation_sessions.sql', 'utf8'));
+      const rows = await legacyDb.query<{ session_id: string; revision: number; snapshot: unknown; mutation_id: string }>('SELECT session_id,revision,snapshot,mutation_id FROM public.desaing_continuity');
+      expect(rows.rows).toHaveLength(1);
+      expect(rows.rows[0]).toMatchObject({ session_id: 'main', snapshot: value, mutation_id: mutation });
+      expect(Number(rows.rows[0].revision)).toBe(17);
+    } finally { await legacyDb.close(); }
+  });
+
+  it('resets a chosen session with monotonic CAS and preserves the other histories', async () => {
+    const main = device(), second = device(actor, cache(), null, 'session-2');
+    const value = emptyDesignConversation(target);
+    value.messages = [{ id: 'm1', turn_id: 't1', role: 'user', text: 'Mi idea' }];
+    await main.store.read(); await main.store.write(0, value);
+    await second.store.read(); await second.store.write(0, value);
+    const empty = resetDesignConversation(value, target), saved = await second.store.reset(1, empty);
+    expect(saved).toMatchObject({ revision: 2, value: { epoch: 2, session_generation: 2, messages: [], versions: [] } });
+    expect((await device(actor, cache(), null, 'session-2').store.read())?.value).toEqual(empty);
+    expect((await main.store.read())?.value).toEqual(value);
+    expect((await commit(actor, value, 1, { p_session_id: 'session-2' })).error?.message).toContain('conversation_revision_conflict');
+    expect((await commit(actor, value, 2, { p_session_id: 'session-2' })).error?.message).toContain('conversation_session_changed');
+    await expect(second.store.write(2, { ...empty, session_generation: 3 })).rejects.toThrow('conversation_session_changed');
+    await second.store.write(2, { ...empty, mode: 'explore_design' });
+    expect((await second.store.read())?.revision).toBe(3);
+  });
+
+  it('replays a reset after a lost acknowledgement without incrementing the generation twice', async () => {
+    const pc = device(); await pc.store.read(); const value = emptyDesignConversation(target); await pc.store.write(0, value);
+    pc.control.loseAck = true;
+    await expect(pc.store.reset(1, resetDesignConversation(value, target))).rejects.toThrow('conversation_sync_unavailable');
+    expect((await pc.store.backups())[0].kind).toBe('reset');
+    const recovered = (await pc.store.read())!;
+    expect(recovered).toMatchObject({ revision: 2, value: { session_generation: 2 } });
+    expect(await pc.store.backups()).toHaveLength(0); expect(pc.control.commits).toBe(2);
+  });
+
+  it('retries a reset with its original mutation when the first request failed before reaching the database', async () => {
+    const pc = device(); await pc.store.read(); const value = emptyDesignConversation(target); await pc.store.write(0, value);
+    pc.control.offline = true;
+    await expect(pc.store.reset(1, resetDesignConversation(value, target))).rejects.toThrow('conversation_sync_unavailable');
+    const attempt = (await pc.store.backups())[0]; expect(attempt.kind).toBe('reset');
+    pc.control.offline = false; const recovered = (await pc.store.read())!;
+    expect(recovered).toMatchObject({ revision: 2, value: { session_generation: 2 } });
+    const row = (await db.query<{ mutation_id: string }>('SELECT mutation_id FROM public.desaing_continuity')).rows[0];
+    expect(row.mutation_id).toBe(attempt.id); expect(await pc.store.backups()).toHaveLength(0);
+  });
+
+  it('rejects pending reset, generation bypass, and unauthorized reset even through direct RPC', async () => {
+    const pc = device(), value = emptyDesignConversation(target);
+    const pending = beginConversationAction(value, { action_id: 'action-1', turn_id: 't1', epoch: 1, kind: 'html', phase: 'prepared', target });
+    await pc.store.read(); await pc.store.write(0, pending);
+    const reset = resetDesignConversation(value, target);
+    const args = { p_actor_id: actor, p_business_id: business, p_kind: 'conversation', p_document_id: 'document', p_slide_id: 'canvas',
+      p_session_id: 'main', p_expected_revision: 1, p_mutation_id: crypto.randomUUID(), p_snapshot: reset };
+    expect((await pc.fake.rpc('desaing_reset_continuity', args)).error?.message).toContain('conversation_pending_unresolved');
+    await expect(pc.store.reset(1, reset)).rejects.toThrow('conversation_pending_unresolved');
+    for (const who of [viewer, outsider]) {
+      const rpc = client(who).fake;
+      expect((await rpc.rpc('desaing_reset_continuity', { ...args, p_actor_id: who })).error?.code).toBe('42501');
+    }
+    expect((await client(other).fake.rpc('desaing_reset_continuity', args)).error?.message).toContain('server_session_changed');
+    const completed = completeConversationAction(pending, 'action-1', {}); await pc.store.write(1, completed);
+    for (const changes of [{ session_generation: 3 }, { messages: [{ id: 'm1', turn_id: 't1', role: 'user', text: 'Injected' }] }, { extra: true }])
+      expect((await pc.fake.rpc('desaing_reset_continuity', { ...args, p_expected_revision: 2, p_snapshot: { ...reset, ...changes } })).error?.message).toContain('invalid_conversation_reset');
+    expect((await commit(actor, reset, 2)).error?.message).toContain('conversation_session_changed');
+    const good = await pc.fake.rpc('desaing_reset_continuity', { ...args, p_expected_revision: 2 });
+    expect(good.error).toBeNull(); expect(good.data.revision).toBe(3);
+  });
+
+  it('does not permit additional fixed slots for the free workspace', async () => {
+    const { fake } = client();
+    const result = await fake.rpc('desaing_read_continuity', { p_actor_id: actor, p_business_id: business, p_kind: 'free_workspace',
+      p_document_id: '@workspace', p_slide_id: '@workspace', p_session_id: 'session-2' });
+    expect(result.error?.message).toContain('conversation_scope_mismatch');
+    expect(() => createSupabaseContinuityPort(fake, { ...scope, session: 'session-2' }, 'free_workspace', { encode: async v => v, decode: async v => v }))
+      .toThrow('conversation_scope_mismatch');
+  });
 
   it('restores references, resolved copy, selected HTML/image lineage and pending request on a clean iPad cache', async () => {
     const pc = device(); await pc.store.read(); const value = emptyDesignConversation(target), ref = await pngReference();

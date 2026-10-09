@@ -2,7 +2,7 @@
 export type ContinuityStatus = 'loading' | 'synced' | 'offline' | 'conflict';
 export interface ContinuityRecord<T> { revision: number; value: T }
 export interface ContinuityRemoteRecord<T> extends ContinuityRecord<T> { mutation_id: string }
-export interface ContinuityAttempt<T> { id: string; expected: number; value: T; status: 'pending' | 'conflict' }
+export interface ContinuityAttempt<T> { id: string; expected: number; value: T; status: 'pending' | 'conflict'; kind?: 'reset' }
 export interface ContinuityCache<T> {
   read(): Promise<ContinuityRecord<T> | null>;
   confirm(value: ContinuityRecord<T>): Promise<void>;
@@ -14,10 +14,12 @@ export interface ContinuityCache<T> {
 export interface ContinuityRemote<T> {
   read(): Promise<ContinuityRemoteRecord<T> | null>;
   commit(expected: number, id: string, value: T): Promise<ContinuityRemoteRecord<T>>;
+  reset?(expected: number, id: string, value: T): Promise<ContinuityRemoteRecord<T>>;
 }
 export interface ContinuityStore<T> {
   read(): Promise<ContinuityRecord<T> | null>;
   write(revision: number, value: T): Promise<ContinuityRecord<T>>;
+  reset(revision: number, value: T): Promise<ContinuityRecord<T>>;
   status(): ContinuityStatus;
   backups(): Promise<ContinuityAttempt<T>[]>;
   close(): void;
@@ -26,7 +28,7 @@ const code = (error: unknown) => error instanceof Error ? error.message : '';
 const forbidden = (error: unknown) => ['server_session_changed', 'conversation_forbidden'].includes(code(error));
 export function createContinuityStore<T>(options: {
   remote: ContinuityRemote<T>; cache: ContinuityCache<T>; legacy(): Promise<ContinuityRecord<T> | null>;
-  validate(value: T): void | Promise<void>; transition?(previous: T, next: T): void;
+  validate(value: T): void | Promise<void>; transition?(previous: T, next: T): void; resetTransition?(previous: T, next: T): void;
   onStatus?(status: ContinuityStatus): void; assertSession(): Promise<void>;
 }): ContinuityStore<T> {
   let closed = false, status: ContinuityStatus = 'loading';
@@ -44,6 +46,38 @@ export function createContinuityStore<T>(options: {
     await validateRecord(record); await session(); await options.cache.confirm(record);
     await options.cache.acknowledge(record.mutation_id); current = record;
   }
+  function validateTransition(previous: T | undefined, next: T, reset = false) {
+    if (reset) {
+      if (!previous || !options.resetTransition || !options.remote.reset) throw Error('invalid_conversation_reset');
+      options.resetTransition(previous, next);
+    } else if (previous) options.transition?.(previous, next);
+  }
+  async function commitAttempt(attempt: ContinuityAttempt<T>) {
+    if (attempt.kind === 'reset') {
+      if (!options.remote.reset) throw Error('invalid_conversation_reset');
+      return options.remote.reset(attempt.expected, attempt.id, attempt.value);
+    }
+    return options.remote.commit(attempt.expected, attempt.id, attempt.value);
+  }
+  async function mutate(expected: number, value: T, reset = false) {
+    await session();
+    if (status !== 'synced') throw Error(status === 'conflict' ? 'conversation_revision_conflict' : 'conversation_sync_unavailable');
+    if (!Number.isSafeInteger(expected) || expected < 0 || expected >= Number.MAX_SAFE_INTEGER) throw Error('invalid_conversation_revision');
+    const frozen = structuredClone(value); await options.validate(frozen); await session();
+    if ((current?.revision ?? 0) !== expected) throw Error('conversation_revision_conflict');
+    validateTransition(current?.value, frozen, reset);
+    const attempt: ContinuityAttempt<T> = { id: crypto.randomUUID(), expected, value: frozen, status: 'pending', ...(reset ? { kind: 'reset' } : {}) };
+    await options.cache.preserve(attempt); await session();
+    try {
+      const saved = await commitAttempt(attempt); await session(); await confirm(saved);
+      notify('synced'); return structuredClone(saved);
+    } catch (error) {
+      if (code(error) === 'conversation_revision_conflict') {
+        await options.cache.preserve({ ...attempt, status: 'conflict' }); notify('conflict');
+      } else notify('offline');
+      throw error;
+    }
+  }
   return {
     status: () => status,
     async read() {
@@ -59,8 +93,8 @@ export function createContinuityStore<T>(options: {
             await options.cache.preserve({ ...attempt, status: 'conflict' }); continue;
           }
           await options.validate(attempt.value);
-          if (remote) options.transition?.(remote.value, attempt.value);
-          try { remote = await options.remote.commit(attempt.expected, attempt.id, attempt.value); await session(); await confirm(remote); }
+          validateTransition(remote?.value, attempt.value, attempt.kind === 'reset');
+          try { remote = await commitAttempt(attempt); await session(); await confirm(remote); }
           catch (error) {
             if (code(error) !== 'conversation_revision_conflict') throw error;
             await options.cache.preserve({ ...attempt, status: 'conflict' });
@@ -91,25 +125,8 @@ export function createContinuityStore<T>(options: {
         throw error;
       }
     },
-    async write(expected, value) {
-      await session();
-      if (status !== 'synced') throw Error(status === 'conflict' ? 'conversation_revision_conflict' : 'conversation_sync_unavailable');
-      if (!Number.isSafeInteger(expected) || expected < 0 || expected >= Number.MAX_SAFE_INTEGER) throw Error('invalid_conversation_revision');
-      const frozen = structuredClone(value); await options.validate(frozen); await session();
-      if ((current?.revision ?? 0) !== expected) throw Error('conversation_revision_conflict');
-      if (current) options.transition?.(current.value, frozen);
-      const attempt: ContinuityAttempt<T> = { id: crypto.randomUUID(), expected, value: frozen, status: 'pending' };
-      await options.cache.preserve(attempt); await session();
-      try {
-        const saved = await options.remote.commit(expected, attempt.id, frozen); await session(); await confirm(saved);
-        notify('synced'); return structuredClone(saved);
-      } catch (error) {
-        if (code(error) === 'conversation_revision_conflict') {
-          await options.cache.preserve({ ...attempt, status: 'conflict' }); notify('conflict');
-        } else notify('offline');
-        throw error;
-      }
-    },
+    write: (expected, value) => mutate(expected, value),
+    reset: (expected, value) => mutate(expected, value, true),
     async backups() { await session(); return options.cache.attempts(); },
     close() { closed = true; options.cache.close(); },
   };

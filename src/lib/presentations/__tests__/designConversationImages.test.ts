@@ -42,6 +42,7 @@ function client() {
 let storage: MemoryStorage;
 beforeEach(() => {
   storage = new MemoryStorage();
+  vi.mocked(openPresentationReferenceStore).mockClear();
   vi.mocked(openPresentationReferenceStore).mockImplementation(async scope => createPresentationReferenceStore(scope, storage));
 });
 
@@ -69,6 +70,32 @@ describe('conversation image actions reuse the existing registered pipeline', ()
     const writes = storage.writes, calls = api.upload.mock.calls.length;
     await expect(prepareConversationReferences({ ...input, references: [reference], assertCurrent: async () => { if (!current) throw Error('scope_changed'); } })).rejects.toThrow('scope_changed');
     expect(storage.writes).toBe(writes); expect(api.upload).toHaveBeenCalledTimes(calls); expect(storage.closes).toBe(1);
+  });
+
+  it('keeps concurrent reference selections isolated by conversation and uses a new journal after reset', async () => {
+    const [legacyReference, otherReference, resetReference] = await Promise.all([
+      prepared(31, 'content_source'), prepared(32, 'image_style_reference'), prepared(33, 'object_reference'),
+    ]), api = client();
+    const shared = { client: api as unknown as DesignServerClient, actor, business, document: 'deck', slide: 'slide', assertCurrent: async () => {} };
+    const [legacy, other] = await Promise.all([
+      prepareConversationReferences({ ...shared, references: [legacyReference] }),
+      prepareConversationReferences({ ...shared, references: [otherReference], conversationSessionId: 'session-2:g1' }),
+    ]);
+    expect(storage.values.size).toBe(2); expect(api.upload).toHaveBeenCalledTimes(2);
+    expect(legacy[0].reference.version_id).toBe(legacyReference.sha256);
+    expect(other[0].reference.version_id).toBe(otherReference.sha256);
+    const opened = vi.mocked(openPresentationReferenceStore).mock.calls.map(([scope]) => scope.slide_id);
+    expect(opened).toEqual(['conversation:slide', 'conversation:slide:conversation:session-2:g1']);
+    const reset = await prepareConversationReferences({ ...shared, references: [resetReference], conversationSessionId: 'session-2:g2' });
+    expect(reset[0].reference.version_id).toBe(resetReference.sha256); expect(storage.values.size).toBe(3);
+    expect(vi.mocked(openPresentationReferenceStore).mock.calls.at(-1)![0].slide_id).toBe('conversation:slide:conversation:session-2:g2');
+    const reopened = await Promise.all([
+      prepareConversationReferences({ ...shared, references: [legacyReference] }),
+      prepareConversationReferences({ ...shared, references: [otherReference], conversationSessionId: 'session-2:g1' }),
+    ]);
+    expect(reopened).toEqual([legacy, other]); expect(api.upload).toHaveBeenCalledTimes(3);
+    expect([...storage.values.values()].map(value => (value as PresentationReferenceRecord).value.items[0].sha256).sort())
+      .toEqual([legacyReference.sha256, otherReference.sha256, resetReference.sha256].sort());
   });
 
   it('does not upload under a changed signed-in actor', async () => {
@@ -99,6 +126,19 @@ describe('conversation image actions reuse the existing registered pipeline', ()
     expect(op.context.instruction).toContain('Replica el estilo de la referencia nueva.');
     expect(op.context.references).toContainEqual(expect.objectContaining({ reference_id: uploaded[0].reference.reference_id,
       version_id: reference.sha256, roles: ['image_style_reference'] }));
+  });
+
+  it('generates each conversation under its own server session while keeping the same slide and approved text', () => {
+    const input = imageInput(), legacy = buildConversationImageOperation(input);
+    const alternate = buildConversationImageOperation({ ...input, operationKey: 'second-conversation', conversationSessionId: 'session-2:g1' });
+    const reset = buildConversationImageOperation({ ...input, operationKey: 'reset-conversation', conversationSessionId: 'session-2:g2' });
+    expect(legacy.context.session_id).toBe('presentation:deck:slide:full_design');
+    expect(alternate.context.session_id).toBe(`${legacy.context.session_id}:conversation:session-2:g1`);
+    expect(reset.context.session_id).toBe(`${legacy.context.session_id}:conversation:session-2:g2`);
+    for (const operation of [alternate, reset]) {
+      expect(operation.context.target).toEqual(legacy.context.target);
+      expect(readPresentationFullDesign(operation.context)).toEqual(readPresentationFullDesign(legacy.context));
+    }
   });
 
   it('edits the exact generated parent without promoting quality, changing exploration mode or inserting the large parent as an extra reference', () => {

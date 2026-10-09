@@ -1,22 +1,28 @@
 import { useEffect, useImperativeHandle, useRef, useState, type Ref } from 'react';
 import { X, Sparkles, Wand2, Loader2, Pencil, Plus } from 'lucide-react';
-import { useGenerateSlide } from '@/hooks/useGenerateSlide';
+import { reviewDesignCanvasHtml, useGenerateSlide } from '@/hooks/useGenerateSlide';
 import { DesignHtmlRequestError, isDefinitiveHtmlFailure } from '@/lib/presentations/htmlRequestError';
 import { useAuth } from '@/hooks/useAuth';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { supabase } from '@/integrations/supabase/client';
-import { renderHtmlToPng } from '@/utils/xendingDesign/canvasRenderer';
+import { renderHtmlForReview } from '@/utils/xendingDesign/canvasRenderer';
+import { describeVisualReview, reviewAndRepairDesign } from '@/lib/presentations/designVisualReview';
+import { designReviewRequest } from '@/lib/presentations/designReviewRequest';
+import type { DesignCanvasHtmlRequest } from '../../../supabase/functions/_shared/designCanvasHtml';
+import type { ConversationDesignSource } from '../../../supabase/functions/_shared/desaing/conversationActions';
 import { VisualDesignEditor } from '@/components/VisualDesignEditor';
 import { PresentationCanvas } from './PresentationCanvas';
 import { PresentationReferencePicker } from './PresentationReferencePicker';
+import { DesignLogoPicker, type DesignLogoSelection } from './DesignLogoPicker';
+import { insertDesignLogo } from '@/lib/presentations/designLogo';
 import { addPresentationReference, preparePresentationReference, type PreparedPresentationReference } from '@/lib/presentations/presentationReferences';
 import { imageDataUrl } from '@/lib/desaing/labImages';
-import { getSlideDimensions, type PresentationMountedAsset } from '@/lib/presentations/presentationDocument';
+import { getSlideDimensions, type PresentationMountedAsset, type PresentationSlide } from '@/lib/presentations/presentationDocument';
 import { sanitizePresentationHtml } from '@/lib/presentations/presentationHtml';
 import { isUnresolvedReferenceCopy } from '@/lib/presentations/presentationServerDesign';
 import { reconcileMountedAssets } from '@/lib/presentations/presentationManifest';
 import { measureHtmlDesignAssets } from '@/lib/presentations/htmlDesignAssets';
-import { assertHtmlDesignTarget, emptyHtmlDesignDraft, leaveHtmlDesignDraft, openHtmlDesignDraft,
+import { assertHtmlDesignDraft, assertHtmlDesignTarget, emptyHtmlDesignDraft, leaveHtmlDesignDraft, openHtmlDesignDraft, sameHtmlDesignTarget,
   type HtmlDesignDraft, type HtmlDesignTarget, type HtmlDesignProposal } from '@/lib/presentations/htmlDesignDraft';
 import './SlideGeneratorPanel.css';
 
@@ -25,8 +31,12 @@ export interface SlideGeneratorPanelProps {
   canvas?: { width: number; height: number }; mountedAssets?: PresentationMountedAsset[];
   initialInstruction?: string; initialCopy?: string; initialCopyMode?: HtmlDesignDraft['copyMode']; initialReferences?: PreparedPresentationReference[]; surfaceLabel?: string;
   embedded?: boolean; externalConversation?: boolean;
+  /** Session generation scopes saved drafts; the actual slide target stays unchanged. */
+  conversationSessionId?: string;
   controllerRef?: Ref<SlideGeneratorController>;
   onProposal?(proposal: HtmlDesignProposal, reason: SlideProposalReason): void;
+  /** Continue through the owning conversation so the correction becomes a saved version. */
+  onCorrectComposition?(): Promise<void>;
   onState?(state: SlideGeneratorState): void;
   onInsert(html: string, target?: HtmlDesignTarget, mounted?: PresentationMountedAsset[]): void | Promise<void>;
   onApplyToCurrent(html: string, target?: HtmlDesignTarget, mounted?: PresentationMountedAsset[]): void | Promise<void>;
@@ -34,15 +44,24 @@ export interface SlideGeneratorPanelProps {
   slides?: Array<{ title: string; html: string }>; currentSlide?: number; onSelectSlide?(idx: number): void;
   /** Other slides of the deck (inert markup + CSS) to reuse their components when creating. */
   styleExamples?: string[];
+  /** Original deck slide, including its assets, for an optional pixel reference during creation. */
+  styleSourceHtml?: string;
   /** «Ficha de estilo» measured from the base design; sent with every request. */
   styleSpec?: string;
 }
 export type SlideProposalReason = 'generated' | 'refined' | 'edited' | 'recovered' | 'imported';
 export interface SlideGeneratorContext {
   instruction?: string; copy?: string; copyMode?: HtmlDesignDraft['copyMode']; references?: PreparedPresentationReference[];
+  designBase?: 'current' | 'version' | 'deck' | 'new';
+  designSource?: ConversationDesignSource | null;
+  sourceSlide?: PresentationSlide;
+  sourceReference?: PreparedPresentationReference;
   proposal?: HtmlDesignProposal;
   /** Refine the slide's own HTML (its template) instead of the draft's last proposal. */
   fromCurrent?: boolean;
+  /** Consulted deck pixels and inert examples, separate from the user's three attachments. */
+  inspectionReferences?: PreparedPresentationReference[];
+  inspectionExamples?: string[];
 }
 export interface SlideGeneratorState {
   ready: boolean; busy: boolean; error: string; status: HtmlDesignDraft['status'];
@@ -54,6 +73,7 @@ export interface SlideGeneratorController {
   create(input?: SlideGeneratorContext): Promise<HtmlDesignProposal>;
   refine(input: SlideGeneratorContext & { feedback: string; compare?: boolean }): Promise<HtmlDesignProposal>;
   openEditor(): Promise<void>;
+  openLogos(): Promise<void>;
   recover(): Promise<HtmlDesignDraft>;
   /** Releases an unconfirmed request (HTML generation has no server-side result to recover). Keeps the proposal. */
   discardPending(): Promise<void>;
@@ -70,7 +90,7 @@ export function SlideGeneratorPanel(props: SlideGeneratorPanelProps) {
   const businessId = props.businessId ?? activeBusinessId;
   if (!user || !businessId) return <div className={props.embedded ? 'hws-embedded' : 'hws-overlay'}><section className="hws-dialog"><p>Inicia sesión y selecciona una marca para diseñar.</p>{!props.embedded && <button onClick={props.onClose}>Cerrar</button>}</section></div>;
   const documentId = props.documentId ?? `draft:${businessId}`, slideId = props.slideId ?? 'current';
-  return <HtmlDesignWorkspace key={JSON.stringify([user.id, businessId, documentId, slideId])} {...props}
+  return <HtmlDesignWorkspace key={JSON.stringify([user.id, businessId, documentId, slideId, props.conversationSessionId])} {...props}
     businessId={businessId} documentId={documentId} slideId={slideId} actorId={user.id} brandName={activeBusiness?.name ?? 'Marca actual'} />;
 }
 function HtmlDesignWorkspace(props: SlideGeneratorPanelProps & { actorId: string; businessId: string; documentId: string; slideId: string; brandName: string }) {
@@ -78,10 +98,15 @@ function HtmlDesignWorkspace(props: SlideGeneratorPanelProps & { actorId: string
   const [draft, setDraft] = useState<HtmlDesignDraft>(emptyHtmlDesignDraft), draftRef = useRef(draft); draftRef.current = draft;
   const [ready, setReady] = useState(false), [busy, setBusy] = useState(false), [fileBusy, setFileBusy] = useState(false), [error, setError] = useState('');
   const [editing, setEditing] = useState(false), [intent, setIntent] = useState<'insert' | 'replace'>(props.surfaceLabel ? 'replace' : 'insert');
+  const [logosOpen, setLogosOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(true);
+  const [reviewProgress, setReviewProgress] = useState('');
   const [format, setFormat] = useState<'current' | 'slide' | 'letter'>('current');
   const history = useRef<HTMLDivElement>(null);
   const lifeRef = useRef<Life | null>(null), locked = useRef(false), latest = useRef(props); latest.current = props;
+  const deckCaptureRef = useRef<{ html: string; image: string } | null>(null);
+  const inspectionReferencesRef = useRef<PreparedPresentationReference[]>([]);
+  const reviewContextRef = useRef<{ request: DesignCanvasHtmlRequest & { expectedActorId: string }; html: string } | null>(null);
   const target: HtmlDesignTarget = { document: props.documentId, slide: props.slideId, revision: props.revision ?? 1 };
   const canvas = props.canvas ?? (format === 'letter' ? { width: 1920, height: 2485 } : format === 'slide' ? { width: 1920, height: 1080 }
     : getSlideDimensions(props.currentHtml ?? ''));
@@ -92,7 +117,8 @@ function HtmlDesignWorkspace(props: SlideGeneratorPanelProps & { actorId: string
   useEffect(() => {
     const life: Life = { active: true, revision: 0, queue: Promise.resolve() }; lifeRef.current = life;
     void (async () => {
-      const store = await openHtmlDesignDraft({ actor: props.actorId, business: props.businessId, document: props.documentId, slide: props.slideId });
+      const store = await openHtmlDesignDraft({ actor: props.actorId, business: props.businessId, document: props.documentId, slide: props.slideId,
+        ...(props.conversationSessionId ? { session: props.conversationSessionId } : {}) });
       if (!active(life)) { store.close(); return; } life.store = store;
       const record = await store.read(); if (!active(life)) return;
       life.revision = record?.revision ?? 0;
@@ -108,9 +134,10 @@ function HtmlDesignWorkspace(props: SlideGeneratorPanelProps & { actorId: string
       if (initial.proposal) notifyProposal(initial.proposal, 'recovered');
     })().catch(e => { if (active(life)) setError(e.message); });
     return () => { life.active = false; void life.queue.finally(() => life.store?.close()); };
-  }, [props.actorId, props.businessId, props.documentId, props.slideId]);
+  }, [props.actorId, props.businessId, props.documentId, props.slideId, props.conversationSessionId]);
   function patch(partial: Partial<HtmlDesignDraft>) { const next = { ...draftRef.current, ...partial }; draftRef.current = next; setDraft(next); return next; }
   function notifyProposal(proposal: HtmlDesignProposal, reason: SlideProposalReason) {
+    const life = lifeRef.current; if (!life || !active(life)) return;
     try { latest.current.onProposal?.(structuredClone(proposal), reason); } catch { /* Observers cannot invalidate a saved result. */ }
   }
   useEffect(() => {
@@ -136,7 +163,7 @@ function HtmlDesignWorkspace(props: SlideGeneratorPanelProps & { actorId: string
     const life = lifeRef.current; if (!life || !active(life) || !ready || locked.current || fileBusy) {
       if (propagate) throw Error('El diseño está ocupado o todavía se está recuperando.'); return;
     }
-    locked.current = true; setBusy(true); setError('');
+    locked.current = true; setBusy(true); setError(''); setReviewProgress('');
     try { await life.queue; await assertSession(life); return await action(life); }
     catch (e) { if (active(life)) setError(e instanceof Error ? e.message : 'No se pudo completar el cambio.'); if (propagate) throw e; }
     finally { locked.current = false; if (active(life)) setBusy(false); }
@@ -146,55 +173,124 @@ function HtmlDesignWorkspace(props: SlideGeneratorPanelProps & { actorId: string
       if (props.externalConversation || !ready || locked.current || fileBusy || editing) return;
       const file = Array.from(event.clipboardData?.items ?? []).find(item => item.type.startsWith('image/'))?.getAsFile();
       if (!file) return; event.preventDefault();
-      void run(async life => { const reference = await preparePresentationReference(file); if (!active(life)) return;
+      void run(async life => { const reference = await preparePresentationReference(file, 'image_style_reference'); if (!active(life)) return;
         await persist(patch({ references: addPresentationReference(draftRef.current.references, reference, 3) })); });
     };
     window.addEventListener('paste', paste); return () => window.removeEventListener('paste', paste);
   }, [ready, fileBusy, editing, props.externalConversation]);
   async function requestHtml(life: Life, refine: boolean, compare: boolean, fromCurrent = false) {
     const before = structuredClone(draftRef.current), destination = { ...target };
+    const designSource = before.designSource, sourceSlide = designSource ? before.sourceSlide : undefined;
+    const startingFromSource = !!designSource && !refine;
+    const nativeAdapt = startingFromSource && !!sourceSlide && designSource?.mode !== 'style_only';
+    // A source selected on another slide is a design input, never a destination.
+    if (startingFromSource) refine = nativeAdapt;
+    const feedback = nativeAdapt ? before.instruction || 'Adapta la fuente elegida al contenido aprobado.' : before.feedback;
     if (before.status !== 'ready') throw Error('La solicitud anterior no se confirmó. Conserva la propuesta o prepara explícitamente otra versión.');
-    if (!refine && !before.instruction.trim() && !before.references.length) throw Error('Describe el diseño o añade una referencia.');
+    if (!refine && !before.instruction.trim() && !before.references.length && !designSource) throw Error('Describe el diseño o añade una referencia.');
     if (before.copyMode === 'literal' && !before.copy.trim()) throw Error('Escribe el texto literal que debe llevar el diseño.');
     if (before.copyMode === 'literal' && isUnresolvedReferenceCopy(before.copy)) {
       setDetailsOpen(true);
       throw Error('Ese texto indica qué referencia leer. Escríbelo en «Tu idea» y elige «Según mis indicaciones», o pega aquí las palabras exactas del diseño.');
     }
-    if (refine && !before.feedback.trim()) throw Error('Escribe el cambio que quieres hacer.');
-    const proposalBase = fromCurrent ? undefined : before.proposal;
+    if (refine && !feedback.trim()) throw Error('Escribe el cambio que quieres hacer.');
+    const proposalBase = fromCurrent || startingFromSource ? undefined : before.proposal;
     if (refine && proposalBase?.pending) throw Error('Comprueba las piezas de la propuesta antes de pedir otro ajuste.');
-    const base = proposalBase?.html ?? props.currentHtml;
+    const base = startingFromSource ? nativeAdapt ? sourceSlide!.html : undefined : proposalBase?.html ?? props.currentHtml;
     if (refine && !base) throw Error('Primero crea una propuesta.');
     if (refine && proposalBase) assertHtmlDesignTarget(proposalBase, destination);
-    const size = refine ? getSlideDimensions(base!) : canvas;
+    const size = startingFromSource ? canvas : refine ? getSlideDimensions(base!) : canvas;
     const references = await Promise.all(before.references.map(async item => ({ id: item.id, name: item.name, role: item.role, image_base64: await imageDataUrl(item.blob) })));
-    const render = compare && base ? await renderHtmlToPng(base, 'xending', size.width, size.height) : undefined;
-    await assertSession(life); if (JSON.stringify(destination) !== JSON.stringify(currentTarget())) throw Error('El lienzo cambió mientras se preparaba el encargo.');
-    const request = { design_system: 'design-canvas' as const, business_id: props.businessId, expectedActorId: props.actorId,
+    // A source establishes the first composition. Further edits use the exact
+    // selected HTML and its own pixels, not a fresh interpretation of that source.
+    const selectedSource = startingFromSource ? await sourceEvidence(before) : undefined;
+    if (selectedSource) {
+      const index = references.findIndex(reference => reference.id === selectedSource.id);
+      if (index < 0) references.push(selectedSource); else references[index] = selectedSource;
+      if (references.length > 4) throw Error('La fuente elegida y las referencias superan el límite de cuatro imágenes.');
+    }
+    const inspection = designSource ? { missing: false, examples: [], references: [] } : await inspectionEvidence(before);
+    if (inspection.missing) throw Error('Vuelve a consultar las diapositivas antes de crear otra versión: su captura ya no está disponible en este borrador.');
+    references.push(...inspection.references);
+    const deckSource = !designSource && !refine && latest.current.styleExamples?.length ? latest.current.styleSourceHtml : undefined;
+    if (deckSource && references.length < 4) {
+      try {
+        let image = deckCaptureRef.current?.html === deckSource ? deckCaptureRef.current.image : undefined;
+        if (!image) {
+          const sourceSize = getSlideDimensions(deckSource);
+          image = (await renderHtmlForReview(sanitizePresentationHtml(deckSource), sourceSize.width, sourceSize.height,
+            { businessId: props.businessId, expectedActorId: props.actorId, signal: AbortSignal.timeout(12000) })).image;
+          deckCaptureRef.current = { html: deckSource, image };
+        }
+        references.push({ id: 'deck-style', name: 'Estilo de la presentación', role: 'image_style_reference', image_base64: image });
+      } catch { /* Keep explicit HTML style examples when a real capture is unavailable. */ }
+    }
+    // The generator sees the same current design as the user whenever it is available.
+    // Offline rendering must not prevent generating a proposal from its HTML and references.
+    const baseSnapshot = !startingFromSource && base && (refine || compare) ? await renderHtmlForReview(base, size.width, size.height,
+      { businessId: props.businessId, expectedActorId: props.actorId, signal: AbortSignal.timeout(12000) }).catch(() => undefined) : undefined;
+    await assertSession(life); if (!sameHtmlDesignTarget(destination, currentTarget())) throw Error('El lienzo cambió mientras se preparaba el encargo.');
+    const request: DesignCanvasHtmlRequest & { expectedActorId: string } = { design_system: 'design-canvas', business_id: props.businessId, expectedActorId: props.actorId,
       canvas: size, instruction: before.instruction || undefined, references,
+      design_base: startingFromSource ? 'new' : refine ? proposalBase ? 'version' : 'current'
+        : before.designBase ?? (latest.current.styleExamples?.length ? 'deck' : 'new'),
+      ...(startingFromSource ? { design_source: designSource } : {}),
+      ...(startingFromSource && sourceSlide && !nativeAdapt ? { source_html: sourceSlide.html } : {}),
       ...(before.copyMode !== 'instruction' ? { copy_mode: before.copyMode, approved_copy: before.copyMode === 'literal' ? before.copy : undefined } : {}),
-      ...(refine ? { current_html: base, iteration_feedback: before.feedback, render_base64: render } : {}),
-      ...(!refine && latest.current.styleExamples?.length ? { style_examples: structuredClone(latest.current.styleExamples) } : {}),
-      ...(latest.current.styleSpec?.trim() ? { style_spec: latest.current.styleSpec.slice(0, 4000) } : {}),
+      ...(before.copyMode === 'literal' ? { copy_binding: 'slots' as const } : {}),
+      ...(refine ? { current_html: base, iteration_feedback: feedback, render_base64: references.length < 4 ? baseSnapshot?.image : undefined,
+        layout_diagnostics: baseSnapshot?.diagnostics } : {}),
+      ...(inspection.examples.length ? { style_examples: inspection.examples }
+        : !designSource && !refine && latest.current.styleExamples?.length ? { style_examples: structuredClone(latest.current.styleExamples) } : {}),
+      ...(!designSource && latest.current.styleSpec?.trim() ? { style_spec: latest.current.styleSpec.slice(0, 4000) } : {}),
     };
     // Large bodies reach the function truncated («Unexpected end of JSON input»). The comparison capture is optional.
     const bytes = () => new TextEncoder().encode(JSON.stringify(request)).length;
     if (request.render_base64 && bytes() > MAX_HTML_REQUEST_BYTES) delete request.render_base64;
+    if (bytes() > MAX_HTML_REQUEST_BYTES && request.references?.some(reference => reference.id === 'deck-style')) {
+      request.references = request.references.filter(reference => reference.id !== 'deck-style');
+    }
     if (bytes() > MAX_HTML_REQUEST_BYTES) throw new DesignHtmlRequestError(`El diseño y sus referencias pesan ${(bytes() / 1048576).toFixed(1)} MB y el límite es ${MAX_HTML_REQUEST_BYTES / 1048576} MB. Quita una referencia o usa imágenes más ligeras.`, true);
     await persist(patch({ status: 'sending' }));
     try {
       const response = await generate.mutateAsync(request);
       await assertSession(life);
-      const html = sanitizePresentationHtml(response.html);
-      const actual = getSlideDimensions(html);
-      if (actual.width !== size.width || actual.height !== size.height) throw Error('La respuesta cambió las dimensiones del lienzo. La versión anterior se conserva.');
-      const measured = await measureHtmlDesignAssets({ id: props.slideId, revision: destination.revision, title: '', html: refine ? base! : '',
-        mounted_assets: refine ? proposalBase?.mounted ?? props.mountedAssets ?? [] : [] }, html, size);
+      const cleanCandidate = (candidate: string) => {
+        const clean = sanitizePresentationHtml(candidate), actual = getSlideDimensions(clean);
+        if (actual.width !== size.width || actual.height !== size.height) throw Error('La respuesta cambió las dimensiones del lienzo. La versión anterior se conserva.');
+        return clean;
+      };
+      const assertCurrent = async () => {
+        await assertSession(life);
+        if (!sameHtmlDesignTarget(destination, currentTarget())) throw Error('El lienzo cambió durante la revisión. La versión anterior se conserva.');
+      };
+      const checkBodySize = (body: unknown) => {
+        if (new TextEncoder().encode(JSON.stringify(body)).length > MAX_HTML_REQUEST_BYTES) throw Error('El diseño y su captura exceden el tamaño permitido para la revisión.');
+      };
+      const reviewed = await reviewAndRepairDesign({ html: cleanCandidate(response.html), assertCurrent,
+        render: html => renderHtmlForReview(html, size.width, size.height, { businessId: props.businessId, expectedActorId: props.actorId }),
+        review: async (html, snapshot) => {
+          const reviewRequest = designReviewRequest(request, html, snapshot);
+          checkBodySize(reviewRequest); return reviewDesignCanvasHtml(reviewRequest);
+        },
+        repair: async (html, snapshot, feedback) => {
+          const repairRequest = { ...designReviewRequest(request, html, snapshot), iteration_feedback: feedback };
+          checkBodySize(repairRequest);
+          return cleanCandidate((await generate.mutateAsync(repairRequest)).html);
+        },
+        onProgress: (stage, repairs) => { if (active(life)) setReviewProgress(stage === 'reviewing' ? 'Revisando el diseño y las referencias…' : `Corrigiendo la composición (${repairs}/2)…`); },
+      });
+      const { html, visualReview } = reviewed;
+      reviewContextRef.current = { request, html };
+      const mounted = new Map((startingFromSource ? sourceSlide?.mounted_assets ?? [] : []).map(asset => [asset.element_id, asset]));
+      for (const asset of refine && !startingFromSource ? proposalBase?.mounted ?? props.mountedAssets ?? [] : []) mounted.set(asset.element_id, asset);
+      const measured = await measureHtmlDesignAssets({ id: props.slideId, revision: destination.revision, title: '', html: refine ? base! : sourceSlide?.html ?? '',
+        mounted_assets: designSource ? [...mounted.values()] : refine ? proposalBase?.mounted ?? props.mountedAssets ?? [] : [] }, html, size);
       await assertSession(life);
-      const proposal: HtmlDesignProposal = { ...measured, target: destination, canvas: size, intent: refine ? proposalBase?.intent ?? 'replace' : intent };
-      const next = patch({ proposal, status: 'ready', feedback: '', messages: [...before.messages,
-        { role: 'user' as const, text: refine ? before.feedback : before.instruction || 'Diseña a partir de mis referencias.' },
-        { role: 'assistant' as const, text: 'La propuesta está lista. Puedes pedir ajustes, editarla directamente o aplicarla al documento.' }].slice(-40) });
+      const proposal: HtmlDesignProposal = { ...measured, target: destination, canvas: size, intent: refine ? proposalBase?.intent ?? 'replace' : intent, visualReview };
+      const next = patch({ proposal, designBase: request.design_base, status: 'ready', feedback: '', messages: [...before.messages,
+        { role: 'user' as const, text: refine ? feedback : before.instruction || 'Diseña a partir de mis referencias.' },
+        { role: 'assistant' as const, text: describeVisualReview(visualReview) }].slice(-40) });
       await persist(next);
       if (active(life)) setDetailsOpen(false);
       notifyProposal(proposal, refine ? 'refined' : 'generated');
@@ -205,24 +301,130 @@ function HtmlDesignWorkspace(props: SlideGeneratorPanelProps & { actorId: string
       throw e;
     }
   }
-  async function saveVisual(html: string, close: boolean) {
+  async function sourceEvidence(value: HtmlDesignDraft, recapture = false) {
+    const source = value.designSource?.source;
+    if (!source) return undefined;
+    if (source.kind === 'slide' && (!value.sourceSlide || value.sourceSlide.id !== source.slide_id || String(value.sourceSlide.revision) !== source.revision))
+      throw Error('Vuelve a seleccionar la diapositiva fuente: falta su diseño original o cambió su revisión.');
+    const reference = value.sourceReference ?? (source.kind === 'reference' ? value.references.find(item => item.id === source.reference_id) : undefined);
+    let pixels = reference ? await imageDataUrl(reference.blob) : undefined;
+    if (!pixels && recapture && value.sourceSlide) {
+      const size = getSlideDimensions(value.sourceSlide.html);
+      pixels = (await renderHtmlForReview(sanitizePresentationHtml(value.sourceSlide.html), size.width, size.height,
+        { businessId: props.businessId, expectedActorId: props.actorId, signal: AbortSignal.timeout(12000) })).image;
+    }
+    if (!pixels) throw Error('Falta la captura individual de la fuente elegida. Vuelve a seleccionarla antes de generar.');
+    return { id: source.kind === 'reference' ? source.reference_id : 'design-source',
+      name: 'Fuente visual elegida; conservar según el modo acordado',
+      role: value.designSource!.mode === 'style_only' ? 'image_style_reference' as const : 'layout_reference' as const,
+      image_base64: pixels };
+  }
+  async function inspectionEvidence(value: HtmlDesignDraft) {
+    const receipt = value.inspection;
+    const selected = (receipt?.reference_ids ?? []).map(id => inspectionReferencesRef.current.find(reference => `deck:${reference.sha256}` === id));
+    return { missing: selected.some(reference => !reference), examples: structuredClone(receipt?.examples ?? []),
+      references: await Promise.all(selected.filter((reference): reference is PreparedPresentationReference => !!reference).map(async reference => ({
+        id: `deck:${reference.sha256}`, name: 'Diapositivas inspeccionadas; reutilizar sólo lo indicado en el encargo aprobado',
+        role: 'layout_reference' as const, image_base64: await imageDataUrl(reference.blob),
+      }))) };
+  }
+  async function reviewExisting(life: Life) {
+    const before = structuredClone(draftRef.current), proposal = before.proposal;
+    if (!proposal || proposal.pending || before.status !== 'ready') throw Error('Primero recupera una propuesta completa.');
+    assertHtmlDesignTarget(proposal, currentTarget());
+    setReviewProgress('Revisando la propuesta guardada…');
+    const snapshot = await renderHtmlForReview(proposal.html, proposal.canvas.width, proposal.canvas.height,
+      { businessId: props.businessId, expectedActorId: props.actorId });
+    const cached = reviewContextRef.current;
+    const hasSavedContext = cached?.html === proposal.html;
+    const sourceReview = before.designSource && before.designBase !== 'version' && before.designBase !== 'current';
+    const inspection = sourceReview ? { missing: false, examples: [], references: [] } : await inspectionEvidence(before);
+    const request: DesignCanvasHtmlRequest & { expectedActorId: string } = hasSavedContext ? cached.request : {
+      design_system: 'design-canvas' as const, business_id: props.businessId, expectedActorId: props.actorId, canvas: proposal.canvas,
+      instruction: before.instruction || 'Revisa la propuesta guardada con las referencias y el contenido acordado.',
+      design_base: before.designBase ?? (props.currentHtml ? 'current' : 'new'), copy_mode: before.copyMode === 'instruction' ? undefined : before.copyMode,
+      approved_copy: before.copyMode === 'literal' ? before.copy : undefined,
+      ...(sourceReview ? { design_source: before.designSource, design_base: 'new' as const,
+        ...(before.sourceSlide ? { source_html: before.sourceSlide.html } : {}) } : {}),
+      references: [...await Promise.all(before.references.filter(reference => before.copyMode !== 'literal' || reference.role !== 'content_source').map(async reference => ({ id: reference.id, name: reference.name,
+        role: reference.role, image_base64: await imageDataUrl(reference.blob) }))), ...inspection.references],
+      ...(inspection.examples.length ? { style_examples: inspection.examples } : {}),
+    };
+    let baseIssue = !hasSavedContext && inspection.missing ? 'Falta la captura de las diapositivas consultadas; esta revisión no pudo comparar su apariencia.' : '';
+    if (!hasSavedContext && sourceReview) {
+      try {
+        const source = await sourceEvidence(before, true);
+        if (source) request.references = [...(request.references ?? []).filter(reference => reference.id !== source.id), source];
+      } catch {
+        baseIssue = 'Falta la captura individual de la fuente elegida; se revisó el resultado sin poder comprobar su fidelidad.';
+        delete request.design_source; delete request.source_html;
+      }
+    }
+    if (!hasSavedContext && !sourceReview) {
+      // Reopening the workspace must not silently turn a comparison with the
+      // original slide into a review of only the generated result.
+      const source = request.design_base === 'deck' ? latest.current.styleSourceHtml
+        : request.design_base === 'current' ? latest.current.currentHtml : undefined;
+      if (source) {
+        const sourceSize = getSlideDimensions(source);
+        request.render_base64 = (await renderHtmlForReview(sanitizePresentationHtml(source), sourceSize.width, sourceSize.height,
+          { businessId: props.businessId, expectedActorId: props.actorId })).image;
+      } else if (request.design_base !== 'new' && request.design_base !== 'version') {
+        baseIssue = [baseIssue, 'Se revisó el resultado, pero falta la vista del diseño de origen para comprobar que conserva su estilo.'].filter(Boolean).join(' ');
+      }
+    }
+    await assertSession(life); assertHtmlDesignTarget(proposal, currentTarget());
+    const reviewRequest = designReviewRequest(request, proposal.html, snapshot);
+    if (new TextEncoder().encode(JSON.stringify(reviewRequest)).length > MAX_HTML_REQUEST_BYTES) throw Error('Las referencias y la captura exceden el tamaño permitido para la revisión.');
+    const verdict = await reviewDesignCanvasHtml(reviewRequest);
+    await assertSession(life); assertHtmlDesignTarget(proposal, currentTarget());
+    const issues = [...new Set([...verdict.issues, ...(snapshot.diagnostics?.issues.map(issue => issue.message) ?? []), ...(baseIssue ? [baseIssue] : [])])];
+    if (!snapshot.diagnostics || snapshot.diagnostics.truncated) issues.push('La comprobación geométrica quedó incompleta.');
+    const nextProposal: HtmlDesignProposal = { ...proposal, visualReview: { status: verdict.passed && !issues.length ? 'passed' : 'needs_review',
+      repairs: proposal.visualReview?.repairs ?? 0, issues: issues.slice(0, 20) } };
+    await persist(patch({ proposal: nextProposal })); notifyProposal(nextProposal, 'edited');
+  }
+  async function persistVisual(life: Life, html: string, close: boolean) {
+    const proposal = draftRef.current.proposal; if (!proposal) return;
+    assertHtmlDesignTarget(proposal, currentTarget());
+    const clean = sanitizePresentationHtml(html), dims = getSlideDimensions(clean);
+    if (dims.width !== proposal.canvas.width || dims.height !== proposal.canvas.height) throw Error('Conserva el tamaño del lienzo.');
+    const measured = proposal.pending ? await measureHtmlDesignAssets(proposal.pending.source, clean, proposal.canvas) : {
+      html: clean, mounted: reconcileMountedAssets({ id: props.slideId, revision: proposal.target.revision, title: '', html: proposal.html, mounted_assets: proposal.mounted }, clean), pending: undefined,
+    };
+    await assertSession(life);
+    const nextProposal = { ...proposal, ...measured, pending: measured.pending, visualReview: undefined };
+    await persist(patch({ proposal: nextProposal })); notifyProposal(nextProposal, 'edited'); if (close) setEditing(false);
+  }
+  async function saveVisual(html: string, close: boolean) { await run(life => persistVisual(life, html, close)); }
+  async function saveLogo(logo: DesignLogoSelection) {
     await run(async life => {
-      const proposal = draftRef.current.proposal; if (!proposal) return;
-      const clean = sanitizePresentationHtml(html), dims = getSlideDimensions(clean);
-      if (dims.width !== proposal.canvas.width || dims.height !== proposal.canvas.height) throw Error('Conserva el tamaño del lienzo.');
-      const measured = proposal.pending ? await measureHtmlDesignAssets(proposal.pending.source, clean, proposal.canvas) : {
-        html: clean, mounted: reconcileMountedAssets({ id: props.slideId, revision: proposal.target.revision, title: '', html: proposal.html, mounted_assets: proposal.mounted }, clean), pending: undefined,
-      };
-      await assertSession(life);
-      const nextProposal = { ...proposal, ...measured, pending: measured.pending };
-      await persist(patch({ proposal: nextProposal })); notifyProposal(nextProposal, 'edited'); if (close) setEditing(false);
-    });
+      const proposal = draftRef.current.proposal;
+      if (!proposal || proposal.pending) throw Error('Primero crea o recupera una propuesta completa.');
+      await persistVisual(life, insertDesignLogo(proposal.html, { ...logo, canvas: proposal.canvas }), false);
+    }, true);
   }
   async function updateContext(life: Life, input: SlideGeneratorContext) {
     if (draftRef.current.status !== 'ready') throw Error('Recupera la solicitud pendiente antes de sustituir su contexto.');
     const change: Partial<HtmlDesignDraft> = {};
-    for (const key of ['instruction', 'copy', 'copyMode', 'references'] as const) {
+    for (const key of ['instruction', 'copy', 'copyMode', 'references', 'designBase'] as const) {
       if (input[key] !== undefined) Object.assign(change, { [key]: structuredClone(input[key]) });
+    }
+    if (input.designSource !== undefined) {
+      change.designSource = input.designSource ?? undefined;
+      if (!input.designSource || JSON.stringify(input.designSource) !== JSON.stringify(draftRef.current.designSource)) {
+        change.sourceSlide = undefined; change.sourceReference = undefined;
+      }
+    }
+    if (input.sourceSlide !== undefined) change.sourceSlide = structuredClone(input.sourceSlide);
+    if (input.sourceReference !== undefined) change.sourceReference = structuredClone(input.sourceReference);
+    if (input.inspectionReferences !== undefined || input.inspectionExamples !== undefined) {
+      const references = input.inspectionReferences ?? inspectionReferencesRef.current;
+      if (references.length > 1) throw Error('Sólo se admite una lámina interna de diapositivas consultadas.');
+      // Validate prepared references independently; they never enter the user's attachment array.
+      assertHtmlDesignDraft({ ...emptyHtmlDesignDraft(), references }, { actor: props.actorId, business: props.businessId, document: props.documentId, slide: props.slideId });
+      change.inspection = { reference_ids: input.inspectionReferences !== undefined ? references.map(reference => `deck:${reference.sha256}`)
+        : draftRef.current.inspection?.reference_ids ?? [], examples: structuredClone(input.inspectionExamples ?? draftRef.current.inspection?.examples ?? []) };
     }
     if (input.proposal) {
       assertHtmlDesignTarget(input.proposal, currentTarget());
@@ -232,7 +434,10 @@ function HtmlDesignWorkspace(props: SlideGeneratorPanelProps & { actorId: string
     }
     await assertSession(life);
     const next = { ...draftRef.current, ...change };
+    assertHtmlDesignDraft(next, { actor: props.actorId, business: props.businessId, document: props.documentId, slide: props.slideId });
     await persist(next); patch(change);
+    if (input.designSource !== undefined || input.sourceSlide !== undefined || input.sourceReference !== undefined) reviewContextRef.current = null;
+    if (input.inspectionReferences !== undefined) inspectionReferencesRef.current = structuredClone(input.inspectionReferences);
     if (change.proposal) { setIntent(change.proposal.intent); notifyProposal(change.proposal, 'imported'); }
   }
   async function leave(life: Life) {
@@ -253,7 +458,17 @@ function HtmlDesignWorkspace(props: SlideGeneratorPanelProps & { actorId: string
   }
   useImperativeHandle(props.controllerRef, () => ({
     async updateContext(input) { const frozen = structuredClone(input); await run(life => updateContext(life, frozen), true); },
-    async create(input = {}) { const frozen = structuredClone(input); return (await run(async life => { await updateContext(life, frozen); return requestHtml(life, false, false); }, true))!; },
+    async create(input = {}) { const frozen = structuredClone(input); return (await run(async life => {
+      await updateContext(life, frozen);
+      const current = draftRef.current;
+      // The chosen base governs continuity even if a caller names the action
+      // "create". An explicitly selected source still starts a new adaptation.
+      const fromCurrent = frozen.fromCurrent === true || current.designBase === 'current';
+      const continuing = !frozen.designSource && (fromCurrent ? !!latest.current.currentHtml?.trim()
+        : current.designBase === 'version' && !!(current.proposal?.html || latest.current.currentHtml)?.trim());
+      if (continuing) await persist(patch({ feedback: frozen.instruction || current.instruction || 'Ajusta el diseño seleccionado.' }));
+      return requestHtml(life, continuing, false, continuing && fromCurrent);
+    }, true))!; },
     async refine(input) { const frozen = structuredClone(input); return (await run(async life => {
       await updateContext(life, frozen); await persist(patch({ feedback: frozen.feedback }));
       return requestHtml(life, true, frozen.compare === true, frozen.fromCurrent === true);
@@ -261,6 +476,12 @@ function HtmlDesignWorkspace(props: SlideGeneratorPanelProps & { actorId: string
     async openEditor() { await run(async life => {
       if (!draftRef.current.proposal) throw Error('Primero crea o recupera una propuesta.');
       await assertSession(life); await persist(); setEditing(true);
+    }, true); },
+    async openLogos() { await run(async life => {
+      const proposal = draftRef.current.proposal;
+      if (!proposal || proposal.pending) throw Error('Primero crea o recupera una propuesta completa.');
+      if (editing) throw Error('Guarda los ajustes del editor antes de elegir un logo.');
+      assertHtmlDesignTarget(proposal, currentTarget()); await assertSession(life); setLogosOpen(true);
     }, true); },
     async recover() { return (await run(async life => {
       const record = await life.store!.read(); await assertSession(life);
@@ -280,7 +501,7 @@ function HtmlDesignWorkspace(props: SlideGeneratorPanelProps & { actorId: string
     {error && <p role="alert" className="hws-editor-error">{error}</p>}</>;
   const view = draft.proposal?.html ?? props.currentHtml;
   const viewSize = draft.proposal?.canvas ?? canvas;
-  const changed = draft.proposal && JSON.stringify(draft.proposal.target) !== JSON.stringify(target);
+  const changed = draft.proposal && !sameHtmlDesignTarget(draft.proposal.target, target);
   return <div className={props.embedded ? 'hws-embedded' : 'hws-overlay'}><section className={`hws-dialog${props.externalConversation ? ' hws-external' : ''}`} role={props.embedded ? 'region' : 'dialog'} aria-modal={props.embedded ? undefined : true} aria-label="Diseñar HTML" aria-busy={busy}>
     {!props.embedded && <header className="hws-header"><div><span className="hws-eyebrow">{props.brandName} · {viewSize.width} × {viewSize.height}</span><h2>Diseñar {props.surfaceLabel ?? 'diapositiva'}</h2><p>Describe la idea, añade ejemplos y ajusta el resultado.</p></div>
       <button aria-label="Cerrar diseño HTML" disabled={busy || fileBusy} onClick={() => {
@@ -293,7 +514,7 @@ function HtmlDesignWorkspace(props: SlideGeneratorPanelProps & { actorId: string
       <label>Tu idea<textarea aria-label="Idea para HTML" value={draft.instruction} rows={3} maxLength={16000} disabled={blocked}
         placeholder="Quiero una portada con el texto a la izquierda y el mundo de mi referencia a la derecha…" onChange={e => patch({ instruction: e.target.value })} onBlur={saveField} /></label>
       <details className="hws-details" open={detailsOpen} onToggle={e => setDetailsOpen(e.currentTarget.open)}><summary>Referencias y contenido · {draft.references.length} imágenes</summary>
-      <PresentationReferencePicker items={draft.references} disabled={busy || !ready} conversationReadsImages onBusyChange={setFileBusy}
+      <PresentationReferencePicker items={draft.references} disabled={busy || !ready} conversationReadsImages defaultRole="image_style_reference" onBusyChange={setFileBusy}
         onChange={async items => { await persist(patch({ references: items })); }} />
       <label>Contenido<select aria-label="Contenido del HTML" value={draft.copyMode} disabled={blocked} onChange={e => { patch({ copyMode: e.target.value as HtmlDesignDraft['copyMode'] }); saveField(); }}>
         <option value="instruction">Según mis indicaciones</option><option value="literal">Usar este texto literal</option><option value="none">Sin texto</option></select></label>
@@ -316,6 +537,16 @@ function HtmlDesignWorkspace(props: SlideGeneratorPanelProps & { actorId: string
       {props.externalConversation && draft.status !== 'ready' && <div className="hws-notice" role="status">La respuesta anterior no quedó confirmada. La propuesta guardada se conserva. Preparar otra solicitud puede consumir una nueva llamada de HTML.
         <button disabled={blocked} onClick={() => void run(async () => { await persist(patch({ status: 'ready' })); })}>Preparar otra solicitud</button></div>}
       {view ? <PresentationCanvas html={view} title="Vista previa del diseño HTML" /> : <div className="hws-empty"><Plus /><p>Tu diseño aparecerá aquí.</p></div>}
+      {draft.proposal?.visualReview && <div className={draft.proposal.visualReview.status === 'passed' ? 'hws-note' : 'hws-notice'} role="status">
+        <p>{describeVisualReview(draft.proposal.visualReview)}</p>
+        {draft.proposal.visualReview.issues.length > 0 && <details><summary>Ver problemas detectados</summary>
+          <ul>{draft.proposal.visualReview.issues.map((issue, index) => <li key={index}>{issue}</li>)}</ul>
+        </details>}
+        {draft.proposal.visualReview.status === 'needs_review' && props.onCorrectComposition && <button disabled={blocked || !!draft.proposal.pending || draft.status !== 'ready'}
+          onClick={() => void props.onCorrectComposition?.()}>Corregir composición</button>}
+        {draft.proposal.visualReview.status !== 'passed' && <button disabled={blocked || !!draft.proposal.pending || draft.status !== 'ready'}
+          onClick={() => void run(reviewExisting)}>Reintentar revisión sin regenerar</button>}
+      </div>}
       {draft.proposal?.pending && <div className="hws-notice" role="status">La propuesta está guardada. Falta comprobar la posición de sus piezas antes de aplicarla.
         <button disabled={blocked} onClick={() => void run(async life => {
           const proposal = draftRef.current.proposal; if (!proposal?.pending) return;
@@ -327,11 +558,11 @@ function HtmlDesignWorkspace(props: SlideGeneratorPanelProps & { actorId: string
       <p className="hws-note">El editor completo permite ajustar texto, fuentes, capas e imágenes. Revisar o editar no modifica todavía el documento.</p>
     </main></div>
     <footer className="hws-footer"><div>{error ? <><p role="alert" className="hws-error">{error}</p>
-      <button disabled={busy || fileBusy} onClick={() => {
+      {props.externalConversation && draft.status === 'ready' ? <p className="hws-note">Tu versión sigue disponible. Puedes continuar desde el chat o abrir el editor.</p> : <button disabled={busy || fileBusy} onClick={() => {
         // Inside the conversation the panel stays open: return to the saved draft of the current version.
         if (!props.externalConversation || !ready) { props.onClose(); return; }
         void run(async life => { await leave(life); latest.current.onClose(); });
-      }}>Salir conservando el último borrador guardado</button></> : <p>{busy ? 'Preparando tu diseño…' : 'Aplica cuando estés conforme con el resultado.'}</p>}</div>
+      }}>Salir conservando el último borrador guardado</button>}</> : <p>{busy ? reviewProgress || 'Preparando tu diseño…' : 'Aplica cuando estés conforme con el resultado.'}</p>}</div>
       {!props.externalConversation && <button className="hws-primary" disabled={blocked || !draft.proposal || !!draft.proposal.pending || !!changed} onClick={() => void run(apply)}>{busy ? <Loader2 size={17} /> : null}Aplicar diseño revisado</button>}</footer>
-  </section></div>;
+  </section>{logosOpen && <DesignLogoPicker businessId={props.businessId} onSelect={saveLogo} onClose={() => setLogosOpen(false)} />}</div>;
 }

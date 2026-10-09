@@ -23,6 +23,35 @@ const base = (): DesignCanvasHtmlRequest => ({ design_system: 'design-canvas', b
 const doc = (body: string, rootStyle = '') => `<!doctype html><html><head><style>.slide{position:relative}</style></head><body><div id="page" class="slide" style="${rootStyle}">${body}</div></body></html>`;
 
 describe('shared Presentations HTML canvas contract', () => {
+  it.each(['replicate', 'adapt_layout', 'style_only'] as const)('carries an explicit %s source separately from destination dimensions and secondary examples', mode => {
+    const source = doc(`<style>.source{border-radius:27px}${'/* full source */'.repeat(3000)}</style><h1>Original</h1>`);
+    const design_source = { mode, source: { kind: 'slide' as const, slide_id: 'slide-3', revision: '7' } };
+    const request = parseDesignCanvasHtmlRequest({ ...base(), design_source, source_html: source,
+      references: [{ id: 'design-source', name: 'Fuente elegida', role: mode === 'style_only' ? 'image_style_reference' : 'layout_reference', image_base64: first }] });
+    expect(request.source_html).toBe(source); expect(source.length).toBeGreaterThan(40000);
+    expect(request.canvas).toEqual({ width: 1280, height: 720 }); expect(request.design_source).toEqual(design_source);
+    const messages = buildDesignCanvasHtmlMessages(request, { name: 'Marca' });
+    expect(messages[0].content).toContain('tiene prioridad sobre la base implícita');
+    expect(messages[0].content).toContain('style_only toma su lenguaje visual y crea otra composición');
+    expect(JSON.stringify(messages)).toContain('FUENTE VISUAL ELEGIDA'); expect(JSON.stringify(messages)).toContain('HTML DE LA FUENTE');
+    expect(() => parseDesignCanvasHtmlRequest({ ...request, references: [] })).toThrow('Falta la imagen individual');
+    expect(() => parseDesignCanvasHtmlRequest({ ...request, design_source: { ...design_source, mode: 'unknown' } })).toThrow('fuente de diseño');
+  });
+
+  it('masks and restores native source resources independently from current-result resource IDs', () => {
+    const source = doc('<img id="source-logo" data-eid="source-logo" data-asset-id="logo" data-asset-version="v1" src="data:image/png;base64,U09VUkNF">');
+    const current = doc('<img id="result-photo" data-eid="result-photo" src="data:image/png;base64,UkVTVUxU">');
+    const request = { ...base(), source_html: source, current_html: current, iteration_feedback: 'Conserva estas piezas.',
+      design_source: { mode: 'style_only' as const, source: { kind: 'slide' as const, slide_id: 'slide-3', revision: '7' } } };
+    const messages = buildDesignCanvasHtmlMessages(request, { name: 'Marca' });
+    expect(JSON.stringify(messages)).toContain('scory-source://asset-0'); expect(JSON.stringify(messages)).toContain('scory-mounted://asset-0');
+    expect(JSON.stringify(messages)).not.toContain('U09VUkNF'); expect(JSON.stringify(messages)).not.toContain('UkVTVUxU');
+    const output = finalizeDesignCanvasHtml(doc('<img id="wrong" src="scory-source://asset-0"><img id="also-wrong" src="scory-mounted://asset-0">'), request);
+    expect(output).toContain('id="source-logo"'); expect(output).toContain('data-asset-id="logo"'); expect(output).toContain('src="data:image/png;base64,U09VUkNF"');
+    expect(output).toContain('id="result-photo"'); expect(output).toContain('src="data:image/png;base64,UkVTVUxU"');
+    expect(output).not.toContain('scory-source:'); expect(output).not.toContain('scory-mounted:');
+  });
+
   it('sends original reference pixels in declared order, then the current render and complete editable HTML', () => {
     const html = doc('<h1>Conectamos tu empresa</h1><img id="mundo" src="https://assets.test/world.png">');
     const request = parseDesignCanvasHtmlRequest({ ...base(), current_html: html, iteration_feedback: 'Haz el mundo más grande.', render_base64: render,
@@ -56,10 +85,58 @@ describe('shared Presentations HTML canvas contract', () => {
       expect(() => parseDesignCanvasHtmlRequest({ ...base(), style_examples })).toThrow();
   });
 
+  it('carries consulted slide captures and markup into refinement without making them mandatory global style references', () => {
+    const consulted = 'DIAPOSITIVAS INSPECCIONADAS (datos consultados; reutilizar sólo lo indicado en el encargo aprobado)\nDIAPOSITIVA 4: Tarjetas\n<style>.card{color:red}</style>';
+    const request = parseDesignCanvasHtmlRequest({ ...base(), current_html: doc('Base original'), iteration_feedback: 'Usa sólo las tarjetas de la diapositiva 4.',
+      references: [{ id: 'user-reference', name: 'Imagen adjunta', role: 'object_reference', image_base64: first },
+        { id: `deck:${'a'.repeat(64)}`, name: 'Diapositivas inspeccionadas', role: 'layout_reference', image_base64: second }], style_examples: [consulted] });
+    const messages = buildDesignCanvasHtmlMessages(request, { name: 'Marca' });
+    expect(messages[0].content).toContain('no una orden de adoptar todo su estilo');
+    expect(messages[0].content).toContain('Conserva la base elegida para lo demás');
+    const content = messages[1].content;
+    if (!Array.isArray(content)) throw Error('Expected multimodal parts');
+    const text = content.filter(part => part.type === 'text').map(part => part.text);
+    expect(text.some(value => value.startsWith('REFERENCIA 1:'))).toBe(true);
+    expect(text.some(value => value.startsWith('DIAPOSITIVAS INSPECCIONADAS (captura interna'))).toBe(true);
+    expect(text.some(value => value.startsWith('ESTILO DE LA PRESENTACIÓN'))).toBe(false);
+    expect(text.find(value => value.startsWith('EVIDENCIA DE DIAPOSITIVAS CONSULTADAS'))).toContain(consulted);
+    expect(content.filter(part => part.type === 'image_url').map(part => part.image_url.url)).toEqual([first, second]);
+  });
+
   it('accepts text-only creation without generating reference images', () => {
     const request = parseDesignCanvasHtmlRequest(base());
     const content = buildDesignCanvasHtmlMessages(request, { name: 'Una marca' })[1].content;
     expect(content).toHaveLength(1); expect(content[0]).toMatchObject({ type: 'text' });
+  });
+
+  it('passes measured defects with element identities to the generation repair instead of dropping geometry evidence', () => {
+    const diagnostics = { issues: [{ code: 'text_occluded', element: 'benefit-4', message: 'El bloque de beneficios queda detrás de la fotografía.' }], truncated: false };
+    const request = parseDesignCanvasHtmlRequest({ ...base(), current_html: doc('<p>Beneficios</p>'),
+      iteration_feedback: 'Corrige la superposición sin cambiar el contenido.', render_base64: render, layout_diagnostics: diagnostics });
+    const messages = buildDesignCanvasHtmlMessages(request, { name: 'Marca editorial' }), content = messages[1].content;
+    if (!Array.isArray(content)) throw Error('Expected multimodal parts');
+    const evidence = content.filter(part => part.type === 'text' && part.text.startsWith('DIAGNÓSTICO DEL RENDER'));
+    expect(evidence).toHaveLength(1);
+    if (evidence[0].type !== 'text') throw Error('Expected diagnostic data');
+    expect(JSON.parse(evidence[0].text.slice(evidence[0].text.indexOf('\n') + 1))).toEqual(diagnostics);
+    expect(content.filter(part => part.type === 'image_url').map(part => part.image_url.url)).toEqual([render]);
+    expect(messages[0].content).toContain('no fija su geometría');
+    expect(messages[0].content).toContain('contenedores antiguos cuyo contenido ya no pertenece al encargo');
+    expect(messages[0].content).toContain('contraste de todo el título');
+  });
+
+  it('allows content reflow and removal of an obsolete band while retaining exact copy and repositioned mounted pixels', () => {
+    const original = doc(`<img id="photo" data-eid="photo" src="${first}"><footer class="old-band">Texto anterior</footer>`);
+    const copy = ['Título nuevo', 'Beneficio uno', 'Beneficio dos', 'Beneficio tres'].join('\n');
+    const request: DesignCanvasHtmlRequest = { ...base(), current_html: original, iteration_feedback: 'Reacomoda el contenido nuevo.',
+      copy_mode: 'literal', copy_binding: 'slots', approved_copy: copy };
+    const next = doc('<img id="photo" data-eid="photo" src="scory-mounted://asset-0" style="width:240px;object-fit:cover;left:800px">'
+      + '<section style="display:grid;grid-template-columns:1fr 1fr">'
+      + [1, 2, 3, 4].map(id => `<article><span data-copy-id="copy-${id}"></span></article>`).join('') + '</section>');
+    const finalized = finalizeDesignCanvasHtml(next, request);
+    for (const line of copy.split('\n')) expect(finalized).toContain(line);
+    expect(finalized).toContain(first); expect(finalized).toContain('id="photo"'); expect(finalized).toContain('left:800px');
+    expect(finalized).not.toContain('old-band'); expect(finalized).not.toContain('Texto anterior');
   });
 
   it('validates file bytes, complete PNG structure and image dimensions instead of trusting extensions', () => {

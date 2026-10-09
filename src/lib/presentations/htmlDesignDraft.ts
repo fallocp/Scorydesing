@@ -1,17 +1,28 @@
 import { PRESENTATION_REFERENCE_ROLES, type PreparedPresentationReference } from './presentationReferences';
 import { assertPresentationSlides, type PresentationMountedAsset, type PresentationSlide } from './presentationDocument';
 import { inspectServerPng } from '../../../supabase/functions/_shared/desaing/serverPng';
+import type { DesignVisualReview } from './designVisualReview';
+import { assertConversationDesignSource, type ConversationDesignSource } from '../../../supabase/functions/_shared/desaing/conversationActions';
+import { isDesignConversationSessionToken } from '../../../supabase/functions/_shared/desaing/conversationSessions';
 
-export interface HtmlDesignScope { actor: string; business: string; document: string; slide: string }
+export interface HtmlDesignScope { actor: string; business: string; document: string; slide: string; session?: string }
 export interface HtmlDesignTarget { document: string; slide: string; revision: number }
 export interface HtmlDesignProposal {
   html: string; target: HtmlDesignTarget; intent: 'insert' | 'replace';
   canvas: { width: number; height: number }; mounted: PresentationMountedAsset[];
   pending?: { source: PresentationSlide; reason: string };
+  visualReview?: DesignVisualReview;
 }
 export interface HtmlDesignDraft {
   instruction: string; feedback: string; copy: string; copyMode: 'instruction' | 'literal' | 'none';
+  designBase?: 'current' | 'version' | 'deck' | 'new';
+  designSource?: ConversationDesignSource;
+  /** Native source snapshot and its individual pixels survive review/reload. */
+  sourceSlide?: PresentationSlide;
+  sourceReference?: PreparedPresentationReference;
   references: PreparedPresentationReference[]; proposal: HtmlDesignProposal | null;
+  /** Receipt of consulted deck evidence. Contact-sheet pixels stay ephemeral, outside user attachments. */
+  inspection?: { reference_ids: string[]; examples: string[] };
   messages: { role: 'user' | 'assistant'; text: string }[];
   status: 'ready' | 'sending' | 'uncertain';
 }
@@ -25,11 +36,35 @@ function assertDraftRevision(value: number) {
 }
 export function assertHtmlDesignDraft(value: HtmlDesignDraft, scope: HtmlDesignScope) {
   if (!value || !scope || ![scope.actor, scope.business, scope.document, scope.slide].every(v => id(v))
+    || scope.session !== undefined && !isDesignConversationSessionToken(scope.session)
     || !['instruction', 'literal', 'none'].includes(value.copyMode) || !['ready', 'sending', 'uncertain'].includes(value.status)
+    || value.designBase !== undefined && !['current', 'version', 'deck', 'new'].includes(value.designBase)
     || ![value.instruction, value.feedback, value.copy].every(v => typeof v === 'string' && v.length <= 16000)
     || !Array.isArray(value.references) || value.references.length > 3
     || !Array.isArray(value.messages) || value.messages.length > 40) throw Error('invalid_html_design_draft');
   const referenceIds = new Set<string>();
+  if (value.designSource !== undefined) {
+    assertConversationDesignSource(value.designSource);
+    if (value.designSource.source.kind === 'asset' && value.designSource.source.asset.business_id !== scope.business)
+      throw Error('invalid_html_design_source');
+  }
+  if (value.sourceSlide !== undefined) {
+    const source = value.designSource?.source, slide = value.sourceSlide;
+    if (source?.kind !== 'slide' || slide?.id !== source.slide_id || String(slide?.revision) !== source.revision
+      || typeof slide.html !== 'string' || slide.html.length > 16 * 1024 * 1024
+      || slide.mounted_assets?.some(item => item?.asset?.business_id !== scope.business)) throw Error('invalid_html_design_source');
+    assertPresentationSlides([slide]);
+  }
+  if (value.sourceReference !== undefined) {
+    if (!value.designSource || value.designSource.source.kind === 'reference' && value.sourceReference.id !== value.designSource.source.reference_id)
+      throw Error('invalid_html_design_source');
+    assertHtmlDesignDraft({ ...emptyHtmlDesignDraft(), references: [value.sourceReference] }, scope);
+  }
+  if (value.inspection && (!Array.isArray(value.inspection.reference_ids) || value.inspection.reference_ids.length > 1
+    || value.inspection.reference_ids.some(reference => typeof reference !== 'string' || !/^deck:[a-f0-9]{64}$/.test(reference))
+    || !Array.isArray(value.inspection.examples) || value.inspection.examples.length > 3
+    || value.inspection.examples.some(example => typeof example !== 'string' || !example.trim() || example.length > 40000)))
+    throw Error('invalid_html_design_inspection');
   for (const item of value.references) {
     if (!item || !(item.blob instanceof Blob) || item.blob.type !== 'image/png' || !item.blob.size || item.blob.size > 8388608
       || typeof item.sha256 !== 'string' || !/^[a-f0-9]{64}$/.test(item.sha256) || item.id !== `reference:${item.sha256}`
@@ -39,6 +74,10 @@ export function assertHtmlDesignDraft(value: HtmlDesignDraft, scope: HtmlDesignS
   for (const item of value.messages) if (!item || !['user', 'assistant'].includes(item.role) || typeof item.text !== 'string'
     || item.text.length > 16000) throw Error('invalid_html_design_history');
   const p = value.proposal;
+  if (p?.visualReview && (!['passed', 'needs_review', 'unavailable'].includes(p.visualReview.status)
+    || !Number.isInteger(p.visualReview.repairs) || p.visualReview.repairs < 0 || p.visualReview.repairs > 2
+    || !Array.isArray(p.visualReview.issues) || p.visualReview.issues.length > 20
+    || p.visualReview.issues.some(issue => typeof issue !== 'string' || issue.length > 4000))) throw Error('invalid_html_design_review');
   if (p && (typeof p.html !== 'string' || p.html.length > 16 * 1024 * 1024
     || !p.target || p.target.document !== scope.document || p.target.slide !== scope.slide || !Number.isSafeInteger(p.target.revision) || p.target.revision < 1
     || !['insert', 'replace'].includes(p.intent) || !p.canvas || ![p.canvas.width, p.canvas.height].every(n => Number.isSafeInteger(n) && n >= 256 && n <= 3840)
@@ -53,9 +92,13 @@ export function assertHtmlDesignDraft(value: HtmlDesignDraft, scope: HtmlDesignS
     assertPresentationSlides([pending.source]);
   }
 }
+/** JSON storage may reorder object keys; target identity depends only on its values. */
+export function sameHtmlDesignTarget(a: HtmlDesignTarget | null | undefined, b: HtmlDesignTarget | null | undefined): boolean {
+  return !!a && !!b && a.document === b.document && a.slide === b.slide && a.revision === b.revision;
+}
 export function assertHtmlDesignTarget(proposal: HtmlDesignProposal, current: HtmlDesignTarget) {
   if (!proposal?.target || !current || !id(current.document) || !id(current.slide) || !Number.isSafeInteger(current.revision) || current.revision < 1
-    || proposal.target.document !== current.document || proposal.target.slide !== current.slide || proposal.target.revision !== current.revision) {
+    || !sameHtmlDesignTarget(proposal.target, current)) {
     throw Error('El lienzo cambió. La propuesta se conserva; vuelve a la versión de origen o inicia un encargo sobre la versión actual.');
   }
 }
@@ -64,7 +107,7 @@ export function assertHtmlDesignTarget(proposal: HtmlDesignProposal, current: Ht
  * version is dropped (the conversation keeps it in its versions); instruction, copy, references and messages stay. */
 export function leaveHtmlDesignDraft(saved: HtmlDesignDraft | null, current: HtmlDesignDraft, target: HtmlDesignTarget): HtmlDesignDraft {
   const next = structuredClone(saved ?? current), p = next.proposal?.target;
-  const same = !!p && p.document === target.document && p.slide === target.slide && p.revision === target.revision;
+  const same = sameHtmlDesignTarget(p, target);
   return { ...next, status: 'ready', proposal: same ? next.proposal : null };
 }
 export interface HtmlDesignRecord { revision: number; value: HtmlDesignDraft }
@@ -80,7 +123,7 @@ export async function assertHtmlDesignReferenceBytes(references: PreparedPresent
 export async function openHtmlDesignDraft(inputScope: HtmlDesignScope) {
   const scope = { ...inputScope };
   assertHtmlDesignDraft(emptyHtmlDesignDraft(), scope);
-  const key = JSON.stringify([scope.actor, scope.business, scope.document, scope.slide]);
+  const key = JSON.stringify([scope.actor, scope.business, scope.document, scope.slide, ...(scope.session ? [scope.session] : [])]);
   const db = await new Promise<IDBDatabase>((resolve, reject) => {
     let failed = false;
     const request = indexedDB.open('scory-html-design-workspace-v1', 1);
@@ -110,10 +153,12 @@ export async function openHtmlDesignDraft(inputScope: HtmlDesignScope) {
     });
   }
   return {
-    async read() { const record = await transact(); if (record) await assertHtmlDesignReferenceBytes(record.value.references); return record; },
+    async read() { const record = await transact(); if (record) await assertHtmlDesignReferenceBytes([...record.value.references,
+      ...(record.value.sourceReference ? [record.value.sourceReference] : [])]); return record; },
     async write(revision: number, value: HtmlDesignDraft) {
       assertDraftRevision(revision); const frozen = structuredClone(value); assertHtmlDesignDraft(frozen, scope);
-      await assertHtmlDesignReferenceBytes(frozen.references); return await transact(revision, frozen) as HtmlDesignRecord;
+      await assertHtmlDesignReferenceBytes([...frozen.references, ...(frozen.sourceReference ? [frozen.sourceReference] : [])]);
+      return await transact(revision, frozen) as HtmlDesignRecord;
     },
     close() { closed = true; db.close(); },
   };

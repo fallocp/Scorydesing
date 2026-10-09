@@ -4,8 +4,10 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.53.0";
 import { fetchBusinessContext } from "../_shared/fetchBusinessContext.ts";
 import { callOpenAI } from '../_shared/callOpenAI.ts';
 import { buildSlideExamples } from '../_shared/slideExamples.ts';
-import { buildDesignCanvasHtmlMessages, DESIGN_CANVAS_HTML_LIMITS, DesignCanvasHtmlError,
-  finalizeDesignCanvasHtml, parseDesignCanvasHtmlRequest } from '../_shared/designCanvasHtml.ts';
+import { DESIGN_CANVAS_HTML_LIMITS, DesignCanvasHtmlError,
+  parseDesignCanvasHtmlRequest } from '../_shared/designCanvasHtml.ts';
+import { buildDesignCanvasReviewMessages, parseDesignCanvasReview } from '../_shared/designCanvasReview.ts';
+import { generateDesignCanvas } from '../_shared/designCanvasGeneration.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -777,15 +779,20 @@ serve(async (req) => {
       ]);
       if (tenantRead.error || !tenantRead.data) throw new DesignCanvasHtmlError('business_access_denied', 'No tienes acceso a esta marca o está inactiva.', 403);
       if (profileRead.error) throw new DesignCanvasHtmlError('brand_context_unavailable', 'No se pudo cargar la identidad de marca. Inténtalo de nuevo.', 503);
-      const messages = buildDesignCanvasHtmlMessages(canvasRequest, { ...tenantRead.data, profile: profileRead.data });
-      const model = canvasRequest.current_html
+      const brand = { ...tenantRead.data, profile: profileRead.data };
+      const reviewing = canvasRequest.action === 'review';
+      const model = reviewing ? (Deno.env.get('SLIDE_REVIEW_MODEL') || Deno.env.get('SLIDE_FIX_MODEL') || 'gpt-5.4-mini') : canvasRequest.current_html
         ? (Deno.env.get('SLIDE_FIX_MODEL') || 'gpt-5.4-mini')
         : (Deno.env.get('SLIDE_MODEL') || 'gpt-5.4-mini');
-      const result = await callOpenAI({ model, messages, max_completion_tokens: 12000, timeoutMs: 120_000 });
-      if (!result.success) return new Response(JSON.stringify({ error: result.error, message: result.message }), {
-        status: result.status || 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      const call = async (messages: Parameters<typeof callOpenAI>[0]['messages'], repair = false) => {
+        const result = await callOpenAI({ model, messages, max_completion_tokens: reviewing ? 4000 : 12000, timeoutMs: reviewing || repair ? 60_000 : 120_000 });
+        if (!result.success) throw new DesignCanvasHtmlError(result.error, result.message, result.status || 502);
+        return result.content || '';
+      };
+      if (reviewing) return new Response(JSON.stringify({ review: parseDesignCanvasReview(await call(buildDesignCanvasReviewMessages(canvasRequest, brand)), canvasRequest) }), {
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
-      const html = finalizeDesignCanvasHtml(result.content || '', canvasRequest, [tenantRead.data.name]);
+      const html = await generateDesignCanvas(canvasRequest, brand, call);
       return new Response(JSON.stringify({ html, canvas: canvasRequest.canvas, business_id: canvasRequest.business_id }), {
         status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });

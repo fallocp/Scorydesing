@@ -1,18 +1,20 @@
 import type { AssetVersion, DesignContext, DesignOperation } from '../../../supabase/functions/_shared/desaing/contracts';
 import type { DesignCopy, DesignUnderstanding, ExplorationRequest, IdeaContent } from '../../../supabase/functions/_shared/desaing/explorationContracts';
-import type { ConversationNextAction } from '../../../supabase/functions/_shared/desaing/conversationActions';
+import { assertConversationDesignSource, type ConversationDesignSource, type ConversationNextAction } from '../../../supabase/functions/_shared/desaing/conversationActions';
+import { assertDesignElementEdits } from '../../../supabase/functions/_shared/desaing/designElementEdits';
 import { COMPOSITION_LIMITS } from '../../../supabase/functions/_shared/desaing/composition';
 import { assertDesignUnderstanding, assertExplorationRequest } from '../../../supabase/functions/_shared/desaing/exploration';
 import { parseServerRequest } from '../../../supabase/functions/_shared/desaing/serverRequest';
 import { canonicalExploration } from '../../../supabase/functions/_shared/desaing/explorationRepository';
 import type { DesignBrandContext } from './designBrandContext';
 import type { PreparedPresentationReference } from './presentationReferences';
+import { isDesignConversationSessionId, type DesignConversationSessionId } from '../../../supabase/functions/_shared/desaing/conversationSessions';
 import { assertHtmlDesignDraft, assertHtmlDesignReferenceBytes, emptyHtmlDesignDraft,
   type HtmlDesignScope, type HtmlDesignTarget, type HtmlDesignProposal } from './htmlDesignDraft';
 
-export type DesignConversationScope = HtmlDesignScope;
+export type DesignConversationScope = Omit<HtmlDesignScope, 'session'> & { session?: DesignConversationSessionId };
 export interface DesignConversationMessage { id: string; turn_id: string; role: 'user' | 'assistant'; text: string }
-type VersionBase = { id: string; turn_id: string; parent_id?: string; target: HtmlDesignTarget };
+type VersionBase = { id: string; turn_id: string; parent_id?: string; target: HtmlDesignTarget; design_source?: ConversationDesignSource };
 export type DesignConversationVersion = VersionBase & (
   { kind: 'image'; asset: AssetVersion } | { kind: 'html'; proposal: HtmlDesignProposal;
     composition?: { request_key: string; source: AssetVersion; unresolved_slots: string[] } }
@@ -24,11 +26,18 @@ export interface DesignConversationPending {
 }
 export interface DesignConversationState {
   schema_version: 1; epoch: number; target: HtmlDesignTarget; mode: 'execute_change' | 'explore_design';
+  /** A reset creates a new draft namespace without recycling old operation identities. */
+  session_generation?: number;
   messages: DesignConversationMessage[]; references: PreparedPresentationReference[];
   brand: DesignBrandContext | null; brand_key: string | null;
   copy: DesignCopy; understanding: DesignUnderstanding | null; ideas: IdeaContent[]; next_action: ConversationNextAction | null;
   versions: DesignConversationVersion[]; selected_version_id: string | null;
   pending: DesignConversationPending | null; completed_action_ids: string[];
+  /** Optional for backwards-compatible snapshots written before explicit plans. */
+  confirmation?: { context_key: string } | null;
+  inspected_slide_ids?: string[];
+  design_source?: ConversationDesignSource | null;
+  preferences?: { format: 'html' | 'image'; base: 'current' | 'version' | 'deck' | 'new' };
 }
 export interface DesignConversationRecord { revision: number; scope: DesignConversationScope; value: DesignConversationState }
 /** update must execute atomically against the last committed value, including across tabs. */
@@ -49,7 +58,16 @@ const id = (value: unknown): value is string => text(value, 256) && !/[\x00-\x1f
 const positive = (value: unknown): value is number => typeof value === 'number' && Number.isSafeInteger(value) && value > 0;
 const check = (condition: unknown, code = 'invalid_design_conversation') => { if (!condition) throw Error(code); };
 function assertScope(scope: DesignConversationScope) {
-  check(keys(scope, ['actor', 'business', 'document', 'slide']) && Object.values(scope).every(id), 'conversation_scope_mismatch');
+  check(keys(scope, ['actor', 'business', 'document', 'slide', 'session'], ['actor', 'business', 'document', 'slide'])
+    && [scope.actor, scope.business, scope.document, scope.slide].every(id)
+    && (scope.session === undefined || isDesignConversationSessionId(scope.session)), 'conversation_scope_mismatch');
+}
+/** Preserve the exact legacy scope/key for the first conversation. */
+export function canonicalDesignConversationScope(input: DesignConversationScope): DesignConversationScope {
+  assertScope(input);
+  const scope = structuredClone(input);
+  if (scope.session === 'main') delete scope.session;
+  return scope;
 }
 function assertTarget(target: HtmlDesignTarget, scope: DesignConversationScope) {
   check(keys(target, ['document', 'slide', 'revision']) && target.document === scope.document && target.slide === scope.slide
@@ -85,13 +103,25 @@ function contextFor(value: DesignConversationState, scope: DesignConversationSco
     ] };
 }
 function assertNextAction(action: ConversationNextAction, refs: string[]) {
-  check(keys(action, ['kind', 'intent', 'instruction', 'reference_ids', 'reason', ...('from_slide' in action ? ['from_slide'] : [])])
+  check(keys(action, ['kind', 'intent', 'instruction', 'reference_ids', 'reason', ...['from_slide', 'slide_ids', 'design_source', 'element_edits', 'element_html_hash'].filter(key => key in action)])
     && (action.from_slide === undefined || action.from_slide === true && action.kind === 'refine_html')
-    && ['discuss', 'generate_image', 'edit_image', 'create_html', 'refine_html', 'convert_image_to_html', 'explore_ideas'].includes(action.kind)
+    && ['discuss', 'generate_image', 'edit_image', 'create_html', 'refine_html', 'convert_image_to_html', 'explore_ideas', 'inspect_slides', 'edit_elements'].includes(action.kind)
     && ['requested', 'suggested', 'clarify'].includes(action.intent) && text(action.instruction, 6000, action.kind === 'discuss') && text(action.reason, 1200)
     && (action.intent !== 'clarify' || action.kind === 'discuss') && (action.kind !== 'discuss' || action.intent !== 'requested')
     && Array.isArray(action.reference_ids) && action.reference_ids.length <= 4 && new Set(action.reference_ids).size === action.reference_ids.length
     && action.reference_ids.every(value => refs.includes(value)));
+  if (action.kind === 'inspect_slides') check(Array.isArray(action.slide_ids) && action.slide_ids.length > 0 && action.slide_ids.length <= 12
+    && action.slide_ids.every(id) && new Set(action.slide_ids).size === action.slide_ids.length);
+  else check(action.slide_ids === undefined);
+  if (action.design_source !== undefined) {
+    assertConversationDesignSource(action.design_source);
+    check(['generate_image', 'edit_image', 'create_html', 'refine_html', 'convert_image_to_html'].includes(action.kind) && !action.from_slide);
+    if (action.kind === 'convert_image_to_html') check(action.design_source.mode === 'replicate' && action.design_source.source.kind === 'asset');
+  }
+  if (action.kind === 'edit_elements') {
+    assertDesignElementEdits(action.element_edits);
+    check(typeof action.element_html_hash === 'string' && /^[a-f0-9]{64}$/.test(action.element_html_hash));
+  } else check(action.element_edits === undefined && action.element_html_hash === undefined);
 }
 export function emptyDesignConversation(target: HtmlDesignTarget): DesignConversationState {
   return { schema_version: 1, epoch: 1, target: structuredClone(target), mode: 'execute_change', messages: [], references: [], brand: null, brand_key: null,
@@ -102,11 +132,25 @@ export function emptyDesignConversation(target: HtmlDesignTarget): DesignConvers
 /** Only typed data enters persistence: no auth sessions, arbitrary request headers or credentials. */
 export function assertDesignConversation(value: DesignConversationState, scope: DesignConversationScope) {
   assertScope(scope);
-  check(keys(value, ['schema_version', 'epoch', 'target', 'mode', 'messages', 'references', 'brand', 'brand_key', 'copy', 'understanding', 'ideas', 'next_action',
-    'versions', 'selected_version_id', 'pending', 'completed_action_ids']) && value.schema_version === 1 && positive(value.epoch)
+  const draftScope = { actor: scope.actor, business: scope.business, document: scope.document, slide: scope.slide };
+  const required = ['schema_version', 'epoch', 'target', 'mode', 'messages', 'references', 'brand', 'brand_key', 'copy', 'understanding', 'ideas', 'next_action',
+    'versions', 'selected_version_id', 'pending', 'completed_action_ids'];
+  check(keys(value, [...required, 'confirmation', 'inspected_slide_ids', 'preferences', 'design_source', 'session_generation'], required) && value.schema_version === 1 && positive(value.epoch)
+    && (value.session_generation === undefined || positive(value.session_generation) && value.session_generation <= 1000000000)
     && ['execute_change', 'explore_design'].includes(value.mode));
   assertTarget(value.target, scope);
-  assertHtmlDesignDraft({ ...emptyHtmlDesignDraft(), references: value.references }, scope);
+  const assertSource = (source: ConversationDesignSource) => {
+    assertConversationDesignSource(source);
+    if (source.source.kind === 'asset') assertAsset(source.source.asset, scope);
+  };
+  if (value.design_source !== undefined && value.design_source !== null) assertSource(value.design_source);
+  if (value.confirmation != null) check(keys(value.confirmation, ['context_key']) && text(value.confirmation.context_key, 262144)
+    && value.next_action && !['discuss', 'explore_ideas', 'inspect_slides'].includes(value.next_action.kind));
+  if (value.inspected_slide_ids !== undefined) check(Array.isArray(value.inspected_slide_ids) && value.inspected_slide_ids.length <= 12
+    && value.inspected_slide_ids.every(id) && new Set(value.inspected_slide_ids).size === value.inspected_slide_ids.length);
+  if (value.preferences !== undefined) check(keys(value.preferences, ['format', 'base']) && ['html', 'image'].includes(value.preferences.format)
+    && ['current', 'version', 'deck', 'new'].includes(value.preferences.base));
+  assertHtmlDesignDraft({ ...emptyHtmlDesignDraft(), references: value.references }, draftScope);
   check(Array.isArray(value.messages) && value.messages.length <= 200, 'conversation_message_limit');
   const messageIds = new Set<string>();
   for (const message of value.messages) {
@@ -127,17 +171,19 @@ export function assertDesignConversation(value: DesignConversationState, scope: 
       && new Set(idea.reference_ids).size === idea.reference_ids.length && idea.reference_ids.every(ref => refs.includes(ref)));
   }
   if (value.next_action !== null) assertNextAction(value.next_action, refs);
+  if (value.next_action?.design_source) assertSource(value.next_action.design_source);
   check(Array.isArray(value.versions) && value.versions.length <= 20, 'conversation_version_limit');
   const versionIds = new Set<string>();
   for (const version of value.versions) {
-    check(keys(version, ['id', 'turn_id', 'parent_id', 'target', 'kind', ...(version.kind === 'image' ? ['asset'] : ['proposal', 'composition'])],
+    check(keys(version, ['id', 'turn_id', 'parent_id', 'target', 'kind', 'design_source', ...(version.kind === 'image' ? ['asset'] : ['proposal', 'composition'])],
       ['id', 'turn_id', 'target', 'kind', ...(version.kind === 'image' ? ['asset'] : ['proposal'])])
       && id(version.id) && id(version.turn_id) && ['image', 'html'].includes(version.kind) && !versionIds.has(version.id)
       && (version.parent_id === undefined || versionIds.has(version.parent_id)));
     assertTarget(version.target, scope);
+    if (version.design_source !== undefined) assertSource(version.design_source);
     if (version.kind === 'image') assertAsset(version.asset, scope);
     else {
-      check(same(version.target, version.proposal.target)); assertHtmlDesignDraft({ ...emptyHtmlDesignDraft(), proposal: version.proposal }, scope);
+      check(same(version.target, version.proposal.target)); assertHtmlDesignDraft({ ...emptyHtmlDesignDraft(), proposal: version.proposal }, draftScope);
       if (version.composition) {
         const composition = version.composition;
         check(keys(composition, ['request_key', 'source', 'unresolved_slots']) && id(composition.request_key)
@@ -177,9 +223,11 @@ export function assertDesignConversation(value: DesignConversationState, scope: 
 
 function frozenContext(value: DesignConversationState) {
   return { target: value.target, epoch: value.epoch, mode: value.mode, references: value.references.map(({ blob: _blob, ...item }) => item), brand: value.brand,
-    copy: value.copy, selected_version_id: value.selected_version_id, understanding: value.understanding, ideas: value.ideas, next_action: value.next_action };
+    copy: value.copy, selected_version_id: value.selected_version_id, understanding: value.understanding, ideas: value.ideas, next_action: value.next_action,
+    confirmation: value.confirmation, inspected_slide_ids: value.inspected_slide_ids, preferences: value.preferences, design_source: value.design_source };
 }
 export function assertConversationTransition(previous: DesignConversationState, next: DesignConversationState) {
+  check((next.session_generation ?? 1) === (previous.session_generation ?? 1), 'conversation_session_changed');
   check(next.epoch >= previous.epoch, 'conversation_epoch_changed');
   check(next.target.revision >= previous.target.revision, 'conversation_target_changed');
   if (!same(previous.target, next.target)) check(next.epoch > previous.epoch, 'conversation_epoch_changed');
@@ -220,6 +268,7 @@ export function completeConversationAction(value: DesignConversationState, actio
   if (completion.version) { check(completion.version.turn_id === pending!.turn_id && same(completion.version.target, pending!.target)
     && !next.versions.some(item => item.id === completion.version!.id)); next.versions.push(structuredClone(completion.version)); next.selected_version_id = completion.version.id; }
   for (const key of ['copy', 'understanding', 'ideas', 'next_action'] as const) if (key in completion) Object.assign(next, { [key]: structuredClone(completion[key]) });
+  if ('next_action' in completion) next.confirmation = null;
   next.pending = null; next.completed_action_ids.push(actionId); return next;
 }
 export function advanceConversationEpoch(value: DesignConversationState, target: HtmlDesignTarget): DesignConversationState {
@@ -227,12 +276,26 @@ export function advanceConversationEpoch(value: DesignConversationState, target:
   return { ...structuredClone(value), epoch: value.epoch + 1, target: structuredClone(target) };
 }
 
+/** Explicit user reset only. The CAS revision survives so stale tabs cannot resurrect deleted chat. */
+export function resetDesignConversation(previous: DesignConversationState, target: HtmlDesignTarget): DesignConversationState {
+  check(!previous.pending, 'conversation_pending_unresolved');
+  check(target.document === previous.target.document && target.slide === previous.target.slide
+    && target.revision >= previous.target.revision, 'conversation_target_changed');
+  check(previous.epoch < Number.MAX_SAFE_INTEGER && (previous.session_generation ?? 1) < 1000000000, 'conversation_epoch_overflow');
+  return { ...emptyDesignConversation(target), epoch: previous.epoch + 1, session_generation: (previous.session_generation ?? 1) + 1 };
+}
+export function assertConversationReset(previous: DesignConversationState, next: DesignConversationState) {
+  check(same(next, resetDesignConversation(previous, next.target)), 'invalid_conversation_reset');
+}
+
 export function createDesignConversationStore(inputScope: DesignConversationScope, storage: DesignConversationStorage) {
-  const scope = structuredClone(inputScope); assertScope(scope); const key = JSON.stringify([scope.actor, scope.business, scope.document, scope.slide]);
+  const scope = canonicalDesignConversationScope(inputScope);
+  const key = JSON.stringify([scope.actor, scope.business, scope.document, scope.slide, ...(scope.session ? [scope.session] : [])]);
   let closed = false;
   function validateRecord(value: unknown): asserts value is DesignConversationRecord {
     const saved = value as DesignConversationRecord;
-    check(keys(saved, ['revision', 'scope', 'value']) && positive(saved.revision) && same(saved.scope, scope), 'conversation_scope_mismatch'); assertDesignConversation(saved.value, scope);
+    check(keys(saved, ['revision', 'scope', 'value']) && positive(saved.revision)
+      && same(canonicalDesignConversationScope(saved.scope), scope), 'conversation_scope_mismatch'); assertDesignConversation(saved.value, scope);
   }
   const assertOpen = () => check(!closed, 'conversation_store_closed');
   return {
@@ -252,12 +315,23 @@ export function createDesignConversationStore(inputScope: DesignConversationScop
       });
       assertOpen(); validateRecord(saved); return structuredClone(saved);
     },
+    async reset(revision: number, target: HtmlDesignTarget): Promise<DesignConversationRecord> {
+      assertOpen(); check(positive(revision) && revision < Number.MAX_SAFE_INTEGER, 'invalid_conversation_revision');
+      const frozenTarget = structuredClone(target); assertTarget(frozenTarget, scope);
+      const saved = await storage.update(key, previous => {
+        assertOpen(); validateRecord(previous);
+        check(previous.revision === revision, 'conversation_revision_conflict');
+        const value = resetDesignConversation(previous.value, frozenTarget); assertDesignConversation(value, scope);
+        return { revision: revision + 1, scope: structuredClone(scope), value };
+      });
+      assertOpen(); validateRecord(saved); return structuredClone(saved);
+    },
     close() { closed = true; storage.close(); },
   };
 }
 
 export async function openDesignConversationStore(scope: DesignConversationScope) {
-  const frozenScope = structuredClone(scope); assertScope(frozenScope);
+  const frozenScope = canonicalDesignConversationScope(scope);
   const db = await new Promise<IDBDatabase>((resolve, reject) => {
     let failed = false; const request = indexedDB.open('scory-design-conversation-v1', 1);
     request.onupgradeneeded = () => { if (failed) request.transaction?.abort(); else request.result.createObjectStore('conversations'); };

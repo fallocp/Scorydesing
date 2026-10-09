@@ -31,8 +31,17 @@ export const TEXT_HEADROOM = { remaining_micro_usd: 1000000, remaining_attempts:
 const requireValue = (value: unknown, code: string, status = 400): void => { if (!value) throw new ServerBoundaryError(code, status); };
 const validId = (value: string, max = 256) => typeof value === 'string' && value.trim().length > 0 && value.length <= max && !/[\x00-\x1f\x7f]/.test(value);
 const encoder = new TextEncoder();
-const providerErrors = new Set(['exploration_provider_timeout', 'exploration_provider_invalid_result', 'exploration_provider_response_too_large',
-  'exploration_provider_incomplete', 'exploration_provider_unexpected_output', 'exploration_provider_rejected', 'exploration_provider_unknown']);
+const definitiveProviderErrors = new Set(['exploration_provider_invalid_result', 'exploration_provider_response_too_large',
+  'exploration_provider_incomplete', 'exploration_provider_unexpected_output', 'exploration_provider_rejected',
+  'exploration_provider_output_limit', 'exploration_provider_refused']);
+const providerErrors = new Set([...definitiveProviderErrors, 'exploration_provider_timeout', 'exploration_provider_unknown']);
+// The journal's legacy `uncertain` status also stores completed calls with unusable
+// output. Preserve those known failures so recovery can release the conversation.
+function throwDefinitiveFailure(entry: ExplorationJournalEntry | null): void {
+  if (entry?.status === 'uncertain' && entry.error_code && definitiveProviderErrors.has(entry.error_code)) {
+    throw new ServerBoundaryError(entry.error_code, 502);
+  }
+}
 
 /** Conservative estimate at standard gpt-5.4-mini rates, not an invoice. Cached input is charged at full input rate.
  * Unknown or impossible counters preserve the complete reservation. */
@@ -68,6 +77,7 @@ export function createServerExploration(settings: ServerExplorationConfig, deps:
   function replay(entry: ExplorationJournalEntry, request: ExplorationRequest): ExplorationResult {
     requireValue(canonicalExploration(entry.request) === canonicalExploration(request), 'exploration_request_conflict', 409);
     if (entry.status === 'completed' && entry.result) return structuredClone(entry.result);
+    throwDefinitiveFailure(entry);
     throw new ServerBoundaryError('server_exploration_outcome_unknown', 503);
   }
   function remaining(): ServerExplorationCapabilities {
@@ -107,6 +117,7 @@ export function createServerExploration(settings: ServerExplorationConfig, deps:
     async recover(actorId, businessId, requestKey) {
       assertReadScope(businessId, actorId); requireValue(validId(requestKey, 200), 'invalid_exploration_request');
       const saved = await journal.read(businessId, actorId, requestKey);
+      throwDefinitiveFailure(saved);
       return saved?.status === 'completed' ? structuredClone(saved.result) : null;
     },
     async history(actorId, businessId, sessionId) {

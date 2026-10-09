@@ -1,7 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { assertDesignConversation, assertConversationTransition, openDesignConversationStore,
+  canonicalDesignConversationScope, assertConversationReset, resetDesignConversation,
   type DesignConversationScope, type DesignConversationState, type DesignConversationRecord } from './designConversationStore';
-import { assertHtmlDesignReferenceBytes } from './htmlDesignDraft';
+import { assertHtmlDesignReferenceBytes, type HtmlDesignTarget } from './htmlDesignDraft';
 import { createContinuityStore, openContinuityCache, type ContinuityStatus, type ContinuityRemote, type ContinuityStore } from '../desaing/continuityStore';
 import { openFreeDesignStore } from '../desaing/freeDesignStore';
 import { assertFreeDesignWorkspace, type FreeDesignScope, type FreeDesignWorkspace } from '../desaing/freeDesignDocument';
@@ -9,9 +10,10 @@ import { assertFreeDesignWorkspace, type FreeDesignScope, type FreeDesignWorkspa
 const bucket = 'desaing-conversation-references';
 type RemoteReference = Omit<DesignConversationState['references'][number], 'blob'> & { storage_path: string };
 type RemoteConversation = Omit<DesignConversationState, 'references'> & { references: RemoteReference[] };
-export type SyncedConversationStore = Omit<ContinuityStore<DesignConversationState>, 'read' | 'write'> & {
+export type SyncedConversationStore = Omit<ContinuityStore<DesignConversationState>, 'read' | 'write' | 'reset'> & {
   read(): Promise<DesignConversationRecord | null>;
   write(revision: number, value: DesignConversationState): Promise<DesignConversationRecord>;
+  reset(revision: number, target: HtmlDesignTarget): Promise<DesignConversationRecord>;
 };
 export type ConversationSyncObserver = (status: ContinuityStatus) => void;
 const digest = async (bytes: BufferSource) => Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)), n => n.toString(16).padStart(2, '0')).join('');
@@ -26,8 +28,10 @@ const fail = (error: { message?: string; code?: string } | null) => {
 export function createSupabaseContinuityPort<T>(client: SupabaseClient<any>, scope: DesignConversationScope, kind: 'conversation' | 'free_workspace', codec: {
   encode(value: T): Promise<unknown>; decode(value: unknown): Promise<T>;
 }): ContinuityRemote<T> & { assertSession(): Promise<void> } {
-  const identity = structuredClone(scope);
-  const args = { p_actor_id: identity.actor, p_business_id: identity.business, p_kind: kind, p_document_id: identity.document, p_slide_id: identity.slide };
+  const identity = canonicalDesignConversationScope(scope);
+  if (kind === 'free_workspace' && identity.session) throw Error('conversation_scope_mismatch');
+  const args = { p_actor_id: identity.actor, p_business_id: identity.business, p_kind: kind, p_document_id: identity.document, p_slide_id: identity.slide,
+    ...(identity.session ? { p_session_id: identity.session } : {}) };
   async function assertSession() {
     const { data, error } = await client.auth.getSession();
     if (error || data.session?.user.id !== identity.actor) throw Error('server_session_changed');
@@ -49,11 +53,18 @@ export function createSupabaseContinuityPort<T>(client: SupabaseClient<any>, sco
       const { data, error } = await client.rpc('desaing_commit_continuity', { ...args, p_expected_revision: expected, p_mutation_id: id, p_snapshot: encoded });
       await assertSession(); fail(error); return unpack(data);
     },
+    async reset(expected, id, value) {
+      if (kind !== 'conversation') throw Error('invalid_conversation_reset');
+      await assertSession(); const encoded = await codec.encode(value); await assertSession();
+      const { data, error } = await client.rpc('desaing_reset_continuity', { ...args, p_session_id: identity.session ?? 'main',
+        p_expected_revision: expected, p_mutation_id: id, p_snapshot: encoded });
+      await assertSession(); fail(error); return unpack(data);
+    },
   };
 }
 
 export function createConversationCodec(client: SupabaseClient<any>, scope: DesignConversationScope) {
-  const savedScope = structuredClone(scope), verified = new Map<string, Blob>();
+  const savedScope = canonicalDesignConversationScope(scope), verified = new Map<string, Blob>();
   const prefix = digest(new TextEncoder().encode(`${savedScope.document}\n${savedScope.slide}`))
     .then(hash => `${savedScope.actor}/${savedScope.business}/${hash}/`);
   async function validate(value: DesignConversationState) { assertDesignConversation(value, savedScope); await assertHtmlDesignReferenceBytes(value.references); }
@@ -98,10 +109,11 @@ export function createConversationCodec(client: SupabaseClient<any>, scope: Desi
 }
 
 export async function openSupabaseDesignConversationStore(client: SupabaseClient<any>, scope: DesignConversationScope, onStatus?: ConversationSyncObserver): Promise<SyncedConversationStore> {
-  const identity = structuredClone(scope), codec = createConversationCodec(client, identity);
+  const identity = canonicalDesignConversationScope(scope), codec = createConversationCodec(client, identity);
   const remote = createSupabaseContinuityPort(client, identity, 'conversation', codec);
   const cache = await openContinuityCache<DesignConversationState>(JSON.stringify(['conversation', identity]));
-  const store = createContinuityStore({ remote, cache, validate: codec.validate, transition: assertConversationTransition, onStatus, assertSession: remote.assertSession,
+  const store = createContinuityStore({ remote, cache, validate: codec.validate, transition: assertConversationTransition,
+    resetTransition: assertConversationReset, onStatus, assertSession: remote.assertSession,
     async legacy() {
       const local = await openDesignConversationStore(identity);
       try { return await local.read(); } finally { local.close(); }
@@ -110,6 +122,12 @@ export async function openSupabaseDesignConversationStore(client: SupabaseClient
   return { ...store,
     async read() { const record = await store.read(); return record ? { revision: record.revision, value: record.value, scope: structuredClone(identity) } : null; },
     async write(revision, value) { const record = await store.write(revision, value); return { revision: record.revision, value: record.value, scope: structuredClone(identity) }; },
+    async reset(revision, target) {
+      const previous = await store.read();
+      if (!previous || previous.revision !== revision) throw Error('conversation_revision_conflict');
+      const record = await store.reset(revision, resetDesignConversation(previous.value, target));
+      return { revision: record.revision, value: record.value, scope: structuredClone(identity) };
+    },
   };
 }
 

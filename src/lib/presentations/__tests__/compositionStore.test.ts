@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { assertCompositionDraft, assertCompositionTransition, emptyCompositionDraft, verifyCompositionDraft, type CompositionDraft } from '../compositionStore';
 import { htmlPng, htmlRequest, htmlResult } from '../../../../supabase/functions/_shared/desaing/__tests__/fixtures/htmlCompositionFixture';
-import { makeApprovedCompositionCopy, makeTextlessCompositionCopy } from '../../../../supabase/functions/_shared/desaing/composition';
+import { htmlCompositionSessionId, makeApprovedCompositionCopy, makeTextlessCompositionCopy } from '../../../../supabase/functions/_shared/desaing/composition';
 
 async function fixture() {
   const request = await htmlRequest(), bytes = htmlPng();
@@ -13,6 +13,17 @@ async function fixture() {
   return { scope, value };
 }
 describe('persisted editable composition boundaries', () => {
+  it('keeps saved requests in their exact conversation generation rather than recovering another slot or a cleared session', async () => {
+    const { value, scope } = await fixture(), target = structuredClone(value.request!.context.target);
+    const session = htmlCompositionSessionId(target, 'session-2:g1');
+    value.request!.context.session_id = session;
+    await expect(verifyCompositionDraft(value, { ...scope, session })).resolves.toBeUndefined();
+    expect(value.request!.context.target).toEqual(target);
+    for (const token of [undefined, 'session-3:g1', 'session-2:g2']) {
+      const otherScope = { ...scope, session: htmlCompositionSessionId(target, token) };
+      await expect(verifyCompositionDraft(value, otherScope)).rejects.toThrow('composition_scope_mismatch');
+    }
+  });
   it('recovers manual editor changes separately from the immutable approved copy and result', async () => {
     const { value, scope } = await fixture(); const original = structuredClone(value);
     const piece = { ...value.request!.design_reference, asset_id: 'plane' };

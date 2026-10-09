@@ -2,7 +2,7 @@
 
 /**
  * render-server.js — HTTP server for rendering HTML to PNG via Puppeteer.
- * Designed for cloud deployment (Fly.io, Railway, etc.) and local development.
+ * Runs locally or on the same server as the application.
  *
  * Usage: node scripts/render-server.js
  * Runs on PORT (default 3333)
@@ -11,14 +11,21 @@
  *   POST /render       — Single render: { html, width, height, filename, waitForFonts? }
  *   POST /render-batch — Batch render: { items: [{ html, width, height, filename }], waitForFonts? }
  *   GET  /health       — Health check: { status, puppeteer, activePages }
+ *   POST /design-preview — Design screenshot and layout diagnostics
+ *   POST /reference-import — PDF/PPTX pages and public web references
  *
- * Auth: Set RENDER_SERVICE_TOKEN env var to require Bearer token authentication.
+ * Previews/imports: local loopback in development; user session + brand access in production.
+ * Legacy exports: RENDER_SERVICE_TOKEN retains their existing Bearer-token contract.
  */
 
 const http = require('http');
 const puppeteer = require('puppeteer');
+const { inspectDesignLayout } = require('./design-diagnostics');
+const { handleReferenceImport, getActiveReferenceImports } = require('./reference-import');
+const { handleDesignPreview, getActiveDesignPreviews } = require('./design-preview');
 
 const PORT = process.env.PORT || 3333;
+const HOST = process.env.HOST || (process.env.NODE_ENV === 'production' ? '0.0.0.0' : '127.0.0.1');
 const AUTH_TOKEN = process.env.RENDER_SERVICE_TOKEN || null;
 const MAX_CONCURRENT = parseInt(process.env.MAX_CONCURRENT || '3', 10);
 const startTime = Date.now();
@@ -43,7 +50,7 @@ async function getBrowser() {
   return browser;
 }
 
-async function renderHtml(html, width, height, waitForFonts = false) {
+async function renderHtml(html, width, height, waitForFonts = false, includeDiagnostics = false) {
   const b = await getBrowser();
   const page = await b.newPage();
   activePages++;
@@ -61,13 +68,14 @@ async function renderHtml(html, width, height, waitForFonts = false) {
       await new Promise((r) => setTimeout(r, 500));
     }
 
+    const diagnostics = includeDiagnostics ? await page.evaluate(inspectDesignLayout) : undefined;
     const screenshot = await page.screenshot({
       type: 'png',
       clip: { x: 0, y: 0, width, height },
       encoding: 'base64',
     });
 
-    return screenshot;
+    return includeDiagnostics ? { pngBase64: screenshot, diagnostics } : screenshot;
   } finally {
     activePages--;
     await page.close();
@@ -207,13 +215,27 @@ const server = http.createServer(async (req, res) => {
       status: puppeteerConnected || activePages === 0 ? 'ok' : 'degraded',
       puppeteer: puppeteerConnected,
       activePages,
+      activeReferenceImports: getActiveReferenceImports(),
+      activeDesignPreviews: getActiveDesignPreviews(),
       maxConcurrent: MAX_CONCURRENT,
+      apiVersion: 2,
+      capabilities: ['design-preview', 'reference-import'],
       uptime: Math.floor((Date.now() - startTime) / 1000),
     });
     return;
   }
 
-  // Auth check for render endpoints
+  // New presentation endpoints use user sessions/RLS (or native loopback), not the legacy shared token.
+  if (req.method === 'POST' && ['/reference-import', '/renderer/reference-import'].includes(req.url)) {
+    await handleReferenceImport(req, res);
+    return;
+  }
+  if (req.method === 'POST' && ['/design-preview', '/renderer/design-preview'].includes(req.url)) {
+    await handleDesignPreview(req, res);
+    return;
+  }
+
+  // Preserve the existing auth contract for legacy export endpoints.
   if (!validateAuth(req)) {
     jsonResponse(res, 401, { error: 'Unauthorized' });
     return;
@@ -222,7 +244,7 @@ const server = http.createServer(async (req, res) => {
   // POST /render — Single render
   if (req.method === 'POST' && req.url === '/render') {
     try {
-      const { html, width, height, filename, waitForFonts } = await readBody(req);
+      const { html, width, height, filename, waitForFonts, includeDiagnostics } = await readBody(req);
 
       if (!html || !width || !height) {
         jsonResponse(res, 400, { error: 'Missing: html, width, height' });
@@ -231,11 +253,11 @@ const server = http.createServer(async (req, res) => {
 
       console.log(`Rendering ${filename || 'piece'} (${width}x${height})...`);
       const renderStart = Date.now();
-      const pngBase64 = await renderHtml(html, width, height, waitForFonts ?? true);
+      const rendered = await renderHtml(html, width, height, waitForFonts ?? true, includeDiagnostics === true);
       const renderTime = Date.now() - renderStart;
       console.log(`  ✅ Done: ${filename || 'piece'} (${renderTime}ms)`);
 
-      jsonResponse(res, 200, { pngBase64, filename: filename || 'piece.png', renderTime });
+      jsonResponse(res, 200, { ...(typeof rendered === 'string' ? { pngBase64: rendered } : rendered), filename: filename || 'piece.png', renderTime });
     } catch (err) {
       console.error('Render error:', err.message);
       jsonResponse(res, 500, { error: err.message });
@@ -310,13 +332,16 @@ const server = http.createServer(async (req, res) => {
   jsonResponse(res, 404, { error: 'Not found' });
 });
 
-server.listen(PORT, () => {
-  console.log(`\n🎨 Render Service running on port ${PORT}`);
+server.listen(PORT, HOST, () => {
+  console.log(`\n🎨 Render Service running on ${HOST}:${PORT}`);
   console.log(`   POST /render       — Single HTML → PNG`);
   console.log(`   POST /render-batch — Batch HTML → PNG (max ${MAX_CONCURRENT} concurrent)`);
   console.log(`   POST /render-pdf   — Slides → single multi-page PDF`);
+  console.log(`   POST /design-preview — Design screenshot and diagnostics`);
+  console.log(`   POST /reference-import — Document and web references`);
   console.log(`   GET  /health       — Health check`);
-  console.log(`   Auth: ${AUTH_TOKEN ? 'ENABLED (Bearer token)' : 'DISABLED (open)'}\n`);
+  console.log(`   Preview/import access: ${process.env.NODE_ENV === 'production' ? 'Supabase user session and brand membership' : 'local development; remote requests require a user session'}`);
+  console.log(`   Legacy export token: ${AUTH_TOKEN ? 'enabled' : 'not configured'}\n`);
 });
 
 // Cleanup on exit

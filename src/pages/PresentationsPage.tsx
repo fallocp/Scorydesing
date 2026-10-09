@@ -1,5 +1,5 @@
 /**
- * PresentationsPage — Editor y viewer de presentaciones HTML con branding Xending.
+ * PresentationsPage — Editor y viewer de presentaciones HTML por proyecto y marca.
  *
  * Permite:
  * - Visualizar presentaciones slide-by-slide (16:9)
@@ -306,9 +306,9 @@ function loadDraftDeck(draftKey: string, businessId: string | null): { deck: Dec
   return { deck: defaultDeck(), recoveredLegacy: false };
 }
 
-function PresentationsPageContent({ activeBusinessId }: { activeBusinessId: string | null }) {
+function PresentationsPageContent({ activeBusinessId, projectName }: { activeBusinessId: string | null; projectName?: string }) {
   const designService = usePresentationDesignService();
-  const [designTarget, setDesignTarget] = useState<{ documentId: string; slide: PresentationSlide; initialScope?: 'asset_in_region' | 'full_design' } | null>(null);
+  const [designTarget, setDesignTarget] = useState<{ documentId: string; slide: PresentationSlide } | null>(null);
   const [compositionTarget, setCompositionTarget] = useState<{ documentId: string; slide: PresentationSlide; asset?: RegisteredAssetVersion; copy?: string; copyMode?: 'approved_text' | 'no_text' } | null>(null);
   const [deckComposerTarget, setDeckComposerTarget] = useState<{ documentId: string; slide: PresentationSlide } | null>(null);
   const draftKey = `${DRAFT_STORAGE_KEY}:${activeBusinessId ?? 'unassigned'}`;
@@ -1266,19 +1266,10 @@ function PresentationsPageContent({ activeBusinessId }: { activeBusinessId: stri
           toast({ title: 'Imagen montada', description: 'La imagen y los textos se pueden editar por separado.' });
         }}
       />}
-      {designTarget?.initialScope === 'full_design' && activeBusinessId && designService && <UnifiedDesignWorkspace
-        key={`conversation:${activeBusinessId}:${designTarget.documentId}:${designTarget.slide.id}`}
-        service={designService} businessId={activeBusinessId} documentId={designTarget.documentId} slide={designTarget.slide}
-        deckSlides={slides} initialView="html" onClose={() => setDesignTarget(null)} onApply={next => {
-          if (!alive.current || (slidesOwnerIdRef.current ?? `draft:${activeBusinessId}`) !== designTarget.documentId) throw new Error('slide_revision_conflict');
-          setSlides(previous => reviseSlide(previous, { slide_id: designTarget.slide.id, expected_revision: designTarget.slide.revision,
-            html: next.html, mounted_assets: next.mounted_assets }));
-          toast({ title: 'Diseño aplicado', description: 'La conversación y sus versiones siguen guardadas para continuar después.' });
-        }} />}
-      {designTarget && designTarget.initialScope !== 'full_design' && activeBusinessId && designService && <ServerDesignPanel
+      {designTarget && activeBusinessId && designService && <ServerDesignPanel
         key={`${activeBusinessId}:${designTarget.documentId}:${designTarget.slide.id}`}
         service={designService} businessId={activeBusinessId} documentId={designTarget.documentId} slide={designTarget.slide}
-        initialScope={designTarget.initialScope}
+        initialScope="asset_in_region"
         onUseDesignForHtml={(asset, copy, copyMode) => { setCompositionTarget({ documentId: designTarget.documentId, slide: designTarget.slide, asset, copy, copyMode }); setDesignTarget(null); }}
         onClose={() => setDesignTarget(null)} onApply={next => {
           if (!alive.current || (slidesOwnerIdRef.current ?? `draft:${activeBusinessId}`) !== designTarget.documentId) throw new Error('slide_revision_conflict');
@@ -1322,6 +1313,7 @@ function PresentationsPageContent({ activeBusinessId }: { activeBusinessId: stri
       {generatorOpen && designService && activeBusinessId && slides[currentSlide] && <UnifiedDesignWorkspace
         key={`conversation:${activeBusinessId}:${slidesOwnerIdRef.current}:${slides[currentSlide].id}`}
         service={designService} businessId={activeBusinessId} documentId={slidesOwnerIdRef.current ?? `draft:${activeBusinessId}`} slide={slides[currentSlide]}
+        projectName={projectName} presentationName={presentations.find(item => item.id === activePresentationId)?.name ?? 'Sin guardar (nuevo)'}
         deckSlides={slides} initialView="html" onClose={() => setGeneratorOpen(false)}
         onApply={next => handleApplyGeneratedToCurrent(next.html, { document: slidesOwnerIdRef.current ?? `draft:${activeBusinessId}`,
           slide: slides[currentSlide].id, revision: slides[currentSlide].revision }, next.mounted_assets)}
@@ -1481,7 +1473,7 @@ function PresentationsPageContent({ activeBusinessId }: { activeBusinessId: stri
               Presentaciones
             </h1>
             <p className="text-sm text-muted-foreground">
-              Pitch decks y presentaciones con branding Xending
+              Diseña presentaciones con la identidad de tu marca y tus referencias
             </p>
           </div>
         </div>
@@ -1635,11 +1627,12 @@ function PresentationsPageContent({ activeBusinessId }: { activeBusinessId: stri
             variant="outline"
             size="sm"
             onClick={() => setGeneratorOpen(true)}
+            disabled={!activeBusinessId || cloudLoading}
             className="gap-2 border-[#FF7A4A] text-[#E85A2C]"
-            title="Abrir la conversación y empezar con HTML editable"
+            title="Diseñar con imágenes de referencia, el estilo de esta diapositiva o el de la presentación"
           >
             <Sparkles className="h-4 w-4" />
-            Crear HTML con IA
+            Diseñar con IA
           </Button>
           <Button variant="outline" size="sm" disabled={!activeBusinessId || cloudLoading}
             onClick={() => setMountTarget({ documentId: slidesOwnerIdRef.current ?? `draft:${activeBusinessId}`, slide: structuredClone(visibleSlide) })}
@@ -1649,9 +1642,6 @@ function PresentationsPageContent({ activeBusinessId }: { activeBusinessId: stri
           {designService && <Button variant="outline" size="sm" disabled={!activeBusinessId || cloudLoading}
             onClick={() => setDesignTarget({ documentId: slidesOwnerIdRef.current ?? `draft:${activeBusinessId}`, slide: structuredClone(visibleSlide) })}
             className="gap-2"><Sparkles className="h-4 w-4" />{designService.simulation ? 'Crear pieza de prueba' : 'Crear pieza para el slide'}</Button>}
-          {designService && <Button variant="outline" size="sm" disabled={!activeBusinessId || cloudLoading}
-            onClick={() => setDesignTarget({ documentId: slidesOwnerIdRef.current ?? `draft:${activeBusinessId}`, slide: structuredClone(visibleSlide), initialScope: 'full_design' })}
-            className="gap-2" title="Conversar, crear imágenes y pasar a HTML en el mismo espacio"><Sparkles className="h-4 w-4" />Diseñar con IA</Button>}
           {designService?.client.html && <Button variant="outline" size="sm" disabled={!activeBusinessId || cloudLoading}
             onClick={() => setCompositionTarget({ documentId: slidesOwnerIdRef.current ?? `draft:${activeBusinessId}`, slide: structuredClone(visibleSlide) })}
             className="gap-2">Usar diseño para HTML</Button>}
@@ -1939,8 +1929,8 @@ function PresentationsPageContent({ activeBusinessId }: { activeBusinessId: stri
 }
 
 function PresentationsPage() {
-  const { activeBusinessId } = useActiveBusiness();
-  return <PresentationsPageContent key={activeBusinessId ?? 'unassigned'} activeBusinessId={activeBusinessId} />;
+  const { activeBusinessId, activeBusiness } = useActiveBusiness();
+  return <PresentationsPageContent key={activeBusinessId ?? 'unassigned'} activeBusinessId={activeBusinessId} projectName={activeBusiness?.name} />;
 }
 
 export default PresentationsPage;

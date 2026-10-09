@@ -145,6 +145,36 @@ describe('durable authenticated textual planning', () => {
     expect(f.entries.get('request-1')).toMatchObject({ status: 'uncertain', settled_micro_usd: 975, result: null, usage: result().usage });
     expect(f.plan).toHaveBeenCalledTimes(1);
   });
+  it.each(['exploration_provider_invalid_result', 'exploration_provider_incomplete', 'exploration_provider_rejected',
+    'exploration_provider_unexpected_output', 'exploration_provider_response_too_large', 'exploration_provider_output_limit', 'exploration_provider_refused'])
+  ('recovers definitive %s without retrying the provider or leaving the conversation unresolved', async code => {
+    const f = fixture(); f.plan.mockRejectedValueOnce(new ExplorationProviderError(code, 'resp_text', result().usage));
+    await expect(f.boundary.plan(actor, request())).rejects.toMatchObject({ code, status: 502 });
+    await expect(f.boundary.recover(actor, business, 'request-1')).rejects.toMatchObject({ code, status: 502 });
+    await expect(f.boundary.plan(actor, request())).rejects.toMatchObject({ code, status: 502 });
+    expect(f.entries.get('request-1')).toMatchObject({ error_code: code, status: 'uncertain', result: null, settled_micro_usd: 975 });
+    expect(f.plan).toHaveBeenCalledTimes(1); expect(f.journal.claim).toHaveBeenCalledTimes(1);
+    expect(await f.boundary.recover(foreign, business, 'request-1')).toBeNull();
+    const altered = request(); altered.message = 'Changed message';
+    await expect(f.boundary.plan(actor, altered)).rejects.toMatchObject({ code: 'exploration_request_conflict', status: 409 });
+    expect(await f.boundary.plan(actor, request('request-2'))).toEqual(result('request-2'));
+    expect(f.plan).toHaveBeenCalledTimes(2);
+  });
+  it.each(['exploration_provider_timeout', 'exploration_provider_unknown'])
+  ('preserves ambiguous %s for recovery without claiming that it failed definitively', async code => {
+    const f = fixture(); f.plan.mockRejectedValueOnce(new ExplorationProviderError(code));
+    await expect(f.boundary.plan(actor, request())).rejects.toMatchObject({ code, status: 502 });
+    expect(await f.boundary.recover(actor, business, 'request-1')).toBeNull();
+    await expect(f.boundary.plan(actor, request())).rejects.toMatchObject({ code: 'server_exploration_outcome_unknown', status: 503 });
+    expect(f.plan).toHaveBeenCalledTimes(1);
+  });
+  it('recovers a definitive failure after losing the finish acknowledgement without a new provider call', async () => {
+    const f = fixture(); f.loseFinishAck();
+    f.plan.mockRejectedValueOnce(new ExplorationProviderError('exploration_provider_invalid_result'));
+    await expect(f.boundary.plan(actor, request())).rejects.toMatchObject({ code: 'server_exploration_outcome_unknown' });
+    await expect(f.boundary.recover(actor, business, 'request-1')).rejects.toMatchObject({ code: 'exploration_provider_invalid_result', status: 502 });
+    expect(f.plan).toHaveBeenCalledTimes(1);
+  });
   it('missing usage still permits storing usable ideas while retaining the conservative reservation', async () => {
     const f = fixture(); f.plan.mockResolvedValueOnce({ ...result(), usage: null });
     expect((await f.boundary.plan(actor, request())).ideas).toHaveLength(5);
@@ -156,8 +186,8 @@ describe('durable authenticated textual planning', () => {
     if (field === 'expired') f.setTime(config.expiresAt);
     // `policy`: the row read for this business belongs to another business.
     if (field === 'role') f.read.role = 'editor'; if (field === 'viewer') f.read.role = 'viewer'; if (field === 'policy') f.read.policy.business_id = foreign;
-    if (field === 'budget') f.read.policy.limit_micro_usd++; if (field === 'outputs') f.read.policy.max_image_outputs++;
-    if (field === 'reserve') f.read.policy.reservation_per_output_micro_usd++; if (field === 'profiles') f.read.policy.enabled_image_profiles.push('flare_candidate');
+    if (field === 'budget') f.read.policy.limit_micro_usd = 0; if (field === 'outputs') f.read.policy.max_image_outputs = 0;
+    if (field === 'reserve') f.read.policy.reservation_per_output_micro_usd = 0; if (field === 'profiles') f.read.policy.enabled_image_profiles.push('flare_candidate');
     if (field === 'responses') f.read.policy.responses_image_enabled = false; if (field === 'paused') f.read.policy.enabled = false;
     expect(await f.boundary.capabilities(business, actor)).toBeNull();
     await expect(f.boundary.plan(actor, request())).rejects.toBeInstanceOf(ServerBoundaryError);

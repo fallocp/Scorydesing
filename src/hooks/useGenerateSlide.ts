@@ -11,6 +11,8 @@ import { useMutation } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { DesignCanvasHtmlRequest } from '../../supabase/functions/_shared/designCanvasHtml';
 import { DesignHtmlRequestError } from '@/lib/presentations/htmlRequestError';
+import type { DesignReviewVerdict } from '@/lib/presentations/designVisualReview';
+import type { DesignLayoutDiagnostics } from '@/utils/xendingDesign/canvasRenderer';
 
 export interface GenerateSlideRequest {
   /** Intención / texto del usuario (opcional si se manda imagen). */
@@ -38,9 +40,9 @@ export interface GenerateSlideResponse {
 }
 export { DesignHtmlRequestError, isDefinitiveHtmlFailure } from '@/lib/presentations/htmlRequestError';
 
-async function generateSlide(
+async function invokeSlide(
   request: GenerateSlideRequest | (DesignCanvasHtmlRequest & { expectedActorId?: string }),
-): Promise<GenerateSlideResponse> {
+) {
   const canvasRequest = 'canvas' in request;
   const expectedActorId = canvasRequest ? request.expectedActorId : undefined;
   const assertActor = async () => {
@@ -64,9 +66,27 @@ async function generateSlide(
     throw new DesignHtmlRequestError(message || 'Error generando el slide', error.name === 'FunctionsHttpError');
   }
   if (data?.error) throw new DesignHtmlRequestError(data.message || data.error, true);
-  if (!data?.html) throw new DesignHtmlRequestError('La IA no devolvió HTML del slide', true);
   await assertActor();
+  return data;
+}
+
+async function generateSlide(request: GenerateSlideRequest | (DesignCanvasHtmlRequest & { expectedActorId?: string })): Promise<GenerateSlideResponse> {
+  const data = await invokeSlide(request);
+  if (!data?.html) throw new DesignHtmlRequestError('La IA no devolvió HTML del slide', true);
   return { html: data.html };
+}
+
+/** Uses the same authenticated canvas route, but asks for a visual verdict without generating HTML. */
+export async function reviewDesignCanvasHtml(request: DesignCanvasHtmlRequest & {
+  expectedActorId?: string; layout_diagnostics?: DesignLayoutDiagnostics;
+}): Promise<DesignReviewVerdict> {
+  const data = await invokeSlide({ ...request, action: 'review' });
+  const review = data?.review;
+  if (!review || typeof review.passed !== 'boolean' || !Array.isArray(review.issues)
+    || review.issues.some((issue: unknown) => typeof issue !== 'string') || typeof review.feedback !== 'string') {
+    throw new DesignHtmlRequestError('La IA no devolvió una revisión visual válida.', true);
+  }
+  return { passed: review.passed, issues: review.issues.slice(0, 20).map((issue: string) => issue.slice(0, 2000)), feedback: review.feedback.slice(0, 14000) };
 }
 
 export function useGenerateSlide() {
