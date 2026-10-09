@@ -70,7 +70,7 @@ No Xending wordmark.`;
  * viaja: la marca real se compone después en Xending Design (sección 54).
  */
 export const NEWS_NO_LOGO_DIRECTIVE =
-  'IMPORTANT — NO BRANDING: Do not render any logo, wordmark, brand name or company name (including "Xending") anywhere in the image. No text, no logos, no watermarks, no signage with readable text. Leave clean negative space in the declared text-safe area so headline, data, source, date and branding can be composited externally afterwards.';
+  'IMPORTANT — NO BRANDING: Do not render any logo, wordmark, brand name or company name (including "Xending") anywhere in the image. No text (other than the allowed chart figures and micro-labels), no logos, no watermarks, no signage with readable text. Leave clean negative space in the declared text-safe area so headline, source, date and branding can be composited externally afterwards.';
 
 /**
  * Reglas de paleta, materiales, luz y mapas (secciones 23–31), condensadas para

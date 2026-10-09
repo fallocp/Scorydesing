@@ -44,11 +44,17 @@ VERY IMPORTANT — keep it bright, airy and minimal, matching Xending's clean ed
 
 Keep a clear text-safe area on the left; the scene or object lives on the right.
 
-Layer only a subtle Xending data accent: one thin turquoise chart/exchange-rate line or a small rate label. No floating currency symbols, no flat/cartoon icons.
+The data accent is the exchange-rate chart of the currency pair in the story (e.g. USD/MXN): one thin chart line, optionally a small rate micro-label using only a figure from the story.
+
+Tie the accent color to the direction of the HEADLINE currency, not to the slope of the line: if the local currency appreciates or strengthens (e.g. the peso gains, even when the USD/MXN line goes DOWN), use a thin turquoise (#2ED4C7) line; if it depreciates or is under pressure, use restrained coral (#FF7A4A).
+
+If the story cites oil or energy as the cause, you MAY add only a small subordinate energy hint (e.g. a faint, softly-blurred oil barrel or oil cue in the background). It never dominates, never becomes an oil or refinery scene and carries no Brent/WTI label.
+
+No floating currency symbols, no flat/cartoon icons.
 
 The image must read as bright, premium, minimal financial editorial photography.
 
-Do not generate text or logos inside the image.`,
+Do not generate text (other than an allowed chart micro-label) or logos inside the image.`,
 };
 
 /** Sección 42 — Treasury / bonos / presión fiscal. */
@@ -97,7 +103,7 @@ DSLR editorial look, bright high-key daylight, clean pale stone and whites, shal
 
 This is a CENTRAL-BANK story: do NOT show the U.S. Treasury building, a generic commercial bank branch, a trading floor, a port or shipping containers. Never depict a recognizable real official's face or likeness.
 
-Do not generate text or the Xending logo.`,
+Do not generate text (other than an allowed chart micro-label) or the Xending logo.`,
 };
 
 /** Sección 43 — comercio / aranceles / T-MEC / mapa. */
@@ -123,7 +129,7 @@ Layer only a subtle Xending route accent over the photo: a couple of thin turquo
 
 Keep it airy, elegant and uncluttered.
 
-Do not generate text or the Xending logo.`,
+Do not generate text (other than an allowed chart micro-label) or the Xending logo.`,
 };
 
 /** Comercio energético / petróleo / crudo / geopolítica energética. */
@@ -139,17 +145,17 @@ Shoot ONE hyper-realistic energy scene, choosing whichever fits the specific sto
 (b) an oil refinery or pipeline infrastructure with clean metal and concrete;
 (c) a real oil tanker vessel at sea or transiting a strategic strait;
 (d) a marine loading dock / port energy terminal with pipes and valves;
-(e) a clean printed commodities market sheet with a subtle Brent/WTI price chart as the subject, on a bright desk.
+(e) a clean printed commodities market sheet with a subtle crude price chart as the subject, on a bright desk.
 
 DSLR editorial look, real materials (steel, concrete, water, paper), bright high-key daylight, clean whites, shallow depth of field, generous negative space. Keep a clear text-safe area on the left; the scene lives on the right.
 
-Layer only a subtle Xending data accent: one thin turquoise price line or a small "Brent"/"WTI" label. If the story is about geopolitical tension or supply risk (e.g. a strait chokepoint like Hormuz), you MAY add a restrained coral accent or a subtle geographic route cue — never a giant flag, never a cartoon map.
+Layer only a subtle Xending data accent: one thin turquoise price line, or a small "Brent"/"WTI" label only if the story names it. If the story is about geopolitical tension or supply risk (e.g. a strait chokepoint like Hormuz), you MAY add a restrained coral accent or a subtle geographic route cue — never a giant flag, never a cartoon map.
 
 This is an ENERGY story: do NOT show a Treasury or government building, a bank, a yield curve, bond reports or fiscal iconography.
 
 Avoid cartoon 3D, toy-like objects, neon, clutter, generic stock and fake dashboards.
 
-Do not generate text or logos.`,
+Do not generate text (other than an allowed chart micro-label) or logos.`,
 };
 
 /** Equities / bolsa / Wall Street / índices bursátiles (S&P 500, Nasdaq, Dow). */
@@ -205,7 +211,7 @@ Layer only a subtle Xending data accent: one thin turquoise line or a small labe
 
 Avoid cartoon 3D, toy-like objects, neon, clutter, generic stock and fake dashboards.
 
-Do not generate text or logos.`,
+Do not generate text (other than an allowed chart micro-label) or logos.`,
 };
 
 /** Sección 44 — Executive View / cierre editorial (Xending View, sección 36). */
@@ -226,7 +232,7 @@ Layer only a subtle Xending data accent over the photo: a small turquoise chart 
 
 The scene must read as real, premium financial research photography — not generic office stock.
 
-Do not generate text or logos.`,
+Do not generate text (other than an allowed chart micro-label) or logos.`,
 };
 
 // ---------------------------------------------------------------------------
@@ -249,7 +255,7 @@ Do not invent generic iconography if a real context can communicate the story be
 
 Avoid cartoonish 3D, stock-looking finance clichés, excessive color and clutter.
 
-Do not generate text or logos.`,
+Do not generate text (other than an allowed chart micro-label) or logos.`,
 };
 
 /** Sección 46 — fallback industrial / commodity / tecnología / supply-chain. */
@@ -268,7 +274,7 @@ The composition must feel like premium financial editorial photography rather th
 
 Avoid generic icons, cartoon styling and overly futuristic visuals.
 
-Do not generate text or logos.`,
+Do not generate text (other than an allowed chart micro-label) or logos.`,
 };
 
 /** Sección 47 — fallback geografía / rutas / flujos / geopolítica. */
@@ -285,7 +291,7 @@ Layer only the most relevant Xending flow accents over the photo: a few thin tur
 
 Keep it editorial, premium and analytical.
 
-Do not generate text or logos.`,
+Do not generate text (other than an allowed chart micro-label) or logos.`,
 };
 
 // ---------------------------------------------------------------------------

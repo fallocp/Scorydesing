@@ -84,12 +84,19 @@ const ENERGY_DOMAINS = new Set([
   'energy_geopolitics',
 ]);
 
-/** Señales de petróleo/energía en el texto de la nota (sin acentos, minúsculas). */
+/**
+ * Señales de petróleo/energía en el TITULAR (sin acentos, minúsculas). Solo
+ * cuentan en el titular: una mención de paso en subcopy/dato no fuerza energía.
+ * Términos completos, no la subcadena suelta "petrol".
+ */
 const ENERGY_KEYWORDS = [
   'brent',
   'wti',
   'crudo',
-  'petrol', // cubre "petroleo", "petroleos", "petrolero"
+  'petroleo', // cubre "petroleos"
+  'petrolera', // cubre "petroleras"
+  'petrolero', // cubre "petroleros"
+  'combustible', // cubre "combustibles"
   'barril',
   'opep',
   'opec',
@@ -110,22 +117,63 @@ function normalizeForMatch(s: string): string {
     .replace(/[\u0300-\u036f]/g, '');
 }
 
+/** Titular normalizado con padding: la señal fuerte de las guardias que sobreescriben al LLM. */
+function paddedHeadline(plan: NewsSlidePlan): string {
+  return ` ${normalizeForMatch(plan.headline ?? '')} `;
+}
+
+// ---------------------------------------------------------------------------
+// Guardia de FX (precede a energía: el peso es FX aunque el petróleo sea la causa)
+// ---------------------------------------------------------------------------
+
+/** Dominios que el LLM puede etiquetar y que son inequívocamente de divisas. */
+const FX_DOMAINS = new Set(['fx', 'currency', 'currencies', 'forex', 'exchange_rate']);
+
 /**
- * Dominios que representan una fuerza monetaria/fiscal/institucional. Cuando una
- * nota trae señal petrolera Y ADEMÁS una de estas fuerzas, no es una nota pura
- * de petróleo: es MIXTA (ej. "La Fed sube el tono y el petróleo presiona"). La
- * guardia de energía no debe borrar la institución primaria en ese caso.
+ * Frases de divisa/tipo de cambio en el TITULAR. NO "peso"/"dolar" sueltos
+ * ("tiene peso", "90 dolares"). " yen " con espacios para no chocar con
+ * "incluyen" ni "yendo".
  */
-const COMPETING_DOMAINS = new Set([
-  'rates',
-  'bonds',
-  'fiscal',
-  'central_bank',
-  'monetary_policy',
-  'inflation',
-  'banking',
-  'employment',
-]);
+const FX_KEYWORDS = [
+  'tipo de cambio',
+  'usdmxn',
+  'usd/mxn',
+  'peso mexicano',
+  'el peso',
+  'al peso', // "fortalece al peso", "dolar cae frente al peso"
+  'superpeso',
+  'divisa',
+  'dolar a peso',
+  'dolar frente al peso',
+  'frente al dolar',
+  'eurusd',
+  ' yen ',
+  ' yenes',
+  'euro frente',
+];
+
+/** Divisa nombrada en el titular ("Peso gana…"): con el LLM en fx, gana a la keyword de energía. */
+function headlineNamesCurrency(plan: NewsSlidePlan): boolean {
+  return /\bpesos?\b/.test(normalizeForMatch(plan.headline ?? ''));
+}
+
+/**
+ * Señal FX: frase de divisa/tipo de cambio en el titular, o titular que EMPIEZA
+ * con "Peso …"/"Pesos …"/"Superpeso" (sin artículo). Solo al inicio: "tiene peso"
+ * o "gana peso" a mitad del titular no son FX.
+ */
+function hasFxHeadline(plan: NewsSlidePlan): boolean {
+  const h = paddedHeadline(plan);
+  return /^ (?:pesos? |superpeso)/.test(h) || FX_KEYWORDS.some((k) => h.includes(k));
+}
+
+/** Cue de energía SUBORDINADO dentro de una nota FX (el petróleo es la causa, no el sujeto). */
+const FX_ENERGY_CUE =
+  'a very subtle, softly-blurred oil hint in the background (e.g. a distant oil barrel or faint crude-oil cue) — small, subordinate to the exchange-rate subject, never dominant, no label and no price';
+
+// ---------------------------------------------------------------------------
+// Fuerzas que compiten con la energía (historia mixta)
+// ---------------------------------------------------------------------------
 
 /**
  * Señales fuertes de una fuerza monetaria/fiscal/institucional en el texto.
@@ -174,21 +222,52 @@ function paddedText(plan: NewsSlidePlan): string {
 }
 
 /**
- * Señal de energía (detección tipo B): dominio de energía etiquetado por el
- * LLM, o keyword petrolera en el titular/subcopy/dato. Es la red que no depende
- * de que el modelo clasifique bien (fue el bug de "Brent arriba de 90").
+ * Coherencia de sujeto cuando una guardia cambia el arquetipo del LLM: evita
+ * "Primary subject: currency screen" + STYLE de energía en el mismo prompt.
  */
-function hasEnergySignal(domain: string, plan: NewsSlidePlan): boolean {
-  if (ENERGY_DOMAINS.has(domain.toLowerCase().trim())) return true;
-  const padded = paddedText(plan);
-  return ENERGY_KEYWORDS.some((k) => padded.includes(k));
+const GUARD_DIRECTION: Partial<
+  Record<NewsArchetypeId, { visual_subject: string; physical_context: string; supporting_elements: string[] }>
+> = {
+  fx: {
+    visual_subject:
+      'a bright, minimal financial trading desk with real monitors showing a softly-blurred exchange-rate chart of the currency pair in the story',
+    physical_context: 'modern financial office with daylight, foreign-exchange desk',
+    supporting_elements: ['one thin exchange-rate chart line'],
+  },
+  energy: {
+    visual_subject: 'a coastal oil terminal and storage tank farm under soft daylight',
+    physical_context: 'real oil and fuel infrastructure (terminal, pipes, valves)',
+    supporting_elements: ['pipes and valves', 'one thin crude price line'],
+  },
+  equities: {
+    visual_subject: 'a stock-exchange trading floor with large overhead market display boards',
+    physical_context: 'stock exchange / financial district',
+    supporting_elements: ['subtle ticker ribbon glow'],
+  },
+  central_bank: {
+    visual_subject: 'the neoclassical stone facade of a central-bank headquarters, empty of people',
+    physical_context: 'central-bank institution',
+    supporting_elements: ['a small policy-rate dial'],
+  },
+};
+
+/**
+ * Señal fuerte de energía en el TITULAR. Una mención de paso en subcopy/dato
+ * ("ante optimismo petrolero") no fuerza energía.
+ */
+function hasEnergyHeadline(plan: NewsSlidePlan): boolean {
+  const h = paddedHeadline(plan);
+  return ENERGY_KEYWORDS.some((k) => h.includes(k));
 }
 
-/** Señal de una fuerza monetaria/fiscal/institucional que compite con la energía. */
-function hasCompetingPrimary(domain: string, plan: NewsSlidePlan): boolean {
-  if (COMPETING_DOMAINS.has(domain.toLowerCase().trim())) return true;
-  const padded = paddedText(plan);
-  return COMPETING_KEYWORDS.some((k) => padded.includes(k));
+/**
+ * Fuerza monetaria/fiscal/institucional que compite con la energía, solo por
+ * keyword en el TITULAR. Sin chequeo de dominio del LLM: con `bonds` del LLM
+ * (el bug de "Brent arriba de 90") la nota se volvería mixta por error.
+ */
+function hasCompetingPrimary(plan: NewsSlidePlan): boolean {
+  const h = paddedHeadline(plan);
+  return COMPETING_KEYWORDS.some((k) => h.includes(k));
 }
 
 // ---------------------------------------------------------------------------
@@ -237,6 +316,12 @@ function hasEquitiesSignal(domain: string, plan: NewsSlidePlan): boolean {
   if (EQUITIES_DOMAINS.has(domain.toLowerCase().trim())) return true;
   const padded = paddedText(plan);
   return EQUITIES_KEYWORDS.some((k) => padded.includes(k));
+}
+
+/** Equities en el TITULAR: bloquea la guardia de energía ("Wall Street sube por petroleras"). */
+function hasEquitiesHeadline(plan: NewsSlidePlan): boolean {
+  const h = paddedHeadline(plan);
+  return EQUITIES_KEYWORDS.some((k) => h.includes(k));
 }
 
 // ---------------------------------------------------------------------------
@@ -295,10 +380,10 @@ export function buildResolverMessages(slidePlan: NewsSlidePlan[]): OpenAIMessage
 
 Para cada slide infiere:
 - domain: dominio de la noticia (fx, rates, bonds, fiscal, macro, trade, tariffs, energy, commodities, equities, companies, geopolitics, industry, central_bank, forecast, employment, inflation, logistics, technology, semiconductors, banking, regulation, supply_chain, u otro si aplica). La lista NO es cerrada.
-- mechanism: qué hace (rises, falls, expands, contracts, tightens, cuts, holds, negotiates, restricts, supports, pressures, revises, projects, surprises, accelerates, slows, recovers, breaks_level, adds_risk, reduces_risk, u otro).
+- mechanism: qué hace (rises, falls, expands, contracts, tightens, cuts, holds, negotiates, restricts, supports, pressures, revises, projects, surprises, accelerates, slows, recovers, breaks_level, adds_risk, reduces_risk, appreciates, depreciates, u otro). Para FX, mechanism se expresa desde la perspectiva de la divisa del TITULAR: appreciates (se aprecia/gana/se fortalece), depreciates (se deprecia/pierde/presión) o breaks_level (rompe un nivel). Ej. "El peso rompe 18" = appreciates o breaks_level, aunque el par USD/MXN baje.
 - entities: entidades/objetos protagonistas (ej: ["U.S. Treasury", "Treasury bonds"]).
 - geography: geografías relevantes (vacío si no importa). REGLA DE PAÍS: si la nota gira en torno a un dato oficial, una institución o un mercado de un país concreto (ej. Nonfarm Payrolls / NPF, CPI o desempleo de EE.UU., la Reserva Federal, el BLS, Banxico, el BCE, un índice bursátil nacional), incluye ese país en geography aunque el foco sea económico y no "geográfico". Sirve para añadir un guiño de bandera sutil y coherente.
-- economic_object: el objeto económico central (ej: "government bonds").
+- economic_object: el objeto económico central (ej: "government bonds"). Para FX incluye el par y su dirección (ej: "USD/MXN falls").
 - physical_context: contexto físico real que explica la nota (ej: "U.S. Treasury-style institution").
 - visual_priority: qué pesa más (ej: "institution + data", "stat", "map").
 - visual_engine: uno de ${VISUAL_ENGINES.join(', ')}.
@@ -306,8 +391,8 @@ Para cada slide infiere:
 - text_safe_area: uno de ${TEXT_SAFE_AREAS.join(', ')}.
 - visual_subject: el sujeto visual concreto de la escena, en inglés, descriptivo.
 - supporting_elements: hasta 3 elementos de apoyo, en inglés (vacío si no aplica).
-- archetype: uno de ${ARCHETYPES.join(', ')}. Usa fx/bonds/central_bank/trade_map/energy/equities/mixed_macro/executive_wrap solo cuando la nota calza claramente; si no, usa un fallback. REGLA DE BANCO CENTRAL: si la nota es una decisión de política monetaria o de tasas de un banco central (Reserva Federal/Fed/FOMC, Banco de México/Banxico, BCE) y NO hay una segunda fuerza esencial, usa "central_bank" con la fachada/sede de la institución o una sala/atril institucional VACÍOS más un dial o indicador de tasa — NUNCA el edificio del Tesoro, ni un banco comercial genérico, ni el rostro del funcionario. REGLA DE PETRÓLEO: si la nota es PURAMENTE de petróleo, crudo, Brent, WTI, OPEP, gasolina o geopolítica energética (ej. Estrecho de Ormuz) y NO hay una segunda fuerza esencial, usa "energy" con motor "industrial_macro" — NUNCA "bonds" ni edificios del Tesoro/bancos/yield curve. Pero si la nota MEZCLA petróleo con otra fuerza esencial (ej. la Fed/tasas/inflación + petróleo), NO es energy pura: es MIXTA (ver story_type) y el sujeto primario NO debe borrarse. REGLA DE EQUITIES: si la nota es de la bolsa, acciones, Wall Street o un índice bursátil (S&P 500, Nasdaq, Dow Jones, NYSE, renta variable) y NO hay una segunda fuerza esencial, usa "equities" con motor "editorial_photography_plus_data" y una escena bursátil reconocible (piso de remates con pizarras de tickers, fachada neoclásica de bolsa estilo NYSE, torre del distrito financiero con cinta de cotizaciones estilo Nasdaq) — NUNCA una oficina financiera genérica ni el edificio del Tesoro. Ata el color: coral para caídas/presión, turquesa para alzas/dato.
-- story_type: "single" si un solo tema domina prácticamente toda la nota; "mixed" si DOS fuerzas distintas son esenciales para entender el titular (ej. "La Fed sube el tono y el petróleo presiona" = política monetaria + energía). El titular define la narrativa: no dejes que el dominio borre uno de sus componentes.
+- archetype: uno de ${ARCHETYPES.join(', ')}. Usa fx/bonds/central_bank/trade_map/energy/equities/mixed_macro/executive_wrap solo cuando la nota calza claramente; si no, usa un fallback. REGLA DE FX: si el titular trata de una divisa o tipo de cambio (el peso, peso mexicano, superpeso, USD/MXN, dólar frente a otra moneda, euro, yen), usa archetype "fx" y domain "fx" con story_type "single". Los drivers citados como causa ("ante optimismo petrolero", "por el crudo", "por la Fed") NO cambian el dominio ni vuelven mixta la nota; a lo sumo el petróleo aparece como un guiño sutil subordinado, nunca como escena de energía. REGLA DE BANCO CENTRAL: si la nota es una decisión de política monetaria o de tasas de un banco central (Reserva Federal/Fed/FOMC, Banco de México/Banxico, BCE) y NO hay una segunda fuerza esencial, usa "central_bank" con la fachada/sede de la institución o una sala/atril institucional VACÍOS más un dial o indicador de tasa — NUNCA el edificio del Tesoro, ni un banco comercial genérico, ni el rostro del funcionario. REGLA DE PETRÓLEO: si el SUJETO de la nota es petróleo, crudo, Brent, WTI, OPEP, diésel, gasolina, combustibles o precios del crudo, o geopolítica energética (ej. Estrecho de Ormuz) y NO hay una segunda fuerza esencial, usa "energy" con motor "industrial_macro" — NUNCA "bonds" ni edificios del Tesoro/bancos/yield curve. Una mención de paso del petróleo como causa de otra cosa (divisa, bolsa, comercio) NO hace la nota "energy". Pero si la nota MEZCLA petróleo con otra fuerza esencial (ej. la Fed/tasas/inflación + petróleo), NO es energy pura: es MIXTA (ver story_type) y el sujeto primario NO debe borrarse. REGLA DE EQUITIES: si la nota es de la bolsa, acciones, Wall Street o un índice bursátil (S&P 500, Nasdaq, Dow Jones, NYSE, renta variable) y NO hay una segunda fuerza esencial, usa "equities" con motor "editorial_photography_plus_data" y una escena bursátil reconocible (piso de remates con pizarras de tickers, fachada neoclásica de bolsa estilo NYSE, torre del distrito financiero con cinta de cotizaciones estilo Nasdaq) — NUNCA una oficina financiera genérica ni el edificio del Tesoro. Ata el color: coral para caídas/presión, turquesa para alzas/dato.
+- story_type: "single" si un solo tema domina prácticamente toda la nota; "mixed" si DOS fuerzas distintas son esenciales para entender el titular (ej. "La Fed sube el tono y el petróleo presiona" = política monetaria + energía). El titular define la narrativa: no dejes que el dominio borre uno de sus componentes. Excepción: una nota de divisa con un driver citado como causa ("El peso gana por el petróleo") es "single" con archetype "fx".
 - Solo cuando story_type es "mixed", además devuelve: secondary_domain (dominio de la segunda fuerza), secondary_visual_subject (sujeto visual concreto de la segunda fuerza, en inglés), visual_weight_primary y visual_weight_secondary (importancia visual en %, típicamente ~65 y ~35). En "mixed" usa archetype "mixed_macro". visual_subject describe el sujeto PRIMARIO (la fuerza dominante del titular), secondary_visual_subject el secundario. Ambos deben coexistir en UNA sola foto, sin collage ni split-screen.
 - visual_confidence: número 0.0–1.0. Bajo 0.5 significa que no hay arquetipo claro.
 
@@ -353,6 +438,9 @@ Responde SOLO con JSON válido, sin markdown:
  * y aplica las reglas que un prompt no garantiza:
  *  - confianza bajo el umbral → fallback institucional (secciones 20, 52);
  *  - executive wrap → arquetipo/motor/layout fijos (secciones 36, 44);
+ *  - guardia FX (titular de divisa) antes que energía;
+ *  - energía solo con señal fuerte (titular o LLM confiado);
+ *  - coherencia de sujeto cuando una guardia cambia el arquetipo;
  *  - variación de layout: nada de tres layouts iguales seguidos (sección 34).
  *
  * Siempre devuelve una resolución por slide del plan, en el mismo orden, aunque
@@ -383,6 +471,8 @@ export function coerceResolutions(
     let engine = pick(VISUAL_ENGINES, o.visual_engine, 'editorial_photography_plus_data');
     let layout = pick(LAYOUTS, o.layout_family, 'L1');
     let archetype = pick(ARCHETYPES, o.archetype, 'fallback_institutional');
+    // Elección propia del LLM, antes de cualquier guardia (para la coherencia de sujeto).
+    const llmArchetype = archetype;
     let textSafeArea = pick(TEXT_SAFE_AREAS, o.text_safe_area, 'left');
     let domain = rawDomain || 'macro';
 
@@ -396,8 +486,19 @@ export function coerceResolutions(
     const llmStoryType = pick(STORY_TYPES, o.story_type, 'single');
     const llmSecondarySubject = toStr(o.secondary_visual_subject);
     const llmSecondaryDomain = toStr(o.secondary_domain);
-    const energySignal = hasEnergySignal(rawDomain, plan);
-    const competing = hasCompetingPrimary(rawDomain, plan);
+    const normDomain = rawDomain.toLowerCase().trim();
+    const llmConfident = confidence >= NEWS_CONFIDENCE_THRESHOLD;
+    const energyHeadline = hasEnergyHeadline(plan);
+    const equitiesHeadline = hasEquitiesHeadline(plan);
+    const llmFx = llmConfident && (FX_DOMAINS.has(normDomain) || llmArchetype === 'fx');
+    const llmEnergy = llmConfident && (ENERGY_DOMAINS.has(normDomain) || llmArchetype === 'energy');
+    // FX es FX: titular de divisa, o el LLM eligió fx (salvo que el titular sea solo de
+    // petróleo y no nombre la divisa: "Brent arriba de 90" + LLM fx sigue siendo energía).
+    const fxSignal =
+      hasFxHeadline(plan) || (llmFx && (!energyHeadline || headlineNamesCurrency(plan)));
+    // Energía estricta: señal fuerte (titular o LLM confiado), nunca una mención de paso en subcopy.
+    const energySignal = !equitiesHeadline && (energyHeadline || llmEnergy);
+    const competing = hasCompetingPrimary(plan);
     const equitiesSignal = hasEquitiesSignal(rawDomain, plan);
     const centralBankSignal = hasCentralBankSignal(rawDomain, plan);
 
@@ -411,6 +512,16 @@ export function coerceResolutions(
       layout = 'L4';
       archetype = 'executive_wrap';
       textSafeArea = 'left';
+    } else if (fxSignal) {
+      // Guardia FX: una nota de peso/tipo de cambio es FX aunque el petróleo, la Fed
+      // o el crudo aparezcan como CAUSA. Precede a energía y a la mixta del LLM:
+      // "El peso gana por el petróleo" es FX con un guiño de energía subordinado.
+      archetype = 'fx';
+      domain = 'fx';
+      if (llmArchetype !== 'fx') {
+        engine = 'editorial_photography_plus_data';
+        layout = 'L1';
+      }
     } else if (llmStoryType === 'mixed' && (llmSecondarySubject || llmSecondaryDomain)) {
       // El LLM clasificó la nota como MIXTA (dos fuerzas esenciales) y dio un
       // segundo sujeto: se respeta. Ya no forzamos energy y borramos la
@@ -471,6 +582,18 @@ export function coerceResolutions(
       layout = 'L2';
     }
 
+    // Coherencia: si una guardia cambió el arquetipo del LLM, el sujeto del LLM ya
+    // no aplica (ej. "currency trading screen" con STYLE de energía) → se reemplaza.
+    const coherent = archetype !== llmArchetype ? GUARD_DIRECTION[archetype] : undefined;
+    // FX con el petróleo como causa en el titular: guiño de energía subordinado.
+    const fxEnergyCue = archetype === 'fx' && energyHeadline;
+    const baseSupporting = coherent
+      ? coherent.supporting_elements
+      : toStrArray(o.supporting_elements);
+    const supporting = fxEnergyCue
+      ? [...baseSupporting.slice(0, 2), FX_ENERGY_CUE]
+      : baseSupporting.slice(0, 3);
+
     return {
       slide_number: plan.slide_number,
       domain,
@@ -478,13 +601,13 @@ export function coerceResolutions(
       entities: toStrArray(o.entities),
       geography: toStrArray(o.geography),
       economic_object: toStr(o.economic_object),
-      physical_context: toStr(o.physical_context),
+      physical_context: coherent?.physical_context ?? toStr(o.physical_context),
       visual_priority: toStr(o.visual_priority) || 'real context + data',
       visual_engine: engine,
       layout_family: layout,
       text_safe_area: textSafeArea,
-      visual_subject: toStr(o.visual_subject),
-      supporting_elements: toStrArray(o.supporting_elements).slice(0, 3),
+      visual_subject: coherent?.visual_subject ?? toStr(o.visual_subject),
+      supporting_elements: supporting,
       archetype,
       visual_confidence: confidence,
       story_type: storyType,

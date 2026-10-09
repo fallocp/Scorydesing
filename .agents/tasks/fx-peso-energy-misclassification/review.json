@@ -1,0 +1,22 @@
+{
+  "verdict": "APPROVED",
+  "findings": [
+    {
+      "severity": "minor",
+      "confidence": "confirmed",
+      "file": "supabase/functions/_shared/news/newsVisualResolver.ts",
+      "label": "Bare headline-initial 'Peso …' depends on the LLM",
+      "detail": "'Peso gana por alza del petróleo' with LLM energy still resolves to energy: no FX_KEYWORDS phrase matches, and headlineNamesCurrency only applies when the LLM already said fx. REGLA DE FX makes LLM fx likely, so this is residual risk, not a regression.",
+      "action": "Optional: treat a normalized headline starting with 'peso ' as an FX keyword, and add a test with LLM energy."
+    },
+    {
+      "severity": "minor",
+      "confidence": "likely",
+      "file": "supabase/functions/_shared/news/newsPromptBuilder.ts",
+      "label": "Year filter drops real 4-digit levels",
+      "detail": "/^(?:19|20)\\d{2}$/ also drops price levels such as 'Oro toca 2045 dólares'. Fail-safe: the chart shows no number rather than an invented one.",
+      "action": "Optional: skip 19xx/20xx only in date context (after 'de'/'en el'/a month) or when no unit follows."
+    }
+  ],
+  "reviewDoc": "f:\\ScoryDesign/.agents/tasks/fx-peso-energy-misclassification/review.md"
+}
