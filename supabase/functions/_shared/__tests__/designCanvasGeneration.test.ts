@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { generateDesignCanvas } from '../designCanvasGeneration';
-import { finalizeDesignCanvasHtml, type DesignCanvasHtmlRequest } from '../designCanvasHtml';
+import { buildDesignCanvasHtmlMessages, finalizeDesignCanvasHtml, parseDesignCanvasHtmlRequest, type DesignCanvasHtmlRequest } from '../designCanvasHtml';
+import { buildDesignCanvasReviewMessages } from '../designCanvasReview';
 
 const request: DesignCanvasHtmlRequest = { design_system: 'design-canvas', business_id: 'd9b44139-2a67-4af1-a913-cfc05d3dc39b',
   canvas: { width: 1080, height: 1350 }, instruction: 'Usa mi marca y conserva los dos párrafos.',
@@ -128,5 +129,55 @@ describe('editing the selected HTML instead of generating it again', () => {
     await generateDesignCanvas({ ...request, source_html: base,
       design_source: { mode: 'style_only', source: { kind: 'slide', slide_id: 'slide-2', revision: '7' } } }, { name: 'Marca' }, generate);
     expect(JSON.stringify(generate.mock.calls[0][0])).toContain('Responde SOLO con HTML completo');
+  });
+});
+
+describe('explicit full rewrite from the current HTML (edit_mode rewrite)', () => {
+  const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLttAAAAABJRU5ErkJggg==';
+  const current = doc(`<h1>Beneficios</h1><div class="card"><img id="icono-1" data-asset-id="icon" data-asset-version="v1" src="${png}"><p>Pagos</p></div>`);
+  const rewrite = (extra: Partial<DesignCanvasHtmlRequest> = {}): DesignCanvasHtmlRequest => ({ design_system: 'design-canvas', business_id: request.business_id,
+    canvas: { width: 1920, height: 1080 }, current_html: current, iteration_feedback: 'Agrega 3 cuadros más.', design_base: 'current', edit_mode: 'rewrite',
+    copy_mode: 'none', ...extra });
+  const six = doc(`<h1>Beneficios</h1>${['Pagos', '', '', ''].map(text => `<div class="card"><img id="icono-1" src="scory-mounted://asset-0"><p>${text}</p></div>`).join('')}`);
+
+  it('regenerates the whole document without the patch protocol, restoring mounted pixels and allowing existing texts', async () => {
+    const generate = vi.fn().mockResolvedValue(six);
+    const html = await generateDesignCanvas(rewrite(), { name: 'Xending' }, generate);
+    const system = String(generate.mock.calls[0][0][0].content);
+    expect(system).toContain('REESCRITURA DESDE EL HTML ACTUAL'); expect(system).toContain('sin texto visible (elementos vacíos)');
+    expect(system).toContain('SIN TEXTO NUEVO'); expect(system).not.toContain('Responde SOLO con el JSON de cambios');
+    expect(html).toContain(png); expect(html).toContain('Pagos'); expect(html).not.toContain('scory-mounted://');
+    expect(generate).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries once a rejected rewrite asking for empty blocks without placeholders', async () => {
+    const generate = vi.fn().mockResolvedValueOnce(doc('<h1>Beneficios</h1><p>Beneficio 4</p>')).mockResolvedValueOnce(six);
+    await generateDesignCanvas(rewrite(), { name: 'Xending' }, generate);
+    expect(generate).toHaveBeenCalledTimes(2); expect(generate.mock.calls[1][1]).toBe(true);
+    expect(JSON.stringify(generate.mock.calls[1][0].at(-1))).toContain('deja vacíos los bloques que no tengan texto aprobado, sin marcadores');
+  });
+
+  it('also rewrites an adapt_layout slide source', async () => {
+    const generate = vi.fn().mockResolvedValue(six);
+    await generateDesignCanvas(rewrite({ design_source: { mode: 'adapt_layout', source: { kind: 'slide', slide_id: 'slide-5', revision: '2' } },
+      references: [{ id: 'design-source', name: 'Fuente', role: 'layout_reference', image_base64: png }] }), { name: 'Xending' }, generate);
+    expect(String(generate.mock.calls[0][0][0].content)).toContain('REESCRITURA DESDE EL HTML ACTUAL');
+  });
+
+  it('parses edit_mode, puts the user order first and states the canvas text minimum', () => {
+    const body = { ...rewrite(), copy_mode: undefined };
+    expect(parseDesignCanvasHtmlRequest(body).edit_mode).toBe('rewrite');
+    expect(() => parseDesignCanvasHtmlRequest({ ...body, edit_mode: 'replace' })).toThrow('modo de edición');
+    expect(() => parseDesignCanvasHtmlRequest({ ...body, current_html: undefined, iteration_feedback: undefined, instruction: 'Nueva' })).toThrow();
+    expect(parseDesignCanvasHtmlRequest({ ...body, action: 'review', render_base64: png }).edit_mode).toBeUndefined();
+    const system = String(buildDesignCanvasHtmlMessages(rewrite(), { name: 'Xending' }, 'patch')[0].content);
+    expect(system).toContain('PRIORIDAD: 1) el encargo del usuario'); expect(system).toContain('aplícalos a esta pieza');
+    expect(system).toContain('texto de cuerpo ≥ 18px y notas o legales ≥ 12px');
+    expect(system).not.toContain('nunca sustituye la marca autorizada'); expect(system).not.toContain('salvo el cambio local');
+    expect(system).toContain('salvo que el encargo lo pida');
+    expect(String(buildDesignCanvasHtmlMessages({ ...rewrite(), current_html: undefined }, { name: 'X' })[0].content)).toContain('SIN TEXTO: no añadas texto visible');
+    const review = String(buildDesignCanvasReviewMessages({ ...rewrite(), action: 'review' }, { name: 'X' })[0].content);
+    expect(review).toContain('Mínimos de este lienzo: cuerpo 18px, notas 12px'); expect(review).toContain('pidió crear, repetir o reacomodar');
+    expect(review).not.toContain('HTML ACTUAL');
   });
 });

@@ -38,6 +38,8 @@ export interface DesignConversationState {
   inspected_slide_ids?: string[];
   design_source?: ConversationDesignSource | null;
   preferences?: { format: 'html' | 'image'; base: 'current' | 'version' | 'deck' | 'new' };
+  /** Consecutive affirmatives answered without an executable action (0..2); the second one gets a local reply. */
+  affirmation_misses?: number;
 }
 export interface DesignConversationRecord { revision: number; scope: DesignConversationScope; value: DesignConversationState }
 /** update must execute atomically against the last committed value, including across tabs. */
@@ -103,8 +105,9 @@ function contextFor(value: DesignConversationState, scope: DesignConversationSco
     ] };
 }
 function assertNextAction(action: ConversationNextAction, refs: string[]) {
-  check(keys(action, ['kind', 'intent', 'instruction', 'reference_ids', 'reason', ...['from_slide', 'slide_ids', 'design_source', 'element_edits', 'element_html_hash'].filter(key => key in action)])
+  check(keys(action, ['kind', 'intent', 'instruction', 'reference_ids', 'reason', ...['from_slide', 'slide_ids', 'design_source', 'element_edits', 'element_html_hash', 'rewrite'].filter(key => key in action)])
     && (action.from_slide === undefined || action.from_slide === true && action.kind === 'refine_html')
+    && (action.rewrite === undefined || action.rewrite === true && action.kind === 'refine_html' && action.design_source === undefined)
     && ['discuss', 'generate_image', 'edit_image', 'create_html', 'refine_html', 'convert_image_to_html', 'explore_ideas', 'inspect_slides', 'edit_elements'].includes(action.kind)
     && ['requested', 'suggested', 'clarify'].includes(action.intent) && text(action.instruction, 6000, action.kind === 'discuss') && text(action.reason, 1200)
     && (action.intent !== 'clarify' || action.kind === 'discuss') && (action.kind !== 'discuss' || action.intent !== 'requested')
@@ -135,8 +138,9 @@ export function assertDesignConversation(value: DesignConversationState, scope: 
   const draftScope = { actor: scope.actor, business: scope.business, document: scope.document, slide: scope.slide };
   const required = ['schema_version', 'epoch', 'target', 'mode', 'messages', 'references', 'brand', 'brand_key', 'copy', 'understanding', 'ideas', 'next_action',
     'versions', 'selected_version_id', 'pending', 'completed_action_ids'];
-  check(keys(value, [...required, 'confirmation', 'inspected_slide_ids', 'preferences', 'design_source', 'session_generation'], required) && value.schema_version === 1 && positive(value.epoch)
+  check(keys(value, [...required, 'confirmation', 'inspected_slide_ids', 'preferences', 'design_source', 'session_generation', 'affirmation_misses'], required) && value.schema_version === 1 && positive(value.epoch)
     && (value.session_generation === undefined || positive(value.session_generation) && value.session_generation <= 1000000000)
+    && (value.affirmation_misses === undefined || Number.isInteger(value.affirmation_misses) && value.affirmation_misses >= 0 && value.affirmation_misses <= 2)
     && ['execute_change', 'explore_design'].includes(value.mode));
   assertTarget(value.target, scope);
   const assertSource = (source: ConversationDesignSource) => {
@@ -224,7 +228,8 @@ export function assertDesignConversation(value: DesignConversationState, scope: 
 function frozenContext(value: DesignConversationState) {
   return { target: value.target, epoch: value.epoch, mode: value.mode, references: value.references.map(({ blob: _blob, ...item }) => item), brand: value.brand,
     copy: value.copy, selected_version_id: value.selected_version_id, understanding: value.understanding, ideas: value.ideas, next_action: value.next_action,
-    confirmation: value.confirmation, inspected_slide_ids: value.inspected_slide_ids, preferences: value.preferences, design_source: value.design_source };
+    confirmation: value.confirmation, inspected_slide_ids: value.inspected_slide_ids, preferences: value.preferences, design_source: value.design_source,
+    affirmation_misses: value.affirmation_misses };
 }
 export function assertConversationTransition(previous: DesignConversationState, next: DesignConversationState) {
   check((next.session_generation ?? 1) === (previous.session_generation ?? 1), 'conversation_session_changed');

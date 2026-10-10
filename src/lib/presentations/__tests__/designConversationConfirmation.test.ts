@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { canConfirmDesign, designConfirmationKey, isDesignConfirmation, isDesignGeneration } from '../designConversationConfirmation';
+import { canConfirmDesign, designConfirmationKey, designPlanBlocker, isDesignApproval, isDesignConfirmation, isDesignGeneration, isDesignInsistence,
+  needsResolvedCopy, samePlan } from '../designConversationConfirmation';
 import { emptyDesignConversation, type DesignConversationState } from '../designConversationStore';
 
 function fixture() {
@@ -68,17 +69,65 @@ describe('confirmation of the concrete design plan', () => {
     ['reference role', (value: ReturnType<typeof fixture>) => { value.state.references[0].role = 'content_source'; }],
     ['reference pixels', (value: ReturnType<typeof fixture>) => { value.state.references[0].sha256 = 'b'.repeat(64); }],
     ['reference removal', (value: ReturnType<typeof fixture>) => { value.state.references = []; }],
-    ['deck revision', (value: ReturnType<typeof fixture>) => { value.options.deckSlides = [value.options.slide, { ...value.options.slide, id: 'example', revision: 2 }]; }],
+    ['consulted slide revision', (value: ReturnType<typeof fixture>) => {
+      value.state.inspected_slide_ids = ['example']; value.state.confirmation = { context_key: designConfirmationKey(value.state, value.options) };
+      value.options.deckSlides = [value.options.slide, { ...value.options.slide, id: 'example', revision: 2 }]; }],
     ['selected version', (value: ReturnType<typeof fixture>) => { value.state.selected_version_id = 'different-version'; }],
     ['copy', (value: ReturnType<typeof fixture>) => { value.state.copy.text = 'Nuevo contenido manual.'; }],
     ['target revision', (value: ReturnType<typeof fixture>) => { value.state.target.revision++; }],
     ['brand', (value: ReturnType<typeof fixture>) => { value.state.brand_key = 'different-brand'; }],
-    ['quality', (value: ReturnType<typeof fixture>) => { value.options.settings = { ...value.options.settings, quality: 'high' }; }],
     ['inspected slides', (value: ReturnType<typeof fixture>) => { value.state.inspected_slide_ids = ['example']; }],
-    ['planned action', (value: ReturnType<typeof fixture>) => { value.state.next_action!.instruction = 'Otro encargo.'; }],
+    ['planned operation', (value: ReturnType<typeof fixture>) => { value.state.next_action!.kind = 'refine_html'; }],
   ] as const)('refuses a stale confirmation after changing %s', (_name, mutate) => {
     const value = fixture(); mutate(value);
     expect(canConfirmDesign(value.state, value.options)).toBe(false);
+    expect(designPlanBlocker(value.state, value.options)?.reason).toBe('stale');
+  });
+
+  it.each([
+    ['instruction wording', (value: ReturnType<typeof fixture>) => { value.state.next_action!.instruction = 'Crea la portada con el contenido aprobado.'; }],
+    ['reason', (value: ReturnType<typeof fixture>) => { value.state.next_action!.reason = 'Otra explicación.'; }],
+    ['quality', (value: ReturnType<typeof fixture>) => { value.options.settings = { ...value.options.settings, quality: 'high' }; }],
+    ['title of a slide not consulted', (value: ReturnType<typeof fixture>) => { value.options.deckSlides = [value.options.slide, { ...value.options.slide, id: 'example', title: 'Otro', revision: 3 }]; }],
+  ] as const)('keeps the armed plan valid after changing only its %s', (_name, mutate) => {
+    const value = fixture(); mutate(value);
+    expect(canConfirmDesign(value.state, value.options)).toBe(true);
+  });
+
+  it('names what changed in a stale plan', () => {
+    for (const [mutate, detail] of [
+      [(value: ReturnType<typeof fixture>) => { value.state.next_action!.kind = 'refine_html'; }, 'la propuesta'],
+      [(value: ReturnType<typeof fixture>) => { value.state.target.revision++; }, 'la diapositiva'],
+      [(value: ReturnType<typeof fixture>) => { value.options.format = 'image'; value.options.base = 'new'; }, 'el formato y la base'],
+    ] as const) {
+      const value = fixture(); mutate(value);
+      expect(designPlanBlocker(value.state, value.options)).toEqual({ reason: 'stale', detail });
+    }
+    const legacy = fixture(); legacy.state.confirmation = { context_key: '{"old":true}' };
+    expect(designPlanBlocker(legacy.state, legacy.options)).toEqual({ reason: 'stale', detail: 'la versión de la aplicación' });
+  });
+
+  it.each(['si', 'sí', 'sik', 'siii', 'sii', 'dale', 'va', 'ok', 'okkk', 'hazlo ya', 'créalo', 'si así', 'sí, está bien', 'si esta bien', 'adelante',
+    'crea el diseño', 'crea el diseno', 'genéralo ya', 'Sí, crea el diseño como lo acordamos.', 'Sí, créalo.', '👍 sí'])('accepts the tolerant affirmative %s', value => {
+    expect(isDesignConfirmation(value)).toBe(true);
+  });
+  const notAffirmatives = ['sí, pero cambia el fondo', 'no', '¿sí?', 'sin', 'no veo hagas el diseno nuevo o lo crees', 'si si si si si si si si si', 'agrega 3 cuadros más'];
+  it.each(notAffirmatives)('does not treat %s as an affirmative', value => { expect(isDesignConfirmation(value)).toBe(false); });
+
+  it('recognizes insistence and closed approvals without promoting corrections', () => {
+    for (const value of ['no veo hagas el diseno nuevo o lo crees', 'no aparece nada', 'hazlo ya']) expect(isDesignInsistence(value)).toBe(true);
+    expect(isDesignInsistence('no veo bien el título, hazlo más grande')).toBe(false);
+    for (const value of ['me parece bien', 'así está bien', 'exacto', 'me gusta, por favor']) expect(isDesignApproval(value)).toBe(true);
+    for (const value of ['ponle fondo azul', 'en dos filas', 'usa la imagen 2 como base', 'me parece bien, pero en dos filas', '¿me parece bien?'])
+      expect(isDesignApproval(value)).toBe(false);
+    expect(needsResolvedCopy('edit_elements')).toBe(false); expect(needsResolvedCopy('refine_html')).toBe(true); expect(needsResolvedCopy(undefined)).toBe(false);
+  });
+
+  it('treats a rephrased instruction of the same operation as the same plan', () => {
+    const { state } = fixture(), plan = state.next_action!;
+    expect(samePlan(plan, { ...plan, instruction: 'Crea la portada con este contenido aprobado.', reason: 'Otra razón.' })).toBe(true);
+    expect(samePlan(plan, { ...plan, instruction: 'Rediseña todo con fotografías y otra paleta.' })).toBe(false);
+    expect(samePlan(plan, { ...plan, kind: 'refine_html' })).toBe(false);
   });
 
   it('requires a generation plan, resolved copy and no pending action or clarification', () => {

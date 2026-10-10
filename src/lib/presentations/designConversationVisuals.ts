@@ -4,6 +4,11 @@ import type { PreparedPresentationReference, PresentationReferenceRole } from '.
 const visualRoles: PresentationReferenceRole[] = ['image_style_reference', 'layout_reference', 'brand_reference', 'object_reference'];
 
 const plain = (text: string) => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+const STRUCTURAL_ORDER = /^\d+\s|\b(?:cuadros?|tarjetas?|columnas?|filas?|bloques?|elementos?|cajas?|recuadros?|puntos?|items?)\b/;
+/** A proposed copy line that only restates the order («3 cuadros más»), never a text to print. */
+const STRUCTURAL_LINE = /^(?:\d+|un|una|dos|tres|cuatro|cinco|seis)\s+(?:cuadros?|tarjetas?|columnas?|filas?|bloques?|elementos?|cajas?|recuadros?|puntos?|items?)\b/;
+const ADDITIVE = /\b(?:agrega|agregale|agregar|anade|anadele|anadir|incluye|incluir|suma|sumale|otra|otro|otras|otros)\b/;
+const REPLACING = /\b(?:reemplaza|sustituye|cambia|corrige|reescribe|redacta|resume|traduce|quita|elimina|borra|solo|unicamente|en\s+(?:lugar|vez)\s+de|todo\s+el\s+texto)\b/;
 export interface ConversationCopyAuthorizationContext {
   /** Exact, untruncated additions from the preceding real HTML validation error. */
   rejectedAdditions?: string[];
@@ -38,6 +43,8 @@ export function conversationAuthorizedCopyAdditions(userMessage: string, context
   // Explicit quoted text needs no brand lookup. For an unquoted name, require
   // a concrete name rather than resolving pronouns or arbitrary design prose.
   if (/^(?:eso|esto|lo\s+anterior|el\s+texto|texto|contenido|copy|el\s+nombre|un\s+poco|mas|todo)$/i.test(wanted)) return [];
+  // «agrega 3 cuadros más» is a structural order, never a label to print.
+  if (!quoted && STRUCTURAL_ORDER.test(wanted)) return [];
   if (quoted || /^[A-ZÁÉÍÓÚÜÑ0-9]/u.test(target) && !/^(?:el|la|los|las|un|una|otro|otra)\b/.test(wanted)) return [target];
   return [];
 }
@@ -66,6 +73,13 @@ export function conversationCopyForTurn(previous: DesignCopy, proposed: DesignCo
   const additions = conversationAuthorizedCopyAdditions(userMessage, context);
   if (additions.length) return copyWithAuthorizedAdditions(previous, proposed, additions);
   if (/\bsin\s+(?:cambiar|modificar|alterar|tocar|reescribir)\s+(?:(?:el|mi|nuestro)\s+)?(?:texto|contenido|copy)\b/.test(message)) return previous;
+  // Lines the user wrote literally in this message are approved and join the approved copy.
+  const collapse = (text: string) => plain(text).replace(/\s+/g, ' ').trim(), said = collapse(userMessage);
+  const approved = new Set(previous.text.split('\n').map(line => line.trim()).filter(Boolean));
+  const written = proposed.status !== 'literal' ? [] : proposed.text.split('\n').map(line => line.trim())
+    .filter(line => line.length >= 3 && !approved.has(line) && said.includes(collapse(line)) && !STRUCTURAL_LINE.test(collapse(line)));
+  // An additive order («agrega una tarjeta, texto: Pagos») never drops approved lines.
+  if (written.length && ADDITIVE.test(message) && !REPLACING.test(message)) return copyWithAuthorizedAdditions(previous, proposed, written);
   const content = '(?:texto|contenido|informacion|copy|titulo|subtitulo|parrafo|nota|frase|encabezado|dato|cifra|plazo|precio|fecha|porcentaje)';
   if (new RegExp(`\\b${content}(?:\\s+(?:nuevo|final|correcto|exacto))?\\s*[:=]`).test(message)
     || /\b(?:pon|escribe|que diga|debe decir)\s*:?\s*[«“"']/.test(message)
@@ -87,25 +101,32 @@ export function conversationCopyForTurn(previous: DesignCopy, proposed: DesignCo
     if (!visual || /\b(?:diga|decir)\b/.test(clause)
       || new RegExp(`\\b${content}\\b.{0,60}\\b(?:por|a)\\s*[«“"']`).test(clause)) return proposed;
   }
-  return previous;
+  return written.length ? copyWithAuthorizedAdditions(previous, proposed, written) : previous;
 }
 /** An AI interpretation cannot silently turn a text attachment into the design.
  * A reference-specific visual request may update its visible selected role. */
 export function resolveConversationReferenceUse(references: PreparedPresentationReference[], understanding: DesignUnderstanding,
   userMessage: string): { references: PreparedPresentationReference[]; understanding: DesignUnderstanding } {
-  const clauses = plain(userMessage).split(/[.;,\n]|\s+y\s+(?=(?:el|la|los|las|usa|toma|copia|replica|adapta)\b)/);
+  const message = plain(userMessage), clauses = message.split(/[.;,\n]|\s+y\s+(?=(?:el|la|los|las|usa|toma|copia|replica|adapta)\b)/);
+  const textOnly = /\b(?:solo|solamente|unicamente)\s+(?:el\s+)?(?:texto|contenido)\b|\bno\b[^.;]{0,50}\b(?:uses|copies|tomes|sigas)\b[^.;]{0,30}\b(?:estilo|diseno|apariencia)\b/.test(message);
+  const deictic = /\b(?:lo\s+que\s+te\s+(?:mande|envie|pase|adjunte)|adjunt[oa]s?|mi\s+(?:imagen|referencia|captura|foto))\b/.test(message);
+  // «como» counts only before the reference («como mi imagen»), never «como te dije».
+  const visualCue = /\b(?:(?:como|igual\s+(?:a|que))\s+(?:la|el|mi|esa|ese|esta|este|lo\s+que)|parecid[oa]|se\s+vea|estilo|diseno|apariencia|look|composicion|visual(?:es|mente)?)\b/;
   const updated = references.map((reference, index) => {
     if (reference.role !== 'content_source') return { ...reference };
     const proposed = understanding.references.find(item => item.reference_id === reference.id);
     if (!proposed) return { ...reference };
     const ordinal = ['(?:primera|primer[oa]?)', '(?:segunda|segundo)', '(?:tercera|tercer[oa]?)'][index];
     const targets = new RegExp(`\\b${ordinal}\\b|\\b(?:referencia|imagen|foto|captura|pagina)\\s*(?:numero\\s*)?${index + 1}\\b`);
+    const namesSourceIn = (clause: string) => targets.test(clause) || clause.includes(plain(reference.id))
+      || references.length === 1 && /\b(?:referencia|imagen|foto|captura|ejemplo)\b/.test(clause)
+      || /\b(?:referencias|imagenes|capturas)\b/.test(clause);
+    // Naming the reference is not enough: the same clause must ask for something visual.
+    const named = clauses.some(clause => namesSourceIn(clause) && visualCue.test(clause)) || deictic && visualCue.test(message);
     const roles = new Set<PresentationReferenceRole>();
     for (const clause of clauses) {
       if (/\bno\b[^.!?;]{0,50}\b(?:uses|copies|tomes|cambies|sigas|repliques|recrees)\b/.test(clause)) continue;
-      const namesSource = targets.test(clause) || clause.includes(plain(reference.id))
-        || references.length === 1 && /\b(?:referencia|imagen|foto|captura|ejemplo)\b/.test(clause)
-        || /\b(?:referencias|imagenes|capturas)\b/.test(clause);
+      const namesSource = namesSourceIn(clause);
       if (!namesSource || /\b(?:solo|solamente|unicamente)\s+(?:el\s+)?(?:texto|contenido)\b/.test(clause)) continue;
       if (/\b(?:estilo|apariencia|paleta|colores|tipografia|tipografias)\b/.test(clause)) roles.add('image_style_reference');
       if (/\b(?:composicion|distribucion|acomodo|maquetacion|layout)\b/.test(clause)) roles.add('layout_reference');
@@ -116,7 +137,8 @@ export function resolveConversationReferenceUse(references: PreparedPresentation
         roles.add('layout_reference'); roles.add('image_style_reference');
       }
     }
-    const role = visualRoles.find(role => roles.has(role) && proposed.roles.includes(role));
+    const role = visualRoles.find(role => roles.has(role) && proposed.roles.includes(role))
+      ?? (named && !textOnly ? visualRoles.find(role => proposed.roles.includes(role)) : undefined);
     return role ? { ...reference, role } : { ...reference };
   });
   return { references: updated, understanding: { ...understanding, references: understanding.references.map(reference => {

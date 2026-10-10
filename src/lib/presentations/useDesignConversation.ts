@@ -20,7 +20,7 @@ import { preparePresentationReference, type PreparedPresentationReference } from
 import type { ImageGenerationSettings } from '../imageGenerationSettings';
 import { imageDataUrl } from '../desaing/labImages';
 import { DesignServerClientError } from '../desaing/serverClient';
-import { isDefinitiveHtmlFailure } from './htmlRequestError';
+import { DesignHtmlRequestError, isDefinitiveHtmlFailure } from './htmlRequestError';
 import { beginConversationAction, completeConversationAction, emptyDesignConversation, markConversationAction, advanceConversationEpoch,
   openDesignConversationStore, type DesignConversationState, type DesignConversationRecord, type DesignConversationVersion } from './designConversationStore';
 import { buildConversationImageOperation, prepareConversationReferences, readConversationImage, sameConversationAsset } from './designConversationImages';
@@ -28,9 +28,12 @@ import { buildConversationHtmlSummary } from './designConversationHtml';
 import { buildConversationPresentationContext, buildConversationInspectedSlides, selectConversationInspectionSlides,
   fitConversationPresentationRequest, buildConversationInspectionExamples } from './designConversationDeck';
 import { capturePresentationInspection } from './designConversationInspection';
-import { canConfirmDesign, designConfirmationKey, isDesignConfirmation, isDesignGeneration } from './designConversationConfirmation';
+import { canConfirmDesign, confirmationTokens, designActionLabel, designBlockerText, designConfirmationChanges, designConfirmationKey, designPlanBlocker,
+  isDesignApproval, isDesignConfirmation, isDesignGeneration, isDesignInsistence, needsResolvedCopy, samePlan } from './designConversationConfirmation';
 import { conversationCopyAfterEdit } from './designConversationEdits';
 import { buildDesignElementCatalog, applyDesignElementEdits } from './designElementTools';
+import { DesignElementEditError, unapprovedElementTexts, type DesignElementEdit } from '../../../supabase/functions/_shared/desaing/designElementEdits';
+import { structuralEditFits, type StructuralCheckCache } from './designStructuralCheck';
 import { resolveConversationDesignSource, conversationDesignSourceInstruction, designEditableHtmlHash } from './designConversationSource';
 import { captureConversationHtml, conversationCopyForTurn, conversationHtmlReferences, conversationVisualSummary, resolveConversationReferenceUse } from './designConversationVisuals';
 import { describeVisualReview } from './designVisualReview';
@@ -66,7 +69,9 @@ type Life = { active: boolean; actor: string; key: string; store: Store | null; 
   sourceCapture?: { html: string; reference: PreparedPresentationReference };
   inspection?: { key: string; prepared: PreparedPresentationReference | null; reference?: DesignReference;
     version?: Awaited<ReturnType<typeof prepareConversationReferences>>[number]['version']; capturedIds: string[] };
-  previewRequest?: number };
+  previewRequest?: number;
+  /** Planner request this view is waiting for; marked as interrupted if the view closes first. */
+  planning?: string };
 const same = (a: unknown, b: unknown) => canonicalExploration(a) === canonicalExploration(b);
 const targetOf = (options: UseDesignConversationOptions): HtmlDesignTarget => ({ document: options.documentId, slide: options.slide.id, revision: options.slide.revision });
 const scopeKey = (options: UseDesignConversationOptions, session: DesignConversationSessionId = 'main') => JSON.stringify([options.businessId, options.documentId, options.slide.id, session]);
@@ -82,6 +87,21 @@ function rememberedSession(actor: string, options: UseDesignConversationOptions)
 function rememberSession(actor: string, options: UseDesignConversationOptions, session: DesignConversationSessionId) {
   try { localStorage.setItem(sessionChoiceKey(actor, options), session); } catch { /* Conversation persistence does not depend on the local selection hint. */ }
 }
+/** Planner requests whose view closed while waiting (remount, reload). The next view of
+ * that conversation reads their saved result instead of leaving the chat blocked. */
+const interruptedPlans = new Set<string>(), INTERRUPTED_KEY = 'scory-design-interrupted-plans';
+function rememberInterruptedPlan(actionId: string) {
+  interruptedPlans.add(actionId);
+  try { sessionStorage.setItem(INTERRUPTED_KEY, JSON.stringify([...interruptedPlans].slice(-20))); } catch { /* In-memory marker only. */ }
+}
+function takeInterruptedPlan(actionId: string): boolean {
+  let stored: unknown = [];
+  try { stored = JSON.parse(sessionStorage.getItem(INTERRUPTED_KEY) ?? '[]'); } catch { /* In-memory marker only. */ }
+  const found = interruptedPlans.has(actionId) || Array.isArray(stored) && stored.includes(actionId);
+  interruptedPlans.delete(actionId);
+  try { sessionStorage.setItem(INTERRUPTED_KEY, JSON.stringify((Array.isArray(stored) ? stored : []).filter(id => id !== actionId))); } catch { /* In-memory marker only. */ }
+  return found;
+}
 const selectedOf = (state: DesignConversationState) => state.versions.find(item => item.id === state.selected_version_id);
 const imageOf = (state: DesignConversationState) => {
   const selected = selectedOf(state);
@@ -95,7 +115,9 @@ const imageForBase = (state: DesignConversationState, options: Pick<UseDesignCon
   return imageOf(state);
 };
 const versionView = (version: DesignConversationVersion): DesignConversationView => version.kind === 'image' ? 'image' : version.composition ? 'composition' : 'html';
-const problemCode = (problem: unknown) => problem && typeof problem === 'object' && 'code' in problem ? String(problem.code)
+// The HTML service already answers with a readable message; its machine code drives only the rewrite offer.
+const problemCode = (problem: unknown) => problem instanceof DesignHtmlRequestError ? problem.message
+  : problem && typeof problem === 'object' && 'code' in problem ? String(problem.code)
   : problem instanceof Error ? problem.message : '';
 const definitivePlanningFailures = new Set(['exploration_provider_invalid_result', 'exploration_provider_incomplete',
   'exploration_provider_rejected', 'exploration_provider_unexpected_output', 'exploration_provider_response_too_large',
@@ -141,8 +163,31 @@ const describeError = (problem: unknown) => {
     server_exploration_outcome_unknown: 'Todavía no se conoce el resultado de esta solicitud. Usa Recuperar para comprobar su estado.',
     exploration_previous_unresolved: 'Hay otra respuesta en curso. Espera unos segundos o descarta la solicitud pendiente.',
   };
+  // Structural edit refusals carry a readable reason (for example a removed target).
+  if (problem instanceof DesignElementEditError && problem.message !== problem.code) return problem.message;
   return errors[code] ?? (/\s/.test(code) && !/[{}<>]/.test(code) ? code : 'No se completó la acción. Conservamos el trabajo; recupera su estado antes de repetirla.');
 };
+/** A message claiming work that was not executed in this turn. */
+const CLAIMS_DONE = /(qued[oó]|queda|est[aá])\s+(confirmad|list[oa]|aprobad|cread|generad|hech)|\bya\s+(lo\s+|la\s+)?(cre[eé]|gener[eé]|hice|apliqu[eé])/i;
+const firstSentence = (text: string, max: number) => (text.trim().split(/(?<=[.!?])\s/)[0] ?? '').slice(0, max).trim();
+/** Visible text of an HTML document, complete (approval corpus for direct edits). */
+function visibleText(html: string): string {
+  if (typeof DOMParser === 'undefined') return html.replace(/<(style|script|template)\b[\s\S]*?<\/\1\s*>/gi, ' ').replace(/<[^>]+>/g, ' ');
+  const document = new DOMParser().parseFromString(html, 'text/html');
+  for (const node of document.querySelectorAll('style,script,template')) node.remove();
+  return document.body?.textContent ?? '';
+}
+const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
+/** Local summary of a deterministic edit, e.g. «agregué 3 bloques y los acomodé en 3 columnas». */
+function structuralSummary(edits: readonly DesignElementEdit[]): string {
+  const count = (kind: DesignElementEdit['kind']) => edits.filter(edit => edit.kind === kind).length;
+  const reflow = edits.find(edit => edit.kind === 'reflow');
+  const parts = [count('retext') && `actualicé el texto de ${plural(count('retext'), 'bloque', 'bloques')}`,
+    count('duplicate') && `agregué ${plural(count('duplicate'), 'bloque', 'bloques')}`,
+    count('remove') && `quité ${plural(count('remove'), 'elemento', 'elementos')}`,
+    reflow?.kind === 'reflow' && `los acomodé en ${plural(reflow.columns, 'columna', 'columnas')}`].filter((part): part is string => !!part);
+  return parts.length > 1 ? `${parts.slice(0, -1).join(', ')} y ${parts.at(-1)}` : parts[0] ?? 'apliqué el cambio';
+}
 
 /** A single durable conversation coordinates the existing image and HTML controllers. */
 export function useDesignConversation(options: UseDesignConversationOptions) {
@@ -155,6 +200,7 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
   const lifeRef = useRef<Life | null>(null);
   const [state, setState] = useState<DesignConversationState>(() => emptyDesignConversation(targetOf(options)));
   const [ready, setReady] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState('');
+  const [resuming, setResuming] = useState(false);
   const [syncStatus, setSyncStatus] = useState<ContinuityStatus>('loading');
   const [localCopies, setLocalCopies] = useState(false);
   const [generation, setGeneration] = useState<ServerGenerationCapabilities | null>(null);
@@ -163,6 +209,7 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
   const [view, setView] = useState<DesignConversationView>(options.initialView ?? 'image');
   const viewRef = useRef<DesignConversationView>(options.initialView ?? 'image');
   const hydratedHtml = useRef('');
+  const structuralBase = useRef<StructuralCheckCache['current']>(null);
   const brand = useDesignBrandContext(options.businessId, options.service.brand), brandRef = useRef(brand); brandRef.current = brand;
   const planner = useMemo(() => options.service.exploration?.planner ?? options.service.exploration?.createPlanner?.(options.businessId)
     ?? options.service.client.exploration(options.businessId), [options.service, options.businessId]);
@@ -323,7 +370,7 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
   }
   useEffect(() => {
     const life: Life = { active: true, actor: '', session: activeSession, key: scopeKey(options, activeSession), store: null, record: null, queue: Promise.resolve(), locked: false, blocked: false, generation: null };
-    lifeRef.current = life; setReady(false); setBusy(false); setError(''); setImageResult(null); setImagePreview(''); setImagePreviewLoading(false);
+    lifeRef.current = life; setReady(false); setBusy(false); setResuming(false); setError(''); setImageResult(null); setImagePreview(''); setImagePreviewLoading(false);
     setState(emptyDesignConversation(targetOf(options))); setSyncStatus('loading'); setLocalCopies(false);
     setSessions([]); setSessionsReady(false); setSessionsError(''); hydratedHtml.current = '';
     void (async () => {
@@ -337,6 +384,7 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
         : await openDesignConversationStore(scope);
       if (!active(life)) { store.close(); return; } life.store = store;
       await loadConversation(life); if (!active(life) || store.status?.() === 'offline') return;
+      void resumeInterruptedPlanning(life);
       await refreshSessions(life).catch(() => { if (active(life)) setSessionsError('No se pudieron cargar las otras sesiones. Sincroniza para volver a intentarlo.'); });
       if (!active(life)) return;
       const server = await options.service.client.read(options.businessId); await assertActor(life);
@@ -344,7 +392,7 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
       if (!same(current(life).target, targetOf(latest.current))) { setError(describeError(Error('conversation_target_changed'))); return; }
       await refreshImage(life);
     })().catch(problem => { if (active(life)) setError(describeError(problem)); });
-    return () => { life.active = false; void life.queue.finally(() => life.store?.close()); };
+    return () => { if (life.planning) rememberInterruptedPlan(life.planning); life.active = false; void life.queue.finally(() => life.store?.close()); };
   }, [options.service, options.businessId, options.documentId, options.slide.id, activeSession]);
 
   useEffect(() => {
@@ -460,24 +508,32 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
     });
     return true;
   }
-  async function acceptUnderstanding(life: Life, result: ExplorationResult, allowInspection: boolean, inspectionRound = 0) {
+  /** `opts.execute` is true only for a live user turn (also through its inspection rounds):
+   * a recovered `requested` plan is armed but never executed without the user present. */
+  async function acceptUnderstanding(life: Life, result: ExplorationResult, allowInspection: boolean, inspectionRound = 0,
+    opts: { execute: boolean; sentKey?: string } = { execute: false }) {
     const pending = current(life).pending;
     if (pending?.request?.kind !== 'understand') throw Error('conversation_pending_unresolved');
     assertExplorationResult(result, pending.request.request); await assertCurrent(life, pending.epoch);
     if (!result.design_understanding || !result.next_action) throw Error('Actualiza el servidor para usar la conversación de diseño.');
+    const sentAction = pending.request.request.conversation?.pending_action;
+    const sentPhase = sentAction?.phase, sentQuestion = sentAction?.questions[0];
+    // Reading slides keeps the waiting plan (unarmed); the next round carries the original phase.
+    const waitingPlan = (value: DesignConversationState) => isDesignGeneration(value.next_action?.kind) ? value.next_action : null;
     if (result.next_action.kind === 'inspect_slides') {
       const request = pending.request.request, ids = result.next_action.slide_ids ?? [];
       selectConversationInspectionSlides(latest.current.deckSlides ?? [], ids, latest.current.slide);
       if (inspectionRound >= 3) {
-        await save(life, value => completeConversationAction(value, pending.action_id, { next_action: null, message: {
+        await save(life, value => completeConversationAction(value, pending.action_id, { next_action: waitingPlan(value), message: {
           id: `assistant:${pending.action_id}`, turn_id: pending.turn_id, role: 'assistant',
           text: 'No pude completar el análisis de esas diapositivas en este intento. Tu diseño se conserva; puedes pedirme revisar una diapositiva concreta.' } }));
         return;
       }
-      await save(life, value => ({ ...completeConversationAction(value, pending.action_id, { next_action: null, message: {
+      await save(life, value => ({ ...completeConversationAction(value, pending.action_id, { next_action: waitingPlan(value), message: {
         id: `assistant:${pending.action_id}`, turn_id: pending.turn_id, role: 'assistant', text: result.message } }),
         inspected_slide_ids: [...new Set([...(value.inspected_slide_ids ?? []).filter(id => request.conversation?.presentation?.slides.some(slide => slide.id === id)), ...ids])].slice(-12) }));
-      if (allowInspection) await sendMessage(life, request.message, undefined, false, { round: inspectionRound + 1, turnId: pending.turn_id });
+      if (allowInspection) await sendMessage(life, request.message, undefined, false,
+        { round: inspectionRound + 1, turnId: pending.turn_id, execute: opts.execute, ...(sentPhase ? { phase: sentPhase } : {}) });
       return;
     }
     // Captures are immutable registered context for this exact request, not user
@@ -495,33 +551,94 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
       copy: conversationCopyForTurn(current(life).copy, proposedCopy, pending.request.request.message),
       references: result.design_understanding.references.filter(reference => persistent(reference.reference_id))
         .map(reference => ({ ...reference, instruction: sourceText(reference.instruction) })) };
-    const resolvedUse = resolveConversationReferenceUse(current(life).references, understanding, pending.request.request.message);
+    const userText = pending.request.request.message;
+    const resolvedUse = resolveConversationReferenceUse(current(life).references, understanding, userText);
+    // The server already validated intent: the client no longer forces «suggested».
     const nextAction: ConversationNextAction = { ...result.next_action,
-      ...(isDesignGeneration(result.next_action.kind) ? { intent: 'suggested' as const } : {}),
       instruction: sourceText(result.next_action.instruction), reason: sourceText(result.next_action.reason, false),
       reference_ids: result.next_action.reference_ids.filter(persistent) };
     // This restriction travels with the durable request, including recovery on another device.
     const resolvingCopy = same(pending.request.request.conversation?.available_actions, ['discuss']);
+    const before = current(life), prev = before.next_action, questions = understanding.pending_questions;
+    const copy = before.copy.status === understanding.copy.status && before.copy.text === understanding.copy.text ? before.copy : understanding.copy;
+    const generation = isDesignGeneration(nextAction.kind), modelText = sourceText(result.message, false);
+    const strict = isDesignInsistence(userText), insistence = strict || isDesignApproval(userText);
+    // Step 4: a direct edit never writes text the user did not give or approve (complete client corpus).
+    let degraded = '';
+    if (!resolvingCopy && nextAction.kind === 'edit_elements' && nextAction.intent === 'requested') {
+      const missing = unapprovedElementTexts(nextAction.element_edits ?? [], [...before.messages.filter(item => item.role === 'user').map(item => item.text),
+        userText, before.copy.text, understanding.copy.source_reference_ids.length ? understanding.copy.text : '', visibleText(workingSlide(before).html)]);
+      if (missing.length) { nextAction.intent = 'suggested'; degraded = `\n\nTexto nuevo que pondré: «${missing.join('», «')}». ¿Lo pongo así?`; }
+    }
+    // Step 5: an approval or insistence after the same plan runs it instead of showing it again.
+    let promoted = false;
+    if (!resolvingCopy && generation && nextAction.intent === 'suggested' && samePlan(prev, nextAction) && !questions.length
+      && (!needsResolvedCopy(nextAction.kind) || copy.status !== 'pending') && !degraded
+      && (sentPhase === 'confirmation' && insistence || sentPhase === 'clarification' && strict)) { nextAction.intent = 'requested'; promoted = true; }
+    let execute = false;
     await save(life, value => {
-      const next = { ...completeConversationAction(value, pending.action_id, {
-      message: { id: `assistant:${pending.action_id}`, turn_id: pending.turn_id, role: 'assistant', text: sourceText(result.message, false) },
-      understanding: resolvedUse.understanding, copy: value.copy.status === understanding.copy.status && value.copy.text === understanding.copy.text
-        ? value.copy : understanding.copy, ideas: resolvingCopy ? value.ideas : result.ideas.map(idea => ({ ...idea,
+      const misses = value.affirmation_misses ?? 0, previousPlan = waitingPlan(value);
+      let chosen: ConversationNextAction | null = resolvingCopy ? value.next_action : nextAction;
+      let armed: boolean | undefined, added = '', replaced = '', nextMisses = 0;
+      const preparesNothing = nextAction.kind === 'discuss' || nextAction.kind === 'explore_ideas';
+      // Step 6: an answer that prepares nothing keeps the waiting plan; only a plain approval re-arms it.
+      const keepPlan = !resolvingCopy && !!previousPlan && preparesNothing
+        && (sentPhase === 'confirmation' || strict && nextAction.kind === 'discuss');
+      if (keepPlan) { chosen = previousPlan; armed = false; }
+      const next: DesignConversationState = { ...completeConversationAction(value, pending.action_id, {
+        understanding: resolvedUse.understanding, copy, ideas: resolvingCopy ? value.ideas : result.ideas.map(idea => ({ ...idea,
           render_instruction: sourceText(idea.render_instruction), reference_ids: idea.reference_ids.filter(persistent) })),
-      next_action: resolvingCopy ? value.next_action : nextAction,
-      }), references: resolvedUse.references };
-      next.confirmation = !resolvingCopy && isDesignGeneration(nextAction.kind) && next.copy.status !== 'pending'
-        && !understanding.pending_questions.length ? { context_key: designConfirmationKey(next, latest.current) } : null;
+        next_action: chosen }), references: resolvedUse.references };
+      const key = () => designConfirmationKey(next, latest.current);
+      if (keepPlan && sentPhase === 'confirmation' && insistence && !/[?¿]/.test(modelText)) {
+        const blocker = designPlanBlocker(next, latest.current);
+        if (opts.sentKey && opts.sentKey !== key()) added = `\n\n${designBlockerText({ reason: 'stale', detail: designConfirmationChanges(opts.sentKey, key()) })}`;
+        else if (blocker === null) armed = true;
+        else if (blocker.reason === 'copy' || blocker.reason === 'question') added = `\n\n${designBlockerText(blocker)}`;
+      }
+      // Step 7: two affirmatives in a row answered without an action get a concrete local reply.
+      if (!resolvingCopy && strict && nextAction.kind === 'discuss') {
+        if (misses < 1) nextMisses = 1;
+        else if (previousPlan && designPlanBlocker({ ...next, next_action: previousPlan, confirmation: null }, latest.current) === null) {
+          next.next_action = previousPlan; armed = true;
+          replaced = `No pude prepararlo con tu respuesta. El último plan que tengo es: «${firstSentence(previousPlan.instruction, 200)}». Pulsa «${designActionLabel(previousPlan)}» o responde «sí» para crearlo.`;
+        } else replaced = designBlockerText({ reason: 'none' });
+      }
+      // Step 9: arm a generation plan that nothing blocks.
+      if (armed === undefined) armed = !resolvingCopy && generation && (!needsResolvedCopy(nextAction.kind) || next.copy.status !== 'pending') && !questions.length;
+      next.confirmation = armed ? { context_key: key() } : null;
+      // Step 11 (decided here, dispatched after saving).
+      execute = opts.execute && nextAction.intent === 'requested' && generation && !resolvingCopy && !!next.confirmation
+        && designPlanBlocker(next, latest.current) === null;
+      const blocker = designPlanBlocker(next, latest.current);
+      // Step 8: a blocked plan or question repeated after an insistence is replaced by its reason.
+      if (!replaced && !resolvingCopy && strict && generation && !execute && !degraded && blocker && blocker.reason !== 'none'
+        && (samePlan(prev, nextAction) || !!sentQuestion && confirmationTokens(questions[0] ?? '').join(' ') === confirmationTokens(sentQuestion).join(' ')
+          || (!questions.length || questions[0] === sentQuestion) && needsResolvedCopy(nextAction.kind) && next.copy.status === 'pending')) replaced = designBlockerText(blocker);
+      // Step 10: nothing claims to be done unless it runs now.
+      if (!replaced && !execute && CLAIMS_DONE.test(modelText)) {
+        if (blocker === null && next.confirmation) replaced = `Tengo el plan: ${firstSentence(understanding.resolved_instruction, 200).replace(/[.!?]+$/, '')}. Aún no lo he creado; responde «sí» o pulsa «${designActionLabel(next.next_action)}».`;
+        else if (blocker && ['copy', 'question', 'stale'].includes(blocker.reason)) replaced = designBlockerText(blocker);
+      }
+      const armedOnly = !execute && !opts.execute && nextAction.intent === 'requested' && generation && !!next.confirmation
+        ? `\n\nPulsa «${designActionLabel(next.next_action)}» para hacerlo.` : '';
+      const text = (replaced || (promoted && execute ? 'Lo creo ahora con el plan que ya te mostré.' : modelText) + added) + degraded + (replaced ? '' : armedOnly);
+      next.messages.push({ id: `assistant:${pending.action_id}`, turn_id: pending.turn_id, role: 'assistant', text: text.slice(0, 16000) });
+      if (nextMisses) next.affirmation_misses = nextMisses; else delete next.affirmation_misses;
       return next;
     });
+    if (execute) await executeArmedPlan(life, { turnId: pending.turn_id });
   }
-  async function confirmDesign(life: Life, message = 'Sí, crea el diseño como lo acordamos.', onSaved?: () => void) {
+  /** Runs the armed plan once. With `userText` it records that message in a new turn;
+   * without it, the plan runs in the given turn (same-turn execution of «requested»). */
+  async function executeArmedPlan(life: Life, input: { userText?: string; turnId?: string }, onSaved?: () => void) {
     await assertCurrent(life); await assertRemoteRevision(life); await syncBrand(life);
     const value = current(life);
     if (!canConfirmDesign(value, latest.current)) throw Error('El contexto cambió. Pide actualizar la propuesta antes de crear el diseño.');
-    const turnId = crypto.randomUUID(), action = structuredClone(value.next_action!);
-    await save(life, before => ({ ...before, confirmation: null, messages: [...before.messages,
-      { id: `user:${turnId}`, turn_id: turnId, role: 'user', text: message }] }));
+    const userText = input.userText, action = structuredClone(value.next_action!);
+    const turnId = userText !== undefined ? crypto.randomUUID() : input.turnId ?? crypto.randomUUID();
+    await save(life, state => ({ ...state, confirmation: null, ...(userText !== undefined ? { messages: [...state.messages,
+      { id: `user:${turnId}`, turn_id: turnId, role: 'user' as const, text: userText }] } : {}) }));
     onSaved?.();
     try { await executeAction(life, action, turnId); }
     catch (problem) {
@@ -535,12 +652,24 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
       throw problem;
     }
   }
+  /** Answers without the planner: saves the user's message and the concrete reason in one turn. */
+  async function replyLocally(life: Life, userText: string, text: string, onSaved?: () => void) {
+    if (current(life).messages.length > 198) throw Error('conversation_message_limit');
+    const turnId = crypto.randomUUID();
+    await save(life, value => ({ ...value, messages: [...value.messages, { id: `user:${turnId}`, turn_id: turnId, role: 'user' as const, text: userText },
+      { id: `assistant:local:${crypto.randomUUID()}`, turn_id: turnId, role: 'assistant' as const, text }] }));
+    onSaved?.();
+  }
   async function sendMessage(life: Life, message: string, onSaved?: () => void, resolvingCopy = false,
-    inspection?: { round: number; turnId: string }) {
+    inspection?: { round: number; turnId: string; execute: boolean; phase?: 'clarification' | 'confirmation' }) {
     if (!message.trim() || message.length > 6000) throw Error('Escribe un mensaje de hasta 6000 caracteres.');
     await assertCurrent(life); await syncBrand(life);
-    if (!resolvingCopy && !inspection && isDesignConfirmation(message) && canConfirmDesign(current(life), latest.current)) {
-      await confirmDesign(life, message, onSaved); return;
+    if (!resolvingCopy && !inspection && isDesignConfirmation(message)) {
+      // A tolerant affirmative runs the armed plan without the planner; a stale or busy plan
+      // gets its reason locally. Copy, questions or no plan go to the planner (it may be an answer).
+      const blocker = designPlanBlocker(current(life), latest.current);
+      if (blocker === null && current(life).confirmation) { await executeArmedPlan(life, { userText: message }, onSaved); return; }
+      if (blocker?.reason === 'stale' || blocker?.reason === 'busy') { await replyLocally(life, message, designBlockerText(blocker), onSaved); return; }
     }
     if (current(life).messages.length > 198) throw Error('conversation_message_limit');
     if (current(life).completed_action_ids.length >= 200) throw Error('conversation_action_limit');
@@ -606,6 +735,9 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
     if (base === 'deck' && capture && deckStyle.length) deckStyle[0].summary = (`Captura reducida de estilo de la presentación: referencia ${capture.reference_id}. `
       + `Corresponde a este ejemplo; no es la diapositiva actual.\n${deckStyle[0].summary}`).slice(0, 4000);
     const actionId = crypto.randomUUID(), turnId = inspection?.turnId ?? crypto.randomUUID(), destination = latest.current.destination, waiting = value.next_action;
+    // Taken before the save clears the confirmation; an inspection round keeps the original turn's phase.
+    const sentPhase = inspection?.phase ?? (canConfirmDesign(value, latest.current) ? 'confirmation' as const : 'clarification' as const);
+    const sentKey = value.confirmation?.context_key;
     const projectCopy = (copy: DesignCopy) => ({ ...copy, source_reference_ids: copy.source_reference_ids.filter(id => visualRefs.some(ref => ref.reference_id === id)) });
     const previous = value.understanding ? resolveConversationReferenceUse(value.references, value.understanding, '').understanding : null;
     const previousUnderstanding = previous ? { ...previous, copy: projectCopy(previous.copy),
@@ -622,7 +754,7 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
       design_brief: { copy: projectCopy(value.copy), brand: value.brand ? designBrandExplorationContext(value.brand, designSurfaceBrand(destination)) : null,
         selected_instruction: value.understanding?.resolved_instruction ?? '', preserve: value.understanding?.preserve ?? [],
         ...(previousUnderstanding ? { previous_understanding: previousUnderstanding } : {}) },
-      conversation: { schema_version: 1, supports_design_source: 1, canvas, surface: hasHtml ? 'html' : selectedImage ? 'image' : 'empty',
+      conversation: { schema_version: 1, supports_design_source: 1, supports_structural_edits: 1, canvas, surface: hasHtml ? 'html' : selectedImage ? 'image' : 'empty',
         ...(value.design_source ? { design_source: value.design_source } : {}),
         ...(editableHash ? { editable_elements: editableElements, editable_html_hash: editableHash,
           editable_assets: value.brand?.logo_url ? [{ asset_id: 'brand-logo', label: `Logo de ${value.brand.name}` }] : [] } : {}),
@@ -631,7 +763,7 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
         ...(!resolvingCopy && waiting && isDesignGeneration(waiting.kind) ? { pending_action: {
           kind: waiting.kind, instruction: waiting.instruction, questions: value.understanding?.pending_questions ?? [],
           ...(waiting.design_source ? { design_source: waiting.design_source } : {}),
-          phase: canConfirmDesign(value, latest.current) ? 'confirmation' as const : 'clarification' as const } } : {}),
+          ...(waiting.rewrite ? { rewrite: true as const } : {}), phase: sentPhase } } : {}),
         ...(deck ? { presentation: deck } : {}),
         ...(!resolvingCopy && format ? { design_format: format } : {}),
         ...(!resolvingCopy && showSlide ? { slide_html: { revision: String(value.target.revision), summary: buildConversationHtmlSummary(slideHtml) } } : {}),
@@ -641,7 +773,8 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
           ? { deck_style: { slides: deckStyle } } : {}),
         ...(hasHtml ? { current_html: { revision: String(value.target.revision),
           summary: conversationVisualSummary(buildConversationHtmlSummary(baseHtml), capture?.reference_id
-            ?? (life.inspection?.capturedIds.includes(latest.current.slide.id) ? inspectionReference?.reference_id : undefined)) } } : {}) } });
+            ?? (life.inspection?.capturedIds.includes(latest.current.slide.id) ? inspectionReference?.reference_id : undefined)) } } : {}) } },
+      65536, value.messages.length <= 20);
     await save(life, before => beginConversationAction({ ...before, confirmation: null,
       ...(latest.current.format && latest.current.base ? { preferences: { format: latest.current.format, base: latest.current.base } } : {}) },
       { action_id: actionId, turn_id: turnId, kind: 'understand', phase: 'prepared',
@@ -649,7 +782,9 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
       : { id: `user:${actionId}`, turn_id: turnId, role: 'user', text: message }));
     onSaved?.();
     await save(life, before => markConversationAction(before, actionId, 'dispatched'));
-    try { await assertCurrent(life); const result = await plannerRef.current.plan(request); await acceptUnderstanding(life, result, true, inspection?.round); }
+    try { await assertCurrent(life); life.planning = actionId;
+      const result = await plannerRef.current.plan(request).finally(() => { if (life.planning === actionId) life.planning = undefined; });
+      await acceptUnderstanding(life, result, true, inspection?.round, { execute: inspection ? inspection.execute : true, sentKey }); }
     catch (problem) {
       if (!await finishPlanningFailure(life, actionId, problem) && active(life) && current(life).pending?.action_id === actionId)
         await save(life, before => markConversationAction(before, actionId, 'uncertain'));
@@ -759,7 +894,7 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
   async function executeAction(life: Life, action: ConversationNextAction, turnId: string = crypto.randomUUID()) {
     await assertCurrent(life); const value = current(life);
     if (value.pending) throw Error('conversation_pending_unresolved');
-    if (value.copy.status === 'pending' || value.understanding?.pending_questions.length) throw Error('Primero resolvamos el texto y las preguntas pendientes.');
+    if (needsResolvedCopy(action.kind) && value.copy.status === 'pending' || value.understanding?.pending_questions.length) throw Error('Primero resolvamos el texto y las preguntas pendientes.');
     if (!isDesignGeneration(action.kind)) return;
     if (action.kind === 'refine_html' && viewRef.current === 'history') throw Error('Selecciona la versión actual para continuar editando. Esta versión del historial se conserva para comparar.');
     if (value.versions.length >= 20) throw Error('conversation_version_limit');
@@ -779,13 +914,42 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
         throw Error('El diseño cambió desde la propuesta. Pide actualizar el ajuste antes de aplicarlo.');
       }
       const assets = value.brand?.logo_url ? { 'brand-logo': value.brand.logo_url } : {};
-      const edited = applyDesignElementEdits(slide.html, action.element_edits, { assets });
+      const summary = structuralSummary(action.element_edits);
+      // When the direct copy does not fit (no paid call spent yet), regenerate from the base without asking.
+      const escalate = async (editedHtml: string | undefined, reason: string) => {
+        const copy = editedHtml ? conversationCopyAfterEdit(value.copy, slide.html, editedHtml) : value.copy;
+        if (copy.status !== 'pending' && input.format === 'html' && workingSlide(value).html.trim() && input.htmlController.current) {
+          await save(life, state => ({ ...state, copy, understanding: state.understanding ? { ...state.understanding, copy } : null,
+            messages: [...state.messages, { id: `assistant:escalate:${crypto.randomUUID()}`, turn_id: turnId, role: 'assistant' as const,
+              text: 'La copia directa no cabía bien en la diapositiva; la rehago desde el diseño actual conservando su estilo.' }] }));
+          await executeAction(life, { kind: 'refine_html', intent: 'requested', rewrite: true, instruction: `${action.instruction}\nResultado esperado: ${summary}.`,
+            reason: action.reason, reference_ids: action.reference_ids }, turnId);
+          return;
+        }
+        throw Error(`No pude hacer este cambio de forma directa: ${reason}. Pide «rehazla» para regenerarla desde el diseño actual.`);
+      };
+      let edited: ReturnType<typeof applyDesignElementEdits>;
+      try { edited = applyDesignElementEdits(slide.html, action.element_edits, { assets }); }
+      catch (problem) {
+        if (problem instanceof DesignElementEditError && problem.code === 'element_reflow_root') { await escalate(undefined, problem.message.replace(/\.$/, '').toLowerCase()); return; }
+        throw problem;
+      }
       const editedHtml = detachUnverifiedMountedImages(slide.html, edited.html);
+      // Structural edits are checked on a real render (no AI). Repeated mounted icons may lose
+      // their verified mount identity in detachUnverifiedMountedImages; their pixels remain.
+      const fit = edited.structural ? await structuralEditFits(slide.html, editedHtml, getSlideDimensions(slide.html),
+        { businessId: input.businessId, expectedActorId: life.actor }, structuralBase) : null;
+      if (fit) await assertCurrent(life);
+      if (fit === 'overflow') { await escalate(editedHtml, 'el resultado no cabía en la diapositiva'); return; }
       const selectedProposal = input.base !== 'current' && selected?.kind === 'html' ? selected.proposal : undefined;
       const editSource = selectedProposal && selected?.kind === 'html' ? selected.design_source : undefined;
       const proposal: HtmlDesignProposal = { ...(selectedProposal ?? {}), html: editedHtml, target: value.target,
         canvas: selectedProposal?.canvas ?? getSlideDimensions(slide.html), mounted: reconcileMountedAssets(slide, editedHtml), intent: 'replace', pending: undefined,
-        visualReview: { status: 'needs_review', repairs: 0, issues: ['Revisa el ajuste puntual antes de aplicar el diseño.'] } };
+        visualReview: { status: 'needs_review', repairs: 0, issues: [fit === 'unverified' ? 'No pude comprobar que todo quepa; revísalo antes de aplicar.'
+          : 'Revisa el ajuste puntual antes de aplicar el diseño.'] } };
+      const done = !fit ? 'El ajuste está listo. Puedes revisarlo, seguir editando o aplicarlo a la diapositiva.'
+        : fit === 'fits' ? `Listo: ${summary}. Puedes revisarlo, seguir editando o aplicarlo a la diapositiva.`
+          : `Listo: ${summary}. No pude comprobar que todo quepa; revísalo antes de aplicarlo.`;
       const copy = conversationCopyAfterEdit(value.copy, slide.html, editedHtml), versionId = crypto.randomUUID();
       await assertCurrent(life); await assertRemoteRevision(life);
       await save(life, before => ({ ...before, versions: [...before.versions, { id: versionId, turn_id: turnId,
@@ -793,7 +957,7 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
         ...(editSource ? { design_source: editSource } : {}) }], selected_version_id: versionId, design_source: editSource ?? null,
         copy, understanding: before.understanding ? { ...before.understanding, copy } : null, next_action: null, confirmation: null,
         preferences: { format: 'html', base: 'version' }, messages: [...before.messages, { id: `assistant:${versionId}`, turn_id: turnId,
-          role: 'assistant', text: 'El ajuste está listo. Puedes revisarlo, seguir editando o aplicarlo a la diapositiva.' }] }));
+          role: 'assistant', text: done }] }));
       show('html');
       await input.htmlController.current?.updateContext(savedHtmlContext(current(life), proposal));
       return;
@@ -909,7 +1073,8 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
           ...(sourceContext ?? { designSource: null }),
           ...(fromSlide ? { fromCurrent: true, designBase: 'current' as const } : {}) };
         const proposal = sourceContext ? await input.htmlController.current!.create({ ...context, proposal: undefined })
-          : action.kind === 'refine_html' || continuingHtml || fromSlide ? await input.htmlController.current!.refine({ ...context, feedback: action.instruction, compare: true })
+          : action.kind === 'refine_html' || continuingHtml || fromSlide ? await input.htmlController.current!.refine({ ...context, feedback: action.instruction, compare: true,
+            ...(action.kind === 'refine_html' && action.rewrite ? { rewrite: true as const } : {}) })
             : await input.htmlController.current!.create(context);
         await finishHtml(life, proposal);
       }
@@ -920,6 +1085,17 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
         const admissionRefusal = problem instanceof DesignServerClientError && ['html_quota_exceeded', 'html_previous_unresolved', 'server_html_expired',
           'server_feature_disabled', 'business_access_denied', 'business_write_denied', 'invalid_html_request', 'html_source_not_approved',
           'html_source_invalid', 'html_source_unavailable', 'server_policy_changed', 'html_request_too_large'].includes(problem.code);
+        // A patch that failed after its retry already spent paid calls: ask once before a full rewrite.
+        if (problem instanceof DesignHtmlRequestError && problem.definitive && problem.code === 'invalid_canvas_patch'
+          && action.kind === 'refine_html' && !action.rewrite) {
+          await save(life, state => {
+            const next = completeConversationAction(state, id, { next_action: { ...action, rewrite: true, intent: 'suggested' }, message: {
+              id: `assistant:${id}`, turn_id: state.pending!.turn_id, role: 'assistant',
+              text: 'No pude aplicar el ajuste como cambio puntual. ¿Lo rehago completo desde el diseño actual, conservando su estilo?' } });
+            return { ...next, confirmation: designPlanBlocker(next, latest.current) === null ? { context_key: designConfirmationKey(next, latest.current) } : null };
+          });
+          return;
+        }
         if (isDefinitiveHtmlFailure(problem)) await save(life, state => completeConversationAction(state, id, { message: {
           id: `assistant:${id}`, turn_id: state.pending!.turn_id, role: 'assistant',
           text: `No se generó el HTML (${(problem as Error).message}). Tu diseño se conserva; puedes intentarlo de nuevo.` } }));
@@ -930,6 +1106,22 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
       }
       throw problem;
     }
+  }
+  /** After a remount, read (never dispatch) the saved result of the request this browser
+   * was waiting for. A recovered plan is armed, never executed, without the user. */
+  async function resumeInterruptedPlanning(life: Life) {
+    const pending = current(life).pending, planner = plannerRef.current;
+    if (pending?.kind !== 'understand' || pending.request?.kind !== 'understand' || !planner.recover || !takeInterruptedPlan(pending.action_id)) return;
+    const request = pending.request.request;
+    setResuming(true);
+    try {
+      for (let attempt = 0; attempt < 20 && active(life); attempt++) {
+        const found = await planner.recover(pending.action_id, request).catch(() => null);
+        if (!active(life) || current(life).pending?.action_id !== pending.action_id) return;
+        if (found) { await run(running => acceptUnderstanding(running, found, true), true); return; }
+        await new Promise(resolve => setTimeout(resolve, 3000));
+      }
+    } finally { if (active(life)) setResuming(false); }
   }
   async function recoverAction(life: Life) {
     await loadConversation(life); if (!active(life)) return;
@@ -993,6 +1185,8 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
   }
   return {
     state, ready: ready && lifeRef.current?.key === scopeKey(options, activeSession), busy, error, brand, generation, imagePreview, imagePreviewLoading, imageResult, view,
+    /** Reading the saved answer of a request interrupted by a remount. */
+    resuming,
     sessions, activeSession, sessionsReady, sessionsError,
     sessionToken: designConversationSessionToken(activeSession, state.session_generation ?? 1),
     selectSession: (id: DesignConversationSessionId) => run(async life => {
@@ -1022,6 +1216,8 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
     }),
     confirmationReady: canConfirmDesign(state, options),
     confirmationStale: !!state.confirmation && !state.pending && !canConfirmDesign(state, options),
+    /** What changed after the plan was armed («el formato», «la propuesta»…), for the stale notice. */
+    staleDetail: designPlanBlocker(state, options)?.reason === 'stale' ? designPlanBlocker(state, options)?.detail ?? '' : '',
     canRetryLastMessage: !!retryablePlanningMessage(state),
     syncStatus: options.service.continuity ? syncStatus : null, localCopies,
     /** Dismiss the last error once the user left the failed proposal (the work itself stays as saved). */
@@ -1060,22 +1256,22 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
       });
       return saved;
     },
-    executeSuggested: () => run(life => confirmDesign(life)),
+    executeSuggested: () => run(life => executeArmedPlan(life, { userText: 'Sí, créalo.' })),
+    /** A button is an explicit order: it runs in the same click, or says why it cannot. */
     executeAction: (kind: ConversationActionKind) => run(async life => {
       await assertCurrent(life); if (current(life).pending) throw Error('conversation_pending_unresolved');
       const value = current(life), action: ConversationNextAction = { kind, intent: 'suggested',
         instruction: value.understanding?.resolved_instruction || 'Crea el diseño con el texto, la marca y las referencias acordadas.',
         reference_ids: value.references.map(item => item.id), reason: 'Solicitaste esta acción mediante su botón.' };
-      const turn = crypto.randomUUID();
+      let armed = false;
       await save(life, before => {
-        const next = { ...before, next_action: action, messages: [...before.messages, {
-          id: `assistant:${turn}`, turn_id: turn, role: 'assistant' as const,
-          text: kind === 'convert_image_to_html'
-            ? 'Voy a reconstruir la imagen seleccionada como HTML editable, conservando el contenido acordado. ¿Lo creo así?'
-            : `Voy a preparar el diseño con estas indicaciones: ${action.instruction}\n\n¿Lo creo así?` }] };
-        return { ...next, confirmation: next.copy.status !== 'pending' && !next.understanding?.pending_questions.length
-          ? { context_key: designConfirmationKey(next, latest.current) } : null };
+        const next = { ...before, next_action: action, confirmation: null };
+        const blocker = designPlanBlocker(next, latest.current);
+        if (blocker === null) { armed = true; return { ...next, confirmation: { context_key: designConfirmationKey(next, latest.current) } }; }
+        const turn = crypto.randomUUID();
+        return { ...next, messages: [...next.messages, { id: `assistant:${turn}`, turn_id: turn, role: 'assistant' as const, text: designBlockerText(blocker) }] };
       });
+      if (armed) await executeArmedPlan(life, { userText: kind === 'convert_image_to_html' ? 'Hazla editable.' : 'Créalo.' });
     }),
     startIdea: (idea: IdeaContent) => run(async life => {
       await assertCurrent(life); if (current(life).pending) throw Error('conversation_pending_unresolved');

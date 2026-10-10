@@ -45,6 +45,7 @@ import { HtmlSectionEditor } from '@/components/HtmlSectionEditor';
 import { VisualDesignEditor, type ElementDef } from '@/components/VisualDesignEditor';
 import { SlideGeneratorPanel } from '@/components/presentations/SlideGeneratorPanel';
 import { UnifiedDesignWorkspace } from '@/components/presentations/UnifiedDesignWorkspace';
+import { rememberActiveSlide, rememberedSlideIndex } from '@/lib/presentations/activeSlideMemory';
 import type { HtmlDesignTarget } from '@/lib/presentations/htmlDesignDraft';
 import type { PresentationMountedAsset } from '@/lib/presentations/presentationDocument';
 import { MountedImagesPanel } from '@/components/presentations/MountedImagesPanel';
@@ -440,7 +441,8 @@ function PresentationsPageContent({ activeBusinessId, projectName }: { activeBus
       setSlides(validated);
       slidesOwnerIdRef.current = id;
       setActivePresentationId(id);
-      setCurrentSlide(0);
+      // Reloading the same project (remount, refresh) keeps the slide being worked on.
+      setCurrentSlide(rememberedSlideIndex(validated, activeBusinessId, id));
       if (activeBusinessId) {
         try { localStorage.setItem(`xending-active-presentation-${activeBusinessId}`, id); } catch { /* ignore */ }
       }
@@ -489,6 +491,12 @@ function PresentationsPageContent({ activeBusinessId, projectName }: { activeBus
     loadPresentations();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeBusinessId]);
+  // Remember the active slide of the loaded project, so a reload never jumps back to slide 1.
+  useEffect(() => {
+    const slide = slides[currentSlide];
+    if (!activeBusinessId || !activePresentationId || slidesOwnerIdRef.current !== activePresentationId || !slide) return;
+    rememberActiveSlide(activeBusinessId, activePresentationId, slide.id);
+  }, [activeBusinessId, activePresentationId, slides, currentSlide]);
 
   const saveToCloud = useCallback(async () => {
     if (!activeBusinessId) {

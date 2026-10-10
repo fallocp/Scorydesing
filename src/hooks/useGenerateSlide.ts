@@ -58,14 +58,17 @@ async function invokeSlide(
 
   if (error) {
     // The function answered (non-2xx): no HTML was produced, so the caller can retry right away.
-    let message = error.message;
+    let message = error.message, code: string | undefined;
     const context = (error as { context?: unknown }).context;
     if (context instanceof Response) {
-      try { const body = await context.clone().json(); message = body?.message || body?.error || message; } catch { /* keep the generic message */ }
+      try {
+        const body = await context.clone().json(); message = body?.message || body?.error || message;
+        if (typeof body?.error === 'string' && body.error.length >= 1 && body.error.length <= 80) code = body.error;
+      } catch { /* keep the generic message */ }
     }
-    throw new DesignHtmlRequestError(message || 'Error generando el slide', error.name === 'FunctionsHttpError');
+    throw new DesignHtmlRequestError(message || 'Error generando el slide', error.name === 'FunctionsHttpError', code);
   }
-  if (data?.error) throw new DesignHtmlRequestError(data.message || data.error, true);
+  if (data?.error) throw new DesignHtmlRequestError(data.message || data.error, true, typeof data.error === 'string' ? data.error : undefined);
   await assertActor();
   return data;
 }

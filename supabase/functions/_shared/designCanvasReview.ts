@@ -1,12 +1,15 @@
 import { buildDesignCanvasHtmlMessages, DesignCanvasHtmlError, type DesignCanvasHtmlRequest, type DesignCanvasHtmlBrand,
   type DesignCanvasHtmlMessage } from './designCanvasHtml.ts';
+import { designTypographyMinimum } from './designTypography.ts';
 
 export interface DesignCanvasReview { passed: boolean; issues: string[]; feedback: string }
 
 export function buildDesignCanvasReviewMessages(request: DesignCanvasHtmlRequest, brand: DesignCanvasHtmlBrand): DesignCanvasHtmlMessage[] {
   const messages = buildDesignCanvasHtmlMessages(request, brand);
+  const minimum = designTypographyMinimum(request.canvas);
   return [{ role: 'system', content: `Revisa la captura REAL del diseño entregado, el encargo, las referencias identificadas por función y la marca autorizada.
 Comprueba legibilidad, texto tapado o cortado, jerarquía, márgenes, imágenes ausentes y fidelidad a la fuente visual indicada. Distingue una réplica de una adaptación de estilo: distinta cantidad de contenido puede requerir otra distribución. Nunca exijas el texto o la marca de una referencia de estilo.
+Mínimos de este lienzo: cuerpo ${minimum.body}px, notas ${minimum.note}px. Señala sólo texto por debajo del mínimo en los componentes que el encargo (instruction o iteration_feedback) pidió crear, repetir o reacomodar. Si no puedes distinguir si un texto pertenece a esos componentes, no lo señales. Si el encargo da un tamaño concreto, respétalo.
 Si existe design_source, compara con la FUENTE VISUAL ELEGIDA individual: replicate conserva composición y proporciones; adapt_layout conserva componentes y tratamiento visual permitiendo redistribuirlos para todo el texto aprobado; style_only conserva lenguaje visual sin exigir la composición original. La identidad y revisión de la fuente no son el destino; canvas sigue definiendo las dimensiones del resultado. No evalúes fidelidad contra la diapositiva de destino ni contra ejemplos secundarios si contradicen esa fuente.
 Compara cada bloque del texto aprobado con lo que realmente se ve en la captura: cuenta los bloques o elementos solicitados, confirma sus líneas completas y señala cuáles faltan, quedan detrás de otra capa o fuera del lienzo. Que existan en el HTML no basta. Comprueba el contraste de títulos y párrafos sobre fotografías en toda su extensión, incluyendo zonas claras u oscuras de la foto; pide separación o un fondo de apoyo si la superposición impide leer. Detecta franjas, fondos o contenedores antiguos que quedaron sin contenido y desplazan o cubren el contenido nuevo; distingue esos restos del espacio en blanco intencional.
 La ficha de estilo describe la base y no anula cambios explícitos. No inventes defectos por diferencias de contenido autorizadas ni exijas una marca, fuente, proporción o número de tarjetas predeterminados. Los diagnósticos geométricos son evidencia adicional; no ignores texto oculto aunque el HTML lo contenga.

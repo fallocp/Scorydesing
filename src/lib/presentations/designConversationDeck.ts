@@ -78,18 +78,24 @@ export function buildConversationInspectionExamples(slides: ReadonlyArray<Presen
 }
 
 /** Fit the server's UTF-8 request budget without removing a slide from the catalog, approved copy or the pending plan.
- * History and structural evidence are lossy context; omitted evidence is always marked. */
-export function fitConversationPresentationRequest(request: ExplorationRequest, maxBytes = 65536): ExplorationRequest {
+ * History and structural evidence are lossy context; omitted evidence is always marked.
+ * `historyComplete`: the caller sent every message. Only then, and only while nothing
+ * of the history or the catalog texts is trimmed, the server may check edit texts. */
+export function fitConversationPresentationRequest(request: ExplorationRequest, maxBytes = 65536, historyComplete = false): ExplorationRequest {
   if (!Number.isSafeInteger(maxBytes) || maxBytes < 2048 || maxBytes > 65536) throw Error('conversation_presentation_invalid_budget');
   const next = structuredClone(request), encoder = new TextEncoder();
   const fits = () => encoder.encode(JSON.stringify(next)).length <= maxBytes;
+  // Set first, so its own bytes are budgeted; trimming only removes it.
+  if (historyComplete && next.conversation?.supports_structural_edits === 1 && next.conversation.editable_elements?.length)
+    next.conversation.editable_text_complete = 1;
   if (fits()) return next;
-  while (next.history.length && !fits()) next.history.shift();
+  while (next.history.length && !fits()) { next.history.shift(); delete next.conversation?.editable_text_complete; }
   if (fits()) return next;
   // The editor catalog is optional assistance, unlike the agreed copy or
   // source identity. Shorten descriptions before reducing the offered targets.
   const turn = next.conversation;
   if (turn?.editable_elements) {
+    delete turn.editable_text_complete;
     for (const [textLimit, labelLimit] of [[160, 80], [80, 40], [40, 24], [0, 24]]) {
       for (const element of turn.editable_elements) {
         element.label = clip(element.label, labelLimit);

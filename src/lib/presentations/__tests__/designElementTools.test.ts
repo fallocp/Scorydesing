@@ -109,6 +109,56 @@ describe('direct HTML tools in actual Chromium', () => {
     expect(result.asset).toBeUndefined(); expect(result.mount).toBeNull(); expect(result.fit).toBe('contain'); expect(result.sibling).toBe('<p id="other">Intacto</p>'); expect(result.changed).toHaveLength(1);
   });
 
+  it('turns 3 cards into 6 with retext, duplicate and reflow, keeping classes, icons and font sizes, and catalogs the copies', async () => {
+    const card = (n: number) => `<div class="card" style="position:absolute;left:${n * 300}px;font-size:22px"><img id="icono-${n}" class="icon" data-asset-id="icon-${n}" data-asset-version="v1" src="${png}" alt="Ícono ${n}"><span class="dot"></span><h3>Título ${n}</h3><p data-copy-id="copy-${n}">Descripción ${n}</p></div>`;
+    const result = await inBrowser(({ source, png }: { source: string; png: string }) => {
+      const tools = (window as any).ElementTools, groups = tools.buildDesignElementCatalog(source).filter((item: any) => item.group);
+      // Kinds are applied in a fixed order (retext → duplicate → reflow) whatever their order in the batch.
+      const edits = [{ kind: 'reflow', element_id: groups[0].element_id, columns: 3 },
+        ...[4, 5, 6].map(n => ({ kind: 'duplicate', element_id: groups[2].element_id, texts: [`Nuevo ${n}`, n === 6 ? '' : `Texto ${n}`] })),
+        ...groups.map((item: any, index: number) => ({ kind: 'retext', element_id: item.element_id, texts: [`Nuevo ${index + 1}`, `Texto ${index + 1}`] }))];
+      const edited = tools.applyDesignElementEdits(source, edits);
+      const doc = new DOMParser().parseFromString(edited.html, 'text/html'), cards = [...doc.querySelectorAll<HTMLElement>('.card')];
+      const after = tools.buildDesignElementCatalog(edited.html);
+      return { groups: groups.map((item: any) => [item.group, item.text_count]), structural: edited.structural,
+        titles: cards.map(node => node.querySelector('h3')!.textContent), texts: cards.map(node => node.querySelector('p')!.textContent),
+        classes: cards.every(node => node.className === 'card'), fonts: cards.map(node => node.style.fontSize), position: cards[5].style.position,
+        icons: cards.map(node => node.querySelector('img')!.getAttribute('src') === png && node.querySelector('img')!.dataset.assetId),
+        ids: cards.map(node => node.querySelector('img')!.id), copies: doc.querySelectorAll('[data-copy-id]').length,
+        grid: doc.querySelector<HTMLElement>('.beneficios')!.style.cssText, heading: doc.querySelector<HTMLElement>('h2')!.style.gridColumn,
+        grouped: after.filter((item: any) => item.group).map((item: any) => item.text_count),
+        emptyLeaf: after.some((item: any) => item.kind === 'text' && item.text === '' && item.label === 'p') };
+    }, { source: html(`<section class="beneficios"><h2>Beneficios</h2>${[1, 2, 3].map(card).join('')}</section>`), png });
+    expect(result.groups).toEqual([['g:1', 2], ['g:1', 2], ['g:1', 2]]); expect(result.structural).toBe(true);
+    expect(result.titles).toEqual(['Nuevo 1', 'Nuevo 2', 'Nuevo 3', 'Nuevo 4', 'Nuevo 5', 'Nuevo 6']);
+    expect(result.texts).toEqual(['Texto 1', 'Texto 2', 'Texto 3', 'Texto 4', 'Texto 5', '']);
+    expect(result.classes).toBe(true); expect(result.fonts).toEqual(Array(6).fill('22px')); expect(result.position).toBe('relative');
+    expect(result.icons).toEqual(['icon-1', 'icon-2', 'icon-3', 'icon-3', 'icon-3', 'icon-3']);
+    expect(result.ids).toEqual(['icono-1', 'icono-2', 'icono-3', 'icono-3-c1', 'icono-3-c2', 'icono-3-c3']); expect(result.copies).toBe(3);
+    expect(result.grid).toContain('display: grid'); expect(result.grid).toContain('repeat(3, minmax(0px, 1fr))'); expect(result.heading).toBe('1 / -1');
+    expect(result.grouped).toEqual(Array(6).fill(2)); expect(result.emptyLeaf).toBe(true);
+  }, 30000);
+
+  it('removes a card and refuses unsafe structural batches or groups whose copy would mix text', async () => {
+    const card = (n: number, body = `<h3>Título ${n}</h3>`) => `<div class="card">${body}</div>`;
+    const result = await inBrowser((sources: Record<string, string>) => {
+      const tools = (window as any).ElementTools, groups = (source: string) => tools.buildDesignElementCatalog(source).filter((item: any) => item.group);
+      const attempt = (edits: unknown[]) => { try { tools.applyDesignElementEdits(sources.cards, edits); return ''; } catch (error) { return (error as any).code ?? (error as Error).message; } };
+      const [first, second] = groups(sources.cards);
+      const heading = tools.buildDesignElementCatalog(sources.cards).find((item: any) => item.kind === 'text' && item.text === 'Título 1');
+      const removed = tools.applyDesignElementEdits(sources.cards, [{ kind: 'remove', element_id: second.element_id }]);
+      return { removed: new DOMParser().parseFromString(removed.html, 'text/html').querySelectorAll('.card').length,
+        targetRemoved: attempt([{ kind: 'remove', element_id: first.element_id }, { kind: 'retext', element_id: first.element_id, texts: ['X'] }]),
+        conflict: attempt([{ kind: 'retext', element_id: first.element_id, texts: ['X'] }, { kind: 'text', element_id: heading.element_id, text: 'Y' }]),
+        root: groups(sources.root).length, mixed: groups(sources.mixed).length, styled: groups(sources.styled).length, missing: groups(sources.missing).length };
+    }, { cards: html(`<section>${[1, 2, 3].map(n => card(n)).join('')}</section>`), root: html([1, 2, 3].map(n => card(n)).join('')),
+      mixed: html(`<section>${[1, 2].map(n => card(n, `<p>Ahorra <strong>${n}0%</strong> hoy</p>`)).join('')}</section>`),
+      styled: html(`<section>${[1, 2].map(n => `<div class="card" id="card-${n}"><h3>Título ${n}</h3></div>`).join('')}</section>`, '#card-1{color:red}'),
+      missing: html(`<section>${card(1, '<h3>Título</h3><div><p>Texto</p></div>')}${card(2, '<h3>Título</h3><div></div>')}</section>`) });
+    expect(result.removed).toBe(2); expect(result.targetRemoved).toBe('element_edit_target_removed'); expect(result.conflict).toBe('element_edit_conflict');
+    expect(result).toMatchObject({ root: 0, mixed: 0, styled: 0, missing: 0 });
+  }, 30000);
+
   it('refuses unauthorized asset URLs and compound stylesheet translation instead of losing existing geometry', async () => {
     const result = await inBrowser((source: string) => {
       const tools = (window as any).ElementTools, catalog = tools.buildDesignElementCatalog(source);

@@ -2,7 +2,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { assertExplorationRequest, assertExplorationResult } from '../exploration.ts';
 import { createExplorationProvider, prepareExplorationRequest } from '../explorationProvider.ts';
 import { CONVERSATION_ACTIONS, assertConversationDesignSource, assertConversationDesignSourceContext, assertConversationNextAction, conversationReferenceLabels, resolveConversationSourceMentions, type ConversationNextAction,
-  type ConversationPresentationContext } from '../conversationActions.ts';
+  type ConversationPresentationContext, LEGACY_CONVERSATION_ACTION_PROMPT, assertConversationTurn, conversationActionPrompt, conversationActionSchema,
+  conversationEditCorpus, schemaEnumCount } from '../conversationActions.ts';
+import { unapprovedElementTexts, type DesignEditableElement } from '../designElementEdits.ts';
 import type { ExplorationRequest, ExplorationResult } from '../explorationContracts.ts';
 import { createServerExploration, type ServerExplorationConfig } from '../serverExploration.ts';
 import type { ExplorationJournalEntry, ExplorationRepository } from '../explorationRepository.ts';
@@ -576,5 +578,101 @@ describe('conversation journal and capability compatibility', () => {
     const capabilities = await boundary.capabilities(business, actor);
     expect(capabilities?.supports_conversation_actions).toBe(1); expect(isServerExplorationCapabilities(capabilities)).toBe(true);
     expect(isServerExplorationCapabilities({ ...capabilities, supports_conversation_actions: 2 })).toBe(false);
+  });
+});
+
+describe('structural client: the user order wins over default rules', () => {
+  const cards: DesignEditableElement[] = [1, 2, 3].map(n => ({ element_id: `e:${n}`, kind: 'container' as const, label: `div · Tarjeta ${n}`,
+    text: `Beneficio ${n}`, group: 'g:1', text_count: 1 }));
+  function htmlRequest(modern = true, elements: DesignEditableElement[] = cards): ExplorationRequest {
+    const req = request();
+    Object.assign(req.conversation!, { surface: 'html', current_html: { revision: req.context.target.revision, summary: '<main>3 tarjetas</main>' },
+      available_actions: ['discuss', 'refine_html', 'edit_elements'], supports_design_source: 1, design_base: 'current',
+      editable_elements: elements, editable_html_hash: 'a'.repeat(64), editable_assets: [], ...(modern ? { supports_structural_edits: 1 } : {}) });
+    return req;
+  }
+  const ids = (req: ExplorationRequest) => req.context.references.map(ref => ref.reference_id);
+  const kinds = (schema: ReturnType<typeof conversationActionSchema>) => ((schema.properties as any).element_edits.anyOf[1].items.anyOf as any[])
+    .map(variant => variant.properties.kind.enum[0]);
+
+  it('sends the exact previous prompt and schema to a client without the flag', () => {
+    const legacy = htmlRequest(false);
+    expect(conversationActionPrompt(legacy.conversation!, true)).toBe(LEGACY_CONVERSATION_ACTION_PROMPT);
+    const schema = conversationActionSchema(legacy.conversation!, ids(legacy), legacy.context.references);
+    expect(schema.required).not.toContain('rewrite'); expect(kinds(schema)).not.toContain('duplicate');
+  });
+
+  it('offers rewrite and, only with the structural budget, retext/duplicate/remove/reflow', () => {
+    const req = htmlRequest(), plain = conversationActionSchema(req.conversation!, ids(req), req.context.references, {});
+    expect(plain.required).toContain('rewrite'); expect(kinds(plain)).not.toContain('duplicate');
+    const structural = conversationActionSchema(req.conversation!, ids(req), req.context.references, { structural: true });
+    expect(kinds(structural)).toEqual(expect.arrayContaining(['retext', 'duplicate', 'remove', 'reflow']));
+  });
+
+  it('builds one priority order without the contradictory rules, and keeps the block rule without structural edits', () => {
+    const turn = htmlRequest().conversation!, prompt = conversationActionPrompt(turn, true), plain = conversationActionPrompt(turn, false);
+    for (const text of ['PRIORIDAD ÚNICA', '(d) los controles de la interfaz', 'no ejecutes otra acción en su lugar', 'vuelve a nombrar ese control',
+      'nunca que se borre el texto existente', 'su paleta, su tipografía o su estilo sólo si el usuario lo pide',
+      'si tu último mensaje del historial hizo una pregunta que no era sobre crear o cambiar el diseño', 'duplicate']) expect(prompt).toContain(text);
+    for (const text of ['¿Lo creo así?', 'no rehagas desde cero', 'TODO el texto visible final', 'no lo sustituyas', 'señala el control que debe cambiar antes de confirmar',
+      'explica el cambio de formato necesario antes de preparar el plan', 'No copies una marca ajena', 'Un «sí» sin pending_action.phase=confirmation no aprueba generación'])
+      expect(prompt).not.toContain(text);
+    expect(plain).not.toContain('duplicate'); expect(plain).toContain('Nunca cambies la cantidad de bloques con un parche');
+    expect(plain).toContain('indica qué bloques nuevos van sin texto');
+  });
+
+  it('accepts rewrite only on refine_html without a source, also in the waiting action', () => {
+    const req = htmlRequest(), understanding = { ...visualUnderstanding(), references: [] };
+    const rewrite: ConversationNextAction = { kind: 'refine_html', intent: 'requested', instruction: 'Rehazla con 6 tarjetas.', reference_ids: [], reason: 'Lo pidió.', rewrite: true };
+    expect(() => assertConversationNextAction(rewrite, req, understanding)).not.toThrow();
+    expect(() => assertConversationNextAction({ ...rewrite, kind: 'discuss', intent: 'suggested', instruction: '' }, req, understanding)).toThrow();
+    expect(() => assertConversationNextAction(rewrite, htmlRequest(false), understanding)).toThrow();
+    req.conversation!.pending_action = { kind: 'refine_html', instruction: 'Rehazla.', questions: [], phase: 'confirmation', rewrite: true };
+    expect(() => assertConversationTurn(req.conversation, req.context)).not.toThrow();
+    req.conversation!.pending_action = { kind: 'create_html', instruction: 'Crea.', questions: [], rewrite: true };
+    expect(() => assertConversationTurn(req.conversation, req.context)).toThrow();
+  });
+
+  it('lets an order to add 3 cards run as deterministic edits, and rejects unapproved text only with the complete corpus', () => {
+    const req = htmlRequest(); req.message = 'Agrega 3 cuadros más: Pagos, Cobros, Reportes';
+    const understanding = { ...visualUnderstanding(), references: [], copy: { status: 'none' as const, text: '', source_reference_ids: [] } };
+    const add: ConversationNextAction = { kind: 'edit_elements', intent: 'requested', instruction: 'Agrego tres tarjetas iguales y las acomodo en dos filas de tres.',
+      reference_ids: [], reason: 'Orden concreta.', element_html_hash: 'a'.repeat(64), element_edits: [
+        { kind: 'duplicate', element_id: 'e:3', texts: ['Pagos'] }, { kind: 'duplicate', element_id: 'e:3', texts: ['Cobros'] },
+        { kind: 'duplicate', element_id: 'e:3', texts: ['Reportes'] }, { kind: 'reflow', element_id: 'e:1', columns: 3 }] };
+    expect(() => assertConversationNextAction(add, req, understanding)).not.toThrow();
+    const invented = { ...add, element_edits: [{ kind: 'duplicate' as const, element_id: 'e:3', texts: ['Beneficio inventado'] }] };
+    expect(() => assertConversationNextAction(invented, req, understanding)).not.toThrow();
+    req.conversation!.editable_text_complete = 1;
+    expect(() => assertConversationNextAction(invented, req, understanding)).toThrow('conversation_action_not_ready');
+    expect(() => assertConversationNextAction(add, req, understanding)).not.toThrow();
+    expect(unapprovedElementTexts(invented.element_edits, conversationEditCorpus(req, understanding))).toEqual(['Beneficio inventado']);
+  });
+
+  it('keeps the schema within the enum budget at the contract maximum (80 elements, 500 slides) and leaves old clients unchanged', () => {
+    const elements: DesignEditableElement[] = Array.from({ length: 80 }, (_, index) => index < 24
+      ? { element_id: `e:${index}`, kind: 'container' as const, label: `div · Tarjeta ${index}`, group: `g:${Math.floor(index / 3) + 1}`, text_count: 2 }
+      : { element_id: `e:${index}`, kind: index % 2 ? 'text' as const : 'container' as const, label: `p · Texto ${index}`, text: `Texto ${index}` });
+    const steps = new Map<number, { structural: boolean; warnings: unknown[] }>();
+    for (const count of [500, 100]) {
+      const req = htmlRequest(true, elements); req.conversation!.presentation = presentation(req, count);
+      req.conversation!.available_actions.push('inspect_slides');
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      try {
+        const body = prepareExplorationRequest(req) as any;
+        const structural = JSON.stringify(body.text.format.schema).includes('"duplicate"');
+        steps.set(count, { structural, warnings: warn.mock.calls.map(call => call[0]) });
+        expect(schemaEnumCount(body.text.format.schema)).toBeLessThanOrEqual(900);
+        expect(body.input[0].content[0].text.includes('duplicate')).toBe(structural);
+      } finally { warn.mockRestore(); }
+      const legacy = htmlRequest(false, elements); legacy.conversation!.presentation = presentation(legacy, count);
+      legacy.conversation!.available_actions.push('inspect_slides');
+      const sent = (prepareExplorationRequest(legacy) as any).text.format.schema.properties.next_action;
+      delete sent.properties.slide_ids.description;
+      expect(sent).toEqual(JSON.parse(JSON.stringify(conversationActionSchema(legacy.conversation!, ids(legacy), legacy.context.references))));
+    }
+    // Recorded budget outcome: 500 slides need compact move/resize plus open slide IDs; structural edits survive in both.
+    expect(steps.get(500)).toEqual({ structural: true, warnings: ['conversation_slide_ids_open'] });
+    expect(steps.get(100)).toEqual({ structural: true, warnings: [] });
   });
 });

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { buildDeckStyleKit } from '@/lib/presentations/designConversationHtml';
 import { measureStyleSpec } from '@/lib/presentations/styleSpec';
 import { describeConversationDesignSource } from '@/lib/presentations/designConversationSource';
+import { designActionLabel, needsResolvedCopy } from '@/lib/presentations/designConversationConfirmation';
 import { buildDesignRepairFeedback, describeVisualReview } from '@/lib/presentations/designVisualReview';
 import { ArrowUp, Check, ImagePlus, Layers, Loader2, MessageSquare, Pencil, Plus, Shapes, Sparkles, X } from 'lucide-react';
 import type { PresentationSlide } from '@/lib/presentations/presentationDocument';
@@ -88,7 +89,8 @@ export function UnifiedDesignWorkspace(props: UnifiedDesignWorkspaceProps) {
   const busy = work.busy || htmlUi.busy || compositionUi.busy;
   const blocked = busy || fileBusy || importBusy || !work.ready || !!work.syncStatus && work.syncStatus !== 'synced';
   const pending = !!state.pending;
-  const copyPending = state.copy.status === 'pending';
+  // Same predicate as the plan itself: the initial pending copy never blocks a direct edit.
+  const copyPending = state.copy.status === 'pending' && needsResolvedCopy(state.next_action?.kind);
   const pendingQuestions = state.understanding?.pending_questions ?? [];
   const designPending = copyPending || pendingQuestions.length > 0;
   const brand = state.brand ?? work.brand.context;
@@ -215,13 +217,14 @@ export function UnifiedDesignWorkspace(props: UnifiedDesignWorkspaceProps) {
             await work.changeReferences(next);
           }} />
         {state.copy.status === 'literal' && <details><summary>Texto del diseño</summary><p className="dc-copy">{state.copy.text}</p></details>}
-        {state.copy.status === 'none' && <p className="dc-muted">Diseño sin texto.</p>}
+        {state.copy.status === 'none' && <p className="dc-muted">{format === 'html' && (base === 'current' || base === 'version')
+          ? 'Sin texto nuevo: se conserva el texto del diseño.' : 'Diseño sin texto.'}</p>}
         {spec && <details><summary>Ficha de estilo</summary><p className="dc-muted">Estilo del diseño base. Puedes pedir qué conservar y qué cambiar.</p><pre className="dc-spec">{spec}</pre></details>}
         {brand && <details><summary>Identidad de {brand.name}</summary><p className="dc-muted">{[brand.style, brand.tone].filter(Boolean).join(' · ') || 'Paleta, tipografías y recursos guardados de esta marca.'}</p>
           <div className="dc-swatches">{Object.values(brand.colors).filter(Boolean).map((color, index) => <span key={index} style={{ background: color }} title={color} />)}</div></details>}
       </div>}
       <div ref={history} className="dc-history" aria-label="Historial de diseño" aria-live="polite">
-        {!state.messages.length && <div className="dc-welcome"><MessageSquare size={26} /><h3>Empecemos por tu idea</h3><p>Añade referencias o dime qué diapositivas revisar. Antes de crear, te explicaré la propuesta para que la confirmes.</p>
+        {!state.messages.length && <div className="dc-welcome"><MessageSquare size={26} /><h3>Empecemos por tu idea</h3><p>Dime qué quieres cambiar y lo hago. Si un cambio tiene consecuencias que no pediste, te lo digo antes.</p>
           <button className="dc-button" onClick={() => { setReferencesOpen(true); composer.current?.focus(); }}>Añadir imágenes de referencia</button></div>}
         {state.messages.map(item => <article className={`dc-message dc-message-${item.role}`} key={item.id}><span>{item.role === 'user' ? 'Tú' : 'Asistente'}</span><p>{item.text}</p></article>)}
         {state.ideas.length > 0 && <div className="dc-ideas" aria-label="Ideas de diseño">{state.ideas.map((idea, index) => <article key={`${index}:${idea.title}`}><span>Idea {index + 1}</span><h4>{idea.title}</h4>
@@ -229,11 +232,11 @@ export function UnifiedDesignWorkspace(props: UnifiedDesignWorkspaceProps) {
         {work.confirmationReady && <div className="dc-confirmation">
           {state.next_action?.design_source && <p>{describeConversationDesignSource(state.next_action.design_source, props.deckSlides ?? [props.slide], state.references)}</p>}
           <button className="dc-button dc-primary dc-next" disabled={blocked || pending || designPending} onClick={() => void act(() => work.executeSuggested())}>
-          <Sparkles size={15} />{state.next_action?.kind === 'edit_elements' ? 'Preparar ajuste' : state.next_action?.kind === 'refine_html' || state.next_action?.kind === 'edit_image' ? 'Crear ajuste' : 'Crear diseño'}</button>
+          <Sparkles size={15} />{designActionLabel(state.next_action)}</button>
           <p>Puedes confirmar o escribir qué cambiar en la propuesta.</p></div>}
-        {work.confirmationStale && <div className="dc-confirmation"><p>Cambiaron las opciones del diseño. Actualicemos la propuesta antes de crear.</p>
-          <button className="dc-button dc-next" disabled={blocked || pending} onClick={() => void send('Actualiza la propuesta con el formato, la base y las referencias seleccionadas. Explícame qué harás antes de generarlo.')}>Actualizar propuesta</button></div>}
-        {busy && <div className="dc-working" role="status"><Loader2 size={15} className="animate-spin" />Preparando tu diseño…</div>}
+        {work.confirmationStale && <div className="dc-confirmation"><p>{work.staleDetail ? `Cambiaste ${work.staleDetail} después de la propuesta.` : 'Cambiaron las opciones del diseño.'} Actualicemos la propuesta antes de crear.</p>
+          <button className="dc-button dc-next" disabled={blocked || pending} onClick={() => void send('Actualiza la propuesta con el formato, la base y las referencias seleccionadas.')}>Actualizar propuesta</button></div>}
+        {(busy || work.resuming) && <div className="dc-working" role="status"><Loader2 size={15} className="animate-spin" />{work.resuming && !busy ? 'Recuperando la respuesta de tu último mensaje…' : 'Preparando tu diseño…'}</div>}
       </div>
       <div className="dc-composer">
         {error && <p role="alert" className="dc-error">{error}</p>}
@@ -255,7 +258,7 @@ export function UnifiedDesignWorkspace(props: UnifiedDesignWorkspaceProps) {
           <button className="dc-button" disabled={busy || fileBusy} onClick={() => void act(() => work.synchronize())}>Sincronizar</button>
           <button className="dc-button" disabled={busy || fileBusy} onClick={() => void act(() => work.exportLocal())}>Descargar copia local</button></div>}
         {work.brand.status === 'error' && <p className="dc-error">No se pudo cargar la marca. <button className="dc-button" disabled={blocked || pending} onClick={work.brand.refresh}>Volver a cargar</button></p>}
-        {pending && !busy && <div className="dc-recovery"><p>Hay una solicitud pendiente. Recupera su estado para continuar con este trabajo.</p><button className="dc-button" onClick={() => void act(() => work.recover())}>Recuperar solicitud</button>
+        {pending && !busy && !work.resuming && <div className="dc-recovery"><p>Hay una solicitud pendiente. Recupera su estado para continuar con este trabajo.</p><button className="dc-button" onClick={() => void act(() => work.recover())}>Recuperar solicitud</button>
           <button className="dc-button" onClick={() => void act(() => work.discard())}>Descartar</button></div>}
         <div className="dc-quick"><button className="dc-button" disabled={fileBusy || importBusy} onClick={() => setReferencesOpen(value => !value)} aria-expanded={referencesOpen}>
           <ImagePlus size={14} />{state.references.length ? `Referencias · ${state.references.length}` : 'Añadir referencia'}</button>
@@ -264,7 +267,7 @@ export function UnifiedDesignWorkspace(props: UnifiedDesignWorkspaceProps) {
           disabled={blocked || pending} onPaste={paste} placeholder="Conserva el diseño y usa el texto de esta imagen, replica su composición o toma sólo su estilo…"
           onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void send(); } }} />
           <button className="dc-button" aria-label="Enviar" title="Enviar" disabled={blocked || pending || !message.trim()} onClick={() => void send()}><ArrowUp size={20} /></button></div>
-        <p className="dc-muted">Primero acordamos la propuesta. Al confirmar, crearé el diseño.</p>
+        <p className="dc-muted">Pídeme el cambio y lo hago; si tiene consecuencias que no pediste, te pregunto antes.</p>
       </div>
     </aside><main className="dc-result">
       <div className="dc-result-bar"><div className="dc-result-label"><Layers size={17} /><span>{view === 'image' ? 'Diseño en imagen' : view === 'history' ? 'Versión guardada' : 'Diseño editable'}</span></div>

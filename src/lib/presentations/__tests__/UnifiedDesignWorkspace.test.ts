@@ -110,9 +110,12 @@ it('shows the agreed source alongside confirmation and labels a direct edit with
   expect(harness.work.executeSuggested).not.toHaveBeenCalled();
   harness.work.state.next_action = { kind: 'edit_elements', intent: 'suggested', instruction: 'Mueve el título', reason: 'Encargo', reference_ids: [],
     element_html_hash: 'a'.repeat(64), element_edits: [{ kind: 'move', element_id: 'e:0', dx: 0, dy: -20 }] };
+  // The initial pending copy never blocks a direct edit, nor shows the «resolve text» notice.
+  harness.work.state.copy.status = 'pending';
   const edited = render({ deckSlides: slides });
-  expect(button(edited, 'Preparar ajuste')).toBeDefined();
-  await button(edited, 'Preparar ajuste')!.props.onClick();
+  expect(button(edited, 'Hacer el cambio')?.props.disabled).toBe(false);
+  expect(text(edited)).not.toContain('Falta resolver el texto literal');
+  await button(edited, 'Hacer el cambio')!.props.onClick();
   expect(harness.work.executeSuggested).toHaveBeenCalledOnce();
 });
 
@@ -179,7 +182,7 @@ it('offers a new planning turn when changed options invalidate the displayed pro
   const tree = render();
   expect(button(tree, 'Crear diseño')).toBeUndefined();
   button(tree, 'Actualizar propuesta')!.props.onClick(); await flush();
-  expect(harness.work.send).toHaveBeenCalledWith('Actualiza la propuesta con el formato, la base y las referencias seleccionadas. Explícame qué harás antes de generarlo.');
+  expect(harness.work.send).toHaveBeenCalledWith('Actualiza la propuesta con el formato, la base y las referencias seleccionadas.');
   expect(harness.work.executeSuggested).not.toHaveBeenCalled();
 });
 

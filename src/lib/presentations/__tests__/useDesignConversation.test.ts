@@ -19,7 +19,8 @@ vi.mock('../useDesignBrandContext', () => ({ useDesignBrandContext: () => ({ con
 vi.mock('../designConversationHtml', () => ({ buildConversationHtmlSummary: (html: string) => html, buildConversationHtmlExample: (html: string) => html }));
 vi.mock('../designConversationEdits', () => ({ conversationCopyAfterEdit: vi.fn((previous: unknown) => previous) }));
 vi.mock('../designElementTools', () => ({ buildDesignElementCatalog: vi.fn(() => []),
-  applyDesignElementEdits: vi.fn((html: string) => ({ html, changedElementIds: [] })) }));
+  applyDesignElementEdits: vi.fn((html: string) => ({ html, changedElementIds: [], structural: false })) }));
+vi.mock('../designStructuralCheck', () => ({ structuralEditFits: vi.fn(async () => 'fits') }));
 vi.mock('../designConversationInspection', () => ({ capturePresentationInspection: vi.fn(async () => ({ reference: null, capturedIds: [] })) }));
 vi.mock('../presentationReferences', async importOriginal => {
   const actual = await importOriginal<typeof import('../presentationReferences')>();
@@ -60,6 +61,7 @@ import { captureConversationHtml } from '../designConversationVisuals';
 import { capturePresentationInspection } from '../designConversationInspection';
 import { conversationCopyAfterEdit } from '../designConversationEdits';
 import { buildDesignElementCatalog, applyDesignElementEdits } from '../designElementTools';
+import { structuralEditFits } from '../designStructuralCheck';
 import { designEditableHtmlHash } from '../designConversationSource';
 import { buildDesignBrandContext } from '../designBrandContext';
 import { preparePresentationReference } from '../presentationReferences';
@@ -130,9 +132,9 @@ async function sendAndConfirm(options: UseDesignConversationOptions, message: st
   await render(options).executeSuggested();
 }
 async function requestAndConfirm(options: UseDesignConversationOptions, kind: Parameters<ReturnType<typeof useDesignConversation>['executeAction']>[0]) {
+  // An action button is an explicit order: it runs in the same click, without a second confirmation.
+  // A refused preflight re-arms the plan, so the «Crear diseño» button stays available.
   await render(options).executeAction(kind);
-  expect(render(options).confirmationReady).toBe(true);
-  await render(options).executeSuggested();
 }
 function result(request: ExplorationRequest, kind: ConversationActionKind = 'discuss', requested = false): ExplorationResult {
   return { request_key: request.request_key, message: 'Entendido, conservaré el texto y ajustaré la composición.', ideas: [], response_id: null, usage: null,
@@ -168,7 +170,8 @@ beforeEach(async () => { for (const cleanup of harness.cleanups) cleanup?.(); ha
   vi.mocked(capturePresentationInspection).mockReset().mockResolvedValue({ reference: null, capturedIds: [] });
   vi.mocked(conversationCopyAfterEdit).mockReset().mockImplementation(previous => previous);
   vi.mocked(buildDesignElementCatalog).mockReset().mockReturnValue([]);
-  vi.mocked(applyDesignElementEdits).mockReset().mockImplementation(html => ({ html, changedElementIds: [] }));
+  vi.mocked(applyDesignElementEdits).mockReset().mockImplementation(html => ({ html, changedElementIds: [], structural: false }));
+  vi.mocked(structuralEditFits).mockReset().mockResolvedValue('fits');
   vi.mocked(prepareConversationReferences).mockReset().mockResolvedValue([]); });
 afterEach(() => vi.unstubAllGlobals());
 
@@ -188,7 +191,7 @@ describe('unified conversation orchestration', () => {
     harness.records.set(JSON.stringify([actor, business, 'document', 'canvas']), { revision: 1,
       scope: { actor, business, document: 'document', slide: 'canvas' }, value: saved });
     const refine = vi.fn(); options.htmlController = { current: { updateContext: vi.fn(), refine } as any };
-    planner.plan.mockImplementationOnce(async request => result(request, 'refine_html' as never, true));
+    planner.plan.mockImplementationOnce(async request => result(request, 'refine_html' as never));
     render(options); await flush(); await render(options).changeReferences([reference]);
     await render(options).send('Prepara un ajuste conservando el texto.');
     expect(render(options).error).toBe('');
@@ -322,7 +325,7 @@ describe('unified conversation orchestration', () => {
     expect(hook.state.ideas).toEqual(original.ideas); expect(hook.state.messages.slice(0, 2)).toEqual(original.messages);
     expect(hook.state.references).toEqual(original.references); expect(hook.state.versions).toEqual(original.versions);
     expect(client.command).not.toHaveBeenCalled();
-    planner.plan.mockImplementationOnce(async request => result(request, 'generate_image', true));
+    planner.plan.mockImplementationOnce(async request => result(request, 'generate_image'));
     await hook.startIdea(original.ideas[0]); hook = render(options);
     expect(client.command).not.toHaveBeenCalled(); expect(hook.confirmationReady).toBe(true);
     await hook.executeSuggested(); hook = render(options);
@@ -387,7 +390,7 @@ describe('unified conversation orchestration', () => {
     const { options, planner, client } = fixture(); planner.plan.mockImplementation(async request => {
       const saved = [...harness.records.values()][0] as any;
       expect(saved.value.pending).toMatchObject({ kind: 'understand', phase: 'dispatched', request: { kind: 'understand', request } });
-      return result(request, request.conversation!.selected_image ? 'edit_image' : 'generate_image', true);
+      return result(request, request.conversation!.selected_image ? 'edit_image' : 'generate_image');
     });
     render(options); await flush(); let hook = render(options); expect(hook.ready).toBe(true);
     await hook.setMode('explore_design'); await sendAndConfirm(options, 'Crea una imagen con lo que acordamos.');
@@ -409,7 +412,7 @@ describe('unified conversation orchestration', () => {
     try {
       const { options, planner, client } = fixture();
       planner.plan.mockImplementationOnce(async request => {
-        const response = result(request, 'generate_image', true);
+        const response = result(request, 'generate_image');
         response.next_action!.instruction = 'Replica el estilo de la referencia nueva.'; return response;
       });
       render(options); await flush(); await sendAndConfirm(options, 'Haz la portada con el estilo de la referencia nueva.');
@@ -428,7 +431,7 @@ describe('unified conversation orchestration', () => {
     planner.plan.mockImplementationOnce(async request => {
       const response = result(request, 'generate_image');
       response.design_understanding!.pending_questions = ['¿Conservo la foto actual o uso la de la referencia?']; return response;
-    }).mockImplementationOnce(async request => result(request, 'generate_image', true));
+    }).mockImplementationOnce(async request => result(request, 'generate_image'));
     render(options); await flush(); await render(options).send('Haz la portada con el acomodo de la referencia.');
     expect(client.command).not.toHaveBeenCalled();
     await render(options).send('La de la referencia.');
@@ -440,38 +443,58 @@ describe('unified conversation orchestration', () => {
     expect(render(options).error).toBe(''); expect(client.command).toHaveBeenCalledTimes(1);
   });
 
-  it('never generates a model-requested action until the user confirms the displayed plan', async () => {
+  it('executes a model-requested action in the same turn, once, without asking again', async () => {
     const { options, planner, client } = fixture();
     planner.plan.mockImplementationOnce(async request => result(request, 'generate_image', true));
     render(options); await flush(); await render(options).send('Haz un diseño con esta idea.');
-    expect(client.command).not.toHaveBeenCalled(); expect(options.onApply).not.toHaveBeenCalled();
-    expect(render(options).state.next_action?.intent).toBe('suggested');
-    expect(render(options).confirmationReady).toBe(true);
-    await render(options).send('sí');
     expect(client.command).toHaveBeenCalledTimes(1); expect(planner.plan).toHaveBeenCalledTimes(1);
-    expect(render(options).confirmationReady).toBe(false);
+    expect(options.onApply).not.toHaveBeenCalled(); expect(render(options).confirmationReady).toBe(false);
+    expect(render(options).state.messages.filter(message => message.role === 'user').map(message => message.text)).toEqual(['Haz un diseño con esta idea.']);
     await render(options).executeSuggested(); expect(client.command).toHaveBeenCalledTimes(1);
   });
 
-  it('a yes to a detail question completes the proposal without authorizing generation', async () => {
+  it('runs an armed plan once with a typo affirmative and never calls the planner for it', async () => {
+    const { options, planner, client } = fixture();
+    planner.plan.mockImplementationOnce(async request => result(request, 'generate_image'));
+    render(options); await flush(); await render(options).send('Haz un diseño con esta idea.');
+    expect(render(options).confirmationReady).toBe(true); expect(client.command).not.toHaveBeenCalled();
+    await render(options).send('sik');
+    expect(client.command).toHaveBeenCalledTimes(1); expect(planner.plan).toHaveBeenCalledTimes(1);
+    await render(options).send('sí'); expect(client.command).toHaveBeenCalledTimes(1);
+  });
+
+  it('answers an affirmative to a stale plan locally with what changed, without the planner', async () => {
+    const { options, planner, client } = fixture(); options.format = 'image'; options.base = 'current';
+    planner.plan.mockImplementationOnce(async request => result(request, 'generate_image'));
+    render(options); await flush(); await render(options).send('Prepara la propuesta.');
+    expect(render(options).confirmationReady).toBe(true);
+    options.base = 'new';
+    await render(options).send('si');
+    const messages = render(options).state.messages;
+    expect(planner.plan).toHaveBeenCalledTimes(1); expect(client.command).not.toHaveBeenCalled();
+    expect(messages.at(-2)).toMatchObject({ role: 'user', text: 'si' });
+    expect(messages.at(-1)?.text).toBe('No lo creé: después del plan cambiaste la base. Pulsa «Actualizar propuesta» y lo preparo con lo nuevo.');
+  });
+
+  it('a yes to a detail question resolves it and runs the same plan once, never discarding the answer', async () => {
     const { options, planner, client } = fixture();
     planner.plan.mockImplementationOnce(async request => {
       const response = result(request, 'generate_image');
       response.design_understanding!.pending_questions = ['¿Conservo el texto actual?']; return response;
-    }).mockImplementationOnce(async request => result(request, 'generate_image', true));
+    }).mockImplementationOnce(async request => result(request, 'generate_image'));
     render(options); await flush(); await render(options).send('Diseña esta portada.');
     expect(render(options).confirmationReady).toBe(false);
     await render(options).send('sí');
-    expect(planner.plan).toHaveBeenCalledTimes(2); expect(client.command).not.toHaveBeenCalled();
+    expect(planner.plan).toHaveBeenCalledTimes(2); expect(client.command).toHaveBeenCalledTimes(1);
     expect(planner.plan.mock.calls[1][0].conversation?.pending_action).toMatchObject({ phase: 'clarification', questions: ['¿Conservo el texto actual?'] });
-    expect(render(options).confirmationReady).toBe(true);
+    expect(render(options).state.messages.some(message => /Descart/.test(message.text))).toBe(false);
   });
 
   it('sends sí-pero corrections back to planning and confirms only the updated instruction', async () => {
     const { options, planner, client } = fixture();
-    planner.plan.mockImplementationOnce(async request => result(request, 'generate_image', true))
+    planner.plan.mockImplementationOnce(async request => result(request, 'generate_image'))
       .mockImplementationOnce(async request => {
-        const response = result(request, 'generate_image', true);
+        const response = result(request, 'generate_image');
         response.next_action!.instruction = 'Conserva el texto y el estilo de las tarjetas, sin fotografía.';
         response.design_understanding!.resolved_instruction = response.next_action!.instruction; return response;
       });
@@ -486,7 +509,7 @@ describe('unified conversation orchestration', () => {
 
   it.each(['format', 'base'] as const)('blocks the old plan when its %s changes before confirmation', async field => {
     const { options, planner, client } = fixture(); options.format = 'image'; options.base = 'current';
-    planner.plan.mockImplementationOnce(async request => result(request, 'generate_image', true));
+    planner.plan.mockImplementationOnce(async request => result(request, 'generate_image'));
     render(options); await flush(); await render(options).send('Prepara la propuesta.');
     expect(render(options).confirmationReady).toBe(true);
     if (field === 'format') options.format = 'html'; else options.base = 'new';
@@ -506,7 +529,7 @@ describe('unified conversation orchestration', () => {
     harness.records.set(JSON.stringify([actor, business, 'document', 'canvas']), { revision: 1,
       scope: { actor, business, document: 'document', slide: 'canvas' }, value: state });
     const refine = vi.fn(); options.htmlController = { current: { updateContext: vi.fn(), refine } as any };
-    planner.plan.mockImplementationOnce(async request => result(request, 'refine_html' as never, true));
+    planner.plan.mockImplementationOnce(async request => result(request, 'refine_html' as never));
     render(options); await flush(); await render(options).send('Haz mayor el encabezado.');
     expect(render(options).confirmationReady).toBe(true);
     await render(options).selectVersion('first'); await render(options).executeSuggested();
@@ -529,7 +552,7 @@ describe('unified conversation orchestration', () => {
     const create = vi.fn(async () => proposal);
     options.htmlController = { current: { create, updateContext: vi.fn(), discardPending: vi.fn() } as any };
     options.htmlState = { current: { ready: unavailable !== 'not-ready', busy: unavailable === 'busy', status: 'ready' } as any };
-    planner.plan.mockImplementationOnce(async request => result(request, 'create_html', true));
+    planner.plan.mockImplementationOnce(async request => result(request, 'create_html'));
     render(options); await flush(); await render(options).send('Prepara esta diapositiva.');
     const confirmation = structuredClone(render(options).state.confirmation), action = structuredClone(render(options).state.next_action);
     const completed = [...render(options).state.completed_action_ids];
@@ -607,7 +630,7 @@ describe('unified conversation orchestration', () => {
       const response = result(request); response.message = 'Voy a consultar las diapositivas 1, 2, 3 y 4.';
       response.next_action = { kind: 'inspect_slides', intent: 'requested', instruction: 'Consultar las cuatro diapositivas.',
         reference_ids: [], slide_ids: ids, reason: 'Leer el estilo y contenido antes de proponer.' }; return response;
-    }).mockImplementationOnce(async request => result(request, format === 'image' ? 'generate_image' : 'refine_html' as never, true));
+    }).mockImplementationOnce(async request => result(request, format === 'image' ? 'generate_image' : 'refine_html' as never));
     render(options); await flush(); await render(options).send('Revisa las diapositivas 1, 2, 3 y 4 para proponer el diseño de la actual.');
     expect(render(options).error).toBe(''); expect(planner.plan).toHaveBeenCalledTimes(2);
     expect(client.command).not.toHaveBeenCalled(); expect(refine).not.toHaveBeenCalled(); expect(options.onApply).not.toHaveBeenCalled();
@@ -653,11 +676,11 @@ describe('unified conversation orchestration', () => {
     const edits = [{ kind: 'move' as const, element_id: 'e:1', dx: 40, dy: -10 }];
     const editedHtml = '<main><h1 style="translate:40px -10px">Conectamos con el mundo.</h1></main>';
     vi.mocked(buildDesignElementCatalog).mockReturnValue(catalog);
-    vi.mocked(applyDesignElementEdits).mockReturnValue({ html: editedHtml, changedElementIds: ['e:1'] });
+    vi.mocked(applyDesignElementEdits).mockReturnValue({ html: editedHtml, changedElementIds: ['e:1'], structural: false });
     const create = vi.fn(), refine = vi.fn(), updateContext = vi.fn();
     options.htmlController = { current: { create, refine, updateContext } as any };
-    planner.plan.mockImplementationOnce(async request => ({ ...result(request, 'edit_elements', true), next_action: {
-      kind: 'edit_elements', intent: 'requested', instruction: 'Moveré el título 40 px a la derecha y 10 px arriba.',
+    planner.plan.mockImplementationOnce(async request => ({ ...result(request, 'edit_elements'), next_action: {
+      kind: 'edit_elements', intent: 'suggested', instruction: 'Moveré el título 40 px a la derecha y 10 px arriba.',
       reference_ids: [], reason: 'Ajuste puntual del título.', element_edits: edits, element_html_hash: request.conversation!.editable_html_hash,
     } }));
     render(options); await flush(); await render(options).send('Mueve el título a la derecha y un poco arriba.');
@@ -690,8 +713,8 @@ describe('unified conversation orchestration', () => {
     vi.stubGlobal('DOMParser', class { parseFromString() { return { querySelectorAll: () => [] }; } });
     vi.mocked(buildDesignElementCatalog).mockReturnValue([{ element_id: 'e:1', kind: 'text', label: 'h1: Título original', text: 'Título original' }]);
     const create = vi.fn(), refine = vi.fn(); options.htmlController = { current: { create, refine, updateContext: vi.fn() } as any };
-    planner.plan.mockImplementationOnce(async request => ({ ...result(request, 'edit_elements', true), next_action: {
-      kind: 'edit_elements', intent: 'requested', instruction: 'Centraré el título.', reference_ids: [], reason: 'Alinear el título existente.',
+    planner.plan.mockImplementationOnce(async request => ({ ...result(request, 'edit_elements'), next_action: {
+      kind: 'edit_elements', intent: 'suggested', instruction: 'Centraré el título.', reference_ids: [], reason: 'Alinear el título existente.',
       element_edits: [{ kind: 'style', element_id: 'e:1', property: 'align', value: 'center' }],
       element_html_hash: request.conversation!.editable_html_hash,
     } }));
@@ -730,8 +753,8 @@ describe('unified conversation orchestration', () => {
     planner.plan.mockImplementationOnce(async request => ({ ...result(request), next_action: {
       kind: 'inspect_slides', intent: 'requested', instruction: 'Consultar las diapositivas 1 y 3.', reference_ids: [],
       slide_ids: [options.slide.id, sourceSlide.id], reason: 'Ver el destino y la fuente antes de preparar el diseño.',
-    } })).mockImplementation(async request => ({ ...result(request, 'refine_html', true), next_action: {
-      kind: 'refine_html', intent: 'requested', instruction: 'Usaré la diapositiva 3 como fuente visual con el contenido aprobado.',
+    } })).mockImplementation(async request => ({ ...result(request, 'refine_html'), next_action: {
+      kind: 'refine_html', intent: 'suggested', instruction: 'Usaré la diapositiva 3 como fuente visual con el contenido aprobado.',
       reference_ids: [], reason: 'Fuente visual acordada.', design_source: source,
     } }));
     render(options); await flush(); await render(options).send('Usa la diapositiva 3 como referencia para diseñar esta diapositiva con el texto aprobado.');
@@ -789,8 +812,8 @@ describe('unified conversation orchestration', () => {
     }) as any);
     planner.plan.mockImplementationOnce(async request => ({ ...result(request), next_action: {
       kind: 'inspect_slides', intent: 'requested', instruction: 'Revisar la tercera diapositiva.', reference_ids: [], slide_ids: [sourceSlide.id], reason: 'Identificar su diseño.',
-    } })).mockImplementationOnce(async request => ({ ...result(request, 'generate_image', true), next_action: {
-      kind: 'generate_image', intent: 'requested', instruction: 'Crearé esta imagen adaptando el diseño de la tercera diapositiva.', reference_ids: [],
+    } })).mockImplementationOnce(async request => ({ ...result(request, 'generate_image'), next_action: {
+      kind: 'generate_image', intent: 'suggested', instruction: 'Crearé esta imagen adaptando el diseño de la tercera diapositiva.', reference_ids: [],
       reason: 'La fuente visual elegida gobierna la nueva imagen.', design_source: source,
     } }));
     render(options); await flush(); await render(options).send('Usa el diseño de la diapositiva 3 para crear la actual como imagen.');
@@ -835,8 +858,8 @@ describe('unified conversation orchestration', () => {
       reference: { business_id: business, asset_id: `asset:${reference.sha256}`, version_id: reference.sha256,
         reference_id: reference.id, mime_type: 'image/png', roles: [reference.role] },
     })) as any);
-    planner.plan.mockImplementationOnce(async request => ({ ...result(request, 'edit_image', true), next_action: {
-      kind: 'edit_image', intent: 'requested', instruction: 'Ajustaré el título de esta versión conservando el estilo y los cambios previos.',
+    planner.plan.mockImplementationOnce(async request => ({ ...result(request, 'edit_image'), next_action: {
+      kind: 'edit_image', intent: 'suggested', instruction: 'Ajustaré el título de esta versión conservando el estilo y los cambios previos.',
       reference_ids: [`image:${assetB.asset_id}:${assetB.version_id}`], reason: 'Continuar la versión elegida.', design_source: source,
     } }));
     render(options); await flush(); await render(options).changeReferences([attachment]);
@@ -900,8 +923,8 @@ describe('unified conversation orchestration', () => {
     const revised = { ...manual, html: '<main class="custom-spacing">Mi ajuste manual, título alineado</main>' };
     const create = vi.fn(), refine = vi.fn(async (_context: any) => revised);
     options.htmlController = { current: { create, refine, updateContext: vi.fn() } as any };
-    planner.plan.mockImplementation(async request => ({ ...result(request, 'refine_html', true), next_action: {
-      kind: 'refine_html', intent: 'requested', instruction: 'Alinea solamente el título.', reference_ids: [], reason: 'Ajuste puntual.',
+    planner.plan.mockImplementation(async request => ({ ...result(request, 'refine_html'), next_action: {
+      kind: 'refine_html', intent: 'suggested', instruction: 'Alinea solamente el título.', reference_ids: [], reason: 'Ajuste puntual.',
       ...(repeatsSource ? { design_source: source } : {}),
     } }));
     render(options); await flush(); await render(options).recordHtmlEdit(manual, 'edited');
@@ -913,8 +936,8 @@ describe('unified conversation orchestration', () => {
     expect(captureConversationHtml).not.toHaveBeenCalledWith(options.slide.html, expect.anything(), expect.anything());
     expect(render(options).state.versions.at(-1)).toMatchObject({ design_source: source, proposal: revised });
     expect(render(options).state.design_source).toEqual(source);
-    planner.plan.mockImplementationOnce(async request => ({ ...result(request, 'refine_html', true), next_action: {
-      kind: 'refine_html', intent: 'requested', instruction: 'Vuelve a la diapositiva original.', reference_ids: [], reason: 'Cambio explícito de base.', from_slide: true,
+    planner.plan.mockImplementationOnce(async request => ({ ...result(request, 'refine_html'), next_action: {
+      kind: 'refine_html', intent: 'suggested', instruction: 'Vuelve a la diapositiva original.', reference_ids: [], reason: 'Cambio explícito de base.', from_slide: true,
     } }));
     await sendAndConfirm(options, 'Vuelve a la diapositiva original.');
     expect(refine.mock.calls[1][0]).toMatchObject({ fromCurrent: true, designBase: 'current' });
@@ -960,7 +983,7 @@ describe('unified conversation orchestration', () => {
       canvas: { width: 1280, height: 720 }, mounted: [], intent: 'replace' as const };
     const controller = { create: vi.fn(), updateContext: vi.fn(), refine: vi.fn(async (_input: any) => proposal), openEditor: vi.fn(), openLogos: vi.fn(), recover: vi.fn(), apply: vi.fn(), discardPending: vi.fn() };
     options.htmlController = { current: controller }; options.htmlState = { current: { ready: true, busy: false, status: 'ready' } as any };
-    planner.plan.mockImplementation(async request => result(request, 'refine_html' as never, true));
+    planner.plan.mockImplementation(async request => result(request, 'refine_html' as never));
     render(options); await flush(); await sendAndConfirm(options, 'Acomoda la referencia en esta diapositiva.');
     expect(render(options).state.versions).toHaveLength(1);
     await sendAndConfirm(options, 'Sigue el diseño de la diapositiva.');
@@ -999,7 +1022,7 @@ describe('unified conversation orchestration', () => {
 
   it('registers the current capture separately, preserves three explicit references and removes only ephemeral IDs from saved understanding', async () => {
     const { options, planner } = fixture(); options.initialCopy = 'Conectamos con el mundo.';
-    planner.plan.mockImplementationOnce(async request => result(request, 'generate_image', true));
+    planner.plan.mockImplementationOnce(async request => result(request, 'generate_image'));
     render(options); await flush(); await sendAndConfirm(options, 'Crea una imagen.');
     const references = await Promise.all([10, 20, 30, 40].map(color => preparePresentationReference(
       new File([htmlPng(color)], `Referencia ${color}.png`, { type: 'image/png' }), 'image_style_reference',
@@ -1051,7 +1074,7 @@ describe('unified conversation orchestration', () => {
     const refine = vi.fn(async (_input: any) => proposal);
     options.htmlController = { current: { create: vi.fn(), refine, updateContext: vi.fn(), discardPending: vi.fn(), openEditor: vi.fn(), openLogos: vi.fn(), recover: vi.fn(), apply: vi.fn() } };
     planner.plan.mockImplementationOnce(async request => {
-      const response = result(request, 'refine_html' as never, true);
+      const response = result(request, 'refine_html' as never);
       response.message = 'Usaré el texto de la primera imagen y la composición de la segunda.';
       response.design_understanding!.resolved_instruction = response.message;
       response.next_action!.instruction = response.message;
@@ -1081,7 +1104,7 @@ describe('unified conversation orchestration', () => {
         reference_id: reference.id, mime_type: 'image/png', roles: [reference.role] },
     })) as any);
     planner.plan.mockImplementation(async request => {
-      const response = result(request, 'refine_html' as never, true);
+      const response = result(request, 'refine_html' as never);
       response.design_understanding!.references = [{ reference_id: references[2].id,
         roles: ['content_source', 'layout_reference'], instruction: 'Usa también su composición, como pidió el usuario.' }];
       return response;
@@ -1116,7 +1139,7 @@ describe('unified conversation orchestration', () => {
     const refine = vi.fn(async (_input: any) => proposal);
     options.htmlController = { current: { create: vi.fn(), refine, updateContext: vi.fn(), discardPending: vi.fn(), openEditor: vi.fn(), openLogos: vi.fn(), recover: vi.fn(), apply: vi.fn() } };
     planner.plan.mockImplementationOnce(async request => {
-      const response = result(request, 'refine_html' as never, true);
+      const response = result(request, 'refine_html' as never);
       response.design_understanding!.copy.text = 'Texto reformulado por el modelo.';
       response.design_understanding!.references = [{ reference_id: content.id, roles: ['content_source', 'layout_reference'], instruction: 'Copia el diseño de esta imagen.' }];
       return response;
@@ -1144,7 +1167,7 @@ describe('unified conversation orchestration', () => {
     })) as any);
     let release!: (value: Blob) => void;
     client.asset.mockImplementationOnce(() => new Promise(resolve => { release = resolve; }));
-    planner.plan.mockImplementationOnce(async request => result(request, 'generate_image', true));
+    planner.plan.mockImplementationOnce(async request => result(request, 'generate_image'));
     render(options); await flush(); await render(options).changeReferences(references);
     await sendAndConfirm(options, 'Crea un diseño con las referencias.'); await flush();
     let hook = render(options); const selected = hook.state.selected_version_id;
@@ -1179,7 +1202,7 @@ describe('unified conversation orchestration', () => {
         version: { identity, brand_id: 'presentation', project_id: 'document', provenance: { kind: 'imported', origin: 'upload' },
           storage: { mime_type: 'image/png', width: 1, height: 1, size_bytes: reference.blob.size, storage_key: reference.sha256 } } };
     }) as any);
-    planner.plan.mockImplementationOnce(async request => result(request, 'generate_image', true));
+    planner.plan.mockImplementationOnce(async request => result(request, 'generate_image'));
     await sendAndConfirm(options, 'Genera esta diapositiva como imagen conservando su diseño.');
     expect(render(options).error).toBe(''); expect(client.command).toHaveBeenCalledTimes(1);
     expect(captureConversationHtml).toHaveBeenCalledTimes(1);
@@ -1211,7 +1234,7 @@ describe('unified conversation orchestration', () => {
 
   it.each(['new', 'current', 'version'] as const)('keeps image base=%s source semantics without changing the selected preview during discussion', async base => {
     const { options, planner, client } = fixture(); options.initialCopy = 'Conectamos con el mundo.';
-    planner.plan.mockImplementationOnce(async request => result(request, 'generate_image', true));
+    planner.plan.mockImplementationOnce(async request => result(request, 'generate_image'));
     render(options); await flush(); await sendAndConfirm(options, 'Crea una imagen.');
     const previous = structuredClone(harness.result.asset), selected = render(options).state.selected_version_id;
     options.format = 'image'; options.base = base;
@@ -1274,13 +1297,14 @@ describe('unified conversation orchestration', () => {
     expect(vi.mocked(captureConversationHtml).mock.calls[0][0]).toBe(html);
   });
 
-  it('discussion and an action choice render nothing until the resulting proposal is confirmed, without a second planner call', async () => {
+  it('discussion renders nothing; an action button runs once in the same click without a second planner call or confirmation', async () => {
     const { options, planner, client } = fixture(); render(options); await flush(); await render(options).send('¿Qué cambiarías?');
     expect(render(options).error).toBe(''); expect(client.command).not.toHaveBeenCalled();
     await render(options).executeAction('generate_image');
-    expect(client.command).not.toHaveBeenCalled(); expect(render(options).confirmationReady).toBe(true);
-    await render(options).executeSuggested();
     expect(render(options).error).toBe(''); expect(planner.plan).toHaveBeenCalledTimes(1); expect(client.command).toHaveBeenCalledTimes(1);
+    expect(render(options).confirmationReady).toBe(false);
+    expect(render(options).state.messages.some(message => message.text.includes('¿Lo creo así?'))).toBe(false);
+    expect(render(options).state.messages.filter(message => message.role === 'user').at(-1)?.text).toBe('Créalo.');
   });
 
   it('reopening an uncertain request dispatches nothing and manual recovery reads the original request without auto-executing the recovered suggestion', async () => {
@@ -1309,7 +1333,7 @@ describe('unified conversation orchestration', () => {
     expect(await render(options).send('')).toBe(false); expect(planner.plan).not.toHaveBeenCalled();
     planner.plan.mockRejectedValueOnce(Error('lost acknowledgement'));
     expect(await render(options).send('Crea una imagen.')).toBe(true);
-    const exact = planner.plan.mock.calls[0][0]; planner.plan.mockImplementationOnce(async request => result(request, 'generate_image', true));
+    const exact = planner.plan.mock.calls[0][0]; planner.plan.mockImplementationOnce(async request => result(request, 'generate_image'));
     await render(options).recover(); expect(render(options).error).toBe('');
     expect(planner.plan).toHaveBeenCalledTimes(2); expect(planner.plan.mock.calls[1][0]).toEqual(exact);
     expect(render(options).state.pending).toBeNull(); expect(client.command).not.toHaveBeenCalled();
@@ -1334,7 +1358,7 @@ describe('unified conversation orchestration', () => {
 
   it('uses exact selected pixels for a new image based on that design, including a normal 1536px original', async () => {
     const { options, planner } = fixture(); planner.plan.mockImplementation(async request => {
-      const response = result(request, 'generate_image', true);
+      const response = result(request, 'generate_image');
       response.next_action!.reference_ids = request.context.references.filter(ref => ref.reference_id.startsWith('image:')).map(ref => ref.reference_id);
       return response;
     });
@@ -1427,7 +1451,7 @@ describe('unified conversation orchestration', () => {
   });
 
   it('clears only definite pre-dispatch HTML rejections and retains an uncertain conversion after a lost response', async () => {
-    const { options, planner } = fixture(); planner.plan.mockImplementation(async request => result(request, 'generate_image', true));
+    const { options, planner } = fixture(); planner.plan.mockImplementation(async request => result(request, 'generate_image'));
     const create = vi.fn().mockRejectedValueOnce(Error('html_unavailable')).mockRejectedValueOnce(Error('lost response'));
     options.compositionController = { current: { create, recover: vi.fn(async () => null) } as any };
     options.compositionState = { current: { ready: true, busy: false, status: 'draft' } as any };
@@ -1446,7 +1470,7 @@ describe('conversation orchestration across devices', () => {
   const loaded = async () => { for (let n = 0; n < 8; n++) await flush(); };
   it('reopens the same unconfirmed proposal on a clean device and executes it exactly once after yes', async () => {
     const { options, planner, client } = fixture(); const remote = remoteContinuity(options);
-    planner.plan.mockImplementationOnce(async request => result(request, 'generate_image', true));
+    planner.plan.mockImplementationOnce(async request => result(request, 'generate_image'));
     render(options); await loaded(); await render(options).send('Prepara un diseño con esta idea.');
     const planned = structuredClone(remote.read()!.value.next_action), confirmation = structuredClone(remote.read()!.value.confirmation);
     expect(confirmation).not.toBeNull(); expect(client.command).not.toHaveBeenCalled();
@@ -1464,7 +1488,7 @@ describe('conversation orchestration across devices', () => {
 
   it('reopens a lost image response on a clean device and recovers it without another render', async () => {
     const { options, client, planner } = fixture(); const remote = remoteContinuity(options);
-    planner.plan.mockImplementation(async request => result(request, 'generate_image', true));
+    planner.plan.mockImplementation(async request => result(request, 'generate_image'));
     const original = client.command.getMockImplementation()!;
     client.command.mockImplementationOnce(async (...args) => { await original(...args); throw Error('lost provider response'); });
     render(options); await loaded(); await sendAndConfirm(options, 'Crea una imagen.');
@@ -1483,7 +1507,7 @@ describe('conversation orchestration across devices', () => {
   it('does not dispatch after a lost Supabase acknowledgement; explicit recovery uses the saved operation identity', async () => {
     const { options, client, planner } = fixture(); const remote = remoteContinuity(options);
     remote.control.loseImageDispatchAck = true;
-    planner.plan.mockImplementation(async request => result(request, 'generate_image', true));
+    planner.plan.mockImplementation(async request => result(request, 'generate_image'));
     render(options); await loaded(); await sendAndConfirm(options, 'Crea una imagen.');
     expect(client.command).not.toHaveBeenCalled(); expect(render(options).syncStatus).toBe('offline');
     const pending = remote.read()!.value.pending!; expect(pending.phase).toBe('dispatched');
@@ -1669,7 +1693,7 @@ describe('saved design conversation sessions', () => {
   });
 
   it('uses different planner and image namespaces for each conversation without changing its destination', async () => {
-    const { options, planner, client } = fixture(); planner.plan.mockImplementation(async request => result(request, 'generate_image', true));
+    const { options, planner, client } = fixture(); planner.plan.mockImplementation(async request => result(request, 'generate_image'));
     let work = await settled(options); await sendAndConfirm(options, 'Diseña la primera imagen.');
     const firstRequest = planner.plan.mock.calls[0][0];
     await render(options).newSession(); work = await settled(options);
@@ -1763,5 +1787,136 @@ describe('saved design conversation sessions', () => {
     await work.resetSession(); work = await settled(options);
     expect((await other.read())!.value.messages.at(-1)?.text).toBe('Cambio desde otra pestaña.');
     expect(work.error || work.sessionsError).not.toBe(''); other.close();
+  });
+});
+
+describe('the design chat obeys explicit orders', () => {
+  const loaded = async () => { for (let n = 0; n < 8; n++) await flush(); };
+  const proposal = { html: '<main>Rehecha</main>', target: { document: 'document', slide: 'canvas', revision: 1 },
+    canvas: { width: 1280, height: 720 }, mounted: [], intent: 'replace' as const };
+  const cards = [1, 2, 3].map(n => ({ element_id: `e:${n}`, kind: 'container' as const, label: `div · Tarjeta ${n}`,
+    text: ['Pagos', 'Cobros', 'Reportes'][n - 1], group: 'g:1', text_count: 1 }));
+  const addThree = [{ kind: 'duplicate' as const, element_id: 'e:3', texts: [''] }, { kind: 'duplicate' as const, element_id: 'e:3', texts: [''] },
+    { kind: 'duplicate' as const, element_id: 'e:3', texts: [''] }, { kind: 'reflow' as const, element_id: 'e:1', columns: 3 }];
+  function htmlFixture() {
+    const value = fixture(); value.options.format = 'html'; value.options.base = 'current'; value.options.initialView = 'html';
+    value.options.slide.html = '<main><section><div class="card"><h3>Pagos</h3></div><div class="card"><h3>Cobros</h3></div><div class="card"><h3>Reportes</h3></div></section></main>';
+    vi.stubGlobal('DOMParser', class { parseFromString() { return { querySelectorAll: () => [] }; } });
+    vi.mocked(buildDesignElementCatalog).mockReturnValue(cards);
+    const create = vi.fn(), refine = vi.fn(async (_context: any) => proposal), updateContext = vi.fn();
+    value.options.htmlController = { current: { create, refine, updateContext } as any };
+    return { ...value, create, refine };
+  }
+  const answer = (request: ExplorationRequest, next: Record<string, unknown>, copy: 'pending' | 'none' = 'none'): ExplorationResult => {
+    const base = result(request);
+    return { ...base, message: 'Agrego tres tarjetas iguales y las acomodo en dos filas de tres.',
+      design_understanding: { ...base.design_understanding!, copy: { status: copy, text: '', source_reference_ids: [] } },
+      next_action: { intent: 'requested', reference_ids: [], reason: 'Orden concreta.', ...next } as ExplorationResult['next_action'] };
+  };
+
+  it('runs «agrega 3 cuadros más» as deterministic edits in the first turn, with the initial pending copy and no HTML call', async () => {
+    const { options, planner, create, refine } = htmlFixture();
+    vi.mocked(applyDesignElementEdits).mockReturnValue({ html: '<main>Seis tarjetas</main>', changedElementIds: ['e:3', 'e:1'], structural: true });
+    planner.plan.mockImplementationOnce(async request => answer(request, { kind: 'edit_elements', instruction: 'Agrego tres tarjetas.',
+      element_edits: addThree, element_html_hash: request.conversation!.editable_html_hash }, 'pending'));
+    render(options); await flush(); await render(options).send('agrega 3 cuadros más');
+    const hook = render(options);
+    expect(hook.error).toBe(''); expect(planner.plan).toHaveBeenCalledTimes(1); expect(create).not.toHaveBeenCalled(); expect(refine).not.toHaveBeenCalled();
+    expect(applyDesignElementEdits).toHaveBeenCalledWith(options.slide.html, addThree, { assets: {} }); expect(hook.state.versions).toHaveLength(1);
+    expect(hook.state.messages.at(-1)?.text).toBe('Listo: agregué 3 bloques y los acomodé en 3 columnas. Puedes revisarlo, seguir editando o aplicarlo a la diapositiva.');
+    expect(planner.plan.mock.calls[0][0].conversation).toMatchObject({ supports_structural_edits: 1, editable_text_complete: 1 });
+    expect(hook.state.copy.text).not.toContain('3 cuadros');
+  });
+
+  it('escalates a structural copy that does not fit to one full rewrite from the current design', async () => {
+    const { options, planner, refine } = htmlFixture();
+    vi.mocked(applyDesignElementEdits).mockReturnValue({ html: '<main>Seis tarjetas</main>', changedElementIds: [], structural: true });
+    vi.mocked(structuralEditFits).mockResolvedValueOnce('overflow');
+    planner.plan.mockImplementationOnce(async request => answer(request, { kind: 'edit_elements', instruction: 'Agrego tres tarjetas.',
+      element_edits: addThree, element_html_hash: request.conversation!.editable_html_hash }));
+    render(options); await flush(); await render(options).send('agrega 3 cuadros más');
+    expect(render(options).error).toBe(''); expect(refine).toHaveBeenCalledTimes(1);
+    expect(refine.mock.calls[0][0]).toMatchObject({ rewrite: true, fromCurrent: true });
+    expect(render(options).state.messages.some(message => message.text.startsWith('La copia directa no cabía bien'))).toBe(true);
+  });
+
+  it('runs «rehazla con 6 tarjetas» on the current slide in the same turn as a full rewrite that keeps its texts', async () => {
+    const { options, planner, create, refine } = htmlFixture();
+    planner.plan.mockImplementationOnce(async request => answer(request, { kind: 'refine_html', rewrite: true, instruction: 'Rehago la diapositiva con 6 tarjetas.' }));
+    render(options); await flush(); await render(options).send('rehazla con 6 tarjetas');
+    expect(render(options).error).toBe(''); expect(refine).toHaveBeenCalledTimes(1); expect(create).not.toHaveBeenCalled();
+    expect(refine.mock.calls[0][0]).toMatchObject({ rewrite: true, copyMode: 'none', fromCurrent: true });
+    expect(render(options).state.copy.status).toBe('none'); expect(planner.plan).toHaveBeenCalledTimes(1);
+  });
+
+  it('converts the approved image with «Hacer editable» in the same click and explains missing text instead of asking twice', async () => {
+    const { options, planner } = fixture(); planner.plan.mockImplementation(async request => result(request, 'generate_image'));
+    const create = vi.fn(async () => { throw Error('html_unavailable'); });
+    options.compositionController = { current: { create, recover: vi.fn(async () => null) } as any };
+    options.compositionState = { current: { ready: true, busy: false, status: 'draft' } as any };
+    render(options); await flush(); await sendAndConfirm(options, 'Crea una imagen.'); harness.result.call.state = 'approved';
+    await render(options).executeAction('convert_image_to_html');
+    let messages = render(options).state.messages;
+    expect(create).toHaveBeenCalledTimes(1); expect(messages.filter(message => message.role === 'user').at(-1)?.text).toBe('Hazla editable.');
+    expect(messages.some(message => message.text.includes('¿Lo creo así?'))).toBe(false);
+    const key = JSON.stringify([actor, business, 'document', 'canvas']), saved = structuredClone(harness.records.get(key)) as any;
+    saved.value.copy = { status: 'pending', text: '', source_reference_ids: [] };
+    if (saved.value.understanding) saved.value.understanding.copy = saved.value.copy;
+    harness.records.set(key, saved); await render(options).synchronize();
+    await render(options).executeAction('convert_image_to_html'); messages = render(options).state.messages;
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(messages.at(-1)?.text).toBe('No lo creé: falta el texto exacto del diseño. Escríbelo aquí o pulsa «Resolver texto».');
+  });
+
+  it('answers a second affirmative without an action with a concrete local reply instead of looping', async () => {
+    const { options, planner, client } = fixture();
+    render(options); await flush(); await render(options).send('si'); await render(options).send('si');
+    expect(render(options).state.messages.at(-1)?.text).toBe('No tengo un cambio listo para crear. Dime en una frase qué quieres (por ejemplo «agrega 3 cuadros con estos textos: …») y lo hago en ese turno.');
+    expect(planner.plan).toHaveBeenCalledTimes(2); expect(client.command).not.toHaveBeenCalled();
+  });
+
+  it('replaces a repeated blocked plan after «no veo el diseño nuevo» with its concrete reason, never the same plan', async () => {
+    const { options, planner, client } = fixture(); options.format = 'html'; options.base = 'current';
+    const blocked = (request: ExplorationRequest) => {
+      const response = result(request, 'refine_html'); response.message = 'Entendido: mantengo el diseño base y adapto a 6 cuadros. ¿Lo creo así?';
+      response.design_understanding!.copy = { status: 'pending', text: '', source_reference_ids: [] }; return response;
+    };
+    planner.plan.mockImplementationOnce(async request => blocked(request)).mockImplementationOnce(async request => blocked(request));
+    render(options); await flush(); await render(options).send('Adapta a 6 cuadros.');
+    await render(options).send('no veo hagas el diseno nuevo o lo crees');
+    expect(render(options).state.messages.at(-1)?.text).toBe('No lo creé: falta el texto exacto del diseño. Escríbelo aquí o pulsa «Resolver texto».');
+    expect(client.command).not.toHaveBeenCalled();
+  });
+
+  it('never claims a plan was confirmed or created when nothing ran', async () => {
+    const { options, planner } = fixture();
+    planner.plan.mockImplementationOnce(async request => ({ ...result(request, 'generate_image'),
+      message: 'Perfecto: quedó confirmado el encargo de rehacer la diapositiva completa.' }));
+    render(options); await flush(); await render(options).send('Prepara la portada.');
+    expect(render(options).state.messages.at(-1)?.text).toMatch(/^Tengo el plan: .+ Aún no lo he creado; responde «sí» o pulsa «Crear diseño»\.$/);
+  });
+
+  it('arms but never runs a recovered requested plan, and says which button runs it', async () => {
+    const { options, planner, client } = fixture(); planner.plan.mockRejectedValueOnce(Error('lost response'));
+    render(options); await flush(); await render(options).send('Crea una imagen.'); const frozen = render(options).state.pending!;
+    const request = frozen.request!.kind === 'understand' ? frozen.request!.request : null;
+    planner.recover.mockResolvedValueOnce(result(request!, 'generate_image', true));
+    await render(options).recover();
+    expect(client.command).not.toHaveBeenCalled(); expect(render(options).confirmationReady).toBe(true);
+    expect(render(options).state.messages.at(-1)?.text).toContain('Pulsa «Crear diseño» para hacerlo.');
+  });
+
+  it('reads the saved answer of a request interrupted by a remount instead of leaving the chat blocked', async () => {
+    const { options, planner, client } = fixture();
+    planner.plan.mockImplementationOnce(() => new Promise<ExplorationResult>(() => {}));
+    render(options); await loaded(); void render(options).send('sí, consérvalo'); await loaded();
+    const pending = structuredClone(render(options).state.pending!); expect(pending.kind).toBe('understand');
+    const request = pending.request!.kind === 'understand' ? pending.request!.request : null;
+    planner.recover.mockResolvedValue(result(request!));
+    for (const cleanup of harness.cleanups) cleanup?.(); harness.values = []; harness.cleanups = []; harness.effects = [];
+    render(options); await loaded();
+    expect(render(options).state.pending).toBeNull(); expect(render(options).resuming).toBe(false);
+    expect(planner.recover).toHaveBeenCalledWith(pending.action_id, request); expect(planner.plan).toHaveBeenCalledTimes(1);
+    expect(client.command).not.toHaveBeenCalled();
   });
 });

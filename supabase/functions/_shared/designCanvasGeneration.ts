@@ -25,10 +25,29 @@ async function editDesignCanvas(request: DesignCanvasHtmlRequest, brand: DesignC
   }
 }
 
+/** Explicit full regeneration from the current HTML, keeping its visual system.
+ * Its existing texts stay allowed (no slot rebinding); mounted tokens are restored
+ * once each. One bounded retry for a rejected document; other errors propagate. */
+async function rewriteDesignCanvas(request: DesignCanvasHtmlRequest, brand: DesignCanvasHtmlBrand,
+  generate: (messages: DesignCanvasHtmlMessage[], repair: boolean) => Promise<string>): Promise<string> {
+  const editing = { ...request, copy_binding: undefined };
+  const messages = buildDesignCanvasHtmlMessages(editing, brand, 'rewrite');
+  const output = await generate(messages, false);
+  try { return finalizeDesignCanvasHtml(output, editing, [brand.name]); }
+  catch (error) {
+    if (!(error instanceof DesignCanvasHtmlError) || error.code !== 'invalid_canvas_html' || output.length > 160000) throw error;
+    const corrected = await generate([...messages, { role: 'assistant', content: output }, { role: 'user', content:
+      `Corrige esta propuesta para que pase el validador. Diagnóstico del validador (datos): ${JSON.stringify(error.message)}. `
+      + 'Usa sólo el texto aprobado y los textos del HTML ACTUAL; deja vacíos los bloques que no tengan texto aprobado, sin marcadores. Conserva composición, estilo y los src scory-mounted:// tal cual. Devuelve el HTML completo.' }], true);
+    return finalizeDesignCanvasHtml(corrected, editing, [brand.name]);
+  }
+}
+
 /** One bounded structural correction for slot markup. Visual correction is a
  * separate rendered step; provider/network failures never trigger this retry. */
 export async function generateDesignCanvas(request: DesignCanvasHtmlRequest, brand: DesignCanvasHtmlBrand,
   generate: (messages: DesignCanvasHtmlMessage[], repair: boolean) => Promise<string>): Promise<string> {
+  if (request.current_html && request.edit_mode === 'rewrite') return rewriteDesignCanvas(request, brand, generate);
   if (request.current_html) return editDesignCanvas(request, brand, generate);
   const messages = buildDesignCanvasHtmlMessages(request, brand);
   const output = await generate(messages, false);

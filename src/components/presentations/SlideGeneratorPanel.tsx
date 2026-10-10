@@ -71,7 +71,8 @@ export interface SlideGeneratorState {
 export interface SlideGeneratorController {
   updateContext(input: SlideGeneratorContext): Promise<void>;
   create(input?: SlideGeneratorContext): Promise<HtmlDesignProposal>;
-  refine(input: SlideGeneratorContext & { feedback: string; compare?: boolean }): Promise<HtmlDesignProposal>;
+  /** rewrite: regenerate the whole document from the current HTML instead of patching it. */
+  refine(input: SlideGeneratorContext & { feedback: string; compare?: boolean; rewrite?: true }): Promise<HtmlDesignProposal>;
   openEditor(): Promise<void>;
   openLogos(): Promise<void>;
   recover(): Promise<HtmlDesignDraft>;
@@ -178,7 +179,7 @@ function HtmlDesignWorkspace(props: SlideGeneratorPanelProps & { actorId: string
     };
     window.addEventListener('paste', paste); return () => window.removeEventListener('paste', paste);
   }, [ready, fileBusy, editing, props.externalConversation]);
-  async function requestHtml(life: Life, refine: boolean, compare: boolean, fromCurrent = false) {
+  async function requestHtml(life: Life, refine: boolean, compare: boolean, fromCurrent = false, rewrite = false) {
     const before = structuredClone(draftRef.current), destination = { ...target };
     const designSource = before.designSource, sourceSlide = designSource ? before.sourceSlide : undefined;
     const startingFromSource = !!designSource && !refine;
@@ -240,6 +241,8 @@ function HtmlDesignWorkspace(props: SlideGeneratorPanelProps & { actorId: string
       ...(before.copyMode === 'literal' ? { copy_binding: 'slots' as const } : {}),
       ...(refine ? { current_html: base, iteration_feedback: feedback, render_base64: references.length < 4 ? baseSnapshot?.image : undefined,
         layout_diagnostics: baseSnapshot?.diagnostics } : {}),
+      // A requested rewrite, or adapting a slide source's layout, regenerates instead of patching.
+      ...((refine && rewrite) || (nativeAdapt && designSource!.mode === 'adapt_layout') ? { edit_mode: 'rewrite' as const } : {}),
       ...(inspection.examples.length ? { style_examples: inspection.examples }
         : !designSource && !refine && latest.current.styleExamples?.length ? { style_examples: structuredClone(latest.current.styleExamples) } : {}),
       ...(!designSource && latest.current.styleSpec?.trim() ? { style_spec: latest.current.styleSpec.slice(0, 4000) } : {}),
@@ -281,7 +284,8 @@ function HtmlDesignWorkspace(props: SlideGeneratorPanelProps & { actorId: string
         onProgress: (stage, repairs) => { if (active(life)) setReviewProgress(stage === 'reviewing' ? 'Revisando el diseño y las referencias…' : `Corrigiendo la composición (${repairs}/2)…`); },
       });
       const { html, visualReview } = reviewed;
-      reviewContextRef.current = { request, html };
+      const { edit_mode: _editMode, ...reviewBase } = request;
+      reviewContextRef.current = { request: reviewBase, html };
       const mounted = new Map((startingFromSource ? sourceSlide?.mounted_assets ?? [] : []).map(asset => [asset.element_id, asset]));
       for (const asset of refine && !startingFromSource ? proposalBase?.mounted ?? props.mountedAssets ?? [] : []) mounted.set(asset.element_id, asset);
       const measured = await measureHtmlDesignAssets({ id: props.slideId, revision: destination.revision, title: '', html: refine ? base! : sourceSlide?.html ?? '',
@@ -471,7 +475,7 @@ function HtmlDesignWorkspace(props: SlideGeneratorPanelProps & { actorId: string
     }, true))!; },
     async refine(input) { const frozen = structuredClone(input); return (await run(async life => {
       await updateContext(life, frozen); await persist(patch({ feedback: frozen.feedback }));
-      return requestHtml(life, true, frozen.compare === true, frozen.fromCurrent === true);
+      return requestHtml(life, true, frozen.compare === true, frozen.fromCurrent === true, frozen.rewrite === true);
     }, true))!; },
     async openEditor() { await run(async life => {
       if (!draftRef.current.proposal) throw Error('Primero crea o recupera una propuesta.');

@@ -16,6 +16,37 @@ const reference = (role: PresentationReferenceRole): PreparedPresentationReferen
 
 afterEach(() => { vi.useRealTimers(); vi.clearAllMocks(); });
 
+describe('structural orders and literal lines in the approved copy', () => {
+  const six: DesignCopy = { status: 'literal', text: ['Uno', 'Dos', 'Tres', 'Cuatro', 'Cinco', 'Seis'].join('\n'), source_reference_ids: [] };
+  const proposed = (text: string): DesignCopy => ({ status: 'literal', text, source_reference_ids: [] });
+  it('never turns «agrega 3 cuadros más» into copy and joins literal lines without dropping approved ones', () => {
+    expect(conversationCopyForTurn(six, proposed(`${six.text}\n3 cuadros más`), 'agrega 3 cuadros más')).toEqual(six);
+    expect(conversationCopyForTurn(six, proposed('Pagos\nCobros\nReportes'), 'agrega 3 tarjetas: Pagos, Cobros, Reportes').text)
+      .toBe(`${six.text}\nPagos\nCobros\nReportes`);
+    expect(conversationCopyForTurn(six, proposed('Pagos'), 'agrega una tarjeta, texto: Pagos').text).toBe(`${six.text}\nPagos`);
+    const reordered = `Pagos\n${six.text}`;
+    expect(conversationCopyForTurn(six, proposed(reordered), 'agrega una tarjeta, texto: Pagos').text).toBe(reordered);
+    const changed = { ...six, text: six.text.replace('Uno', 'Plazo de 30 días') };
+    expect(conversationCopyForTurn(changed, proposed(changed.text.replace('30', '45')), 'cambia «Plazo de 30 días» por «Plazo de 45 días»').text)
+      .toBe(changed.text.replace('30', '45'));
+    expect(conversationCopyForTurn(six, proposed('Más corto'), 'reescribe el texto más corto').text).toBe('Más corto');
+  });
+
+  it('takes the visual role the model understood only when the user names the reference with a visual cue', () => {
+    const content = reference('content_source');
+    const understanding = (roles: PresentationReferenceRole[]): DesignUnderstanding => ({ intent: 'recreate', resolved_instruction: 'Encargo.', copy: literal,
+      references: [{ reference_id: content.id, roles, instruction: 'Fuente.' }], preserve: [], pending_questions: [] });
+    const role = (message: string, roles: PresentationReferenceRole[] = ['image_style_reference']) =>
+      resolveConversationReferenceUse([content], understanding(roles), message).references[0].role;
+    expect(role('toma la referencia adjunta como apoyo visual')).toBe('image_style_reference');
+    expect(role('hazlo como mi imagen')).toBe('image_style_reference');
+    expect(role('usa solo el texto de mi imagen')).toBe('content_source');
+    expect(role('agrega 3 cuadros más')).toBe('content_source');
+    expect(role('usa el texto de mi imagen', ['content_source', 'layout_reference'])).toBe('content_source');
+    expect(role('toma el texto de la imagen, como te dije', ['content_source', 'layout_reference'])).toBe('content_source');
+  });
+});
+
 describe('conversation visual context', () => {
   it('keeps all selected visual roles after copy resolution without promoting a content source based on model interpretation', () => {
     const roles: PresentationReferenceRole[] = ['content_source', 'brand_reference', 'layout_reference', 'image_style_reference', 'object_reference'];

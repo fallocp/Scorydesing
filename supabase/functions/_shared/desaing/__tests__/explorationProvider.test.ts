@@ -274,13 +274,70 @@ describe('single-call textual Responses adapter with mandatory injected transpor
     expect(planned.design_understanding!.copy).toEqual(output.design_understanding.copy); expect(planned.ideas).toEqual([]);
     expect(f.fetch).toHaveBeenCalledTimes(1);
   });
-  it('still rejects an unknown inspection source rather than silently selecting different slides', async () => {
+  it('drops an inspection ID outside the index and reads only the indexed slides it named, never different ones', async () => {
     const { req, output } = conversation({ kind: 'inspect_slides', intent: 'suggested', slide_ids: ['slide-2', 'outside-this-deck'] });
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    try {
-      const f = fixture(wire(output));
-      await expect(f.provider.plan(req)).rejects.toMatchObject({ code: 'exploration_provider_invalid_result' });
-      expect(warn).toHaveBeenCalledWith('exploration_result_rejected', 'invalid_conversation_action'); expect(f.fetch).toHaveBeenCalledTimes(1);
-    } finally { warn.mockRestore(); }
+    const f = fixture(wire(output)), planned = await f.provider.plan(req);
+    expect(planned.next_action).toMatchObject({ kind: 'inspect_slides', intent: 'requested', slide_ids: ['slide-2'] });
+    expect(f.fetch).toHaveBeenCalledTimes(1);
+  });
+  it('turns an inspection with only invented IDs into the clarifying question instead of a 502', async () => {
+    const { req, output } = conversation({ kind: 'inspect_slides', intent: 'requested', slide_ids: ['outside-this-deck'] });
+    const planned = await fixture(wire(output)).provider.plan(req);
+    expect(planned.next_action).toMatchObject({ kind: 'discuss', intent: 'clarify' });
+    expect(planned.message).toContain('¿Qué números de diapositiva quieres que revise?');
+  });
+});
+
+describe('orders on the current design for the structural client', () => {
+  const hash = 'a'.repeat(64);
+  function current(next: Partial<ConversationNextAction>, modern = true) {
+    const { req, output } = conversation(next);
+    req.design_brief!.copy = { status: 'pending', text: '', source_reference_ids: [] };
+    Object.assign(req.conversation!, { surface: 'html', supports_design_source: 1, design_base: 'current',
+      current_html: { revision: req.context.target.revision, summary: '<main>Tres tarjetas</main>' }, editable_html_hash: hash, editable_assets: [],
+      editable_elements: [{ element_id: 'e:1', kind: 'container', label: 'div · Tarjeta', text: 'Pagos', group: 'g:1', text_count: 1 },
+        { element_id: 'e:2', kind: 'container', label: 'div · Tarjeta', text: 'Cobros', group: 'g:1', text_count: 1 },
+        { element_id: 'e:3', kind: 'text', label: 'p · Pagos', text: 'Pagos' }], ...(modern ? { supports_structural_edits: 1 } : {}) });
+    req.conversation!.available_actions = ['discuss', 'refine_html', 'edit_elements'];
+    output.design_understanding!.copy = { status: 'pending', text: '', source_reference_ids: [] };
+    return { req, output };
+  }
+
+  it('runs «rehazla» on the current slide in the same turn: the initial pending copy means «no new text», never a block', async () => {
+    const { req, output } = current({ kind: 'refine_html', intent: 'requested', instruction: 'Rehazla con 6 tarjetas.', rewrite: true, design_source: null } as never);
+    const planned = await fixture(wire(output)).provider.plan(req);
+    expect(planned.next_action).toMatchObject({ kind: 'refine_html', intent: 'requested', rewrite: true });
+    expect(planned.next_action).not.toHaveProperty('design_source');
+    expect(planned.design_understanding!.copy).toEqual({ status: 'none', text: '', source_reference_ids: [] });
+  });
+
+  it('keeps the previous behavior for a client without the flag', async () => {
+    const { req, output } = current({ kind: 'refine_html', intent: 'requested', instruction: 'Cambia el fondo a azul.' }, false);
+    const planned = await fixture(wire(output)).provider.plan(req);
+    expect(planned.next_action).toMatchObject({ kind: 'refine_html', intent: 'suggested' });
+    expect(planned.design_understanding!.copy.status).toBe('pending');
+  });
+
+  it('turns unapproved edit text into a one-question proposal only with the complete corpus', async () => {
+    const edit = { kind: 'edit_elements', intent: 'requested', instruction: 'Pongo el título.', element_html_hash: hash,
+      element_edits: [{ kind: 'text', element_id: 'e:3', text: 'Reportes' }] } as Partial<ConversationNextAction>;
+    const complete = current(edit); complete.req.conversation!.editable_text_complete = 1;
+    const planned = await fixture(wire(complete.output)).provider.plan(complete.req);
+    expect(planned.next_action?.intent).toBe('suggested'); expect(planned.message).toContain('Texto nuevo que pondré: «Reportes». ¿Lo pongo así?');
+    const approved = current({ ...edit, element_edits: [{ kind: 'text', element_id: 'e:3', text: 'Cobros' }] }); approved.req.conversation!.editable_text_complete = 1;
+    expect((await fixture(wire(approved.output)).provider.plan(approved.req)).next_action?.intent).toBe('requested');
+    const trimmed = current(edit);
+    expect((await fixture(wire(trimmed.output)).provider.plan(trimmed.req)).next_action?.intent).toBe('requested');
+  });
+
+  it('removes a rewrite that is not a plain refine_html and keeps the typography line in the planner prompt', async () => {
+    const { req, output } = current({ kind: 'edit_elements', intent: 'requested', instruction: 'Agrego una tarjeta.', element_html_hash: hash, rewrite: true,
+      element_edits: [{ kind: 'duplicate', element_id: 'e:2', texts: ['Cobros'] }, { kind: 'reflow', element_id: 'e:1', columns: 3 }] } as never);
+    const f = fixture(wire(output)), planned = await f.provider.plan(req);
+    expect(planned.next_action).toMatchObject({ kind: 'edit_elements', intent: 'requested' }); expect(planned.next_action).not.toHaveProperty('rewrite');
+    const developer = JSON.parse(f.fetch.mock.calls[0][1]!.body as string).input[0].content[0].text as string;
+    expect(developer).toContain('Mínimo tipográfico de este lienzo: cuerpo 14px, notas 12px');
+    expect(developer).not.toContain('sin ideas nuevas'); expect(developer).toContain('se suma a él salvo que el usuario diga que lo reemplaza');
+    expect(developer).toContain('none conserva sus textos'); expect(developer).toContain('PRIORIDAD ÚNICA');
   });
 });
