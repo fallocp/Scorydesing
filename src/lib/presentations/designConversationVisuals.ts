@@ -154,21 +154,58 @@ export function conversationHtmlReferences(references: PreparedPresentationRefer
   return references.filter(reference => reference.role !== 'content_source' || copy.status !== 'literal').map(reference => ({ ...reference }));
 }
 
+export type CaptureFailure = 'unavailable' | 'too_large' | 'timeout' | 'invalid';
+
+/** A failed optional capture with its concrete cause. The message is the original one. */
+export class DesignCaptureError extends Error {
+  constructor(message: string, public readonly reason: CaptureFailure) { super(message); this.name = 'DesignCaptureError'; }
+}
+
+const captureFailureTexts: Record<CaptureFailure, string> = {
+  unavailable: 'el renderizador no está disponible',
+  too_large: 'su HTML es demasiado grande para capturarlo',
+  timeout: 'la captura tardó demasiado',
+  invalid: 'la captura no fue válida',
+};
+export const captureFailureText = (reason: CaptureFailure) => captureFailureTexts[reason];
+
+/** Session and brand failures must abort the turn; they are never an optional capture failure. */
+const SESSION_FAILURE = /La sesión cambió|Inicia sesión|Selecciona una marca/;
+function captureError(problem: unknown, aborted: boolean, fixed?: CaptureFailure): unknown {
+  const message = problem instanceof Error ? problem.message : typeof problem === 'string' ? problem : 'design_capture_failed';
+  if (SESSION_FAILURE.test(message)) return problem;
+  const name = problem && typeof problem === 'object' ? (problem as { name?: unknown }).name : undefined;
+  const reason: CaptureFailure = fixed
+    ?? (aborted || name === 'AbortError' || name === 'TimeoutError' || /La captura tardó demasiado/.test(message) ? 'timeout'
+      : /excede el tamaño permitido|hasta 5 MB|límite de 8 MB/.test(message) ? 'too_large'
+      : /invalid_design_capture|No se pudo renderizar el diseño para revisarlo|mediciones válidas/.test(message) ? 'invalid'
+      : 'unavailable');
+  return new DesignCaptureError(message, reason);
+}
+/** Cause of an optional capture failure, or undefined when the error must abort the turn (session/brand). */
+export function captureFailureOf(problem: unknown): CaptureFailure | undefined {
+  const failure = problem instanceof DesignCaptureError ? problem : captureError(problem, false);
+  return failure instanceof DesignCaptureError ? failure.reason : undefined;
+}
+
 /** The normal renderer and reference normalizer provide the same pixels as export.
  * Optional vision failures must never prevent a text conversation or be described as a screenshot. */
 export async function captureConversationHtml(html: string, canvas: { width: number; height: number },
-  access: { businessId: string; expectedActorId?: string }): Promise<PreparedPresentationReference> {
+  access: { businessId: string; expectedActorId?: string }, options: { timeoutMs?: number } = {}): Promise<PreparedPresentationReference> {
   const [{ renderHtmlForReview }, { preparePresentationReference }, { sanitizePresentationHtml }] = await Promise.all([
     import('../../utils/xendingDesign/canvasRenderer'), import('./presentationReferences'), import('./presentationHtml'),
   ]);
-  const controller = new AbortController(), timeout = setTimeout(() => controller.abort(), 12000);
+  const controller = new AbortController(), timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? 12000);
   let image: string;
   try { image = (await renderHtmlForReview(sanitizePresentationHtml(html), canvas.width, canvas.height, { ...access, signal: controller.signal })).image; }
+  catch (problem) { throw captureError(problem, controller.signal.aborted); }
   finally { clearTimeout(timeout); }
-  if (!/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(image)) throw Error('invalid_design_capture');
-  const decoded = atob(image.slice(image.indexOf(',') + 1));
-  const bytes = Uint8Array.from(decoded, character => character.charCodeAt(0));
-  return preparePresentationReference(new File([bytes], 'Vista del diseño actual.png', { type: 'image/png' }), 'layout_reference');
+  if (!/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(image)) throw new DesignCaptureError('invalid_design_capture', 'invalid');
+  try {
+    const decoded = atob(image.slice(image.indexOf(',') + 1));
+    const bytes = Uint8Array.from(decoded, character => character.charCodeAt(0));
+    return await preparePresentationReference(new File([bytes], 'Vista del diseño actual.png', { type: 'image/png' }), 'layout_reference');
+  } catch (problem) { throw captureError(problem, false, 'invalid'); }
 }
 
 export function conversationVisualSummary(summary: string, captureId?: string): string {

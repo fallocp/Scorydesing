@@ -35,7 +35,7 @@ import { buildDesignElementCatalog, applyDesignElementEdits } from './designElem
 import { DesignElementEditError, unapprovedElementTexts, type DesignElementEdit } from '../../../supabase/functions/_shared/desaing/designElementEdits';
 import { structuralEditFits, type StructuralCheckCache } from './designStructuralCheck';
 import { resolveConversationDesignSource, conversationDesignSourceInstruction, designEditableHtmlHash } from './designConversationSource';
-import { captureConversationHtml, conversationCopyForTurn, conversationHtmlReferences, conversationVisualSummary, resolveConversationReferenceUse } from './designConversationVisuals';
+import { captureConversationHtml, captureFailureOf, captureFailureText, type CaptureFailure, conversationCopyForTurn, conversationHtmlReferences, conversationVisualSummary, resolveConversationReferenceUse } from './designConversationVisuals';
 import { describeVisualReview } from './designVisualReview';
 import { DESIGN_CONVERSATION_SESSIONS, isDesignConversationSessionId, designConversationSessionToken, withDesignConversationSession,
   type DesignConversationSessionId } from '../../../supabase/functions/_shared/desaing/conversationSessions';
@@ -65,7 +65,8 @@ type Store = Awaited<ReturnType<typeof openDesignConversationStore>> & Partial<P
 type Life = { active: boolean; actor: string; key: string; store: Store | null; record: DesignConversationRecord | null;
   session: DesignConversationSessionId;
   queue: Promise<unknown>; locked: boolean; blocked: boolean; generation: ServerGenerationCapabilities | null;
-  capture?: { html: string; reference: DesignReference; version: Awaited<ReturnType<typeof prepareConversationReferences>>[number]['version'] };
+  capture?: { html: string; reference: DesignReference; version: Awaited<ReturnType<typeof prepareConversationReferences>>[number]['version'];
+    prepared: PreparedPresentationReference };
   sourceCapture?: { html: string; reference: PreparedPresentationReference };
   inspection?: { key: string; prepared: PreparedPresentationReference | null; reference?: DesignReference;
     version?: Awaited<ReturnType<typeof prepareConversationReferences>>[number]['version']; capturedIds: string[] };
@@ -447,7 +448,7 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
     await assertCurrent(life, epoch);
     const reference = { ...uploaded[0].reference, reference_id: `html:${capture.sha256}`,
       roles: ['layout_reference', 'image_style_reference'] as DesignReference['roles'] };
-    life.capture = { html, reference, version: uploaded[0].version }; return reference;
+    life.capture = { html, reference, version: uploaded[0].version, prepared: capture }; return reference;
   }
   function workingSlide(value: DesignConversationState): PresentationSlide {
     const slide = latest.current.slide, selected = selectedOf(value);
@@ -848,22 +849,36 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
   }
   async function designSourceContext(life: Life, designSource: ConversationDesignSource) {
     const source = resolveConversationDesignSource(designSource, sourceSlides(), current(life).references);
-    let sourceReference = source.reference;
+    let sourceReference = source.reference, failure: CaptureFailure | undefined;
     if (source.slide) {
-      if (life.sourceCapture?.html === source.slide.html) sourceReference = life.sourceCapture.reference;
+      const html = source.slide.html;
+      if (life.sourceCapture?.html === html) sourceReference = life.sourceCapture.reference;
+      else if (life.capture?.html === html) sourceReference = life.capture.prepared;
       else {
-        try { sourceReference = await captureConversationHtml(source.slide.html, getSlideDimensions(source.slide.html),
-          { businessId: latest.current.businessId, expectedActorId: life.actor }); }
-        catch { await assertCurrent(life); throw Error('No pude capturar la diapositiva elegida como fuente. Reintenta para conservar su apariencia.'); }
-        await assertCurrent(life); life.sourceCapture = { html: source.slide.html, reference: sourceReference };
+        // The capture is optional evidence: the generator already receives the source HTML.
+        // Retry once only when the renderer was slow or unavailable; never cache a failure.
+        for (let attempt = 1; attempt <= 2; attempt++) {
+          try {
+            sourceReference = await captureConversationHtml(html, getSlideDimensions(html),
+              { businessId: latest.current.businessId, expectedActorId: life.actor }, { timeoutMs: 40000 });
+            failure = undefined; break;
+          } catch (problem) {
+            await assertCurrent(life); failure = captureFailureOf(problem);
+            if (!failure) throw problem;
+            if (failure !== 'timeout' && failure !== 'unavailable') break;
+          }
+        }
+        await assertCurrent(life);
+        if (!failure) life.sourceCapture = { html, reference: sourceReference! };
       }
     } else if (source.asset) {
       const blob = await latest.current.service.client.asset(source.asset); await assertCurrent(life);
       sourceReference = await preparePresentationReference(new File([blob], 'Imagen elegida.png', { type: blob.type || 'image/png' }), 'layout_reference');
     }
     await assertCurrent(life);
-    return { designSource, ...(source.slide ? { sourceSlide: structuredClone(source.slide) } : {}),
+    const context = { designSource, ...(source.slide ? { sourceSlide: structuredClone(source.slide) } : {}),
       ...(sourceReference ? { sourceReference: { ...sourceReference, role: designSource.mode === 'style_only' ? 'image_style_reference' as const : 'layout_reference' as const } } : {}) };
+    return failure ? { context, failure, notice: `Seguí sin la imagen de la fuente: ${captureFailureText(failure)}.` } : { context };
   }
   function savedHtmlContext(value: DesignConversationState, proposal: HtmlDesignProposal) {
     return { ...htmlContext(value, value.understanding?.resolved_instruction || 'Revisa la propuesta guardada con las referencias y el contenido acordado.'),
@@ -873,16 +888,17 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
       copyMode: value.copy.status === 'pending' ? 'instruction' as const : value.copy.status === 'none' ? 'none' as const : 'literal' as const,
       designBase: 'version' as const, proposal };
   }
-  async function finishHtml(life: Life, proposal: HtmlDesignProposal, composition?: { request_key: string; source: DesignToHtmlProposal['source']; unresolved_slots: string[] }) {
+  async function finishHtml(life: Life, proposal: HtmlDesignProposal, composition?: { request_key: string; source: DesignToHtmlProposal['source']; unresolved_slots: string[] }, notice?: string) {
     const pending = current(life).pending; if (!pending || pending.kind !== 'html') throw Error('conversation_pending_unresolved');
     assertHtmlDesignTarget(proposal, pending.target); await assertCurrent(life, pending.epoch);
+    const text = composition?.unresolved_slots.length
+      ? 'La estructura HTML está lista. Completa las piezas señaladas en el editor antes de aplicarla.'
+      : composition ? 'El HTML está listo para revisarlo y editarlo. Puedes pedirme otro ajuste o aplicarlo cuando quieras.' : describeVisualReview(proposal.visualReview);
     await save(life, value => ({ ...completeConversationAction(value, pending.action_id, { version: { id: crypto.randomUUID(), turn_id: pending.turn_id,
       ...(value.selected_version_id ? { parent_id: value.selected_version_id } : {}), target: proposal.target, kind: 'html', proposal: { ...proposal, intent: 'replace' },
       ...(completedDesignSource(value) ? { design_source: completedDesignSource(value) } : {}),
       ...(composition ? { composition } : {}) }, next_action: null,
-      message: { id: `assistant:${pending.action_id}`, turn_id: pending.turn_id, role: 'assistant', text: composition?.unresolved_slots.length
-        ? 'La estructura HTML está lista. Completa las piezas señaladas en el editor antes de aplicarla.'
-        : composition ? 'El HTML está listo para revisarlo y editarlo. Puedes pedirme otro ajuste o aplicarlo cuando quieras.' : describeVisualReview(proposal.visualReview) } }),
+      message: { id: `assistant:${pending.action_id}`, turn_id: pending.turn_id, role: 'assistant', text: notice ? `${notice} ${text}` : text } }),
       design_source: completedDesignSource(value) ?? null,
       preferences: { format: latest.current.format ?? 'html', base: 'version' as const } }));
     show(composition ? 'composition' : 'html');
@@ -969,8 +985,13 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
     const continuingHtml = (action.kind === 'create_html' || action.kind === 'refine_html') && input.base === 'version'
       && selectedHtml?.kind === 'html' && same(selectedHtml.target, value.target) && action.from_slide !== true
       && (!action.design_source || same(selectedHtml.design_source, action.design_source));
-    const sourceContext = action.design_source && !continuingHtml ? await designSourceContext(life, action.design_source) : undefined;
+    const sourceResult = action.design_source && !continuingHtml ? await designSourceContext(life, action.design_source) : undefined;
+    // Only the context reaches the generator; the notice is for the final message.
+    const sourceContext = sourceResult?.context, sourceNotice = sourceResult?.notice;
     if (action.kind === 'generate_image' || action.kind === 'edit_image') {
+      // The image generator never receives the source HTML, so its capture is required.
+      if (sourceResult?.failure)
+        throw Error(`No pude capturar la diapositiva elegida como fuente (${captureFailureText(sourceResult.failure)}). Reintenta para conservar su apariencia.`);
       const visualReferences = conversationHtmlReferences(value.references, value.copy, value.understanding)
         .filter(reference => reference.id !== sourceContext?.sourceReference?.id);
       const uploaded = await references(life, visualReferences), response = await input.service.client.read(input.businessId); await assertCurrent(life);
@@ -1064,7 +1085,7 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
       if (source) {
         show('composition'); const proposal = await input.compositionController.current!.create({ approved: true, asset: source.asset, copy: value.copy.text,
           copyMode: value.copy.status === 'none' ? 'no_text' : 'approved_text', instruction: action.instruction, replaceCompleted: true });
-        await finishHtml(life, fromComposition(proposal), { request_key: proposal.requestKey, source: proposal.source, unresolved_slots: proposal.unresolvedSlots });
+        await finishHtml(life, fromComposition(proposal), { request_key: proposal.requestKey, source: proposal.source, unresolved_slots: proposal.unresolvedSlots }, sourceNotice);
       } else {
         show('html'); const selected = selectedOf(value), fromSlide = (action.kind === 'refine_html' || action.kind === 'create_html')
           && !sourceContext && (action.from_slide === true || !!input.slide.html.trim()
@@ -1076,7 +1097,7 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
           : action.kind === 'refine_html' || continuingHtml || fromSlide ? await input.htmlController.current!.refine({ ...context, feedback: action.instruction, compare: true,
             ...(action.kind === 'refine_html' && action.rewrite ? { rewrite: true as const } : {}) })
             : await input.htmlController.current!.create(context);
-        await finishHtml(life, proposal);
+        await finishHtml(life, proposal, undefined, sourceNotice);
       }
     } catch (problem) {
       if (active(life) && current(life).pending?.action_id === id) {

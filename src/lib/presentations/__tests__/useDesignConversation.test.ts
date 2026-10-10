@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import * as fc from 'fast-check';
 import type { ExplorationRequest, ExplorationResult } from '../../../../supabase/functions/_shared/desaing/explorationContracts';
 import type { ConversationActionKind, ConversationDesignSource } from '../../../../supabase/functions/_shared/desaing/conversationActions';
 import type { DesignConversationScope } from '../designConversationStore';
@@ -829,6 +830,27 @@ describe('unified conversation orchestration', () => {
     expect(planner.plan.mock.calls[1][0].context.target).toMatchObject({ document_id: 'document', slide_id: 'canvas', revision: '1' });
     expect(render(options).state.versions[0]).toMatchObject({ target: { document: 'document', slide: 'canvas', revision: 1 }, kind: 'image', design_source: source });
     expect(options.onApply).not.toHaveBeenCalled();
+  });
+
+  it('blocks image generation naming the cause when the slide source capture fails, without dispatching', async () => {
+    const { options, planner, client } = fixture(); options.format = 'image'; options.base = 'current';
+    const sourceSlide = { id: 'slide-3', revision: 4, title: 'Referencia visual', html: '<main>Diseño de la tercera</main>' };
+    options.deckSlides = [options.slide, sourceSlide];
+    const source: ConversationDesignSource = { mode: 'adapt_layout', source: { kind: 'slide', slide_id: sourceSlide.id, revision: '4' } };
+    vi.mocked(captureConversationHtml).mockImplementation(async () => { throw Error('El HTML excede el tamaño permitido.'); });
+    planner.plan.mockImplementationOnce(async request => ({ ...result(request), next_action: {
+      kind: 'inspect_slides', intent: 'requested', instruction: 'Revisar la tercera diapositiva.', reference_ids: [], slide_ids: [sourceSlide.id], reason: 'Identificar su diseño.',
+    } })).mockImplementation(async request => ({ ...result(request, 'generate_image'), next_action: {
+      kind: 'generate_image', intent: 'suggested', instruction: 'Crearé esta imagen adaptando el diseño de la tercera diapositiva.', reference_ids: [],
+      reason: 'La fuente visual elegida gobierna la nueva imagen.', design_source: source,
+    } }));
+    render(options); await flush(); await render(options).send('Usa el diseño de la diapositiva 3 para crear la actual como imagen.');
+    expect(render(options).confirmationReady).toBe(true);
+    try { await render(options).executeSuggested(); } catch { /* the error surfaces in state */ }
+    expect(render(options).error).toBe('No pude capturar la diapositiva elegida como fuente (su HTML es demasiado grande para capturarlo). Reintenta para conservar su apariencia.');
+    expect(vi.mocked(captureConversationHtml).mock.calls.filter(call => call[0] === sourceSlide.html)).toHaveLength(1);
+    expect(client.command).not.toHaveBeenCalled(); expect(buildConversationImageOperation).not.toHaveBeenCalled();
+    expect(render(options).state.versions).toHaveLength(0);
   });
 
   it('continues selected image B as the editable base while remembering image A as its visual source and preserving brand and attachments', async () => {
@@ -1918,5 +1940,206 @@ describe('the design chat obeys explicit orders', () => {
     expect(render(options).state.pending).toBeNull(); expect(render(options).resuming).toBe(false);
     expect(planner.recover).toHaveBeenCalledWith(pending.action_id, request); expect(planner.plan).toHaveBeenCalledTimes(1);
     expect(client.command).not.toHaveBeenCalled();
+  });
+});
+
+// Bug condition exploration (spec slide-source-capture-fix, Property 1 and Property 2).
+// These encode the expected behavior: on unfixed code they fail, which confirms the bug.
+describe('slide source capture failures continue the HTML generation', () => {
+  type Outcome = 'ok' | 'timeout' | 'unavailable' | 'too_large' | 'invalid';
+  const failureOf = (outcome: Exclude<Outcome, 'ok'>) => outcome === 'timeout' ? new DOMException('The operation was aborted.', 'AbortError')
+    : outcome === 'too_large' ? Error('El HTML excede el tamaño permitido.')
+    : outcome === 'invalid' ? Error('invalid_design_capture') : Error('Failed to fetch');
+  const causeText: Record<Exclude<Outcome, 'ok'>, string> = { timeout: 'tardó demasiado', unavailable: 'no está disponible',
+    too_large: 'demasiado grande', invalid: 'no fue válida' };
+  const sourceSlide = { id: 'slide-3', revision: 7, title: 'Xending capital (copia)', html: '<main><h1>Xending capital</h1><p>Íconos montados</p></main>' };
+
+  function resetHarness() {
+    for (const cleanup of harness.cleanups) cleanup?.();
+    harness.values = []; harness.cursor = 0; harness.cleanups = []; harness.effects = []; harness.records.clear();
+    harness.result = null; harness.brand = null; harness.currentActor = actor;
+    vi.mocked(captureConversationHtml).mockReset(); vi.mocked(prepareConversationReferences).mockReset().mockResolvedValue([]);
+    vi.mocked(capturePresentationInspection).mockReset().mockResolvedValue({ reference: null, capturedIds: [] });
+  }
+
+  // Session/brand failures of the transport, and an actor change while the renderer was slow: these must still abort.
+  type Abort = 'session' | 'login' | 'brand' | 'actor_changed';
+  const abortText: Record<Exclude<Abort, 'actor_changed'>, string> = { session: 'La sesión cambió. Vuelve a intentarlo.',
+    login: 'Inicia sesión para continuar.', brand: 'Selecciona una marca para continuar.' };
+  type Prepared = Awaited<ReturnType<typeof preparePresentationReference>>;
+
+  /** Confirms an adapt_layout plan whose source is a slide. Each capture of the source HTML consumes one outcome (exhausted → ok).
+   * `designSource` replaces the slide source (null = plan without source); `references` are attached before the first message. */
+  async function confirmSlideSource(outcomes: (Outcome | Abort)[], which: 'other' | 'current' = 'other',
+    extra: { references?: Prepared[]; designSource?: ConversationDesignSource | null } = {}) {
+    const { options, planner } = fixture(); options.format = 'html'; options.base = 'current'; options.initialView = 'html';
+    options.slide = { ...options.slide, title: 'Destino', html: '<main>Destino actual</main>' };
+    options.deckSlides = [options.slide, { id: 'slide-2', revision: 1, title: 'Segunda', html: '<main>Segunda</main>' }, sourceSlide];
+    const slide = which === 'current' ? options.slide : sourceSlide;
+    const source: ConversationDesignSource = { mode: 'adapt_layout', source: { kind: 'slide', slide_id: slide.id, revision: String(slide.revision) } };
+    const captures = await Promise.all([181, 182, 183].map(color => preparePresentationReference(
+      new File([htmlPng(color)], `Captura ${color}.png`, { type: 'image/png' }), 'layout_reference', async file => file)));
+    let calls = 0;
+    vi.mocked(captureConversationHtml).mockImplementation(async html => {
+      if (html !== slide.html) throw Error('renderer_unavailable');
+      const index = calls++, outcome = outcomes[index] ?? 'ok';
+      if (outcome === 'actor_changed') { harness.currentActor = '50000000-0000-4000-8000-000000000009'; throw failureOf('timeout'); }
+      if (outcome === 'session' || outcome === 'login' || outcome === 'brand') throw Error(abortText[outcome]);
+      if (outcome !== 'ok') throw failureOf(outcome);
+      return captures[index];
+    });
+    const design = extra.designSource === undefined ? source : extra.designSource;
+    vi.mocked(prepareConversationReferences).mockImplementation(async input => input.references.map(reference => ({
+      reference: { business_id: business, asset_id: `asset:${reference.sha256}`, version_id: reference.sha256,
+        reference_id: reference.id, mime_type: 'image/png', roles: [reference.role] },
+    })) as any);
+    const target = { document: 'document', slide: 'canvas', revision: 1 };
+    const proposal = { html: '<main>Destino con la distribución de la fuente</main>', target, canvas: { width: 1280, height: 720 }, mounted: [], intent: 'replace' as const };
+    const create = vi.fn(async (_context: any) => proposal), refine = vi.fn(async (_context: any) => proposal);
+    options.htmlController = { current: { create, refine, updateContext: vi.fn() } as any };
+    const inspect = async (request: ExplorationRequest) => ({ ...result(request), next_action: {
+      kind: 'inspect_slides' as const, intent: 'requested' as const, instruction: 'Consultar la diapositiva fuente.', reference_ids: [],
+      slide_ids: [slide.id], reason: 'Ver la fuente antes de preparar el diseño.',
+    } });
+    planner.plan.mockImplementationOnce(inspect).mockImplementation(async request => ({ ...result(request, 'refine_html'), next_action: {
+      kind: 'refine_html', intent: 'suggested', instruction: 'Adaptar distribución · Diapositiva 3: Xending capital (copia).',
+      reference_ids: [], reason: 'Fuente acordada.', ...(design ? { design_source: design } : {}),
+    } }));
+    render(options); await flush();
+    if (extra.references) await render(options).changeReferences(extra.references);
+    await render(options).send('Adapta la distribución de la diapositiva 3 a esta diapositiva.');
+    expect(render(options).confirmationReady).toBe(true);
+    const beforeConfirm = calls, allBefore = vi.mocked(captureConversationHtml).mock.calls.length;
+    const messagesBefore = render(options).state.messages.length, versionsBefore = render(options).state.versions.length;
+    try { await render(options).executeSuggested(); } catch { /* the error surfaces in state */ }
+    const view = render(options);
+    return { create, refine, captures, slide, options, planner, inspect, totalCalls: calls, newCalls: calls - beforeConfirm,
+      allCallsOnConfirm: vi.mocked(captureConversationHtml).mock.calls.length - allBefore, error: view.error,
+      finalMessage: view.state.messages.at(-1)?.text ?? '', pending: view.state.pending,
+      addedMessages: view.state.messages.slice(messagesBefore), addedVersions: view.state.versions.slice(versionsBefore) };
+  }
+  const sourceCalls = () => vi.mocked(captureConversationHtml).mock.calls.filter(call => call[0] === sourceSlide.html).length;
+  const estiloVisual = () => preparePresentationReference(new File([htmlPng(191)], 'Estilo visual.png', { type: 'image/png' }),
+    'image_style_reference', async file => file);
+
+  it('retries a timed-out source capture once and still creates the HTML without sourceReference, naming the cause', async () => {
+    const run = await confirmSlideSource(['timeout', 'timeout']);
+    expect(run.newCalls).toBe(2);
+    expect(run.create).toHaveBeenCalledTimes(1);
+    const context = run.create.mock.calls[0][0];
+    expect(context.sourceSlide).toEqual(sourceSlide); expect(context).not.toHaveProperty('sourceReference');
+    expect(run.error).toBe(''); expect(run.pending).toBeNull();
+    expect(run.finalMessage).toContain('tardó demasiado');
+  });
+
+  it('does not retry an oversized source capture and continues naming the cause', async () => {
+    const run = await confirmSlideSource(['too_large']);
+    expect(run.newCalls).toBe(1);
+    expect(run.create).toHaveBeenCalledTimes(1);
+    expect(run.create.mock.calls[0][0]).not.toHaveProperty('sourceReference');
+    expect(run.finalMessage).toContain('demasiado grande');
+  });
+
+  it('reuses the planner capture of the current slide when it is also the design source (Property 2)', async () => {
+    const run = await confirmSlideSource(['ok', 'ok'], 'current');
+    // The planner already captured this exact HTML while planning.
+    expect(run.totalCalls - run.newCalls).toBe(1);
+    expect(run.newCalls).toBe(0);
+    expect(run.create).toHaveBeenCalledTimes(1);
+    expect(run.create.mock.calls[0][0].sourceReference?.sha256).toBe(run.captures[0].sha256);
+  });
+
+  it('Property 1: any capture outcome sequence creates exactly once, retrying only a recoverable first failure', async () => {
+    // **Validates: Requirements 2.1, 2.2, 2.3**
+    const outcome = fc.constantFrom<Outcome>('ok', 'timeout', 'unavailable', 'too_large', 'invalid');
+    await fc.assert(fc.asyncProperty(fc.array(outcome, { minLength: 1, maxLength: 2 }), async outcomes => {
+      resetHarness();
+      const run = await confirmSlideSource(outcomes);
+      const first = outcomes[0], recoverable = first === 'timeout' || first === 'unavailable';
+      const expectedCalls = recoverable ? 2 : 1;
+      const final = first === 'ok' ? 'ok' : recoverable ? outcomes[1] ?? 'ok' : first;
+      expect(run.create).toHaveBeenCalledTimes(1);
+      expect(run.newCalls).toBeLessThanOrEqual(2); expect(run.newCalls).toBe(expectedCalls);
+      const context = run.create.mock.calls[0][0];
+      expect(context.sourceSlide).toEqual(sourceSlide);
+      if (final === 'ok') expect(context.sourceReference?.sha256).toBe(run.captures[expectedCalls - 1].sha256);
+      else { expect(context).not.toHaveProperty('sourceReference'); expect(run.finalMessage).toContain(causeText[final]); }
+    }), { numRuns: 25 });
+  }, 60000);
+
+  // Preservation (Property 3): behavior outside the bug condition is unchanged.
+  // **Validates: Requirements 3.1, 3.2, 3.3, 3.4, 3.5**
+  it('caches a successful source capture: a second confirmation of the same source never captures it again', async () => {
+    const run = await confirmSlideSource(['ok']);
+    expect(run.newCalls).toBe(1); expect(run.create).toHaveBeenCalledTimes(1);
+    expect(run.create.mock.calls[0][0].sourceReference).toEqual({ ...run.captures[0], role: 'layout_reference' });
+    expect(run.finalMessage).not.toContain('Seguí sin');
+    await sendAndConfirm(run.options, 'Vuelve a adaptar la distribución de la fuente.');
+    expect(render(run.options).error).toBe(''); expect(run.create).toHaveBeenCalledTimes(2);
+    expect(sourceCalls()).toBe(1);
+    expect(run.create.mock.calls[1][0].sourceReference).toEqual({ ...run.captures[0], role: 'layout_reference' });
+  });
+
+  it.each(['session', 'login', 'brand', 'actor_changed'] as const)('a %s failure during the source capture still aborts without generating', async outcome => {
+    const run = await confirmSlideSource([outcome, 'ok']);
+    expect(run.newCalls).toBe(1);
+    expect(run.create).not.toHaveBeenCalled(); expect(run.refine).not.toHaveBeenCalled();
+    expect(run.error).not.toBe(''); expect(run.addedVersions).toEqual([]); expect(run.pending).toBeNull();
+    if (outcome !== 'actor_changed') expect(run.error).toContain(abortText[outcome]);
+  });
+
+  it('a reference source and a plan without source never capture during confirmation', async () => {
+    const estilo = await estiloVisual();
+    const byReference = await confirmSlideSource([], 'other', { references: [estilo],
+      designSource: { mode: 'style_only', source: { kind: 'reference', reference_id: estilo.id } } });
+    expect(byReference.error).toBe(''); expect(byReference.allCallsOnConfirm).toBe(0);
+    expect(byReference.create).toHaveBeenCalledTimes(1);
+    const context = byReference.create.mock.calls[0][0];
+    expect(context.sourceReference).toMatchObject({ id: estilo.id, sha256: estilo.sha256, role: 'image_style_reference' });
+    expect(context).not.toHaveProperty('sourceSlide');
+    resetHarness();
+    const withoutSource = await confirmSlideSource([], 'other', { designSource: null });
+    expect(withoutSource.error).toBe(''); expect(withoutSource.allCallsOnConfirm).toBe(0);
+    expect(withoutSource.create).not.toHaveBeenCalled(); expect(withoutSource.refine).toHaveBeenCalledTimes(1);
+    expect(withoutSource.refine.mock.calls[0][0]).toMatchObject({ designSource: null });
+    expect(withoutSource.refine.mock.calls[0][0]).not.toHaveProperty('sourceReference');
+  });
+
+  it.each([['ok'], ['timeout', 'timeout']] as const)('keeps «Estilo visual» in the HTML references with its role when the source capture is %s', async (...outcomes) => {
+    const estilo = await estiloVisual();
+    const run = await confirmSlideSource([...outcomes], 'other', { references: [estilo] });
+    expect(run.error).toBe(''); expect(run.create).toHaveBeenCalledTimes(1);
+    const context = run.create.mock.calls[0][0];
+    expect(context.references).toContainEqual(expect.objectContaining({ id: estilo.id, name: 'Estilo visual.png', role: 'image_style_reference' }));
+    if (outcomes[0] === 'ok') expect(context.sourceReference?.sha256).toBe(run.captures[0].sha256);
+    else expect(context).not.toHaveProperty('sourceReference');
+  });
+
+  it.each([['ok'], ['timeout', 'timeout']] as const)('confirm → create → finish leaves one html version and one assistant message (capture %s)', async (...outcomes) => {
+    const run = await confirmSlideSource([...outcomes]);
+    expect(run.create).toHaveBeenCalledTimes(1); expect(run.refine).not.toHaveBeenCalled(); expect(run.pending).toBeNull();
+    expect(run.addedVersions).toHaveLength(1);
+    expect(run.addedVersions[0]).toMatchObject({ kind: 'html', design_source: { mode: 'adapt_layout', source: { kind: 'slide', slide_id: sourceSlide.id } } });
+    const assistant = run.addedMessages.filter(message => message.role === 'assistant');
+    expect(assistant).toHaveLength(1); expect(assistant[0].text).toBe(run.finalMessage);
+    if (outcomes[0] === 'ok') expect(assistant[0].text).not.toContain('Seguí sin');
+    else expect(assistant[0].text.startsWith('Seguí sin la imagen de la fuente: la captura tardó demasiado.')).toBe(true);
+  });
+
+  it('a session reset drops the cached source capture and the next confirmation captures it again', async () => {
+    const saved = new Map<string, string>();
+    vi.stubGlobal('localStorage', { getItem: (key: string) => saved.get(key) ?? null,
+      setItem: (key: string, value: string) => saved.set(key, value), removeItem: (key: string) => saved.delete(key) });
+    const run = await confirmSlideSource(['ok']);
+    expect(run.create).toHaveBeenCalledTimes(1); expect(sourceCalls()).toBe(1);
+    await render(run.options).resetSession(); render(run.options); await flush();
+    expect(render(run.options).error).toBe(''); expect(render(run.options).state.versions).toEqual([]);
+    run.planner.plan.mockImplementationOnce(run.inspect);
+    await render(run.options).send('Adapta otra vez la distribución de la diapositiva 3.');
+    expect(render(run.options).confirmationReady).toBe(true);
+    await render(run.options).executeSuggested();
+    expect(render(run.options).error).toBe(''); expect(run.create).toHaveBeenCalledTimes(2);
+    expect(sourceCalls()).toBe(2);
+    expect(run.create.mock.calls[1][0].sourceReference?.sha256).toBe(run.captures[1].sha256);
   });
 });

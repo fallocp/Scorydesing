@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { captureConversationHtml, conversationCopyForTurn, conversationHtmlReferences, conversationVisualSummary, resolveConversationReferenceUse } from '../designConversationVisuals';
+import * as fc from 'fast-check';
+import { captureConversationHtml, captureFailureOf, captureFailureText, DesignCaptureError, type CaptureFailure, conversationCopyForTurn, conversationHtmlReferences, conversationVisualSummary, resolveConversationReferenceUse } from '../designConversationVisuals';
 import type { PreparedPresentationReference, PresentationReferenceRole } from '../presentationReferences';
 import type { DesignCopy, DesignUnderstanding } from '../../../../supabase/functions/_shared/desaing/explorationContracts';
 
@@ -135,9 +136,134 @@ describe('conversation visual context', () => {
     expect(preparePresentationReference).not.toHaveBeenCalled();
   });
 
+  it('aborts a render that the server would finish at 15 s once the 12 s capture window ends (root cause a)', async () => {
+    vi.useFakeTimers();
+    vi.mocked(renderHtmlForReview).mockImplementationOnce(async (_html, _width, _height, options) => new Promise((resolve, reject) => {
+      const done = setTimeout(() => resolve({ image: 'data:image/png;base64,AQID' } as Awaited<ReturnType<typeof renderHtmlForReview>>), 15000);
+      options!.signal!.addEventListener('abort', () => { clearTimeout(done); reject(new DOMException('The operation was aborted.', 'AbortError')); }, { once: true });
+    }));
+    let settled = false;
+    const capture = captureConversationHtml('<main>marca</main>', { width: 1920, height: 1080 }, access).finally(() => { settled = true; });
+    const failure = expect(capture).rejects.toThrow();
+    await vi.waitFor(() => expect(renderHtmlForReview).toHaveBeenCalledTimes(1));
+    await vi.advanceTimersByTimeAsync(11000); expect(settled).toBe(false);
+    await vi.advanceTimersByTimeAsync(1000); await failure; expect(settled).toBe(true);
+    expect(preparePresentationReference).not.toHaveBeenCalled();
+  });
+
   it('distinguishes an actual reduced capture from structural-only context and respects the planner summary limit', () => {
     expect(conversationVisualSummary('HTML', 'html:abc')).toContain('Captura reducida');
     expect(conversationVisualSummary('HTML')).toContain('No hay captura visual disponible');
     expect(conversationVisualSummary('x'.repeat(12000), 'html:abc')).toHaveLength(12000);
+  });
+});
+
+describe('capture failure classification', () => {
+  const canvas = { width: 1920, height: 1080 };
+  const rejection = () => captureConversationHtml('<main>marca</main>', canvas, access).then(() => { throw Error('capture_resolved'); }, error => error);
+  const SESSION = /La sesión cambió|Inicia sesión|Selecciona una marca/;
+  const REASONS: CaptureFailure[] = ['unavailable', 'too_large', 'timeout', 'invalid'];
+
+  it('honors timeoutMs: 40000 so a slow render is not aborted at 12 s but is at 40 s', async () => {
+    vi.useFakeTimers();
+    vi.mocked(renderHtmlForReview).mockImplementationOnce(async (_html, _width, _height, options) => new Promise((_resolve, reject) => {
+      options!.signal!.addEventListener('abort', () => reject(new DOMException('The operation was aborted.', 'AbortError')), { once: true });
+    }));
+    let settled = false;
+    const capture = captureConversationHtml('<main>marca</main>', canvas, access, { timeoutMs: 40000 }).finally(() => { settled = true; });
+    const failure = capture.catch(error => error);
+    await vi.waitFor(() => expect(renderHtmlForReview).toHaveBeenCalledTimes(1));
+    await vi.advanceTimersByTimeAsync(12000); expect(settled).toBe(false);
+    await vi.advanceTimersByTimeAsync(27000); expect(settled).toBe(false);
+    await vi.advanceTimersByTimeAsync(1000);
+    const error = await failure;
+    expect(error).toBeInstanceOf(DesignCaptureError);
+    expect(error).toMatchObject({ reason: 'timeout', message: 'The operation was aborted.' });
+    expect(preparePresentationReference).not.toHaveBeenCalled();
+  });
+
+  it.each<[string, unknown, CaptureFailure]>([
+    ['AbortError', new DOMException('The operation was aborted.', 'AbortError'), 'timeout'],
+    ['TimeoutError', new DOMException('Signal timed out.', 'TimeoutError'), 'timeout'],
+    ['renderer timeout', Error('La captura tardó demasiado.'), 'timeout'],
+    ['body too large', Error('El HTML excede el tamaño permitido.'), 'too_large'],
+    ['HTML over 5 MB', Error('Usa HTML de hasta 5 MB y un lienzo entre 256 y 3840 píxeles por lado.'), 'too_large'],
+    ['PNG over 8 MB', Error('La captura excede el límite de 8 MB. Reduce la complejidad de las imágenes.'), 'too_large'],
+    ['connection', Error('No se pudo conectar al renderizador de esta aplicación. Revisa que esté activo en el mismo servidor.'), 'unavailable'],
+    ['404', Error('El renderizador no está disponible en esta aplicación. Configura la ruta /renderer en su propio servidor.'), 'unavailable'],
+    ['busy 429', Error('El renderizador está ocupado. Intenta de nuevo.'), 'unavailable'],
+    ['non JSON', Error('El renderizador no devolvió una respuesta válida. Reinicia la aplicación local o revisa su servidor.'), 'unavailable'],
+    ['invalid PNG', Error('No se pudo renderizar el diseño para revisarlo.'), 'invalid'],
+    ['invalid measurements', Error('El servidor no devolvió mediciones válidas del diseño.'), 'invalid'],
+  ])('classifies a %s render failure keeping its original message', async (_name, problem, reason) => {
+    vi.mocked(renderHtmlForReview).mockRejectedValueOnce(problem);
+    const error = await rejection();
+    expect(error).toBeInstanceOf(DesignCaptureError);
+    expect(error).toMatchObject({ reason, message: (problem as Error).message });
+  });
+
+  it('classifies a non-PNG image and a failed normalization as invalid', async () => {
+    vi.mocked(renderHtmlForReview).mockResolvedValueOnce({ image: 'data:image/jpeg;base64,AQID' });
+    expect(await rejection()).toMatchObject({ reason: 'invalid', message: 'invalid_design_capture' });
+    expect(preparePresentationReference).not.toHaveBeenCalled();
+    vi.mocked(renderHtmlForReview).mockResolvedValueOnce({ image: 'data:image/png;base64,AQID' });
+    vi.mocked(preparePresentationReference).mockRejectedValueOnce(Error('invalid_presentation_reference'));
+    const error = await rejection();
+    expect(error).toBeInstanceOf(DesignCaptureError);
+    expect(error).toMatchObject({ reason: 'invalid', message: 'invalid_presentation_reference' });
+  });
+
+  const sessionFailures = ['La sesión cambió. Vuelve a abrir el diseño.', 'La sesión cambió durante el proceso. Vuelve a abrir el diseño.',
+    'Inicia sesión para usar el renderizador de la aplicación.', 'Selecciona una marca para continuar.'];
+  it.each(sessionFailures)('rethrows the session or brand failure «%s» without wrapping it', async message => {
+    const problem = Error(message);
+    vi.mocked(renderHtmlForReview).mockRejectedValueOnce(problem);
+    const error = await rejection();
+    expect(error).toBe(problem);
+    expect(error).not.toBeInstanceOf(DesignCaptureError);
+  });
+
+  it('describes each capture failure in a short clause', () => {
+    expect(captureFailureText('unavailable')).toBe('el renderizador no está disponible');
+    expect(captureFailureText('too_large')).toBe('su HTML es demasiado grande para capturarlo');
+    expect(captureFailureText('timeout')).toBe('la captura tardó demasiado');
+    expect(captureFailureText('invalid')).toBe('la captura no fue válida');
+  });
+
+  it('reads the cause of classified and raw capture failures, leaving session failures without a cause', () => {
+    expect(captureFailureOf(new DesignCaptureError('Failed to fetch', 'invalid'))).toBe('invalid');
+    expect(captureFailureOf(new DOMException('The operation was aborted.', 'AbortError'))).toBe('timeout');
+    expect(captureFailureOf(Error('El HTML excede el tamaño permitido.'))).toBe('too_large');
+    expect(captureFailureOf(Error('Failed to fetch'))).toBe('unavailable');
+    expect(captureFailureOf(Error('La sesión cambió. Vuelve a intentarlo.'))).toBeUndefined();
+  });
+
+  // **Validates: Requirements 2.2, 2.3, 3.3**
+  it('classifies every render failure totally and stably, never wrapping session failures (PBT)', async () => {
+    const suffix = fc.string({ maxLength: 40 }).filter(text => !SESSION.test(text) && !/tardó demasiado|excede|MB|renderizar|mediciones/.test(text));
+    const family = fc.constantFrom<[string, CaptureFailure | 'session', string?]>(
+      ['La captura tardó demasiado.', 'timeout'], ['Aborted', 'timeout', 'AbortError'], ['Timed out', 'timeout', 'TimeoutError'],
+      ['El HTML excede el tamaño permitido.', 'too_large'], ['Usa HTML de hasta 5 MB.', 'too_large'], ['La captura excede el límite de 8 MB.', 'too_large'],
+      ['No se pudo renderizar el diseño para revisarlo.', 'invalid'], ['El servidor no devolvió mediciones válidas del diseño.', 'invalid'],
+      ['No se pudo conectar al renderizador.', 'unavailable'], ['El renderizador está ocupado.', 'unavailable'], ['', 'unavailable'],
+      ['La sesión cambió.', 'session'], ['Inicia sesión.', 'session'], ['Selecciona una marca.', 'session'],
+    );
+    await fc.assert(fc.asyncProperty(family, suffix, async ([base, expected, name], extra) => {
+      const message = `${base} ${extra}`.trim();
+      const make = () => name ? new DOMException(message, name) : Error(message);
+      const first = make(), second = make();
+      vi.mocked(renderHtmlForReview).mockRejectedValueOnce(first).mockRejectedValueOnce(second);
+      const [a, b] = [await rejection(), await rejection()];
+      if (expected === 'session') {
+        expect(a).toBe(first); expect(b).toBe(second);
+        return;
+      }
+      for (const error of [a, b]) {
+        expect(error).toBeInstanceOf(DesignCaptureError);
+        expect(REASONS).toContain(error.reason);
+        expect(error.message).toBe(message);
+      }
+      expect(a.reason).toBe(expected); expect(b.reason).toBe(a.reason);
+    }), { numRuns: 60 });
   });
 });

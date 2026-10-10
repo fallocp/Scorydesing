@@ -1,0 +1,131 @@
+{
+  "pbtResults": {
+    "1. Escribir los tests exploratorios del bug": {
+      "status": "passed",
+      "failingExample": "Counterexample: [[\"too_large\",\"ok\"]] → htmlController.create llamado 0 veces (esperado 1). Unitarios: timeout×2 → 1 captura (sin reintento, esperado 2); too_large → create 0 veces; fuente = diapositiva actual capturada por el planner → 1 captura nueva (esperado 0). El test de 12 s en designConversationVisuals pasa: un render de 15 s se aborta a los 12 s.",
+      "lastRunTimestamp": 1791642842313
+    },
+    "3.2 Verificar que los tests exploratorios ahora pasan": {
+      "status": "passed",
+      "lastRunTimestamp": 1791645341443
+    }
+  },
+  "executionHistory": {
+    "1. Escribir los tests exploratorios del bug": [
+      {
+        "executionId": "55440b27-a3eb-4401-9b4f-6d6526a30993",
+        "chatSessionId": "sess_763640a0-3e2d-4334-9ff9-30321662f092",
+        "timestamp": 1791641461173
+      },
+      {
+        "executionId": "55440b27-a3eb-4401-9b4f-6d6526a30993",
+        "chatSessionId": "sess_763640a0-3e2d-4334-9ff9-30321662f092",
+        "timestamp": 1791641471865
+      },
+      {
+        "executionId": "55440b27-a3eb-4401-9b4f-6d6526a30993",
+        "chatSessionId": "sess_763640a0-3e2d-4334-9ff9-30321662f092",
+        "timestamp": 1791642865638
+      }
+    ],
+    "2.1 Clasificar los fallos de captura y aceptar plazo opcional": [
+      {
+        "executionId": "55440b27-a3eb-4401-9b4f-6d6526a30993",
+        "chatSessionId": "sess_763640a0-3e2d-4334-9ff9-30321662f092",
+        "timestamp": 1791641461226
+      },
+      {
+        "executionId": "55440b27-a3eb-4401-9b4f-6d6526a30993",
+        "chatSessionId": "sess_763640a0-3e2d-4334-9ff9-30321662f092",
+        "timestamp": 1791642873913
+      },
+      {
+        "executionId": "55440b27-a3eb-4401-9b4f-6d6526a30993",
+        "chatSessionId": "sess_763640a0-3e2d-4334-9ff9-30321662f092",
+        "timestamp": 1791643168698
+      }
+    ],
+    "3.1 Reutilizar captura, reintentar una vez y seguir sin `sourceReference`": [
+      {
+        "executionId": "55440b27-a3eb-4401-9b4f-6d6526a30993",
+        "chatSessionId": "sess_763640a0-3e2d-4334-9ff9-30321662f092",
+        "timestamp": 1791641461283
+      },
+      {
+        "executionId": "55440b27-a3eb-4401-9b4f-6d6526a30993",
+        "chatSessionId": "sess_763640a0-3e2d-4334-9ff9-30321662f092",
+        "timestamp": 1791643182935
+      },
+      {
+        "executionId": "55440b27-a3eb-4401-9b4f-6d6526a30993",
+        "chatSessionId": "sess_763640a0-3e2d-4334-9ff9-30321662f092",
+        "timestamp": 1791645316235
+      }
+    ],
+    "3.2 Verificar que los tests exploratorios ahora pasan": [
+      {
+        "executionId": "55440b27-a3eb-4401-9b4f-6d6526a30993",
+        "chatSessionId": "sess_763640a0-3e2d-4334-9ff9-30321662f092",
+        "timestamp": 1791641461319
+      },
+      {
+        "executionId": "55440b27-a3eb-4401-9b4f-6d6526a30993",
+        "chatSessionId": "sess_763640a0-3e2d-4334-9ff9-30321662f092",
+        "timestamp": 1791645321960
+      },
+      {
+        "executionId": "55440b27-a3eb-4401-9b4f-6d6526a30993",
+        "chatSessionId": "sess_763640a0-3e2d-4334-9ff9-30321662f092",
+        "timestamp": 1791645357127
+      }
+    ],
+    "4. Escribir los tests de preservación": [
+      {
+        "executionId": "55440b27-a3eb-4401-9b4f-6d6526a30993",
+        "chatSessionId": "sess_763640a0-3e2d-4334-9ff9-30321662f092",
+        "timestamp": 1791641461362
+      },
+      {
+        "executionId": "55440b27-a3eb-4401-9b4f-6d6526a30993",
+        "chatSessionId": "sess_763640a0-3e2d-4334-9ff9-30321662f092",
+        "timestamp": 1791645361767
+      },
+      {
+        "executionId": "55440b27-a3eb-4401-9b4f-6d6526a30993",
+        "chatSessionId": "sess_763640a0-3e2d-4334-9ff9-30321662f092",
+        "timestamp": 1791645726682
+      }
+    ],
+    "5. Checkpoint final": [
+      {
+        "executionId": "55440b27-a3eb-4401-9b4f-6d6526a30993",
+        "chatSessionId": "sess_763640a0-3e2d-4334-9ff9-30321662f092",
+        "timestamp": 1791641461401
+      },
+      {
+        "executionId": "55440b27-a3eb-4401-9b4f-6d6526a30993",
+        "chatSessionId": "sess_763640a0-3e2d-4334-9ff9-30321662f092",
+        "timestamp": 1791645731121
+      },
+      {
+        "executionId": "55440b27-a3eb-4401-9b4f-6d6526a30993",
+        "chatSessionId": "sess_763640a0-3e2d-4334-9ff9-30321662f092",
+        "timestamp": 1791645951720
+      }
+    ],
+    "2. Fix en `designConversationVisuals.ts`": [
+      {
+        "executionId": "55440b27-a3eb-4401-9b4f-6d6526a30993",
+        "chatSessionId": "sess_763640a0-3e2d-4334-9ff9-30321662f092",
+        "timestamp": 1791643168763
+      }
+    ],
+    "3. Fix en `useDesignConversation.ts`": [
+      {
+        "executionId": "55440b27-a3eb-4401-9b4f-6d6526a30993",
+        "chatSessionId": "sess_763640a0-3e2d-4334-9ff9-30321662f092",
+        "timestamp": 1791645357198
+      }
+    ]
+  }
+}
