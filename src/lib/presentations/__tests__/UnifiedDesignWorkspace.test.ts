@@ -13,7 +13,8 @@ vi.mock('react', async importOriginal => ({ ...await importOriginal<typeof impor
     if (!old || deps.some((item, i) => old[i] !== item)) { harness.values[index] = deps; harness.effects.push(effect); } },
 }));
 vi.mock('../useDesignConversation', () => ({ useDesignConversation: (options: unknown) => { harness.options = options; return harness.work; } }));
-vi.mock('../styleSpec', () => ({ measureStyleSpec: async () => '' }));
+vi.mock('../styleSpec', () => ({ measureStyleSpec: async () => '', measureStyleSamples: async () => ({ canvas: { width: 1280, height: 720 }, background: '', texts: [], boxes: [], images: [] }),
+  formatStyleSpec: () => '', deriveTypeScale: () => [], formatTypeScale: () => '' }));
 vi.mock('../designConversationHtml', () => ({ buildDeckStyleKit: () => ({ slides: [], examples: [], ids: [] }) }));
 vi.mock('../../../hooks/useImageGenerationSettings', () => ({ useImageGenerationSettings: () => ({ settings: { model: 'gpt-image-2.5-flare', quality: 'medium' }, setSettings() {} }) }));
 vi.mock('../presentationServerDesign', () => ({ PRESENTATION_IMAGE_MODELS: {} }));

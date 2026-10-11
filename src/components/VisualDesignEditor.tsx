@@ -591,6 +591,8 @@ interface VisualDesignEditorProps {
   onApply?: (html: string) => void;
   /** Negocio activo — aterriza las ideas de copy (IA) en la marca real. */
   businessId?: string | null;
+  /** Opens the icon picker on load (shortcut from an empty icon slot). */
+  initialIconPicker?: boolean;
 }
 
 // --- Image Picker Panel (inline in properties) ---
@@ -1219,7 +1221,7 @@ function CollapsibleSection({ title, open, onToggle, children }: CollapsibleSect
 
 // --- Main Component ---
 
-export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensions, editableElements, onApply, businessId }: VisualDesignEditorProps) {
+export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensions, editableElements, onApply, businessId, initialIconPicker }: VisualDesignEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [loadedIframeToken, setLoadedIframeToken] = useState<string | null>(null);
@@ -1305,7 +1307,7 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
   // Handler de pegado durante la edición inline (fuerza texto plano).
   const pasteElRef = useRef<{ el: HTMLElement; handler: (e: ClipboardEvent) => void } | null>(null);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
-  const [iconPickerOpen, setIconPickerOpen] = useState(false);
+  const [iconPickerOpen, setIconPickerOpen] = useState(initialIconPicker === true);
   const [layersOpen, setLayersOpen] = useState(false);
   const [workingHtml, setWorkingHtml] = useState(html);
   /**

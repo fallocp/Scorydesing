@@ -3,11 +3,21 @@ import { sanitizePresentationHtml } from './presentationHtml';
 /** Measured style evidence from a slide or template; the requested source and
  * adaptation mode determine which properties to reuse. */
 export interface Rect { x: number; y: number; width: number; height: number }
+/** `selector`: stable `#id` or first class of the element, used to compare and restore styles. */
 export interface TextSample { text: string; family: string; size: number; weight: number; italic: boolean; upper: boolean;
-  color: string; align: string; area: number }
+  color: string; align: string; area: number; selector?: string }
 export interface BoxSample { rect: Rect; background: string; radius: number; shadow: string; border: string; padding: string;
-  texts: TextSample[]; images: Rect[] }
+  texts: TextSample[]; images: Rect[]; selector?: string }
 export interface StyleSamples { canvas: { width: number; height: number }; background: string; texts: TextSample[]; boxes: BoxSample[]; images: Rect[] }
+
+/** Typography roles of the approximate standard scale (heads → display family, text → body family). */
+export const TYPE_ROLES = ['title', 'subtitle', 'card_title', 'body', 'label', 'note'] as const;
+export type TypeRole = typeof TYPE_ROLES[number];
+export const TYPE_ROLE_LABELS: Record<TypeRole, string> = { title: 'Título', subtitle: 'Subtítulo', card_title: 'Encabezado de tarjeta',
+  body: 'Texto', label: 'Etiqueta', note: 'Nota' };
+export interface TypeScaleEntry { role: TypeRole; size: number; family: string; weight: number; selectors: string[]; samples: number }
+/** Tolerance of the standard scale: sizes within ±2 px count as the same step. */
+export const TYPE_SCALE_TOLERANCE = 2;
 
 const MAX_SPEC = 3000;
 const round = (value: number) => Math.round(value);
@@ -40,8 +50,73 @@ function placement(box: Rect, image: Rect): string {
   return x < 0.35 ? 'a la izquierda' : x > 0.65 ? 'a la derecha' : y < 0.4 ? 'arriba' : 'al centro';
 }
 
-/** Pure formatter, testable without a browser. */
-export function formatStyleSpec(samples: StyleSamples): string {
+const sampleKey = (sample: TextSample) => [sample.text, round(sample.size), sample.family, sample.weight].join('|');
+const modeOf = <T>(values: T[]): T | undefined => {
+  const counts = new Map<T, number>();
+  for (const value of values) counts.set(value, (counts.get(value) ?? 0) + 1);
+  return [...counts].sort((a, b) => b[1] - a[1])[0]?.[0];
+};
+
+/** Role of every measured text of one design. A text inside a box belongs to the
+ * smallest box that contains it; its largest text is the card heading. */
+export function classifyTextRoles(samples: StyleSamples): Array<{ sample: TextSample; role: TypeRole }> {
+  const texts = samples.texts;
+  if (!texts.length) return [];
+  const regular = texts.filter(text => text.weight < 600).map(text => round(text.size));
+  const body = modeOf(regular.length ? regular : texts.map(text => round(text.size)))!;
+  const owner = new Map<string, number>();
+  [...samples.boxes].map((box, index) => ({ box, index })).sort((a, b) => a.box.rect.width * a.box.rect.height - b.box.rect.width * b.box.rect.height)
+    .forEach(({ box, index }) => { for (const text of box.texts) if (!owner.has(sampleKey(text))) owner.set(sampleKey(text), index); });
+  const boxedMax = new Map<number, number>();
+  for (const text of texts) {
+    const box = owner.get(sampleKey(text));
+    if (box !== undefined) boxedMax.set(box, Math.max(boxedMax.get(box) ?? 0, round(text.size)));
+  }
+  const loose = texts.filter(text => !owner.has(sampleKey(text))), looseMax = Math.max(0, ...loose.map(text => round(text.size)));
+  const short = (text: TextSample) => text.text.length <= 24;
+  return texts.map(sample => {
+    const size = round(sample.size), box = owner.get(sampleKey(sample));
+    let role: TypeRole;
+    if (box !== undefined) {
+      role = size === boxedMax.get(box) && (size >= body + TYPE_SCALE_TOLERANCE || sample.weight >= 600) ? 'card_title'
+        : sample.upper || short(sample) && size < body - 1 ? 'label' : 'body';
+    } else if (size >= looseMax - TYPE_SCALE_TOLERANCE && size >= body + 4) role = 'title';
+    else if (size >= body + 4) role = 'subtitle';
+    else if (size <= body - 3) role = sample.upper && short(sample) ? 'label' : 'note';
+    else role = sample.upper && short(sample) ? 'label' : 'body';
+    return { sample, role };
+  });
+}
+
+/** Most common size per role across the measured slides of the deck (±2 px buckets). */
+export function deriveTypeScale(designs: StyleSamples[]): TypeScaleEntry[] {
+  const byRole = new Map<TypeRole, TextSample[]>();
+  for (const design of designs) for (const { sample, role } of classifyTextRoles(design)) byRole.set(role, [...(byRole.get(role) ?? []), sample]);
+  return TYPE_ROLES.filter(role => byRole.has(role)).map(role => {
+    const samples = byRole.get(role)!, sizes = samples.map(sample => round(sample.size));
+    // The step with most samples within tolerance; its most frequent exact size is the standard.
+    const center = [...new Set(sizes)].map(size => ({ size, near: sizes.filter(other => Math.abs(other - size) <= TYPE_SCALE_TOLERANCE).length,
+      exact: sizes.filter(other => other === size).length })).sort((a, b) => b.near - a.near || b.exact - a.exact || b.size - a.size)[0];
+    const members = samples.filter(sample => Math.abs(round(sample.size) - center.size) <= TYPE_SCALE_TOLERANCE);
+    const selectors = [...members.reduce((counts, sample) => sample.selector ? counts.set(sample.selector, (counts.get(sample.selector) ?? 0) + 1) : counts,
+      new Map<string, number>())].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([selector]) => selector);
+    return { role, size: modeOf(members.map(sample => round(sample.size)))!, family: modeOf(members.map(sample => sample.family))!,
+      weight: modeOf(members.map(sample => sample.weight))!, selectors, samples: members.length };
+  });
+}
+/** UI line: «Escala detectada: Título 72 · Subtítulo 40 · Texto 22». */
+export function formatTypeScale(scale: TypeScaleEntry[]): string {
+  return scale.length ? `Escala detectada: ${scale.map(entry => `${TYPE_ROLE_LABELS[entry.role]} ${entry.size}`).join(' · ')}` : '';
+}
+/** Prompt block of the scale: approximate standard, not an identical copy. */
+export function formatTypeScaleSpec(scale: TypeScaleEntry[]): string {
+  if (!scale.length) return '';
+  return [`ESCALA TIPOGRÁFICA DEL DECK (tamaño más común por rol, tolerancia ±${TYPE_SCALE_TOLERANCE} px; úsala en los componentes existentes y en sus copias):`,
+    ...scale.map(entry => `- ${TYPE_ROLE_LABELS[entry.role]}: ${entry.family} ${entry.size} px, ${entry.weight}${entry.selectors.length ? ` (${entry.selectors.join(', ')})` : ''}.`)].join('\n');
+}
+
+/** Pure formatter, testable without a browser. With `scale`, appends the deck's standard type scale. */
+export function formatStyleSpec(samples: StyleSamples, scale: TypeScaleEntry[] = []): string {
   const lines = ['FICHA DE ESTILO (valores medidos de la fuente; reutiliza según el modo y los cambios solicitados, no fija la distribución).',
     `Lienzo ${samples.canvas.width}×${samples.canvas.height}${transparent(samples.background) ? '' : `, fondo ${hex(samples.background)}`}.`];
   const weighted = new Map<string, number>();
@@ -53,7 +128,7 @@ export function formatStyleSpec(samples: StyleSamples): string {
   const ordered = [...levels.values()].sort((a, b) => b.sample.size - a.sample.size || b.sample.weight - a.sample.weight).slice(0, 7);
   if (ordered.length) {
     lines.push('Tipografía, de mayor a menor:');
-    ordered.forEach((level, index) => lines.push(`- Nivel ${index + 1} ${quote(level.sample.text)}${level.count > 1 ? ` (×${level.count})` : ''}: ${textStyle(level.sample)}.`));
+    ordered.forEach((level, index) => lines.push(`- Nivel ${index + 1} ${quote(level.sample.text)}${level.count > 1 ? ` (×${level.count})` : ''}: ${textStyle(level.sample)}${level.sample.selector ? `; selector ${level.sample.selector}` : ''}.`));
   }
   const groups = new Map<string, BoxSample[]>();
   for (const box of samples.boxes) groups.set(boxKey(box), [...(groups.get(boxKey(box)) ?? []), box]);
@@ -70,7 +145,7 @@ export function formatStyleSpec(samples: StyleSamples): string {
       const inner = [...box.texts].sort((a, b) => b.size - a.size), title = inner[0], body = inner.length > 1 ? inner[inner.length - 1] : undefined;
       const texts = title ? `; título ${textStyle(title)}${body && textKey(body) !== textKey(title) ? `; texto ${textStyle(body)}` : ''}` : '';
       const where = group.length > 1 ? ` ${arrangement(group.map(item => item.rect))}` : '';
-      lines.push(`- ${plural(group.length, 'cuadro', 'cuadros')}${where}: ${parts.join(', ')}${icons}${texts}.`);
+      lines.push(`- ${plural(group.length, 'cuadro', 'cuadros')}${where}: ${parts.join(', ')}${icons}${texts}${box.selector ? `; selector ${box.selector}` : ''}.`);
     }
     lines.push('Para más o menos elementos, repite el mismo componente con su mismo ícono, radio, sombra y tipografía; la cuadrícula se ajusta.');
   }
@@ -80,11 +155,21 @@ export function formatStyleSpec(samples: StyleSamples): string {
   const palette = [...new Set([...samples.texts.map(text => hex(text.color)), ...samples.boxes.map(box => hex(box.background))]
     .filter(color => !transparent(color)))].slice(0, 8);
   if (palette.length) lines.push(`Colores usados: ${palette.join(', ')}.`);
+  const scaleSpec = formatTypeScaleSpec(scale);
+  // Right after the header: the scale is the standard the user asked to keep and survives trimming.
+  if (scaleSpec) lines.splice(2, 0, scaleSpec);
   const spec = lines.join('\n');
   return spec.length > MAX_SPEC ? `${spec.slice(0, MAX_SPEC - 1)}…` : spec;
 }
 
 const visibleRect = (element: Element): Rect => { const r = element.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height }; };
+const CSS_NAME = /^-?[A-Za-z_][\w-]*$/;
+/** Stable selector: `#id`, else the first class. Never a structural path that a rewrite would break. */
+export function stableSelector(element: Element): string {
+  if (element.id && CSS_NAME.test(element.id)) return `#${element.id}`;
+  const first = Array.from(element.classList).find(name => CSS_NAME.test(name) && name !== 'slide' && name !== 'lab-canvas');
+  return first ? `.${first}` : '';
+}
 /** Thin DOM collector over a rendered document (computed styles and real layout). */
 export function collectStyleSamples(doc: Document, canvas: { width: number; height: number }): StyleSamples {
   const view = doc.defaultView!, area = canvas.width * canvas.height;
@@ -94,8 +179,10 @@ export function collectStyleSamples(doc: Document, canvas: { width: number; heig
     if (!own) return null;
     const style = view.getComputedStyle(element), rect = visibleRect(element);
     if (style.display === 'none' || style.visibility === 'hidden' || !rect.width || !rect.height) return null;
+    const selector = stableSelector(element);
     return { text: own, family: style.fontFamily.split(',')[0].replace(/["']/g, '').trim(), size: parseFloat(style.fontSize), weight: Number(style.fontWeight) || 400,
-      italic: style.fontStyle === 'italic', upper: style.textTransform === 'uppercase', color: style.color, align: style.textAlign, area: rect.width * rect.height };
+      italic: style.fontStyle === 'italic', upper: style.textTransform === 'uppercase', color: style.color, align: style.textAlign, area: rect.width * rect.height,
+      ...(selector ? { selector } : {}) };
   };
   const texts: TextSample[] = [], images: Rect[] = [], boxes: BoxSample[] = [];
   const imageRect = (image: Element) => visibleRect(image);
@@ -109,8 +196,8 @@ export function collectStyleSamples(doc: Document, canvas: { width: number; heig
     const border = parseFloat(style.borderTopWidth) > 0 && style.borderTopStyle !== 'none' ? `${style.borderTopWidth} ${hex(style.borderTopColor)}` : '';
     const filled = !transparent(style.backgroundColor) || !!shadow || !!border;
     if (!filled || size < area * 0.004 || size > area * 0.6 || ['IMG', 'svg'].includes(element.tagName)) continue;
-    const inner = Array.from(element.querySelectorAll('*'));
-    boxes.push({ rect, background: style.backgroundColor, radius, shadow, border, padding: style.padding === '0px' ? '' : style.padding,
+    const inner = Array.from(element.querySelectorAll('*')), selector = stableSelector(element);
+    boxes.push({ rect, background: style.backgroundColor, radius, shadow, border, padding: style.padding === '0px' ? '' : style.padding, ...(selector ? { selector } : {}),
       texts: inner.map(textOf).filter((item): item is TextSample => !!item),
       images: images.filter(image => image.x >= rect.x - 1 && image.y >= rect.y - 1 && image.x + image.width <= rect.x + rect.width + 1 && image.y + image.height <= rect.y + rect.height + 1) });
   }
@@ -118,7 +205,11 @@ export function collectStyleSamples(doc: Document, canvas: { width: number; heig
 }
 
 /** Render the HTML in an isolated, script-less frame and measure its style. */
-export async function measureStyleSpec(html: string, canvas: { width: number; height: number }, timeoutMs = 8000): Promise<string> {
+export async function measureStyleSpec(html: string, canvas: { width: number; height: number }, timeoutMs = 8000, scale: TypeScaleEntry[] = []): Promise<string> {
+  return formatStyleSpec(await measureStyleSamples(html, canvas, timeoutMs), scale);
+}
+/** Same isolated render, returning the raw samples (scale, style lock). */
+export async function measureStyleSamples(html: string, canvas: { width: number; height: number }, timeoutMs = 8000): Promise<StyleSamples> {
   const frame = document.createElement('iframe');
   frame.setAttribute('sandbox', 'allow-same-origin'); frame.setAttribute('referrerpolicy', 'no-referrer'); frame.setAttribute('aria-hidden', 'true'); frame.tabIndex = -1;
   Object.assign(frame.style, { position: 'fixed', left: '-100000px', top: '0', visibility: 'hidden', pointerEvents: 'none', border: '0',
@@ -131,6 +222,6 @@ export async function measureStyleSpec(html: string, canvas: { width: number; he
     const rendered = await Promise.race([loaded, timeout]);
     await Promise.race([rendered.fonts.ready, timeout]);
     await Promise.race([new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))), timeout]);
-    return formatStyleSpec(collectStyleSamples(rendered, canvas));
+    return collectStyleSamples(rendered, canvas);
   } finally { if (timer) clearTimeout(timer); frame.onload = null; frame.remove(); }
 }

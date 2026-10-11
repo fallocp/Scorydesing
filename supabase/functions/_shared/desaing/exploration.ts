@@ -33,9 +33,14 @@ function assertDesignCopy(value: unknown, context: DesignContext): asserts value
     && value.source_reference_ids.every(ref => context.references.some(reference => reference.reference_id === ref)), 'invalid_exploration_copy');
   check(value.status !== 'none' || !value.source_reference_ids.length, 'invalid_exploration_copy');
 }
+export const STYLE_UNLOCKS = ['typography', 'colors', 'components', 'layout'] as const;
 export function assertDesignUnderstanding(value: unknown, context: DesignContext): asserts value is DesignUnderstanding {
-  check(keys(value, ['intent', 'resolved_instruction', 'copy', 'references', 'preserve', 'pending_questions'])
+  check(keys(value, ['intent', 'resolved_instruction', 'copy', 'references', 'preserve', 'pending_questions', 'unlock'],
+    ['intent', 'resolved_instruction', 'copy', 'references', 'preserve', 'pending_questions'])
     && ['recreate', 'variation', 'explore'].includes(String(value.intent)) && text(value.resolved_instruction, 6000), 'invalid_design_understanding');
+  check(value.unlock === undefined || Array.isArray(value.unlock) && value.unlock.length <= STYLE_UNLOCKS.length
+    && new Set(value.unlock).size === value.unlock.length
+    && value.unlock.every(item => STYLE_UNLOCKS.includes(item as typeof STYLE_UNLOCKS[number])), 'invalid_design_understanding');
   assertDesignCopy(value.copy, context);
   check(Array.isArray(value.references) && value.references.length <= 4, 'invalid_design_understanding');
   const seen = new Set<string>();

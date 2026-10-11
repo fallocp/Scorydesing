@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { buildDeckStyleKit } from '@/lib/presentations/designConversationHtml';
-import { measureStyleSpec } from '@/lib/presentations/styleSpec';
+import { deriveTypeScale, formatStyleSpec, formatTypeScale, measureStyleSamples, type StyleSamples } from '@/lib/presentations/styleSpec';
+import { inferStyleUnlocks } from '@/lib/presentations/styleLock';
 import { describeConversationDesignSource } from '@/lib/presentations/designConversationSource';
-import { designActionLabel, needsResolvedCopy } from '@/lib/presentations/designConversationConfirmation';
+import { designActionLabel, isDesignGeneration, needsResolvedCopy } from '@/lib/presentations/designConversationConfirmation';
 import { buildDesignRepairFeedback, describeVisualReview } from '@/lib/presentations/designVisualReview';
 import { ArrowUp, Check, ImagePlus, Layers, Loader2, MessageSquare, Pencil, Plus, Shapes, Sparkles, X } from 'lucide-react';
 import type { PresentationSlide } from '@/lib/presentations/presentationDocument';
@@ -32,6 +33,19 @@ export interface UnifiedDesignWorkspaceProps {
   onApply(slide: PresentationSlide): void | Promise<void>; onInsert?(slide: PresentationSlide): void | Promise<void>; onClose(): void;
 }
 
+/** Measured deck slides for the standard type scale; a slide's HTML is measured once per session. */
+const deckSamples = new Map<string, Promise<StyleSamples | null>>();
+function measureDeckSamples(html: string): Promise<StyleSamples | null> {
+  let found = deckSamples.get(html);
+  if (!found) {
+    found = measureStyleSamples(html, getSlideDimensions(html)).catch(() => null);
+    deckSamples.set(html, found);
+    if (deckSamples.size > 8) deckSamples.delete(deckSamples.keys().next().value!);
+  }
+  return found;
+}
+const UNLOCK_LABELS = { typography: 'tipografía', colors: 'colores', components: 'estilo de tarjetas', layout: 'acomodo' } as const;
+
 /** One conversation owns context. Image/HTML engines are tools inside this workspace. */
 export function UnifiedDesignWorkspace(props: UnifiedDesignWorkspaceProps) {
   const { settings, setSettings } = useImageGenerationSettings(props.businessId, 'design-conversation');
@@ -56,16 +70,50 @@ export function UnifiedDesignWorkspace(props: UnifiedDesignWorkspaceProps) {
   const specSource = format !== 'html' || chosenBase === 'new' ? null : chosenBase === 'deck'
     ? props.deckSlides?.find(slide => slide.id === deckKit?.ids[0])?.html ?? null
     : chosenBase === 'version' ? versionStyleSource ?? props.slide.html : props.slide.html;
-  const [styleSpec, setStyleSpec] = useState({ source: '', spec: '' });
+  const flags = props.service.fromExisting;
+  const [styleSpec, setStyleSpec] = useState({ source: '', spec: '', scale: '', failed: false });
+  const specJob = useRef<{ source: string; promise: Promise<string> } | null>(null);
+  const specSourceRef = useRef(specSource); specSourceRef.current = specSource;
+  // Slides measured for the standard scale: the base plus the nearest deck slides.
+  const scaleSlides = useMemo(() => {
+    if (!flags?.escala || !props.deckSlides?.length) return [];
+    const index = Math.max(0, props.deckSlides.findIndex(slide => slide.id === props.slide.id));
+    return props.deckSlides.map((slide, position) => ({ slide, distance: Math.abs(position - index) }))
+      .filter(item => item.slide.html.trim()).sort((a, b) => a.distance - b.distance).slice(0, 6).map(item => item.slide.html);
+  }, [flags?.escala, props.deckSlides, props.slide.id]);
   useEffect(() => {
     if (!specSource) return;
     let alive = true;
-    void measureStyleSpec(specSource, getSlideDimensions(specSource)).then(spec => { if (alive) setStyleSpec({ source: specSource, spec }); }, () => {});
+    const promise = (async () => {
+      const samples = await measureStyleSamples(specSource, getSlideDimensions(specSource));
+      const deck: StyleSamples[] = [samples];
+      for (const html of scaleSlides) if (html !== specSource) {
+        const measured = await measureDeckSamples(html);
+        if (measured) deck.push(measured);
+      }
+      const scale = flags?.escala ? deriveTypeScale(deck) : [];
+      const spec = formatStyleSpec(samples, scale);
+      if (alive) setStyleSpec({ source: specSource, spec, scale: formatTypeScale(scale), failed: false });
+      return spec;
+    })();
+    specJob.current = { source: specSource, promise };
+    promise.catch(() => { if (alive) setStyleSpec({ source: specSource, spec: '', scale: '', failed: true }); });
     return () => { alive = false; };
-  }, [specSource]);
+  }, [specSource, scaleSlides, flags?.escala]);
   const spec = specSource && styleSpec.source === specSource ? styleSpec.spec : '';
+  const specFailed = !!specSource && styleSpec.source === specSource && styleSpec.failed;
+  const scaleLine = specSource && styleSpec.source === specSource ? styleSpec.scale : '';
+  /** The spec always arrives: waits for the running measurement (max. 8 s); '' when unavailable. */
+  const styleSpecReady = useCallback(async () => {
+    const job = specJob.current;
+    if (!job || job.source !== specSourceRef.current) return '';
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<string>(resolve => { timer = setTimeout(() => resolve(''), 8000); });
+    try { return await Promise.race([job.promise.catch(() => ''), timeout]); } finally { if (timer) clearTimeout(timer); }
+  }, []);
   const work = useDesignConversation({ ...props, onApply: applyResult, settings, htmlController, compositionController, htmlState, compositionState, onView,
-    format, base: chosenBase, deckStyle: deckKit?.slides, deckBaseHtml, styleSpec: spec });
+    format, base: chosenBase, deckStyle: deckKit?.slides, deckBaseHtml, styleSpec: spec,
+    ...(flags ? { fromExisting: flags, styleSpecReady } : {}) });
   const [message, setMessage] = useState(props.initialInstruction ?? ''), [referencesOpen, setReferencesOpen] = useState(false);
   const [fileBusy, setFileBusy] = useState(false), [localError, setLocalError] = useState('');
   const [importBusy, setImportBusy] = useState(false);
@@ -168,6 +216,20 @@ export function UnifiedDesignWorkspace(props: UnifiedDesignWorkspaceProps) {
     : view === 'html' && selected.kind === 'html' && !selected.proposal.pending && editableHtml && !htmlUi.proposal?.pending
       && htmlUi.proposal?.html === selected.proposal.html);
   const error = localError || work.error;
+  // «Lo que tienes / Lo que pides / Qué cambio / Qué conservo», built locally from the spec and the plan (no AI).
+  const lastAsk = [...state.messages].reverse().find(item => item.role === 'user')?.text ?? '';
+  const plan = state.next_action && isDesignGeneration(state.next_action.kind) ? state.next_action : null;
+  const unlocked = state.understanding?.unlock ? [...new Set([...state.understanding.unlock, ...inferStyleUnlocks(lastAsk)])] : null;
+  const comparison = flags?.candado_estilo && format === 'html' && plan && state.understanding ? {
+    have: scaleLine || (specFailed ? 'Ficha no disponible' : spec.split('\n').find(line => line.startsWith('- ')) ?? 'El diseño actual'),
+    ask: lastAsk.slice(0, 300),
+    change: `${plan.instruction.split(/(?<=[.!?])\s/)[0].slice(0, 220)} ${unlocked ? unlocked.length
+      ? `Desbloqueo: ${unlocked.map(item => UNLOCK_LABELS[item]).join(', ')}.` : 'Sin desbloquear estilos.' : 'Sólo aviso las diferencias de estilo.'}`,
+    keep: [(Object.keys(UNLOCK_LABELS) as Array<keyof typeof UNLOCK_LABELS>).filter(item => !unlocked?.includes(item)).map(item => UNLOCK_LABELS[item]).join(', '),
+      ...state.understanding.preserve.slice(0, 3)].filter(Boolean).join('; ') || 'Nada: desbloqueaste todo el estilo.',
+  } : null;
+  const versionPrompt = flags?.prompt_base && selected?.kind === 'image' ? state.version_prompts?.[selected.id]
+    ?? (result?.asset.provenance.kind === 'image_operation' ? result.asset.provenance.effective_prompt : '') : undefined;
   return <div className="dc-backdrop"><section className="dc-workspace" role="dialog" aria-modal="true" aria-label="Conversación de diseño" aria-busy={busy}>
     <header className="dc-header"><div><div className="dc-brand"><span className="dc-brand-dot" style={{ background: brand?.colors.primary || undefined }} />{brand?.name || 'Marca del proyecto'}<span>· {canvas.width} × {canvas.height}</span></div>
       <h2>{title}</h2><p className="dc-location" aria-label="Ubicación del diseño">{location || 'Conversa, crea y ajusta el resultado aquí.'}</p></div>
@@ -220,6 +282,15 @@ export function UnifiedDesignWorkspace(props: UnifiedDesignWorkspaceProps) {
         {state.copy.status === 'none' && <p className="dc-muted">{format === 'html' && (base === 'current' || base === 'version')
           ? 'Sin texto nuevo: se conserva el texto del diseño.' : 'Diseño sin texto.'}</p>}
         {spec && <details><summary>Ficha de estilo</summary><p className="dc-muted">Estilo del diseño base. Puedes pedir qué conservar y qué cambiar.</p><pre className="dc-spec">{spec}</pre></details>}
+        {flags && scaleLine && <p className="dc-muted" aria-label="Escala tipográfica">{scaleLine} (px, tolerancia ±2)</p>}
+        {flags?.ficha_estricta && specFailed && <p className="dc-muted" role="status">Ficha no disponible: no se pudo medir el diseño base. Se enviará sin valores medidos.</p>}
+        {flags?.prompt_base && state.references.map(reference => {
+          const saved = state.reference_prompts?.[reference.sha256];
+          return saved ? <details key={reference.id} className="dc-prompt"><summary>Prompt usado · {reference.name}</summary>
+            <textarea aria-label={`Prompt usado de ${reference.name}`} defaultValue={saved.text} maxLength={1500} disabled={blocked || pending}
+              onBlur={event => { if (event.target.value.trim() !== saved.text) void act(() => work.setReferencePrompt(reference.sha256, event.target.value)); }} />
+            <p className="dc-muted">{saved.edited ? 'Editado por ti; se usa en el siguiente turno.' : 'Ficha generada una sola vez para esta imagen. Puedes editarla.'}</p></details> : null;
+        })}
         {brand && <details><summary>Identidad de {brand.name}</summary><p className="dc-muted">{[brand.style, brand.tone].filter(Boolean).join(' · ') || 'Paleta, tipografías y recursos guardados de esta marca.'}</p>
           <div className="dc-swatches">{Object.values(brand.colors).filter(Boolean).map((color, index) => <span key={index} style={{ background: color }} title={color} />)}</div></details>}
       </div>}
@@ -229,6 +300,12 @@ export function UnifiedDesignWorkspace(props: UnifiedDesignWorkspaceProps) {
         {state.messages.map(item => <article className={`dc-message dc-message-${item.role}`} key={item.id}><span>{item.role === 'user' ? 'Tú' : 'Asistente'}</span><p>{item.text}</p></article>)}
         {state.ideas.length > 0 && <div className="dc-ideas" aria-label="Ideas de diseño">{state.ideas.map((idea, index) => <article key={`${index}:${idea.title}`}><span>Idea {index + 1}</span><h4>{idea.title}</h4>
           <p>{idea.rationale}</p><button className="dc-button" disabled={blocked || pending} onClick={() => void act(() => work.startIdea(idea))}>Usar esta idea</button></article>)}</div>}
+        {comparison && <dl className="dc-compare" aria-label="Lo que tienes y lo que pides">
+          <div><dt>Lo que tienes</dt><dd>{comparison.have}</dd></div>
+          <div><dt>Lo que pides</dt><dd>{comparison.ask}</dd></div>
+          <div><dt>Qué cambio</dt><dd>{comparison.change}</dd></div>
+          <div><dt>Qué conservo</dt><dd>{comparison.keep}</dd></div>
+        </dl>}
         {work.confirmationReady && <div className="dc-confirmation">
           {state.next_action?.design_source && <p>{describeConversationDesignSource(state.next_action.design_source, props.deckSlides ?? [props.slide], state.references)}</p>}
           <button className="dc-button dc-primary dc-next" disabled={blocked || pending || designPending} onClick={() => void act(() => work.executeSuggested())}>
@@ -240,6 +317,7 @@ export function UnifiedDesignWorkspace(props: UnifiedDesignWorkspaceProps) {
       </div>
       <div className="dc-composer">
         {error && <p role="alert" className="dc-error">{error}</p>}
+        {flags?.ficha_estricta && specFailed && format === 'html' && <p className="dc-muted" role="status">Ficha no disponible para el diseño base.</p>}
         {work.canRetryLastMessage && !pending && <button className="dc-button" disabled={blocked}
           onClick={() => void act(() => work.retryLastMessage())}>Reintentar mensaje</button>}
         {designPending && !!state.messages.length && <div className="dc-recovery" id="dc-design-pending" role="status">
@@ -283,13 +361,21 @@ export function UnifiedDesignWorkspace(props: UnifiedDesignWorkspaceProps) {
             : 'Esta es una vista del historial. Selecciona la versión actual para continuar editando o aplicarla.'}</p>
         </div>}
         {view === 'image' && (work.imagePreview ? <div className="dc-image-result"><img src={work.imagePreview} alt="Versión seleccionada del diseño" />
-          <p>{quality ? `${quality.charAt(0).toUpperCase()}${quality.slice(1)} · ` : ''}{approved ? 'Versión aprobada' : result?.direction ? 'Dirección elegida' : 'Lista para revisar'}</p></div>
+          <p>{quality ? `${quality.charAt(0).toUpperCase()}${quality.slice(1)} · ` : ''}{approved ? 'Versión aprobada' : result?.direction ? 'Dirección elegida' : 'Lista para revisar'}</p>
+          {versionPrompt !== undefined && selected?.kind === 'image' && <details className="dc-prompt"><summary>Prompt usado</summary>
+            <textarea key={selected.id} aria-label="Prompt usado de esta versión" defaultValue={versionPrompt} maxLength={4000} disabled={blocked || pending}
+              onBlur={event => { if (event.target.value.trim() !== versionPrompt.trim()) void act(() => work.setVersionPrompt(selected.id, event.target.value)); }} />
+            <p className="dc-muted">Al editar o citar esta versión se envía como «Prompt de origen» (recortado a 1500 caracteres) seguido de los cambios que pidas.</p>
+          </details>}</div>
           : <div className="dc-empty"><div className="dc-empty-symbol"><Sparkles size={30} /></div><h3>Tu diseño, con espacio para probar</h3><p>La imagen o el HTML aparecerán aquí. Puedes conversar antes de generar.</p></div>)}
         {!work.ready && <div className="dc-empty" role="status">Cargando sesión…</div>}
         {work.ready && <div hidden={view !== 'html'}><SlideGeneratorPanel key={`html:${sessionIdentity}`} embedded externalConversation conversationSessionId={work.sessionToken} controllerRef={htmlController} onState={receiveHtmlState}
-          onCorrectComposition={base === 'version' && selected?.kind === 'html' ? () => send(buildDesignRepairFeedback([],
-            selected.proposal.visualReview ? describeVisualReview(selected.proposal.visualReview) : '').slice(0, 6000)) : undefined}
+          onCorrectComposition={base === 'version' && selected?.kind === 'html' ? flags?.correccion_acotada
+            ? () => act(() => work.correctComposition())
+            : () => send(buildDesignRepairFeedback([],
+              selected.proposal.visualReview ? describeVisualReview(selected.proposal.visualReview) : '').slice(0, 6000)) : undefined}
           styleExamples={format === 'html' && base === 'deck' ? deckKit?.examples : undefined} styleSpec={spec || undefined}
+          {...(flags ? { fromExisting: flags, styleSpecReady } : {})}
           styleSourceHtml={deckBaseHtml}
           onProposal={(proposal, reason) => {
             if (sessionIdentityRef.current !== sessionIdentity) return;

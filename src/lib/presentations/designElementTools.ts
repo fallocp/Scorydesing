@@ -82,7 +82,8 @@ function analyze(document: Document): Analysis {
     const element = node as HTMLElement, groupLeaf = textLeaves.has(node);
     const kind = node.tagName === 'IMG' ? 'image' : isLeaf(node) && (!!node.textContent?.trim() || groupLeaf) ? 'text' : 'container';
     const content = clean(node.textContent ?? '', 500), identity = [node.id, node.getAttribute('data-eid')].filter(Boolean).join(' · ');
-    const name = kind === 'image' ? node.getAttribute('alt') || identity || 'Imagen' : identity || (kind === 'text' ? content.slice(0, 90) : content.slice(0, 65));
+    const name = kind === 'image' ? node.getAttribute('alt') || identity || (/logo/i.test(node.getAttribute('class') ?? '') ? 'Logo' : 'Imagen')
+      : identity || (kind === 'text' ? content.slice(0, 90) : content.slice(0, 65));
     const parentHint = kind === 'text' && node.tagName === 'SPAN' ? ` en ${node.parentElement?.tagName.toLowerCase() ?? ''}` : '';
     const grouped = kind === 'container' ? groupOf.get(node) : undefined;
     output.push({ element, item: { element_id: `e:${index}`, kind, label: clean(`${node.tagName.toLowerCase()}${parentHint}${name ? ` · ${name}` : ''}`, 160),

@@ -1,4 +1,5 @@
 import type { DesignLayoutDiagnostics } from '@/utils/xendingDesign/canvasRenderer';
+import { correctionIsWorse, isUnmetIssue, UNMET_PREFIX } from './designFromExisting';
 
 export interface DesignVisualReview {
   status: 'passed' | 'needs_review' | 'unavailable';
@@ -10,6 +11,7 @@ export interface DesignReviewVerdict { passed: boolean; issues: string[]; feedba
 
 const REVIEW_FAILURE = 'No se pudo completar la revisión visual';
 const REPAIR_FAILURE = 'No se pudo terminar la corrección automática';
+export const REPAIR_DISCARDED = 'Descarté una corrección automática porque dejaba más problemas; conservé la versión anterior.';
 
 /** Shared by automatic corrections and the user's request to correct a reviewed proposal. */
 export function buildDesignRepairFeedback(issues: string[], extraFeedback = ''): string {
@@ -37,10 +39,17 @@ export async function reviewAndRepairDesign(input: {
   repair(html: string, snapshot: DesignReviewSnapshot, feedback: string): Promise<string>;
   assertCurrent(): Promise<void>;
   onProgress?(stage: 'reviewing' | 'repairing', repairs: number): void;
+  /** Issues that are not a defect of this proposal (inherited empty slots), never sent to a repair. */
+  ignoreIssue?(issue: string): boolean;
+  ignoreDiagnostic?(issue: { code: string; element?: string; message: string }): boolean;
+  /** Repair instruction; defaults to the generic composition correction. */
+  feedback?(issues: string[], reviewFeedback: string): string;
+  /** A repair that leaves more problems is discarded and the previous version kept. */
+  discardWorse?: boolean;
 }): Promise<{ html: string; visualReview: DesignVisualReview }> {
   let html = input.html, repairs = 0;
   let best = { html, visualReview: { status: 'unavailable' as DesignVisualReview['status'], repairs, issues: [] as string[] } };
-  let bestScore = Infinity;
+  let bestScore = Infinity, previous: { score: number; issues: string[] } | null = null;
   for (;;) {
     await input.assertCurrent();
     input.onProgress?.('reviewing', repairs);
@@ -57,13 +66,21 @@ export async function reviewAndRepairDesign(input: {
         status: bestScore === Infinity ? 'unavailable' : 'needs_review',
         issues: [...best.visualReview.issues.slice(0, 19), failureMessage(REVIEW_FAILURE, error)] } };
     }
-    const measured = snapshot.diagnostics?.issues.map(issue => issue.message) ?? [];
+    const measured = (snapshot.diagnostics?.issues ?? []).filter(issue => !input.ignoreDiagnostic?.(issue)).map(issue => issue.message);
     const incomplete = !snapshot.diagnostics || snapshot.diagnostics.truncated;
-    const issues = [...new Set([...measured, ...verdict.issues])].slice(0, 18);
+    const reviewed = verdict.issues.filter(issue => !input.ignoreIssue?.(issue));
+    // Every objection was about an inherited gap: the proposal itself passes.
+    const ignoredAll = !verdict.passed && verdict.issues.length > 0 && !reviewed.length && !!input.ignoreIssue;
+    const issues = [...new Set([...measured, ...reviewed])].slice(0, 18);
     if (incomplete) issues.push('La comprobación geométrica del lienzo quedó incompleta.');
-    if (!verdict.passed && !issues.length) issues.push(verdict.feedback || 'La revisión visual detectó cambios pendientes.');
-    const passed = verdict.passed && issues.length === 0;
+    if (!verdict.passed && !ignoredAll && !issues.length) issues.push(verdict.feedback || 'La revisión visual detectó cambios pendientes.');
+    const passed = (verdict.passed || ignoredAll) && issues.length === 0;
     const score = measured.length * 10 + issues.length;
+    if (input.discardWorse && previous && repairs > 0 && (score > previous.score || correctionIsWorse(previous.issues, issues))) {
+      return { ...best, visualReview: { ...best.visualReview, repairs,
+        issues: [...best.visualReview.issues.slice(0, 19), REPAIR_DISCARDED] } };
+    }
+    previous = { score, issues };
     if (score < bestScore) {
       bestScore = score;
       best = { html, visualReview: { status: passed ? 'passed' : 'needs_review', repairs, issues } };
@@ -73,7 +90,7 @@ export async function reviewAndRepairDesign(input: {
     if (repairs >= 2 || (!measured.length && incomplete && verdict.passed)) {
       return { ...best, visualReview: { ...best.visualReview, repairs } };
     }
-    const feedback = buildDesignRepairFeedback(issues, verdict.feedback);
+    const feedback = input.feedback ? input.feedback(issues, verdict.feedback) : buildDesignRepairFeedback(issues, verdict.feedback);
     input.onProgress?.('repairing', repairs + 1);
     try {
       await input.assertCurrent();
@@ -92,8 +109,12 @@ export function describeVisualReview(review?: DesignVisualReview): string {
   if (!review || review.status === 'unavailable') return 'Propuesta generada. La revisión visual no pudo completarse.'
     + (review?.issues.length ? ` ${review.issues[review.issues.length - 1]}` : ' Revísala antes de aplicarla.');
   if (review.status === 'needs_review') {
-    const failure = review.issues.filter(issue => issue.startsWith(REPAIR_FAILURE) || issue.startsWith(REVIEW_FAILURE)).pop();
-    const problems = review.issues.filter(issue => !issue.startsWith(REPAIR_FAILURE) && !issue.startsWith(REVIEW_FAILURE)).join(' ');
+    const notice = (issue: string) => issue.startsWith(REPAIR_FAILURE) || issue.startsWith(REVIEW_FAILURE) || issue === REPAIR_DISCARDED;
+    const failure = review.issues.filter(notice).pop();
+    // The request checklist: never «listo» while something the user asked for is missing.
+    const unmet = review.issues.filter(isUnmetIssue).map(issue => issue.slice(UNMET_PREFIX.length).trim());
+    const problems = review.issues.filter(issue => !notice(issue) && !isUnmetIssue(issue)).join(' ');
+    const missing = unmet.length ? ` Falta cumplir lo que pediste: ${unmet.slice(0, 4).join('; ')}.` : '';
     const summaries: string[] = [];
     if (/tapad[oa]|\btapa[n]?\b|\bcubre[n]?\b|solapa|superpon|superpuest/i.test(problems)) summaries.push('hay texto tapado o superpuesto');
     if (/ocult/i.test(problems)) summaries.push('hay texto oculto');
@@ -102,8 +123,8 @@ export function describeVisualReview(review?: DesignVisualReview): string {
     if (/no (?:se )?carg|falt[^.]*\b(?:imagen|recurso|ícono|icono)|placeholder/i.test(problems)) summaries.push('faltan recursos visuales');
     if (/vac[ií][oa]|sin contenido|espacio (?:sobrante|desaprovechado)/i.test(problems)) summaries.push('hay espacios o contenedores vacíos que ajustar');
     if (/geométrica.*incompleta/i.test(problems)) summaries.push('la comprobación de la distribución quedó incompleta');
-    return `La propuesta necesita ajustes${summaries.length ? `: ${summaries.slice(0, 3).join('; ')}` : ' de composición'}.`
-      + (failure ? ` ${failure}` : '');
+    return `La propuesta necesita ajustes${summaries.length ? `: ${summaries.slice(0, 3).join('; ')}` : problems || !unmet.length ? ' de composición' : ''}.`
+      + missing + (failure ? ` ${failure}` : '');
   }
   return 'La propuesta pasó la revisión visual automática. Puedes pedir ajustes, editarla o aplicarla al documento.';
 }

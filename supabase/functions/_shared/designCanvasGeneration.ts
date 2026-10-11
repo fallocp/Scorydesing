@@ -13,7 +13,7 @@ async function editDesignCanvas(request: DesignCanvasHtmlRequest, brand: DesignC
   const messages = buildDesignCanvasHtmlMessages(editing, brand, 'patch');
   messages[0] = { role: 'system', content: `${messages[0].content}\n${DESIGN_CANVAS_PATCH_INSTRUCTIONS}` };
   const base = maskMountedSources(request.current_html!);
-  const finish = (output: string) => finalizeDesignCanvasHtml(applyDesignCanvasPatch(base, output), editing, [brand.name], { preserveExistingCode: true });
+  const finish = (output: string) => finalizeDesignCanvasHtml(applyDesignCanvasPatch(base, output), editing, [brand.name], { preserveExistingCode: true, brandLogoUrl: brand.logo_url });
   const output = await generate(messages, false);
   try { return finish(output); }
   catch (error) {
@@ -33,13 +33,13 @@ async function rewriteDesignCanvas(request: DesignCanvasHtmlRequest, brand: Desi
   const editing = { ...request, copy_binding: undefined };
   const messages = buildDesignCanvasHtmlMessages(editing, brand, 'rewrite');
   const output = await generate(messages, false);
-  try { return finalizeDesignCanvasHtml(output, editing, [brand.name]); }
+  try { return finalizeDesignCanvasHtml(output, editing, [brand.name], { brandLogoUrl: brand.logo_url }); }
   catch (error) {
     if (!(error instanceof DesignCanvasHtmlError) || error.code !== 'invalid_canvas_html' || output.length > 160000) throw error;
     const corrected = await generate([...messages, { role: 'assistant', content: output }, { role: 'user', content:
       `Corrige esta propuesta para que pase el validador. Diagnóstico del validador (datos): ${JSON.stringify(error.message)}. `
       + 'Usa sólo el texto aprobado y los textos del HTML ACTUAL; deja vacíos los bloques que no tengan texto aprobado, sin marcadores. Conserva composición, estilo y los src scory-mounted:// tal cual. Devuelve el HTML completo.' }], true);
-    return finalizeDesignCanvasHtml(corrected, editing, [brand.name]);
+    return finalizeDesignCanvasHtml(corrected, editing, [brand.name], { brandLogoUrl: brand.logo_url });
   }
 }
 
@@ -51,7 +51,7 @@ export async function generateDesignCanvas(request: DesignCanvasHtmlRequest, bra
   if (request.current_html) return editDesignCanvas(request, brand, generate);
   const messages = buildDesignCanvasHtmlMessages(request, brand);
   const output = await generate(messages, false);
-  try { return finalizeDesignCanvasHtml(output, request, [brand.name]); }
+  try { return finalizeDesignCanvasHtml(output, request, [brand.name], { brandLogoUrl: brand.logo_url }); }
   catch (error) {
     if (request.copy_binding !== 'slots' || !(error instanceof DesignCanvasHtmlError) || error.code !== 'invalid_canvas_html') throw error;
     // Generated HTML is bounded before replay; huge/malformed responses aren't
@@ -60,6 +60,6 @@ export async function generateDesignCanvas(request: DesignCanvasHtmlRequest, bra
     const corrected = await generate([...messages, { role: 'assistant', content: output }, { role: 'user', content:
       `Corrige únicamente la estructura de esta propuesta para cumplir el contrato de texto vinculado. Diagnóstico del validador (datos): ${JSON.stringify(error.message)}. `
       + 'Usa cada copy_id exactamente una vez en un span hoja con cierre explícito; el servidor inserta el texto. Conserva composición, estilo y recursos. Devuelve el HTML completo.' }], true);
-    return finalizeDesignCanvasHtml(corrected, request, [brand.name]);
+    return finalizeDesignCanvasHtml(corrected, request, [brand.name], { brandLogoUrl: brand.logo_url });
   }
 }

@@ -52,6 +52,18 @@ function context(): DesignContext {
     instruction: 'Usa el mundo y conserva el texto.', immutable_elements: [], references: [] };
 }
 
+describe('«Prompt usado» de referencias y versiones', () => {
+  it('stores one bounded spec per image hash and an edited prompt per existing version', () => {
+    const value = { ...emptyDesignConversation(target()), versions: [image()],
+      reference_prompts: { ['a'.repeat(64)]: { text: 'Fondo blanco, tarjetas blancas con sombra suave, Montserrat y Poppins, azul y coral.' } },
+      version_prompts: { 'image-1': 'Portada azul con el barco a la derecha.' } };
+    expect(() => assertDesignConversation(value, scope())).not.toThrow();
+    expect(() => assertDesignConversation({ ...value, reference_prompts: { 'not-a-hash': { text: 'x' } } }, scope())).toThrow();
+    expect(() => assertDesignConversation({ ...value, reference_prompts: { ['a'.repeat(64)]: { text: 'x', edited: false as unknown as true } } }, scope())).toThrow();
+    expect(() => assertDesignConversation({ ...value, version_prompts: { 'unknown-version': 'x' } }, scope())).toThrow();
+  });
+});
+
 describe('one durable design conversation', () => {
   it('keeps three slots isolated while explicit main reopens the exact legacy record', async () => {
     const backend = memory(), legacy = createDesignConversationStore(scope(), backend.storage);

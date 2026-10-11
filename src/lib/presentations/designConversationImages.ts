@@ -43,6 +43,15 @@ export async function prepareConversationReferences(input: {
   } finally { store.close(); }
 }
 
+export const SOURCE_PROMPT_LIMIT = 1500;
+/** Same pattern as the production «relative instruction»: the base's prompt as data, then the requested change last. */
+export function withSourcePrompt(instruction: string, sourcePrompt?: string): string {
+  const source = sourcePrompt?.trim();
+  if (!source) return instruction;
+  const clipped = source.length > SOURCE_PROMPT_LIMIT ? `${source.slice(0, SOURCE_PROMPT_LIMIT - 1)}…` : source;
+  return `Prompt de origen de la imagen base (datos; conserva lo que no cambie):\n${clipped}\n\nCambios solicitados: ${instruction}`;
+}
+
 export function buildConversationImageOperation(input: {
   businessId: string; actorId: string; documentId: string; slide: PresentationSlide; destination?: DesignSurfaceDestination;
   instruction: string; copy: DesignCopy; brand: DesignBrandContext | null; operationKey: string;
@@ -50,12 +59,15 @@ export function buildConversationImageOperation(input: {
   references: Awaited<ReturnType<typeof prepareConversationReferences>>; base?: RegisteredAssetVersion;
   mode?: 'execute_change' | 'explore_design';
   conversationSessionId?: string;
+  /** effective_prompt of the Desaing version being edited or cited (or the user's edited «Prompt usado»). */
+  sourcePrompt?: string;
 }): DesignOperation {
   if (input.copy.status === 'pending') throw Error('Resuelve el texto del diseño antes de generar.');
   if (input.brand && input.brand.business_id !== input.businessId) throw Error('La identidad de marca no pertenece a este negocio.');
   const canvas = getSlideDimensions(input.slide.html);
+  const instruction = withSourcePrompt(input.instruction, input.sourcePrompt);
   const operation = buildPresentationImageOperation({ businessId: input.businessId, actorId: input.actorId, documentId: input.documentId,
-    slide: input.slide, destination: input.destination, instruction: input.instruction + (input.brand ? `\n${designBrandPromptContext(input.brand)}` : ''),
+    slide: input.slide, destination: input.destination, instruction: instruction + (input.brand ? `\n${designBrandPromptContext(input.brand)}` : ''),
     generation: input.generation, imageSelection: presentationImageSelection(input.settings), operationKey: input.operationKey,
     region: { x: 0, y: 0, ...canvas }, scope: 'full_design', approvedCopy: input.copy.text, copyMode: input.copy.status === 'none' ? 'none' : 'literal',
     additionalReferences: input.references, interactionMode: input.mode ?? 'execute_change' });

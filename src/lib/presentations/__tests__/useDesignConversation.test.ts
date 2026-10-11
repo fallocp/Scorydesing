@@ -67,6 +67,7 @@ import { designEditableHtmlHash } from '../designConversationSource';
 import { buildDesignBrandContext } from '../designBrandContext';
 import { preparePresentationReference } from '../presentationReferences';
 import { htmlPng } from '../../../../supabase/functions/_shared/desaing/__tests__/fixtures/htmlCompositionFixture';
+import { DESIGN_FROM_EXISTING_PIECES, type DesignFromExistingFlags } from '../designFromExisting';
 import { assertConversationTransition, assertConversationReset, resetDesignConversation, assertDesignConversation, beginConversationAction, type DesignConversationState } from '../designConversationStore';
 import type { HtmlDesignTarget } from '../htmlDesignDraft';
 import { createContinuityStore, type ContinuityRemoteRecord, type ContinuityRecord, type ContinuityAttempt } from '../../desaing/continuityStore';
@@ -1860,6 +1861,34 @@ describe('the design chat obeys explicit orders', () => {
     expect(render(options).error).toBe(''); expect(refine).toHaveBeenCalledTimes(1);
     expect(refine.mock.calls[0][0]).toMatchObject({ rewrite: true, fromCurrent: true });
     expect(render(options).state.messages.some(message => message.text.startsWith('La copia directa no cabía bien'))).toBe(true);
+  });
+
+  const allPieces = () => Object.fromEntries(DESIGN_FROM_EXISTING_PIECES.map(piece => [piece, true])) as DesignFromExistingFlags;
+  it('«diseñar sobre lo que ya existe»: an orientation change runs as a rewrite with the measured spec, the unlock and the request checklist', async () => {
+    const { options, planner, refine } = htmlFixture();
+    options.fromExisting = allPieces(); options.styleSpecReady = async () => 'FICHA DE ESTILO medida';
+    planner.plan.mockImplementationOnce(async request => {
+      const response = answer(request, { kind: 'refine_html', instruction: 'Pongo las tarjetas en horizontal.' });
+      response.design_understanding!.unlock = ['layout']; return response;
+    });
+    render(options); await flush(); await render(options).send('tarjetas horizontales y números 01-04 turquesa');
+    expect(render(options).error).toBe('');
+    expect(planner.plan.mock.calls[0][0].conversation).toMatchObject({ supports_style_lock: 1, style_spec: 'FICHA DE ESTILO medida', reference_notes: [] });
+    expect(refine.mock.calls[0][0]).toMatchObject({ rewrite: true,
+      turn: { unlock: ['layout', 'colors'], checklist: ['tarjetas horizontales', 'números 01-04 turquesa'] } });
+  });
+
+  it('«diseñar sobre lo que ya existe»: an earlier reference is not sent in an unrelated turn and the plan says so', async () => {
+    const { options, planner, refine } = htmlFixture(); options.fromExisting = allPieces();
+    const reference = await preparePresentationReference(new File([htmlPng(62)], 'Folleto.png', { type: 'image/png' }), 'image_style_reference', async file => file);
+    planner.plan.mockImplementationOnce(async request => answer(request, { kind: 'refine_html', instruction: 'Cambio el título a «Beneficios».' }));
+    render(options); await flush(); await render(options).changeReferences([reference]);
+    await render(options).send('cambia el título a «Beneficios»');
+    const hook = render(options);
+    expect(hook.error).toBe('');
+    expect(hook.state.messages.some(message => message.role === 'assistant' && message.text.includes('No uso la referencia')
+      && message.text.includes('dime si la quieres'))).toBe(true);
+    expect(refine.mock.calls[0][0].references).toEqual([]);
   });
 
   it('runs «rehazla con 6 tarjetas» on the current slide in the same turn as a full rewrite that keeps its texts', async () => {

@@ -2,6 +2,7 @@ import { PRESENTATION_REFERENCE_ROLES, type PreparedPresentationReference } from
 import { assertPresentationSlides, type PresentationMountedAsset, type PresentationSlide } from './presentationDocument';
 import { inspectServerPng } from '../../../supabase/functions/_shared/desaing/serverPng';
 import type { DesignVisualReview } from './designVisualReview';
+import type { StyleLockReport } from './styleLock';
 import { assertConversationDesignSource, type ConversationDesignSource } from '../../../supabase/functions/_shared/desaing/conversationActions';
 import { isDesignConversationSessionToken } from '../../../supabase/functions/_shared/desaing/conversationSessions';
 
@@ -12,6 +13,10 @@ export interface HtmlDesignProposal {
   canvas: { width: number; height: number }; mounted: PresentationMountedAsset[];
   pending?: { source: PresentationSlide; reason: string };
   visualReview?: DesignVisualReview;
+  /** Style lock result against the base («Diferencias de estilo»). */
+  styleLock?: StyleLockReport;
+  /** Short notices of this generation (omitted capture or reference, discarded correction). */
+  notices?: string[];
 }
 export interface HtmlDesignDraft {
   instruction: string; feedback: string; copy: string; copyMode: 'instruction' | 'literal' | 'none';
@@ -78,6 +83,10 @@ export function assertHtmlDesignDraft(value: HtmlDesignDraft, scope: HtmlDesignS
     || !Number.isInteger(p.visualReview.repairs) || p.visualReview.repairs < 0 || p.visualReview.repairs > 2
     || !Array.isArray(p.visualReview.issues) || p.visualReview.issues.length > 20
     || p.visualReview.issues.some(issue => typeof issue !== 'string' || issue.length > 4000))) throw Error('invalid_html_design_review');
+  const shortList = (list: unknown, max: number) => Array.isArray(list) && list.length <= max && list.every(item => typeof item === 'string' && item.length <= 1000);
+  if (p?.styleLock && (!['none', 'reported', 'restored', 'overflow'].includes(p.styleLock.status) || !shortList(p.styleLock.differences, 30)
+    || p.styleLock.question !== undefined && (typeof p.styleLock.question !== 'string' || p.styleLock.question.length > 400))) throw Error('invalid_html_design_review');
+  if (p?.notices !== undefined && !shortList(p.notices, 8)) throw Error('invalid_html_design_review');
   if (p && (typeof p.html !== 'string' || p.html.length > 16 * 1024 * 1024
     || !p.target || p.target.document !== scope.document || p.target.slide !== scope.slide || !Number.isSafeInteger(p.target.revision) || p.target.revision < 1
     || !['insert', 'replace'].includes(p.intent) || !p.canvas || ![p.canvas.width, p.canvas.height].every(n => Number.isSafeInteger(n) && n >= 256 && n <= 3840)

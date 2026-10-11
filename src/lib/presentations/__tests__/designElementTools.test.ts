@@ -26,6 +26,12 @@ async function inBrowser<T>(run: (input: any) => T | Promise<T>, input: unknown)
 describe('bounded element edit contract', () => {
   const catalog: DesignEditableElement[] = [{ element_id: 'e:1', kind: 'text', label: 'h1 · Título' },
     { element_id: 'e:2', kind: 'image', label: 'img · Logo' }, { element_id: 'e:3', kind: 'container', label: 'div · Card' }];
+  it('never uses the brand logo as an icon or to fill another empty slot', () => {
+    const icons: DesignEditableElement[] = [...catalog, { element_id: 'e:4', kind: 'image', label: 'img · Ícono de liquidez' }];
+    const assets = [{ asset_id: 'brand-logo', label: 'Logo' }];
+    expect(() => assertDesignElementEdits([{ kind: 'image', element_id: 'e:4', asset_id: 'brand-logo' }], icons, assets)).toThrow('nunca como ícono');
+    expect(() => assertDesignElementEdits([{ kind: 'image', element_id: 'e:2', asset_id: 'brand-logo' }], icons, assets)).not.toThrow();
+  });
   it('accepts only target IDs, exact operation keys, compatible kinds and host-authorized asset IDs', () => {
     expect(() => assertDesignElementEdits([{ kind: 'move', element_id: 'e:1', dx: 30, dy: -5 },
       { kind: 'image', element_id: 'e:2', asset_id: 'brand-logo' }], catalog, [{ asset_id: 'brand-logo', label: 'Logo' }])).not.toThrow();

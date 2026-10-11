@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { buildDesignRepairFeedback, describeVisualReview, reviewAndRepairDesign } from '../designVisualReview';
+import { buildDesignRepairFeedback, describeVisualReview, REPAIR_DISCARDED, reviewAndRepairDesign } from '../designVisualReview';
+import { isMissingResourceIssue } from '../designFromExisting';
 
 const snapshot = (issues: string[] = []) => ({ image: 'data:image/png;base64,capture',
   diagnostics: { issues: issues.map(message => ({ code: 'covered_text', message })) } });
@@ -10,6 +11,29 @@ function ports() {
     render: vi.fn().mockResolvedValue(snapshot()), review: vi.fn().mockResolvedValue(good),
     repair: vi.fn().mockResolvedValue('repaired') };
 }
+
+describe('review against the existing design and the request', () => {
+  it('does not flag or repair empty slots inherited from the base', async () => {
+    const input = ports(); input.review.mockResolvedValue({ passed: false, issues: ['Faltan los íconos de la tarjeta 2.'], feedback: 'Monta los íconos.' });
+    const result = await reviewAndRepairDesign({ ...input, ignoreIssue: isMissingResourceIssue });
+    expect(result.visualReview).toEqual({ status: 'passed', repairs: 0, issues: [] }); expect(input.repair).not.toHaveBeenCalled();
+    expect(describeVisualReview(result.visualReview)).not.toContain('faltan recursos visuales');
+  });
+  it('discards an automatic correction that leaves more problems and keeps the previous version', async () => {
+    const input = ports(); input.review.mockResolvedValue(bad);
+    input.render.mockResolvedValueOnce(snapshot()).mockResolvedValueOnce(snapshot(['Título recortado.']));
+    const result = await reviewAndRepairDesign({ ...input, discardWorse: true, feedback: issues => `SOLO: ${issues.join(' ')}` });
+    expect(input.repair).toHaveBeenCalledWith('original', snapshot(), 'SOLO: Las tarjetas tapan el párrafo.');
+    expect(result.html).toBe('original'); expect(input.repair).toHaveBeenCalledTimes(1);
+    expect(result.visualReview.issues).toContain(REPAIR_DISCARDED);
+    expect(describeVisualReview(result.visualReview)).toContain('conservé la versión anterior');
+  });
+  it('never reports the proposal as done while an item of the request is not met', () => {
+    const text = describeVisualReview({ status: 'needs_review', repairs: 2, issues: ['No cumplido: tarjetas horizontales (las tarjetas siguen verticales)'] });
+    expect(text).toBe('La propuesta necesita ajustes. Falta cumplir lo que pediste: tarjetas horizontales (las tarjetas siguen verticales).');
+    expect(text).not.toMatch(/listo|pasó/i);
+  });
+});
 
 describe('bounded rendered design review', () => {
   it('accepts an actual rendered candidate only after both reviews pass', async () => {

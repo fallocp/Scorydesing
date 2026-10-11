@@ -44,6 +44,8 @@ export interface ExplorationBrandSnapshot {
   palette: string[];
   typography: string[];
 }
+/** Style categories the user asked to change in this turn; everything else is kept by the style lock. */
+export type StyleUnlock = 'typography' | 'colors' | 'components' | 'layout';
 export interface DesignUnderstanding {
   intent: 'recreate' | 'variation' | 'explore';
   resolved_instruction: string;
@@ -51,6 +53,8 @@ export interface DesignUnderstanding {
   references: { reference_id: string; roles: ReferenceRole[]; instruction: string }[];
   preserve: string[];
   pending_questions: string[];
+  /** Only for clients with conversation.supports_style_lock. Absent = the lock only reports. */
+  unlock?: StyleUnlock[];
 }
 export interface ExplorationDesignBrief {
   copy: DesignCopy;

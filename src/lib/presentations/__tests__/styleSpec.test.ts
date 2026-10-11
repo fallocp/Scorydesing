@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatStyleSpec, type BoxSample, type TextSample } from '../styleSpec';
+import { deriveTypeScale, formatStyleSpec, formatTypeScale, type BoxSample, type StyleSamples, type TextSample } from '../styleSpec';
 
 const text = (value: string, size: number, weight: number, color: string, extra: Partial<TextSample> = {}): TextSample =>
   ({ text: value, family: 'Montserrat', size, weight, italic: false, upper: false, color, align: 'center', area: size * 100, ...extra });
@@ -24,6 +24,27 @@ describe('ficha de estilo (formatter)', () => {
     expect(spec).toContain('título Montserrat, 16 px, 700, mayúsculas, #0B2A5B; texto Montserrat, 12 px, 400, #606E7D');
     expect(spec).toContain('repite el mismo componente'); expect(spec).toContain('#606E7D');
     expect(spec.length).toBeLessThanOrEqual(3000);
+  });
+  it('derives the approximate standard scale per role across deck slides (±2 px) with stable selectors', () => {
+    const slide = (title: number, sub: number, body: number): StyleSamples => {
+      const head = text('Encabezado de tarjeta', 28, 700, 'rgb(11, 42, 91)', { selector: '.card-title' });
+      const copy = text('Una descripción breve de la tarjeta', body, 400, 'rgb(96, 110, 125)', { family: 'Poppins', selector: '.card-text' });
+      return { canvas: { width: 1920, height: 1080 }, background: 'rgb(255, 255, 255)', images: [],
+        boxes: [{ rect: { x: 100, y: 500, width: 400, height: 200 }, background: 'rgb(255, 255, 255)', radius: 16, shadow: '', border: '', padding: '',
+          texts: [head, copy], images: [], selector: '.card' }],
+        texts: [text('Beneficios', title, 700, 'rgb(11, 42, 91)', { selector: '.title' }),
+          text('Liquidez para crecer', sub, 600, 'rgb(11, 42, 91)', { selector: '.subtitle' }),
+          text('Un párrafo de apoyo con suficiente texto', body, 400, 'rgb(96, 110, 125)', { family: 'Poppins', selector: '.lead' }),
+          head, copy, text('Aplican restricciones', 14, 400, 'rgb(96, 110, 125)', { family: 'Poppins', selector: '.note' })] };
+    };
+    const scale = deriveTypeScale([slide(72, 40, 22), slide(72, 40, 22), slide(70, 41, 23)]);
+    expect(formatTypeScale(scale)).toBe('Escala detectada: Título 72 · Subtítulo 40 · Encabezado de tarjeta 28 · Texto 22 · Nota 14');
+    expect(scale.find(entry => entry.role === 'title')).toMatchObject({ family: 'Montserrat', size: 72, selectors: ['.title'] });
+    expect(scale.find(entry => entry.role === 'body')).toMatchObject({ family: 'Poppins', size: 22 });
+    const spec = formatStyleSpec(slide(72, 40, 22), scale);
+    expect(spec.split('\n')[2]).toContain('ESCALA TIPOGRÁFICA DEL DECK');
+    expect(spec).toContain('- Título: Montserrat 72 px, 700 (.title).');
+    expect(spec).toContain('selector .card.'); expect(spec).toContain('selector .title.');
   });
   it('stays short for a design without boxes or images', () => {
     const spec = formatStyleSpec({ canvas: { width: 1280, height: 720 }, background: 'rgba(0, 0, 0, 0)', boxes: [], images: [],

@@ -40,6 +40,10 @@ export interface DesignConversationState {
   preferences?: { format: 'html' | 'image'; base: 'current' | 'version' | 'deck' | 'new' };
   /** Consecutive affirmatives answered without an executable action (0..2); the second one gets a local reply. */
   affirmation_misses?: number;
+  /** «Prompt usado» of each uploaded reference, by image sha256: generated once (≤300) or edited by the user. */
+  reference_prompts?: Record<string, { text: string; edited?: true }>;
+  /** «Prompt usado» edited by the user for an image version; replaces its effective_prompt as the source prompt. */
+  version_prompts?: Record<string, string>;
 }
 export interface DesignConversationRecord { revision: number; scope: DesignConversationScope; value: DesignConversationState }
 /** update must execute atomically against the last committed value, including across tabs. */
@@ -138,7 +142,8 @@ export function assertDesignConversation(value: DesignConversationState, scope: 
   const draftScope = { actor: scope.actor, business: scope.business, document: scope.document, slide: scope.slide };
   const required = ['schema_version', 'epoch', 'target', 'mode', 'messages', 'references', 'brand', 'brand_key', 'copy', 'understanding', 'ideas', 'next_action',
     'versions', 'selected_version_id', 'pending', 'completed_action_ids'];
-  check(keys(value, [...required, 'confirmation', 'inspected_slide_ids', 'preferences', 'design_source', 'session_generation', 'affirmation_misses'], required) && value.schema_version === 1 && positive(value.epoch)
+  check(keys(value, [...required, 'confirmation', 'inspected_slide_ids', 'preferences', 'design_source', 'session_generation', 'affirmation_misses',
+    'reference_prompts', 'version_prompts'], required) && value.schema_version === 1 && positive(value.epoch)
     && (value.session_generation === undefined || positive(value.session_generation) && value.session_generation <= 1000000000)
     && (value.affirmation_misses === undefined || Number.isInteger(value.affirmation_misses) && value.affirmation_misses >= 0 && value.affirmation_misses <= 2)
     && ['execute_change', 'explore_design'].includes(value.mode));
@@ -199,6 +204,11 @@ export function assertDesignConversation(value: DesignConversationState, scope: 
     versionIds.add(version.id);
   }
   check(value.selected_version_id === null || versionIds.has(value.selected_version_id));
+  if (value.reference_prompts !== undefined) check(record(value.reference_prompts) && Object.keys(value.reference_prompts).length <= 12
+    && Object.entries(value.reference_prompts).every(([sha, prompt]) => /^[a-f0-9]{64}$/.test(sha) && keys(prompt, ['text', 'edited'], ['text'])
+      && text(prompt.text, 1500) && (prompt.edited === undefined || prompt.edited === true)));
+  if (value.version_prompts !== undefined) check(record(value.version_prompts) && Object.keys(value.version_prompts).length <= 20
+    && Object.entries(value.version_prompts).every(([version, prompt]) => versionIds.has(version) && text(prompt, 4000)));
   check(Array.isArray(value.completed_action_ids) && value.completed_action_ids.length <= 200
     && value.completed_action_ids.every(id) && new Set(value.completed_action_ids).size === value.completed_action_ids.length, 'conversation_action_limit');
   if (value.pending !== null) {

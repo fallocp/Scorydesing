@@ -40,6 +40,9 @@ const elementId = (value: unknown): value is string => typeof value === 'string'
 const number = (value: unknown, min: number, max: number): value is number => typeof value === 'number' && Number.isFinite(value) && value >= min && value <= max;
 const integer = (value: unknown, min: number, max: number): value is number => Number.isSafeInteger(value) && number(value, min, max);
 function check(value: unknown, code: string): asserts value { if (!value) throw new DesignElementEditError(code); }
+export const BRAND_LOGO_ASSET = 'brand-logo';
+/** An image element whose own label (alt, id, class) identifies the brand logo. */
+export const isLogoSlot = (label: string) => /logo|logotipo|isotipo|wordmark|marca|brand/i.test(label);
 
 /** Validates the catalog once and indexes it, so edit checks never scan it per edit. */
 export function indexDesignEditableElements(value: unknown): Map<string, DesignEditableElement> {
@@ -95,8 +98,13 @@ export function assertDesignElementEdits(value: unknown, catalog?: readonly Desi
       check(keys(item, ['kind', 'element_id', 'property', 'value']) && (!target || target.kind !== 'image'), 'invalid_element_style');
       check(item.property === 'font_size' ? number(item.value, 6, 256) : item.property === 'color' ? typeof item.value === 'string' && /^#(?:[\da-f]{3}|[\da-f]{6}|[\da-f]{8})$/i.test(item.value)
         : item.property === 'align' && ['left', 'center', 'right'].includes(String(item.value)), 'invalid_element_style');
-    } else if (item.kind === 'image') check(keys(item, ['kind', 'element_id', 'asset_id']) && text(item.asset_id, 256) && (!target || target.kind === 'image')
-      && (!assets || assets.some(asset => asset.asset_id === item.asset_id)), 'element_edit_asset_unavailable');
+    } else if (item.kind === 'image') {
+      check(keys(item, ['kind', 'element_id', 'asset_id']) && text(item.asset_id, 256) && (!target || target.kind === 'image')
+        && (!assets || assets.some(asset => asset.asset_id === item.asset_id)), 'element_edit_asset_unavailable');
+      // The brand logo only replaces a logo, never an icon or another empty slot.
+      if (item.asset_id === BRAND_LOGO_ASSET && target && !isLogoSlot(target.label))
+        throw new DesignElementEditError('element_edit_logo_not_icon', 'El logo de la marca sólo va en el lugar del logo, nunca como ícono ni para llenar otro hueco.');
+    }
     else if (item.kind === 'retext') { check(keys(item, ['kind', 'element_id', 'texts']), 'invalid_element_retext'); texts('invalid_element_retext'); }
     else if (item.kind === 'duplicate') {
       check(keys(item, ['kind', 'element_id', 'texts']), 'invalid_element_duplicate'); texts('invalid_element_duplicate');

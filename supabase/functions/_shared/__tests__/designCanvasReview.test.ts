@@ -23,6 +23,19 @@ describe('visual review evidence and verdict contract', () => {
     expect(JSON.stringify(messages)).toContain('FUENTE VISUAL ELEGIDA');
   });
 
+  it('checks the user request as a list and treats inherited empty slots as no defect, without another call', () => {
+    const request = parseDesignCanvasHtmlRequest({ ...base(), strict_spec: true, request_checklist: ['tarjetas horizontales', 'números 01-04 turquesa'],
+      inherited_holes: ['La tarjeta 2 no tiene ícono'] });
+    const system = String(buildDesignCanvasReviewMessages(request, { name: 'Marca' })[0].content);
+    expect(system).toContain('LISTA DEL PEDIDO'); expect(system).toContain('["tarjetas horizontales","números 01-04 turquesa"]');
+    expect(system).toContain('«No cumplido: tarjetas horizontales (las tarjetas siguen verticales)»');
+    expect(system).toContain('HUECOS HEREDADOS'); expect(system).toContain('no son un defecto de esta propuesta');
+    expect(system).toContain('señala sólo texto nuevo, sin componente equivalente');
+    const verdict = parseDesignCanvasReview(review({ passed: false, issues: ['No cumplido: tarjetas horizontales (siguen verticales)'], feedback: 'Pon las tarjetas en horizontal.' }), request);
+    expect(verdict).toMatchObject({ passed: false, issues: ['No cumplido: tarjetas horizontales (siguen verticales)'] });
+    expect(String(buildDesignCanvasReviewMessages(parseDesignCanvasHtmlRequest(base()), { name: 'Marca' })[0].content)).not.toContain('LISTA DEL PEDIDO');
+  });
+
   it('requires an actual screenshot paired with the current HTML and does not require edit feedback for review', () => {
     expect(parseDesignCanvasHtmlRequest(base())).toMatchObject({ action: 'review', current_html: base().current_html, render_base64: snapshot });
     expect(() => parseDesignCanvasHtmlRequest({ ...base(), render_base64: undefined })).toThrow('captura real');

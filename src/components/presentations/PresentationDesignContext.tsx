@@ -6,6 +6,7 @@ import { createSupabaseDesignBrandReader, type DesignBrandReader } from '@/lib/p
 import { openSupabaseDesignConversationStore, openSupabaseFreeDesignStore, type ConversationSyncObserver } from '@/lib/presentations/designConversationRemote';
 import type { DesignConversationScope } from '@/lib/presentations/designConversationStore';
 import type { FreeDesignScope } from '@/lib/desaing/freeDesignDocument';
+import { readDesignFromExistingFlags, type DesignFromExistingFlags } from '@/lib/presentations/designFromExisting';
 
 export interface PresentationDesignService {
   client: DesignServerClient;
@@ -16,6 +17,8 @@ export interface PresentationDesignService {
     openFreeWorkspace(scope: FreeDesignScope, onStatus?: ConversationSyncObserver): ReturnType<typeof openSupabaseFreeDesignStore>;
   };
   exploration?: { planner?: ExplorationPlanner; createPlanner?(businessId: string): ExplorationPlanner; simulation?: boolean };
+  /** «Diseñar sobre lo que ya existe» pieces (VITE_DESAING_DESIGN_FROM_EXISTING); absent = current behavior. */
+  fromExisting?: DesignFromExistingFlags;
 }
 const Context = createContext<PresentationDesignService | null | undefined>(undefined);
 export const PresentationDesignProvider = Context.Provider;
@@ -39,8 +42,16 @@ function browserService(): PresentationDesignService | null {
     const client = configured.client;
     configured.exploration = { simulation: false, createPlanner: businessId => client.exploration(businessId) };
   }
+  const fromExisting = designFromExistingFlags();
+  if (fromExisting) configured.fromExisting = fromExisting;
   return configured;
 }
+/** Switch «diseñar sobre lo que ya existe» (pattern VITE_DESAING_*): VITE_DESAING_DESIGN_FROM_EXISTING=true
+ * turns it on and VITE_DESAING_DESIGN_FROM_EXISTING_<PIEZA>=false turns off one piece. Off = current behavior. */
+export function designFromExistingFlags(): DesignFromExistingFlags | undefined {
+  return readDesignFromExistingFlags(import.meta.env as Record<string, unknown>);
+}
+export type { DesignFromExistingFlags };
 export function usePresentationDesignService(): PresentationDesignService | null {
   const supplied = useContext(Context);
   return supplied === undefined ? browserService() : supplied;

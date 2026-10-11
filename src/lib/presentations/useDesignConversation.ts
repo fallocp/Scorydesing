@@ -37,6 +37,9 @@ import { structuralEditFits, type StructuralCheckCache } from './designStructura
 import { resolveConversationDesignSource, conversationDesignSourceInstruction, designEditableHtmlHash } from './designConversationSource';
 import { captureConversationHtml, captureFailureOf, captureFailureText, type CaptureFailure, conversationCopyForTurn, conversationHtmlReferences, conversationVisualSummary, resolveConversationReferenceUse } from './designConversationVisuals';
 import { describeVisualReview } from './designVisualReview';
+import { buildScopedRepairFeedback, isOrientationChange, namedReferences, referenceNotUsedNotice, requestChecklist,
+  type DesignFromExistingFlags } from './designFromExisting';
+import { describeStyleLock, inferStyleUnlocks } from './styleLock';
 import { DESIGN_CONVERSATION_SESSIONS, isDesignConversationSessionId, designConversationSessionToken, withDesignConversationSession,
   type DesignConversationSessionId } from '../../../supabase/functions/_shared/desaing/conversationSessions';
 import { downloadContinuityBackup, type SyncedConversationStore } from './designConversationRemote';
@@ -57,6 +60,10 @@ export interface UseDesignConversationOptions {
   deckBaseHtml?: string;
   /** «Ficha de estilo» measured from the base design (slide or deck). */
   styleSpec?: string;
+  /** Waits (max. 8 s) for the measured spec; '' when unavailable. */
+  styleSpecReady?(): Promise<string>;
+  /** «Diseñar sobre lo que ya existe» pieces; undefined = current behavior. */
+  fromExisting?: DesignFromExistingFlags;
   htmlController: RefObject<SlideGeneratorController | null>; compositionController: RefObject<DesignToHtmlController | null>;
   htmlState?: RefObject<SlideGeneratorState | null>; compositionState?: RefObject<DesignToHtmlState | null>;
   onView(view: DesignConversationView): void; onApply(slide: PresentationSlide): void | Promise<void>;
@@ -72,7 +79,9 @@ type Life = { active: boolean; actor: string; key: string; store: Store | null; 
     version?: Awaited<ReturnType<typeof prepareConversationReferences>>[number]['version']; capturedIds: string[] };
   previewRequest?: number;
   /** Planner request this view is waiting for; marked as interrupted if the view closes first. */
-  planning?: string };
+  planning?: string;
+  /** Problems of the version that «Corregir composición» is fixing, consumed by its HTML request. */
+  correction?: { issues: string[] } };
 const same = (a: unknown, b: unknown) => canonicalExploration(a) === canonicalExploration(b);
 const targetOf = (options: UseDesignConversationOptions): HtmlDesignTarget => ({ document: options.documentId, slide: options.slide.id, revision: options.slide.revision });
 const scopeKey = (options: UseDesignConversationOptions, session: DesignConversationSessionId = 'main') => JSON.stringify([options.businessId, options.documentId, options.slide.id, session]);
@@ -189,6 +198,12 @@ function structuralSummary(edits: readonly DesignElementEdit[]): string {
     reflow?.kind === 'reflow' && `los acomodé en ${plural(reflow.columns, 'columna', 'columnas')}`].filter((part): part is string => !!part);
   return parts.length > 1 ? `${parts.slice(0, -1).join(', ')} y ${parts.at(-1)}` : parts[0] ?? 'apliqué el cambio';
 }
+
+/** The user's last instruction, skipping bare approvals («sí, créalo») that only run the plan. */
+const lastInstruction = (value: DesignConversationState) => [...value.messages].reverse()
+  .find(message => message.role === 'user' && !isDesignConfirmation(message.text))?.text ?? '';
+/** Saved short spec (or the user's edited prompt) of each reference, by image hash. */
+const referencePromptOf = (value: DesignConversationState, sha256: string) => value.reference_prompts?.[sha256]?.text;
 
 /** A single durable conversation coordinates the existing image and HTML controllers. */
 export function useDesignConversation(options: UseDesignConversationOptions) {
@@ -576,6 +591,15 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
     if (!resolvingCopy && generation && nextAction.intent === 'suggested' && samePlan(prev, nextAction) && !questions.length
       && (!needsResolvedCopy(nextAction.kind) || copy.status !== 'pending') && !degraded
       && (sentPhase === 'confirmation' && insistence || sentPhase === 'clarification' && strict)) { nextAction.intent = 'requested'; promoted = true; }
+    // References travel only in their turn: say which attachment this plan does not use.
+    const flags = latest.current.fromExisting;
+    let referenceNotice = '';
+    if (flags?.referencias_por_turno && !resolvingCopy && generation && latest.current.format === 'html') {
+      const named = new Set(namedReferences(userText, before.references));
+      const unused = before.references.filter(reference => !nextAction.reference_ids.includes(reference.id) && !named.has(reference.id)
+        && !(reference.role === 'content_source' && copy.status === 'literal'));
+      if (unused.length && !/No uso la referencia/.test(modelText)) referenceNotice = `\n\n${referenceNotUsedNotice(unused.map(reference => reference.name))}`;
+    }
     let execute = false;
     await save(life, value => {
       const misses = value.affirmation_misses ?? 0, previousPlan = waitingPlan(value);
@@ -623,8 +647,15 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
       }
       const armedOnly = !execute && !opts.execute && nextAction.intent === 'requested' && generation && !!next.confirmation
         ? `\n\nPulsa «${designActionLabel(next.next_action)}» para hacerlo.` : '';
-      const text = (replaced || (promoted && execute ? 'Lo creo ahora con el plan que ya te mostré.' : modelText) + added) + degraded + (replaced ? '' : armedOnly);
+      const text = (replaced || (promoted && execute ? 'Lo creo ahora con el plan que ya te mostré.' : modelText) + added) + degraded + (replaced ? '' : armedOnly) + referenceNotice;
       next.messages.push({ id: `assistant:${pending.action_id}`, turn_id: pending.turn_id, role: 'assistant', text: text.slice(0, 16000) });
+      // A short spec per uploaded reference, generated once per image hash and kept with the conversation.
+      if (flags?.prompt_base) for (const item of understanding.references) {
+        const reference = next.references.find(candidate => candidate.id === item.reference_id);
+        if (!reference || reference.role === 'content_source' || referencePromptOf(next, reference.sha256) || !item.instruction.trim()) continue;
+        if (Object.keys(next.reference_prompts ?? {}).length >= 12) break;
+        next.reference_prompts = { ...next.reference_prompts, [reference.sha256]: { text: item.instruction.trim().slice(0, 300) } };
+      }
       if (nextMisses) next.affirmation_misses = nextMisses; else delete next.affirmation_misses;
       return next;
     });
@@ -739,6 +770,15 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
     // Taken before the save clears the confirmation; an inspection round keeps the original turn's phase.
     const sentPhase = inspection?.phase ?? (canConfirmDesign(value, latest.current) ? 'confirmation' as const : 'clarification' as const);
     const sentKey = value.confirmation?.context_key;
+    const flags = latest.current.fromExisting;
+    // The spec always arrives: wait for the measurement (max. 8 s) instead of sending it empty.
+    const styleSpec = (flags?.ficha_estricta && format === 'html' && base !== 'new' ? await latest.current.styleSpecReady?.().catch(() => '') : '')
+      || latest.current.styleSpec;
+    if (flags?.ficha_estricta) await assertCurrent(life);
+    const referenceNotes = flags?.prompt_base && !resolvingCopy ? value.references.flatMap(reference => {
+      const note = referencePromptOf(value, reference.sha256);
+      return note && visualRefs.some(item => item.reference_id === reference.id) ? [{ reference_id: reference.id, note: note.slice(0, 1500) }] : [];
+    }) : undefined;
     const projectCopy = (copy: DesignCopy) => ({ ...copy, source_reference_ids: copy.source_reference_ids.filter(id => visualRefs.some(ref => ref.reference_id === id)) });
     const previous = value.understanding ? resolveConversationReferenceUse(value.references, value.understanding, '').understanding : null;
     const previousUnderstanding = previous ? { ...previous, copy: projectCopy(previous.copy),
@@ -769,7 +809,9 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
         ...(!resolvingCopy && format ? { design_format: format } : {}),
         ...(!resolvingCopy && showSlide ? { slide_html: { revision: String(value.target.revision), summary: buildConversationHtmlSummary(slideHtml) } } : {}),
         ...(!resolvingCopy && format === 'html' && base ? { design_base: base } : {}),
-        ...(!resolvingCopy && format === 'html' && base !== 'new' && latest.current.styleSpec?.trim() ? { style_spec: latest.current.styleSpec.slice(0, 4000) } : {}),
+        ...(!resolvingCopy && format === 'html' && base !== 'new' && styleSpec?.trim() ? { style_spec: styleSpec.slice(0, 4000) } : {}),
+        ...(!resolvingCopy && flags && format === 'html' ? { supports_style_lock: 1 as const } : {}),
+        ...(referenceNotes ? { reference_notes: referenceNotes } : {}),
         ...(!resolvingCopy && format === 'html' && base === 'deck' && deckStyle.length
           ? { deck_style: { slides: deckStyle } } : {}),
         ...(hasHtml ? { current_html: { revision: String(value.target.revision),
@@ -831,12 +873,30 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
     try { await assertCurrent(life); await latest.current.service.client.command(latest.current.businessId, { kind: 'enqueue', operation }); await waitImage(life, operation); }
     catch (problem) { if (active(life) && current(life).pending?.action_id === operation.operation_key) await save(life, value => markConversationAction(value, operation.operation_key, 'uncertain')); throw problem; }
   }
-  function htmlContext(value: DesignConversationState, instruction: string) {
-    const sources = value.references.map((reference, index) => ({ id: reference.id, role: reference.role, chat_position: index + 1 }));
+  function htmlContext(value: DesignConversationState, instruction: string, action?: ConversationNextAction) {
+    const flags = latest.current.fromExisting;
+    // References travel only in the turn whose plan cites them or whose message names them.
+    const inTurn = flags?.referencias_por_turno && action
+      ? new Set([...action.reference_ids, ...namedReferences(lastInstruction(value), value.references)]) : undefined;
+    const selected = inTurn ? value.references.filter(reference => inTurn.has(reference.id)) : value.references;
+    const sources = selected.map(reference => ({ id: reference.id, role: reference.role, chat_position: value.references.indexOf(reference) + 1,
+      ...(flags?.prompt_base && referencePromptOf(value, reference.sha256) ? { ficha: referencePromptOf(value, reference.sha256) } : {}) }));
     const referenceUse = sources.length ? `\nFunciones de las referencias seleccionadas (datos): ${JSON.stringify(sources)}. Identifica cada fuente por id y función; chat_position sólo describe el adjunto original, no el orden de las imágenes enviadas ahora. Las fuentes content_source aportan sólo el texto resuelto; no copies su apariencia. El diseño base y la versión seleccionada son contexto interno, no otros adjuntos.` : '';
     return { instruction: instruction + referenceUse + (value.brand ? `\nIdentidad de marca: ${JSON.stringify(value.brand)}` : ''), copy: value.copy.text,
       copyMode: value.copy.status === 'none' ? 'none' as const : 'literal' as const,
-      references: conversationHtmlReferences(value.references, value.copy, value.understanding), designBase: latest.current.base };
+      references: conversationHtmlReferences(selected, value.copy, value.understanding), designBase: latest.current.base };
+  }
+  /** Per-request turn data for the HTML panel: unlock, request checklist and correction. */
+  function htmlTurn(life: Life, value: DesignConversationState): NonNullable<Parameters<SlideGeneratorController['refine']>[0]['turn']> | undefined {
+    const flags = latest.current.fromExisting;
+    if (!flags) return undefined;
+    const request = lastInstruction(value), correction = life.correction;
+    life.correction = undefined;
+    const unlock = value.understanding?.unlock;
+    return { request,
+      ...(flags.candado_estilo && unlock ? { unlock: [...new Set([...unlock, ...inferStyleUnlocks(request)])] } : {}),
+      ...(flags.revision_pedido && !correction && requestChecklist(request).length ? { checklist: requestChecklist(request) } : {}),
+      ...(flags.correccion_acotada && correction ? { correction } : {}) };
   }
   function completedDesignSource(value: DesignConversationState) {
     return value.next_action?.design_source ?? (latest.current.base === 'version' && value.next_action?.from_slide !== true
@@ -893,7 +953,8 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
     assertHtmlDesignTarget(proposal, pending.target); await assertCurrent(life, pending.epoch);
     const text = composition?.unresolved_slots.length
       ? 'La estructura HTML está lista. Completa las piezas señaladas en el editor antes de aplicarla.'
-      : composition ? 'El HTML está listo para revisarlo y editarlo. Puedes pedirme otro ajuste o aplicarlo cuando quieras.' : describeVisualReview(proposal.visualReview);
+      : composition ? 'El HTML está listo para revisarlo y editarlo. Puedes pedirme otro ajuste o aplicarlo cuando quieras.'
+      : [describeVisualReview(proposal.visualReview), describeStyleLock(proposal.styleLock), ...(proposal.notices ?? [])].filter(Boolean).join(' ');
     await save(life, value => ({ ...completeConversationAction(value, pending.action_id, { version: { id: crypto.randomUUID(), turn_id: pending.turn_id,
       ...(value.selected_version_id ? { parent_id: value.selected_version_id } : {}), target: proposal.target, kind: 'html', proposal: { ...proposal, intent: 'replace' },
       ...(completedDesignSource(value) ? { design_source: completedDesignSource(value) } : {}),
@@ -1028,8 +1089,15 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
         if (!capture || !life.capture?.version) throw Error('No se pudo obtener la captura del diseño base. Vuelve a intentarlo para conservar su apariencia.');
         uploaded.push({ reference: { ...capture, roles: ['layout_reference'] }, version: life.capture.version });
       }
+      // The prompt of the Desaing version we build on (or the user's edited «Prompt usado»).
+      const cited = base ?? selectedImage, flags = input.fromExisting;
+      const citedVersion = cited ? value.versions.find(version => version.kind === 'image' && sameConversationAsset(version.asset, cited.asset.identity)) : undefined;
+      const sourcePrompt = flags?.prompt_base && cited ? (citedVersion && value.version_prompts?.[citedVersion.id])
+        || (cited.asset.provenance.kind === 'image_operation' ? cited.asset.provenance.effective_prompt : undefined) : undefined;
+      const fichas = flags?.prompt_base ? visualReferences.flatMap(reference => referencePromptOf(value, reference.sha256)
+        ? [`\nFicha de la referencia ${reference.id} (datos): ${referencePromptOf(value, reference.sha256)}`] : []).join('') : '';
       const operation = buildConversationImageOperation({ businessId: input.businessId, actorId: life.actor, documentId: input.documentId, slide: input.slide,
-        destination: input.destination, instruction: action.instruction
+        destination: input.destination, ...(sourcePrompt ? { sourcePrompt } : {}), instruction: action.instruction + fichas
           + (action.design_source ? conversationDesignSourceInstruction(action.design_source)
             + (sourceContext?.sourceReference ? ` La referencia principal es ${sourceContext.sourceReference.id}.` : '') : '') + (inspection?.inspected_slides?.length
           ? `\nDiapositivas consultadas (datos de referencia, reutiliza sólo lo acordado): ${JSON.stringify(inspection.inspected_slides.map(slide => ({
@@ -1041,7 +1109,11 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
       await dispatchImage(life, operation, turnId); return;
     }
     let source: PresentationLibraryResult | null = null;
-    const htmlInput = htmlContext(value, action.instruction);
+    const htmlInput = htmlContext(value, action.instruction, action);
+    // Orientation or internal arrangement of a component: a rewrite from the spec, never a patch.
+    if (input.fromExisting?.no_rehace && action.kind === 'refine_html' && !action.rewrite && !action.design_source
+      && isOrientationChange(lastInstruction(value))) action = { ...action, rewrite: true };
+    const turn = htmlTurn(life, value);
     const inspectionEvidence: Pick<Parameters<SlideGeneratorController['updateContext']>[0], 'inspectionReferences' | 'inspectionExamples'> = {
       inspectionReferences: [], inspectionExamples: [],
     };
@@ -1092,7 +1164,7 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
             && (input.base === 'current' || input.base === 'version' && selected?.kind !== 'html'));
         const context = { ...htmlInput, ...inspectionEvidence, ...(selected?.kind === 'html' && !fromSlide ? { proposal: selected.proposal } : {}),
           ...(sourceContext ?? { designSource: null }),
-          ...(fromSlide ? { fromCurrent: true, designBase: 'current' as const } : {}) };
+          ...(fromSlide ? { fromCurrent: true, designBase: 'current' as const } : {}), ...(turn ? { turn } : {}) };
         const proposal = sourceContext ? await input.htmlController.current!.create({ ...context, proposal: undefined })
           : action.kind === 'refine_html' || continuingHtml || fromSlide ? await input.htmlController.current!.refine({ ...context, feedback: action.instruction, compare: true,
             ...(action.kind === 'refine_html' && action.rewrite ? { rewrite: true as const } : {}) })
@@ -1278,6 +1350,45 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
       return saved;
     },
     executeSuggested: () => run(life => executeArmedPlan(life, { userText: 'Sí, créalo.' })),
+    /** «Corregir composición» limited to the detected problems; it keeps the original request, the spec and the
+     * style lock, and is discarded if it leaves more problems than the selected version. */
+    correctComposition: () => run(async life => {
+      await assertCurrent(life); if (current(life).pending) throw Error('conversation_pending_unresolved');
+      const value = current(life), selected = selectedOf(value);
+      if (selected?.kind !== 'html') throw Error('Selecciona la versión HTML que quieres corregir.');
+      const issues = selected.proposal.visualReview?.issues ?? [];
+      const action: ConversationNextAction = { kind: 'refine_html', intent: 'requested', reference_ids: [], reason: 'Pediste corregir la composición con su botón.',
+        instruction: buildScopedRepairFeedback(issues, lastInstruction(value) || value.understanding?.resolved_instruction || '') };
+      let armed = false;
+      await save(life, before => {
+        const next = { ...before, next_action: action, confirmation: null };
+        const blocker = designPlanBlocker(next, latest.current);
+        if (blocker === null) { armed = true; return { ...next, confirmation: { context_key: designConfirmationKey(next, latest.current) } }; }
+        const turn = crypto.randomUUID();
+        return { ...next, messages: [...next.messages, { id: `assistant:${turn}`, turn_id: turn, role: 'assistant' as const, text: designBlockerText(blocker) }] };
+      });
+      if (!armed) return;
+      life.correction = { issues };
+      try { await executeArmedPlan(life, { userText: 'Corrige la composición.' }); } finally { life.correction = undefined; }
+    }),
+    /** Edits the «Prompt usado» of a reference (by image hash); an empty text returns to the generated spec. */
+    setReferencePrompt: (sha256: string, text: string) => run(async life => {
+      await assertCurrent(life); if (current(life).pending) throw Error('conversation_pending_unresolved');
+      await save(life, value => {
+        const prompts = { ...value.reference_prompts };
+        if (text.trim()) prompts[sha256] = { text: text.trim().slice(0, 1500), edited: true }; else delete prompts[sha256];
+        return { ...value, reference_prompts: prompts };
+      });
+    }),
+    /** Edits the «Prompt usado» of an image version; the next edit or citation uses it as its source prompt. */
+    setVersionPrompt: (versionId: string, text: string) => run(async life => {
+      await assertCurrent(life); if (current(life).pending) throw Error('conversation_pending_unresolved');
+      await save(life, value => {
+        const prompts = { ...value.version_prompts };
+        if (text.trim()) prompts[versionId] = text.trim().slice(0, 4000); else delete prompts[versionId];
+        return { ...value, version_prompts: prompts };
+      });
+    }),
     /** A button is an explicit order: it runs in the same click, or says why it cannot. */
     executeAction: (kind: ConversationActionKind) => run(async life => {
       await assertCurrent(life); if (current(life).pending) throw Error('conversation_pending_unresolved');

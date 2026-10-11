@@ -45,6 +45,36 @@ describe('single-call textual Responses adapter with mandatory injected transpor
     await expect(fixture(wire(output)).provider.plan(req)).rejects.toMatchObject({ code: 'exploration_provider_invalid_result' });
   });
 
+  it('asks for unlock and the «existing design» rules only from clients with supports_style_lock', async () => {
+    const { req, output } = conversation();
+    const plainSchema = prepareExplorationRequest(req) as any;
+    expect(plainSchema.text.format.schema.properties.design_understanding.required).not.toContain('unlock');
+    req.conversation!.supports_style_lock = 1;
+    const prepared = prepareExplorationRequest(req) as any, understanding = prepared.text.format.schema.properties.design_understanding;
+    expect(understanding.required).toContain('unlock');
+    expect(understanding.properties.unlock.items.enum).toEqual(['typography', 'colors', 'components', 'layout']);
+    expect(prepared.input[0].content[0].text).toContain('design_understanding.unlock lista SÓLO lo que el usuario pide cambiar');
+    expect(prepared.input[0].content[0].text).toContain('No uso la referencia <nombre> en este ajuste; dime si la quieres.');
+    output.design_understanding = { ...output.design_understanding!, unlock: ['colors', 'colors'] };
+    const planned = await fixture(wire(output)).provider.plan(req);
+    expect(planned.design_understanding?.unlock).toEqual(['colors']);
+  });
+
+  it('drops a brand-logo edit on an icon slot instead of using the logo as an icon', async () => {
+    const { req, output } = conversation(), hash = 'a'.repeat(64);
+    Object.assign(req.conversation!, { surface: 'html', current_html: { revision: '1', summary: 'Tarjetas' }, editable_html_hash: hash,
+      editable_elements: [{ element_id: 'e:1', kind: 'image', label: 'img · Ícono de liquidez' }, { element_id: 'e:2', kind: 'image', label: 'img · Logo' }],
+      editable_assets: [{ asset_id: 'brand-logo', label: 'Logo de Marca' }] });
+    req.conversation!.available_actions.push('edit_elements');
+    Object.assign(output.next_action!, { kind: 'edit_elements', intent: 'suggested', element_html_hash: hash, design_source: null,
+      element_edits: [{ kind: 'image', element_id: 'e:1', asset_id: 'brand-logo' }] });
+    const planned = await fixture(wire(output)).provider.plan(req);
+    expect(planned.next_action).toMatchObject({ kind: 'discuss' }); expect(planned.next_action).not.toHaveProperty('element_edits');
+    expect(planned.message).toContain('El logo de la marca no se usa como ícono');
+    Object.assign(output.next_action!, { kind: 'edit_elements', element_edits: [{ kind: 'image', element_id: 'e:2', asset_id: 'brand-logo' }] });
+    expect((await fixture(wire(output)).provider.plan(req)).next_action).toMatchObject({ kind: 'edit_elements' });
+  });
+
   it('drops editor-only schema placeholders from other actions without changing their proposed instruction', async () => {
     const { req, output } = conversation();
     Object.assign(output.next_action!, { element_edits: [], element_html_hash: null });

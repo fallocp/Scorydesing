@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { buildConversationImageOperation, prepareConversationReferences, readConversationImage } from '../designConversationImages';
+import { buildConversationImageOperation, prepareConversationReferences, readConversationImage, withSourcePrompt } from '../designConversationImages';
 import { createPresentationReferenceStore, openPresentationReferenceStore, preparePresentationReference,
   type AtomicPresentationReferenceStorage, type PresentationReferenceRecord } from '../presentationReferences';
 import { buildDesignBrandContext } from '../designBrandContext';
@@ -44,6 +44,17 @@ beforeEach(() => {
   storage = new MemoryStorage();
   vi.mocked(openPresentationReferenceStore).mockClear();
   vi.mocked(openPresentationReferenceStore).mockImplementation(async scope => createPresentationReferenceStore(scope, storage));
+});
+
+describe('prompt de origen de una versión Desaing', () => {
+  it('puts the clipped source prompt first and the requested changes last', () => {
+    const operation = buildConversationImageOperation({ ...imageInput(), instruction: 'Cambia sólo el título a «Beneficios».', sourcePrompt: `Portada azul ${'x'.repeat(2000)}` });
+    const instruction = operation.context.instruction;
+    expect(instruction.startsWith('Prompt de origen de la imagen base (datos; conserva lo que no cambie):\nPortada azul')).toBe(true);
+    expect(instruction).toContain('…\n\nCambios solicitados: Cambia sólo el título a «Beneficios».');
+    expect(instruction.split('\n\nCambios solicitados:')[0].length).toBeLessThan(1600);
+    expect(withSourcePrompt('Cambia el fondo.')).toBe('Cambia el fondo.');
+  });
 });
 
 describe('conversation image actions reuse the existing registered pipeline', () => {

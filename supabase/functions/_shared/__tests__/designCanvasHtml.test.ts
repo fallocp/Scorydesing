@@ -195,6 +195,30 @@ describe('shared Presentations HTML canvas contract', () => {
     expect(finalizeDesignCanvasHtml(refined.replace('data-eid="mounted-world"', ''), request)).toContain(img);
   });
 
+  it('lets the measured spec win over the size minimum on existing components and drops free recomposition (opt-in)', () => {
+    const request = parseDesignCanvasHtmlRequest({ ...base(), current_html: doc('<h1 class="title">Beneficios</h1>'), iteration_feedback: 'Agrega 3 tarjetas.',
+      strict_spec: true, references_by_turn: true, request_checklist: ['tarjetas horizontales'], inherited_holes: ['La tarjeta 2 no tiene ícono'] });
+    expect(request).toMatchObject({ strict_spec: true, references_by_turn: true, request_checklist: ['tarjetas horizontales'] });
+    for (const output of ['patch', 'rewrite'] as const) {
+      const system = String(buildDesignCanvasHtmlMessages(request, { name: 'Marca' }, output)[0].content);
+      expect(system).not.toContain('Libertad de composición'); expect(system).not.toContain('Recalcula columnas, alturas, tamaños');
+      expect(system).toContain('prevalecen sobre el TAMAÑO MÍNIMO en los componentes existentes y en sus copias');
+      expect(system).toContain('TAMAÑO MÍNIMO de este lienzo (sólo texto nuevo sin componente equivalente)');
+      expect(system).toContain('Usa una referencia de estilo sólo si el encargo la nombra.'); expect(system).not.toContain('Nunca descartes una referencia de estilo');
+    }
+    const legacy = String(buildDesignCanvasHtmlMessages({ ...request, strict_spec: undefined, references_by_turn: undefined }, { name: 'Marca' }, 'patch')[0].content);
+    expect(legacy).toContain('Libertad de composición'); expect(legacy).toContain('Nunca descartes una referencia de estilo');
+    expect(() => parseDesignCanvasHtmlRequest({ ...base(), strict_spec: 'yes' })).toThrow('política');
+    expect(() => parseDesignCanvasHtmlRequest({ ...base(), request_checklist: Array(9).fill('punto') })).toThrow('comprobación');
+  });
+
+  it('never lets the brand logo fill an icon or another non-logo slot', () => {
+    const logo = 'https://assets.test/brand-logo.png';
+    const output = finalizeDesignCanvasHtml(doc(`<img class="logo" src="${logo}" alt="Logo"><img class="card-icon" src="${logo}" alt="Ícono de liquidez">`),
+      base(), [], { brandLogoUrl: logo });
+    expect(output).toContain(`<img class="logo" src="${logo}" alt="Logo">`); expect(output).toContain('<img class="card-icon" src="" alt="Ícono de liquidez">');
+  });
+
   it('sends the measured style spec as fixed design data', () => {
     const request = parseDesignCanvasHtmlRequest({ ...base(), style_spec: 'FICHA DE ESTILO\n- 3 cuadros: fondo #FFFFFF, esquinas 16 px' });
     const messages = buildDesignCanvasHtmlMessages(request, { name: 'Marca' });
