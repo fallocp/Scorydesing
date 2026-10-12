@@ -1,5 +1,5 @@
 import type { ExplorationPlanner, ExplorationRequest, ExplorationResult, ExplorationUsage } from './explorationContracts.ts';
-import { assertExplorationRequest, assertExplorationResult, EXPLORATION_REFERENCE_ROLES, IDEA_ASPECTS, STYLE_UNLOCKS } from './exploration.ts';
+import { ACCENT_PLAN_LIMIT, assertExplorationRequest, assertExplorationResult, EXPLORATION_REFERENCE_ROLES, IDEA_ASPECTS, STYLE_UNLOCKS } from './exploration.ts';
 import { CONVERSATION_DECK_LIMITS, conversationActionPrompt, conversationActionSchema, conversationEditCorpus, conversationReferenceLabels,
   keepsExistingText, schemaEnumCount } from './conversationActions.ts';
 import { BRAND_LOGO_ASSET, isLogoSlot, unapprovedElementTexts, type DesignElementEdit } from './designElementEdits.ts';
@@ -62,6 +62,10 @@ ${PLANNER_LAYOUT_RULE}
 Agrandar una foto o figura no desbloquea typography; conserva la proporción de su zona nítida si tiene desvanecido o máscara.
 Usa una referencia adjunta sólo si el usuario la nombra en este turno o la necesitas para lo pedido; entonces inclúyela en reference_ids. Si hay una referencia adjunta que no usarás, dilo en message: «No uso la referencia <nombre> en este ajuste; dime si la quieres.»
 Un hueco de imagen vacío que ya existía en el diseño no es un defecto. El logo de la marca (brand-logo) nunca se usa como ícono ni para llenar otro hueco.`;
+/** Only with conversation.style_source («estilo de la diapositiva N»): the client copies the measured style without AI. */
+export const STYLE_TRANSFER_PROMPT = `ESTILO DE OTRA DIAPOSITIVA. conversation.style_source trae la ficha medida de la diapositiva que el usuario cita para el estilo. La aplicación copia sin IA, rol por rol, familia, tamaño de la escala, peso, itálica, mayúsculas, tracking, colores, líneas cortas, tarjetas y fondo; tú no describas esos valores como trabajo del generador.
+Usa refine_html con la diapositiva actual (sin design_source) y rewrite=false salvo que el usuario también pida cambiar el acomodo; entonces describe ese acomodo y la aplicación copia el estilo después. Incluye colors, typography y components en unlock.
+Los acentos de la fuente (tramos con otro color, itálica o peso) no se copian literal: en design_understanding.accent_plan propone qué palabras EXACTAS del texto actual de esta diapositiva llevan cada acento, siguiendo el mismo patrón (última palabra o grupo final, segunda frase, primera frase…). element nombra el elemento (Título, Subtítulo, Frase destacada…), words es un fragmento literal y contiguo de su texto, color un nombre de la paleta de marca (navy, coral, turquesa, mint, gris, blanco) o un #hex de la ficha, italic si el tramo va en itálica. Las indicaciones explícitas del usuario («Liquidez coral, Flexibilidad turquesa») tienen prioridad sobre el patrón. Nunca cambies ni reescribas el texto. En message muestra brevemente esa propuesta para que el usuario la confirme o cambie palabras.`;
 /** Only when the client keeps reference specs (conversation.reference_notes present). */
 const REFERENCE_NOTES_PROMPT = 'conversation.reference_notes contiene la ficha guardada (o editada por el usuario) de cada imagen adjunta: úsala como su descripción y no la regeneres. Para cada imagen adjunta del usuario que no tenga ficha, escribe en design_understanding.references[].instruction una ficha de máximo 300 caracteres: fondo, tarjetas, tipografía aproximada y paleta.';
 
@@ -72,7 +76,7 @@ function promptFingerprint(text: string): string {
   return hash.toString(16).padStart(8, '0');
 }
 /** Same key while the fixed prompt prefix is the same, so OpenAI can reuse its cache; a prompt change rotates it. */
-export const EXPLORATION_PROMPT_CACHE_KEY = `scory-exploration-${promptFingerprint([SYSTEM, PLANNER_LAYOUT_RULE, FROM_EXISTING_PROMPT, REFERENCE_NOTES_PROMPT].join('\n'))}`;
+export const EXPLORATION_PROMPT_CACHE_KEY = `scory-exploration-${promptFingerprint([SYSTEM, PLANNER_LAYOUT_RULE, FROM_EXISTING_PROMPT, REFERENCE_NOTES_PROMPT, STYLE_TRANSFER_PROMPT].join('\n'))}`;
 
 /** Responses Structured Outputs: https://developers.openai.com/api/docs/guides/structured-outputs
  * Model supports structured output: https://developers.openai.com/api/docs/models/gpt-5.4-mini */
@@ -107,6 +111,12 @@ export function prepareExplorationRequest(request: ExplorationRequest, maxOutput
     understandingSchema.required.push('unlock');
     Object.assign(understandingSchema.properties, { unlock: { type: 'array', maxItems: STYLE_UNLOCKS.length, items: { type: 'string', enum: [...STYLE_UNLOCKS] } } });
   }
+  if (request.conversation?.style_source) {
+    understandingSchema.required.push('accent_plan');
+    Object.assign(understandingSchema.properties, { accent_plan: { type: 'array', maxItems: ACCENT_PLAN_LIMIT, items: { type: 'object', additionalProperties: false,
+      required: ['element', 'words', 'color', 'italic'], properties: { element: boundedString(200), words: boundedString(400), color: boundedString(40),
+        italic: { type: 'boolean' } } } } });
+  }
   const ideaSchema = { type: 'object', additionalProperties: false,
     required: ['title', 'rationale', 'aspects', 'render_instruction', 'reference_ids'], properties: {
       title: boundedString(160), rationale: boundedString(2000), render_instruction: boundedString(6000),
@@ -130,7 +140,8 @@ export function prepareExplorationRequest(request: ExplorationRequest, maxOutput
   const developer = SYSTEM + (turn ? `\n\n${conversationActionPrompt(turn, budget.structural)}` : '') + (modern && minimum ? existing
     ? `\nMínimo tipográfico de este lienzo: cuerpo ${minimum.body}px, notas ${minimum.note}px. Aplica sólo a texto nuevo sin componente equivalente; los componentes existentes y sus copias conservan la escala de style_spec (±2 px).`
     : `\nMínimo tipográfico de este lienzo: cuerpo ${minimum.body}px, notas ${minimum.note}px. Prevalece sobre la base y style_spec en el texto que se cree, repita o reacomode; no propongas font_size menores salvo que el usuario dé un tamaño concreto.` : '')
-    + (existing ? `\n${FROM_EXISTING_PROMPT}` : '') + (turn && 'reference_notes' in turn ? `\n${REFERENCE_NOTES_PROMPT}` : '');
+    + (existing ? `\n${FROM_EXISTING_PROMPT}` : '') + (turn && 'reference_notes' in turn ? `\n${REFERENCE_NOTES_PROMPT}` : '')
+    + (turn?.style_source ? `\n${STYLE_TRANSFER_PROMPT}` : '');
   if (actionSchema) Object.assign(actionSchema.properties.slide_ids, { description:
     'Sólo inspect_slides: selecciona entre 1 y 12 IDs distintos del índice. Para discuss, explore_ideas y cualquier generación o ajuste, devuelve siempre [].' });
   const payload = { kind: request.kind, scope: request.scope, message: request.message, history: request.history,
@@ -269,6 +280,12 @@ export function repairConversationOutput(parsed: Record<string, unknown>, reques
   }
   if (Array.isArray(understanding.unlock)) understanding.unlock = [...new Set(understanding.unlock)]
     .filter(item => STYLE_UNLOCKS.includes(item as typeof STYLE_UNLOCKS[number]));
+  // Accents name words of this slide; one per fragment, never more than the contract allows.
+  if (Array.isArray(understanding.accent_plan)) {
+    const seen = new Set<string>();
+    understanding.accent_plan = (understanding.accent_plan as unknown[]).filter((item): item is Record<string, unknown> => record(item)
+      && typeof item.words === 'string' && !!item.words.trim() && !seen.has(item.words.trim()) && !!seen.add(item.words.trim())).slice(0, ACCENT_PLAN_LIMIT);
+  }
   // The brand logo never fills an icon or another non-logo slot: drop those edits instead of failing the turn.
   if (action.kind === 'edit_elements' && Array.isArray(action.element_edits) && turn.editable_elements) {
     const labels = new Map(turn.editable_elements.map(element => [element.element_id, element.label]));

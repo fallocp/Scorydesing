@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { buildDeckStyleKit } from '@/lib/presentations/designConversationHtml';
-import { measureDesignSpec, measureStyleSamplesCached, styleMeasureCause, type DesignSpecResult } from '@/lib/presentations/styleSpec';
+import { measureDesignSpec, measureRoleSheet, measureStyleSamplesCached, styleMeasureCause, type DesignSpecResult } from '@/lib/presentations/styleSpec';
 import { inferStyleUnlocks } from '@/lib/presentations/styleLock';
+import { buildTransferPlan, describeTransferRows, parseStyleAssertions, styleSourceSlide, transferPalette } from '@/lib/presentations/styleTransfer';
 import { describeConversationDesignSource } from '@/lib/presentations/designConversationSource';
 import { designActionLabel, isDesignGeneration, needsResolvedCopy } from '@/lib/presentations/designConversationConfirmation';
 import { buildDesignRepairFeedback, describeVisualReview } from '@/lib/presentations/designVisualReview';
@@ -230,6 +231,30 @@ export function UnifiedDesignWorkspace(props: UnifiedDesignWorkspaceProps) {
     keep: [(Object.keys(UNLOCK_LABELS) as Array<keyof typeof UNLOCK_LABELS>).filter(item => !unlocked?.includes(item)).map(item => UNLOCK_LABELS[item]).join(', '),
       ...state.understanding.preserve.slice(0, 3)].filter(Boolean).join('; ') || 'Nada: desbloqueaste todo el estilo.',
   } : null;
+  // «Estilo de la diapositiva N»: the accents the transfer will apply, shown as «elemento → propuesta» before executing (no AI).
+  const transferSource = flags?.transferencia && format === 'html' && plan && props.deckSlides?.length
+    ? styleSourceSlide(lastAsk, props.deckSlides.length, slideIndex + 1) : null;
+  const accentKey = transferSource && specSource ? JSON.stringify([transferSource, lastAsk, state.understanding?.accent_plan ?? [], specSource.length]) : '';
+  const [accentRows, setAccentRows] = useState<{ key: string; rows: Array<{ element: string; proposal: string }> } | null>(null);
+  useEffect(() => {
+    if (!accentKey || !transferSource || !specSource) return;
+    let alive = true;
+    const sourceHtml = props.deckSlides![transferSource - 1].html, brandName = brand?.name ?? '';
+    void Promise.all([measureRoleSheet(sourceHtml, getSlideDimensions(sourceHtml), brandName), measureRoleSheet(specSource, getSlideDimensions(specSource), brandName)])
+      .then(([source, target]) => {
+        const assertions = parseStyleAssertions(lastAsk), palette = transferPalette(brand ? Object.values(brand.colors).filter(Boolean) : [], source);
+        const plan = buildTransferPlan(source, target, { planned: state.understanding?.accent_plan, assertions, palette });
+        if (alive) setAccentRows({ key: accentKey, rows: describeTransferRows(plan, target, assertions, palette) });
+      }, () => { if (alive) setAccentRows({ key: accentKey, rows: [] }); });
+    return () => { alive = false; };
+  }, [accentKey]);
+  const accentTable = transferSource && accentRows?.key === accentKey && <div className="dc-accent-plan">
+    <p>Copio sin IA el estilo de la diapositiva {transferSource} (tipografía de la escala, colores, líneas y tarjetas) y después lo comparo con el resultado.</p>
+    {accentRows.rows.length ? <table className="dc-accent-table"><caption>Acentos propuestos</caption>
+      <thead><tr><th scope="col">Elemento</th><th scope="col">Propuesta</th></tr></thead>
+      <tbody>{accentRows.rows.map(row => <tr key={row.element}><th scope="row">{row.element}</th><td>{row.proposal}</td></tr>)}</tbody></table>
+      : <p className="dc-muted">La diapositiva {transferSource} no tiene acentos de color que repetir aquí.</p>}
+    <p className="dc-muted">Confirma o escribe qué palabras cambiar, por ejemplo: «en el título, coral sólo “flujo”».</p></div>;
   const versionPrompt = flags?.prompt_base && selected?.kind === 'image' ? state.version_prompts?.[selected.id]
     ?? (result?.asset.provenance.kind === 'image_operation' ? result.asset.provenance.effective_prompt : '') : undefined;
   // «Corregir composición» of the selected HTML version (button in the panel and, on the screen, under the review note).
@@ -437,6 +462,7 @@ export function UnifiedDesignWorkspace(props: UnifiedDesignWorkspaceProps) {
           <div><dt>Qué cambio</dt><dd>{comparison.change}</dd></div>
           <div><dt>Qué conservo</dt><dd>{comparison.keep}</dd></div>
         </dl>}
+        {plan && accentTable}
         {confirmation}
         {staleNotice}
         {(busy || work.resuming) && <div className="dc-working" role="status"><Loader2 size={15} className="animate-spin" />{work.resuming && !busy ? 'Recuperando la respuesta de tu último mensaje…' : 'Preparando tu diseño…'}</div>}
@@ -477,7 +503,8 @@ export function UnifiedDesignWorkspace(props: UnifiedDesignWorkspaceProps) {
   const planCard = plan && (comparison || work.confirmationReady) && <section className="ds-plan" aria-label="Plan del cambio">
     <h3>Así quedará</h3><p>{comparison?.change ?? plan.instruction.split(/(?<=[.!?])\s/)[0].slice(0, 220)}</p>
     <h3>Se conserva</h3><p>{comparison?.keep ?? (state.understanding?.preserve.slice(0, 3).join('; ') || 'El resto del diseño, tal como está.')}</p>
-    {state.next_action?.design_source && <p>{describeConversationDesignSource(state.next_action.design_source, props.deckSlides ?? [props.slide], state.references)}</p>}
+    {state.next_action?.design_source && !transferSource && <p>{describeConversationDesignSource(state.next_action.design_source, props.deckSlides ?? [props.slide], state.references)}</p>}
+    {accentTable}
     {work.confirmationReady && <button className="dc-button dc-primary" disabled={blocked || pending || designPending} onClick={() => void act(() => work.executeSuggested())}>
       <Sparkles size={15} />{designActionLabel(state.next_action)}</button>}
   </section>;
@@ -497,6 +524,12 @@ export function UnifiedDesignWorkspace(props: UnifiedDesignWorkspaceProps) {
           <button type="button" className="dc-button" disabled={!canEdit || previewOriginal} onClick={() => void openEditor(view === 'html')}
             title="Elige un ícono en el editor"><Shapes size={15} />Íconos</button>
           <button type="button" className="dc-button" disabled={!canEdit || previewOriginal} onClick={() => void openLogos()}><Shapes size={15} />Logos</button>
+          {flags?.transferencia && format === 'html' && deck.length > 1 && <label className="ds-select"><span>Copiar estilo de…</span>
+            <select aria-label="Copiar estilo de otra diapositiva" value="" disabled={blocked || pending}
+              onChange={event => { const number = Number(event.target.value); if (number) void send(`Pon las letras y colores como la diapositiva ${number}`); }}>
+              <option value="">Elige</option>
+              {deck.map((item, index) => index === currentIndex ? null : <option key={item.id} value={index + 1}>{index + 1}. {item.title || 'Sin título'}</option>)}
+            </select></label>}
         </>}</>}
       canvas={<>{previewOriginal && <div className="ds-original"><p>Diapositiva original. Elige una versión abajo para volver a ella.</p>
         <DesignZoomCanvas html={props.slide.html} title="Diapositiva original" /></div>}

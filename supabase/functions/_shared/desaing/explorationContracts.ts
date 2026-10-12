@@ -55,7 +55,11 @@ export interface DesignUnderstanding {
   pending_questions: string[];
   /** Only for clients with conversation.supports_style_lock. Absent = the lock only reports. */
   unlock?: StyleUnlock[];
+  /** Only with conversation.style_source: words of this slide that carry each accent of the cited slide. */
+  accent_plan?: AccentPlanItem[];
 }
+/** One accent of the style transfer: `words` is an exact fragment of the element's current text; the client wraps it, never rewrites it. */
+export interface AccentPlanItem { element: string; words: string; color: string; italic: boolean }
 export interface ExplorationDesignBrief {
   copy: DesignCopy;
   brand: ExplorationBrandSnapshot | null;

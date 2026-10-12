@@ -14,6 +14,10 @@ export interface StyleLockReport {
   status: 'none' | 'reported' | 'restored' | 'overflow';
   differences: string[];
   question?: string;
+  /** Elements actually compared with the base (0 = nothing equivalent was found). Absent in older proposals. */
+  compared?: number;
+  /** Differences left as they are because the user unlocked them. */
+  released?: number;
 }
 export const STYLE_LOCK_ID = 'scory-style-lock';
 /** Which unlock frees each locked property. */
@@ -52,7 +56,7 @@ const differs = (property: LockProperty, base: string, output: string) => proper
   ? Math.abs(parseFloat(base) - parseFloat(output)) > 1 : base !== output;
 
 /** Compares base and output by selector; texts without a shared selector are paired by role and order. */
-export function compareStyleSamples(base: StyleSamples, output: StyleSamples): StyleDifference[] {
+export function compareStyleSamples(base: StyleSamples, output: StyleSamples, stats: { compared: number } = { compared: 0 }): StyleDifference[] {
   const result: StyleDifference[] = [], compared = new Set<string>();
   const bySelector = <T extends { selector?: string }>(items: T[]) => items.reduce((map, item) => item.selector
     ? map.set(item.selector, [...(map.get(item.selector) ?? []), item]) : map, new Map<string, T[]>());
@@ -78,12 +82,14 @@ export function compareStyleSamples(base: StyleSamples, output: StyleSamples): S
     const now = (after.get(role) ?? []).filter(item => !item.selector || !compared.has(item.selector));
     const targets = [...new Set(now.map(item => item.selector).filter((selector): selector is string => !!selector))];
     if (!now.length || !targets.length || items.every(item => item.selector && compared.has(item.selector))) continue;
+    stats.compared += targets.length;
     for (const property of TEXT_PROPERTIES) {
       const was = mode(items.map(item => textValue(item, property)))!, is = mode(now.map(item => textValue(item, property)))!;
       if (differs(property, was, is)) for (const target of targets)
         result.push({ target, property, base: was, output: is, label: `${TYPE_ROLE_LABELS[role]} (${target})`, matched: 'role' });
     }
   }
+  stats.compared += compared.size;
   return result.slice(0, MAX_DIFFERENCES);
 }
 
@@ -154,10 +160,11 @@ export async function enforceStyleLock(input: {
   fits(before: string, after: string): Promise<'fits' | 'overflow' | 'unverified'>;
 }): Promise<{ html: string; report: StyleLockReport }> {
   const [base, output] = await Promise.all([input.measure(input.base), input.measure(input.output)]);
-  const all = compareStyleSamples(base, output);
+  const stats = { compared: 0 }, all = compareStyleSamples(base, output, stats);
   const unrequested = input.unlock ? all.filter(item => !isUnlocked(item.property, input.unlock!)) : all;
   const differences = unrequested.map(describeStyleDifference);
-  if (!unrequested.length) return { html: input.output, report: { status: 'none', differences: [] } };
+  if (!unrequested.length) return { html: input.output, report: { status: 'none', differences: [], compared: stats.compared,
+    ...(all.length ? { released: all.length } : {}) } };
   if (!input.unlock) return { html: input.output, report: { status: 'reported', differences } };
   const css = buildStyleLockCss(unrequested, input.unlock);
   if (!css) return { html: input.output, report: { status: 'reported', differences } };
@@ -171,6 +178,9 @@ export async function enforceStyleLock(input: {
 
 export function describeStyleLock(report?: StyleLockReport): string {
   if (!report) return '';
+  // Never «ninguna» without a comparison: nothing equivalent, or everything different was unlocked by the user.
+  if (report.status === 'none' && report.compared === 0) return 'No pude comparar el estilo con la base: no encontré elementos equivalentes.';
+  if (report.status === 'none' && report.released) return `Cambié el estilo que pediste (${report.released} ${report.released === 1 ? 'diferencia' : 'diferencias'} con la base); lo demás coincide con la base.`;
   if (report.status === 'none') return 'Diferencias de estilo: ninguna.';
   const list = report.differences.slice(0, 6).join('; ') + (report.differences.length > 6 ? `; y ${report.differences.length - 6} más` : '');
   if (report.status === 'reported') return `Diferencias de estilo: ${list}.`;

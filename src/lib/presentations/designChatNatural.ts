@@ -2,6 +2,7 @@ import { versionReview, type DesignConversationState } from './designConversatio
 import type { DesignVisualReview } from './designVisualReview';
 import { describeVisualReview } from './designVisualReview';
 import { describeStyleLock } from './styleLock';
+import { describeStyleTransfer } from './styleTransfer';
 import { isDesignConfirmation } from './designConversationConfirmation';
 
 /** Steps shown in the chat thread while a turn runs («✓ Leí la diapositiva · 0.4 s»). */
@@ -24,7 +25,8 @@ export function summarizeLastChange(state: DesignConversationState): string {
   const plan = state.understanding?.resolved_instruction;
   const lead = asked && !isDesignConfirmation(asked) ? `En la v${number} hice lo que pediste: «${asked.trim().slice(0, 160)}».`
     : plan ? `En la v${number}: ${lowerFirst(firstSentence(plan, 200))}.` : `La v${number} es la última versión del diseño.`;
-  const style = version.kind === 'html' ? describeStyleLock(version.proposal.styleLock) : '';
+  const style = version.kind !== 'html' ? '' : version.proposal.styleTransfer ? describeStyleTransfer(version.proposal.styleTransfer)
+    : describeStyleLock(version.proposal.styleLock);
   const reviewed = versionReview(state, version);
   const review = reviewed?.status === 'needs_review' ? describeVisualReview(reviewed) : '';
   return [lead, style, review].filter(Boolean).join(' ');
@@ -73,8 +75,10 @@ export function designReadyMessage(summary: string, notices: readonly string[] =
   return [`Aquí está${what ? `: ${what}` : ' la propuesta'}. La reviso en segundo plano y te aviso si algo no cuadra.`, ...notices].join(' ');
 }
 /** Short note the background review adds to the chat; honest about anything the request still misses. */
-export function backgroundReviewNote(review: DesignVisualReview, worse = false): string {
+export function backgroundReviewNote(review: DesignVisualReview, worse = false, styleFailed: readonly string[] = []): string {
   const lead = worse ? 'La corrección dejó más problemas que la versión anterior; puedes volver a ella en la tira de versiones. ' : '';
+  // A failed style comparison is never «no vi problemas».
+  if (review.status === 'passed' && styleFailed.length) return `${lead}Revisé la composición; del estilo sigue pendiente: ${styleFailed.slice(0, 3).join('; ')}. ¿Lo ajusto?`;
   if (review.status === 'passed') return `${lead}Revisada: no vi problemas. ¿Algo más?`;
   if (review.status === 'unavailable') return `${lead}No pude terminar la revisión automática; échale un ojo antes de aplicarla.`;
   return `${lead}${describeVisualReview(review)}`;

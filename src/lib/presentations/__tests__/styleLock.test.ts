@@ -30,10 +30,13 @@ describe('candado de estilo (sin IA)', () => {
     expect(result.html).toBe(doc); expect(result.report).toEqual({ status: 'reported', differences: ['.title: tamaño 72px → 64px'] });
     expect(describeStyleLock(result.report)).toBe('Diferencias de estilo: .title: tamaño 72px → 64px.');
   });
-  it('reports «ninguna» when the only change was unlocked by the request', async () => {
+  it('never says «ninguna» when the only change was unlocked or nothing could be compared', async () => {
     const measure = vi.fn().mockResolvedValueOnce(design(72)).mockResolvedValueOnce(design(64));
     const result = await enforceStyleLock({ base: doc, output: doc, unlock: ['typography'], measure, fits: vi.fn() });
-    expect(result.report.status).toBe('none'); expect(describeStyleLock(result.report)).toBe('Diferencias de estilo: ninguna.');
+    expect(result.report.status).toBe('none');
+    expect(describeStyleLock(result.report)).toBe('Cambié el estilo que pediste (1 diferencia con la base); lo demás coincide con la base.');
+    expect(describeStyleLock({ status: 'none', differences: [], compared: 0 })).toBe('No pude comparar el estilo con la base: no encontré elementos equivalentes.');
+    expect(describeStyleLock({ status: 'none', differences: [], compared: 4 })).toBe('Diferencias de estilo: ninguna.');
   });
   it('drops the size pin and asks when the original size does not fit', async () => {
     const measure = vi.fn().mockResolvedValueOnce(design(72)).mockResolvedValueOnce(design(64));

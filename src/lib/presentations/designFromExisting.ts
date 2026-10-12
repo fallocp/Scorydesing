@@ -1,7 +1,7 @@
 /** «Diseñar sobre lo que ya existe»: pure helpers shared by the conversation, the
  * HTML panel and the workspace. Every piece has its own switch; all off = current behavior. */
 export const DESIGN_FROM_EXISTING_PIECES = ['escala', 'ficha_estricta', 'candado_estilo', 'no_rehace', 'referencias_por_turno',
-  'revision_pedido', 'huecos_heredados', 'correccion_acotada', 'prompt_base'] as const;
+  'revision_pedido', 'huecos_heredados', 'correccion_acotada', 'prompt_base', 'transferencia'] as const;
 export type DesignFromExistingPiece = typeof DESIGN_FROM_EXISTING_PIECES[number];
 export type DesignFromExistingFlags = Record<DesignFromExistingPiece, boolean>;
 

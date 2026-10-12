@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import type { PresentationDesignService } from '../../components/presentations/PresentationDesignContext';
-import type { SlideGeneratorController, SlideGeneratorState, SlideProposalReason } from '../../components/presentations/SlideGeneratorPanel';
+import type { SlideGeneratorController, SlideGeneratorState, SlideProposalReason, SlideStyleTransfer } from '../../components/presentations/SlideGeneratorPanel';
 import type { DesignToHtmlController, DesignToHtmlState, DesignToHtmlProposal } from '../../components/presentations/DesignToHtmlPanel';
 import type { DesignOperation, DesignReference } from '../../../supabase/functions/_shared/desaing/contracts';
 import type { DesignCopy, ExplorationRequest, ExplorationResult, IdeaContent } from '../../../supabase/functions/_shared/desaing/explorationContracts';
@@ -40,6 +40,8 @@ import { describeVisualReview } from './designVisualReview';
 import { buildScopedRepairFeedback, isOrientationChange, namedReferences, referenceNotUsedNotice, requestChecklist,
   type DesignFromExistingFlags } from './designFromExisting';
 import { describeStyleLock, inferStyleUnlocks } from './styleLock';
+import { asksLayoutChange, describeStyleTransfer, styleSourceSlide } from './styleTransfer';
+import { formatRoleSheet, formatStyleSpec, measureStyleSamplesCached } from './styleSpec';
 import { backgroundReviewNote, citesSlides, designReadyMessage, isTextOnlyRequest, localChatReply, resolveSlideMentions,
   type DesignStep } from './designChatNatural';
 import { planWithStream } from '../desaing/plannerStream';
@@ -354,7 +356,7 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
         const reviews = Object.fromEntries(Object.entries({ ...value.version_reviews, [version.id]: outcome.visualReview }).slice(-20));
         return { ...value, version_reviews: reviews,
           messages: value.messages.length >= 200 ? value.messages : [...value.messages, { id: `assistant:review:${crypto.randomUUID()}`, turn_id: version.turn_id,
-            role: 'assistant' as const, text: backgroundReviewNote(outcome.visualReview, outcome.worse) }] };
+            role: 'assistant' as const, text: backgroundReviewNote(outcome.visualReview, outcome.worse, version.proposal.styleTransfer?.failed) }] };
       }, true);
       end();
     } catch { end(true); }
@@ -850,6 +852,17 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
     const measureSpec = !!flags?.ficha_estricta && format === 'html' && base !== 'new';
     const styleSpec = (measureSpec && !natural ? await latest.current.styleSpecReady?.().catch(() => '') : '') || latest.current.styleSpec;
     if (flags?.ficha_estricta) await assertCurrent(life);
+    // «Estilo de la diapositiva N»: the planner reads the cited slide's measured sheet to propose its accents (same call, no extra one).
+    const transferNumber = !resolvingCopy && hasHtml ? transferSourceNumber(message) : null;
+    let styleSource: { slide_number: number; spec: string } | undefined;
+    if (transferNumber) {
+      const html = latest.current.deckSlides![transferNumber - 1].html;
+      const spec = await Promise.race([measureStyleSamplesCached(html, getSlideDimensions(html))
+        .then(samples => samples.sheet ? `${formatRoleSheet(samples.sheet, 1500)}\n${formatStyleSpec({ ...samples, sheet: undefined })}` : formatStyleSpec(samples)),
+      new Promise<string>(resolve => setTimeout(() => resolve(''), 3000))]).catch(() => '');
+      await assertCurrent(life);
+      styleSource = { slide_number: transferNumber, spec: spec.slice(0, 3000) };
+    }
     // Style-only attachments (never the chosen visual source) are enough at low detail; only a server that streams knows the field.
     const lowDetail = natural && capabilities.supports_stream === 1 ? value.references.filter(reference => reference.role === 'image_style_reference'
       && !(value.design_source?.source.kind === 'reference' && value.design_source.source.reference_id === reference.id)
@@ -890,6 +903,7 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
         ...(!resolvingCopy && format === 'html' && base ? { design_base: base } : {}),
         ...(!resolvingCopy && format === 'html' && base !== 'new' && styleSpec?.trim() ? { style_spec: styleSpec.slice(0, 4000) } : {}),
         ...(!resolvingCopy && flags && format === 'html' ? { supports_style_lock: 1 as const } : {}),
+        ...(styleSource ? { style_source: styleSource } : {}),
         ...(referenceNotes ? { reference_notes: referenceNotes } : {}),
         ...(lowDetail.length ? { low_detail_reference_ids: lowDetail } : {}),
         ...(!resolvingCopy && format === 'html' && base === 'deck' && deckStyle.length
@@ -988,6 +1002,54 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
       ...(flags.revision_pedido && !correction && requestChecklist(request).length ? { checklist: requestChecklist(request) } : {}),
       ...(flags.correccion_acotada && correction ? { correction } : {}) };
   }
+  /** Slide cited for its style in this text (HTML, transfer piece on, another slide with content); null otherwise. */
+  function transferSourceNumber(text: string): number | null {
+    const input = latest.current, deck = input.deckSlides ?? [];
+    if (!input.fromExisting?.transferencia || input.format !== 'html' || !deck.length) return null;
+    const own = deck.findIndex(slide => slide.id === input.slide.id) + 1;
+    const number = styleSourceSlide(text, deck.length, own || undefined);
+    return number && deck[number - 1]?.html.trim() ? number : null;
+  }
+  /** What the HTML panel needs to copy the cited slide's style: its HTML, the planner's accents, the brand and the deck for the scale. */
+  function transferTurn(value: DesignConversationState): SlideStyleTransfer | undefined {
+    const number = transferSourceNumber(lastInstruction(value));
+    if (!number) return undefined;
+    const deck = latest.current.deckSlides!, index = Math.max(0, deck.findIndex(slide => slide.id === latest.current.slide.id)), brand = value.brand;
+    const nearby = deck.map((slide, position) => ({ html: slide.html, distance: Math.abs(position - index) })).filter(item => item.html.trim())
+      .sort((a, b) => a.distance - b.distance).slice(0, 6).map(item => item.html);
+    return { sourceHtml: deck[number - 1].html, sourceNumber: number, deck: nearby,
+      ...(value.understanding?.accent_plan?.length ? { planned: structuredClone(value.understanding.accent_plan) } : {}),
+      ...(brand ? { brand: { name: brand.name, colors: Object.values(brand.colors).filter(Boolean),
+        ...(brand.fonts.display ? { display: brand.fonts.display } : {}), ...(brand.fonts.body ? { body: brand.fonts.body } : {}) } } : {}) };
+  }
+  /** Copying style is not a generation: the current design gets the measured style of the cited slide, without AI. */
+  async function transferOnly(life: Life, value: DesignConversationState, action: ConversationNextAction, transfer: SlideStyleTransfer, turnId: string) {
+    const input = latest.current, controller = input.htmlController.current;
+    if (!controller?.transferStyle || input.htmlState?.current && (!input.htmlState.current.ready || input.htmlState.current.busy))
+      throw Error('El editor está cargando. Inténtalo cuando esté listo.');
+    if (viewRef.current === 'history') throw Error('Selecciona la versión actual para continuar editando. Esta versión del historial se conserva para comparar.');
+    if (input.htmlState?.current && input.htmlState.current.status !== 'ready') await controller.discardPending();
+    const selected = selectedOf(value);
+    if (selected?.kind === 'html' && selected.composition?.unresolved_slots.length) throw Error('Completa las piezas de esta composición antes de ajustar su HTML.');
+    const onVersion = input.base !== 'current' && selected?.kind === 'html' && same(selected.target, value.target);
+    const id = crypto.randomUUID();
+    await save(life, state => beginConversationAction(state, { action_id: id, turn_id: turnId, kind: 'html', phase: 'prepared', target: state.target, epoch: state.epoch }));
+    await save(life, state => markConversationAction(state, id, 'dispatched'));
+    try {
+      await assertCurrent(life); show('html');
+      const context = { ...htmlContext(value, action.instruction, action), designSource: null,
+        ...(onVersion && selected?.kind === 'html' ? { proposal: selected.proposal } : { fromCurrent: true, designBase: 'current' as const }),
+        turn: { request: lastInstruction(value), transfer } };
+      const proposal = await timed(life, `Copiando el estilo de la diapositiva ${transfer.sourceNumber}…`, 'Copié y comparé el estilo',
+        () => controller.transferStyle!(context));
+      await finishHtml(life, proposal);
+    } catch (problem) {
+      if (active(life) && current(life).pending?.action_id === id) await save(life, state => completeConversationAction(state, id, { message: {
+        id: `assistant:${id}`, turn_id: state.pending!.turn_id, role: 'assistant',
+        text: `No pude copiar el estilo de la diapositiva ${transfer.sourceNumber} (${problem instanceof Error ? problem.message : 'error inesperado'}). Tu diseño se conserva.` } }));
+      throw problem;
+    }
+  }
   function completedDesignSource(value: DesignConversationState) {
     return value.next_action?.design_source ?? (latest.current.base === 'version' && value.next_action?.from_slide !== true
       && ['create_html', 'refine_html', 'edit_image'].includes(value.next_action?.kind ?? '') ? selectedOf(value)?.design_source : undefined);
@@ -1043,11 +1105,18 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
     summary?: string) {
     const pending = current(life).pending; if (!pending || pending.kind !== 'html') throw Error('conversation_pending_unresolved');
     assertHtmlDesignTarget(proposal, pending.target); await assertCurrent(life, pending.epoch);
+    // A copied style reports what it compared with the cited slide; that replaces the lock's «Diferencias de estilo».
+    const transfer = proposal.styleTransfer, style = transfer ? describeStyleTransfer(transfer) : describeStyleLock(proposal.styleLock);
+    // The visual review never says «no vi problemas» while the style comparison failed.
+    const review = transfer?.failed.length && proposal.visualReview?.status === 'passed'
+      ? 'Revisé la composición, pero el estilo no quedó completo.' : describeVisualReview(proposal.visualReview);
     const text = composition?.unresolved_slots.length
       ? 'La estructura ya está en HTML, pero faltan piezas: complétalas en el editor antes de aplicarla.'
       : composition ? 'Ya es HTML editable. ¿Le ajusto algo o la aplicas?'
-      : summary !== undefined && !proposal.visualReview ? designReadyMessage(summary, [describeStyleLock(proposal.styleLock), ...(proposal.notices ?? [])].filter(Boolean))
-      : [describeVisualReview(proposal.visualReview), describeStyleLock(proposal.styleLock), ...(proposal.notices ?? [])].filter(Boolean).join(' ');
+      : transfer && !proposal.visualReview && summary === undefined ? [`Listo: copié el estilo de la diapositiva ${transfer.source} sin regenerar el diseño.`, style,
+        ...(proposal.notices ?? []), '¿Algo más?'].filter(Boolean).join(' ')
+      : summary !== undefined && !proposal.visualReview ? designReadyMessage(summary, [style, ...(proposal.notices ?? [])].filter(Boolean))
+      : [review, style, ...(proposal.notices ?? [])].filter(Boolean).join(' ');
     await save(life, value => ({ ...completeConversationAction(value, pending.action_id, { version: { id: crypto.randomUUID(), turn_id: pending.turn_id,
       ...(value.selected_version_id ? { parent_id: value.selected_version_id } : {}), target: proposal.target, kind: 'html', proposal: { ...proposal, intent: 'replace' },
       ...(completedDesignSource(value) ? { design_source: completedDesignSource(value) } : {}),
@@ -1071,6 +1140,11 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
     if (value.messages.length >= 200) throw Error('conversation_message_limit');
     if (value.completed_action_ids.length >= 200) throw Error('conversation_action_limit');
     const input = latest.current;
+    // «Estilo de la diapositiva N»: style alone is copied without AI; with a layout change the AI goes first and the transfer after it.
+    const transfer = ['edit_elements', 'refine_html', 'create_html'].includes(action.kind) ? transferTurn(value) : undefined;
+    if (transfer && !asksLayoutChange(lastInstruction(value))) { await transferOnly(life, value, action, transfer, turnId); return; }
+    if (transfer && action.kind === 'edit_elements') action = { ...action, kind: 'refine_html', element_edits: undefined, element_html_hash: undefined };
+    if (transfer && action.design_source) action = { ...action, design_source: undefined };
     if (action.kind === 'edit_elements') {
       if (!input.htmlController.current || input.htmlState?.current && (!input.htmlState.current.ready || input.htmlState.current.busy))
         throw Error('El editor está cargando. Inténtalo cuando esté listo.');
@@ -1206,7 +1280,7 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
     // Orientation or internal arrangement of a component: a rewrite from the spec, never a patch.
     if (input.fromExisting?.no_rehace && action.kind === 'refine_html' && !action.rewrite && !action.design_source
       && isOrientationChange(lastInstruction(value))) action = { ...action, rewrite: true };
-    const turn = htmlTurn(life, value);
+    const turn = transfer ? { ...(htmlTurn(life, value) ?? {}), request: lastInstruction(value), transfer } : htmlTurn(life, value);
     const inspectionEvidence: Pick<Parameters<SlideGeneratorController['updateContext']>[0], 'inspectionReferences' | 'inspectionExamples'> = {
       inspectionReferences: [], inspectionExamples: [],
     };

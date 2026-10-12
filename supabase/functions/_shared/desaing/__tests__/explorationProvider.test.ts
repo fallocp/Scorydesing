@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createExplorationProvider, PLANNER_LAYOUT_RULE, prepareExplorationRequest, type ExplorationProviderConfig } from '../explorationProvider.ts';
+import { createExplorationProvider, PLANNER_LAYOUT_RULE, prepareExplorationRequest, STYLE_TRANSFER_PROMPT, type ExplorationProviderConfig } from '../explorationProvider.ts';
 import { request, result, visualBriefRequest, visualUnderstanding } from './fixtures/explorationFixture.ts';
 import { htmlPng } from './fixtures/htmlCompositionFixture.ts';
 import type { ConversationNextAction } from '../conversationActions.ts';
@@ -66,6 +66,21 @@ describe('single-call textual Responses adapter with mandatory injected transpor
     output.design_understanding = { ...output.design_understanding!, unlock: ['colors', 'colors'] };
     const planned = await fixture(wire(output)).provider.plan(req);
     expect(planned.design_understanding?.unlock).toEqual(['colors']);
+  });
+
+  it('asks for accent_plan and the transfer rules only when the client sends style_source', async () => {
+    const { req, output } = conversation();
+    expect((prepareExplorationRequest(req) as any).text.format.schema.properties.design_understanding.required).not.toContain('accent_plan');
+    req.conversation!.style_source = { slide_number: 2, spec: 'FICHA POR ROL: Título de marca «Xending Capital»; acento «Capital» (última palabra) #FF7A4A.' };
+    const prepared = prepareExplorationRequest(req) as any, understanding = prepared.text.format.schema.properties.design_understanding;
+    expect(understanding.required).toContain('accent_plan');
+    expect(understanding.properties.accent_plan.items.required).toEqual(['element', 'words', 'color', 'italic']);
+    expect(prepared.input[0].content[0].text).toContain(STYLE_TRANSFER_PROMPT);
+    expect(STYLE_TRANSFER_PROMPT).toContain('Nunca cambies ni reescribas el texto');
+    const accent = { element: 'Título', words: 'tu flujo', color: 'coral', italic: true };
+    output.design_understanding = { ...output.design_understanding!, accent_plan: [accent, accent] };
+    const planned = await fixture(wire(output)).provider.plan(req);
+    expect(planned.design_understanding?.accent_plan).toEqual([accent]);
   });
 
   it('drops a brand-logo edit on an icon slot instead of using the logo as an icon', async () => {

@@ -66,6 +66,9 @@ export interface ConversationTurnContext {
   reference_notes?: Array<{ reference_id: string; note: string }>;
   /** References the client marks as style context only (not the visual source): the planner sees them in low detail. */
   low_detail_reference_ids?: string[];
+  /** «Estilo de la diapositiva N»: measured spec of the cited slide. Present = the client copies the style without AI
+   * and receives design_understanding.accent_plan (which words of this slide carry each accent). */
+  style_source?: { slide_number: number; spec: string };
 }
 export interface ConversationPendingAction {
   kind: ConversationActionKind; instruction: string; questions: string[];
@@ -209,7 +212,7 @@ export function assertConversationTurn(value: unknown, context: DesignContext): 
   check(record(value) && keys(value, ['schema_version', 'canvas', 'surface', 'selected_image', 'available_actions',
     ...['current_html', 'pending_action', 'design_format', 'design_base', 'deck_style', 'slide_html', 'style_spec', 'presentation', 'supports_design_source', 'design_source',
       'editable_elements', 'editable_assets', 'editable_html_hash', 'supports_structural_edits', 'editable_text_complete',
-      'supports_style_lock', 'reference_notes', 'low_detail_reference_ids'].filter(key => key in value)]) && value.schema_version === 1
+      'supports_style_lock', 'reference_notes', 'low_detail_reference_ids', 'style_source'].filter(key => key in value)]) && value.schema_version === 1
     && ['empty', 'image', 'html'].includes(String(value.surface)) && keys(value.canvas, ['width', 'height'])
     && [value.canvas.width, value.canvas.height].every(n => typeof n === 'number' && Number.isSafeInteger(n) && n >= 256 && n <= 3840), code);
   check(Array.isArray(value.available_actions) && value.available_actions.length > 0 && value.available_actions.length <= CONVERSATION_ACTIONS.length
@@ -242,6 +245,8 @@ export function assertConversationTurn(value: unknown, context: DesignContext): 
   if ('supports_structural_edits' in value) check(value.supports_structural_edits === 1, code);
   if ('editable_text_complete' in value) check(value.editable_text_complete === 1, code);
   if ('supports_style_lock' in value) check(value.supports_style_lock === 1, code);
+  if ('style_source' in value) check(keys(value.style_source, ['slide_number', 'spec']) && Number.isSafeInteger(value.style_source.slide_number)
+    && (value.style_source.slide_number as number) >= 1 && (value.style_source.slide_number as number) <= 500 && text(value.style_source.spec, 3000, true), code);
   if ('reference_notes' in value) {
     const notes = value.reference_notes, seen = new Set<string>();
     check(Array.isArray(notes) && notes.length <= 4 && notes.every(note => keys(note, ['reference_id', 'note']) && text(note.note, 1500)

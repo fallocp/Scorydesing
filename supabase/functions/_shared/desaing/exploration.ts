@@ -34,13 +34,17 @@ function assertDesignCopy(value: unknown, context: DesignContext): asserts value
   check(value.status !== 'none' || !value.source_reference_ids.length, 'invalid_exploration_copy');
 }
 export const STYLE_UNLOCKS = ['typography', 'colors', 'components', 'layout'] as const;
+export const ACCENT_PLAN_LIMIT = 12;
 export function assertDesignUnderstanding(value: unknown, context: DesignContext): asserts value is DesignUnderstanding {
-  check(keys(value, ['intent', 'resolved_instruction', 'copy', 'references', 'preserve', 'pending_questions', 'unlock'],
+  check(keys(value, ['intent', 'resolved_instruction', 'copy', 'references', 'preserve', 'pending_questions', 'unlock', 'accent_plan'],
     ['intent', 'resolved_instruction', 'copy', 'references', 'preserve', 'pending_questions'])
     && ['recreate', 'variation', 'explore'].includes(String(value.intent)) && text(value.resolved_instruction, 6000), 'invalid_design_understanding');
   check(value.unlock === undefined || Array.isArray(value.unlock) && value.unlock.length <= STYLE_UNLOCKS.length
     && new Set(value.unlock).size === value.unlock.length
     && value.unlock.every(item => STYLE_UNLOCKS.includes(item as typeof STYLE_UNLOCKS[number])), 'invalid_design_understanding');
+  check(value.accent_plan === undefined || Array.isArray(value.accent_plan) && value.accent_plan.length <= ACCENT_PLAN_LIMIT
+    && value.accent_plan.every(item => keys(item, ['element', 'words', 'color', 'italic']) && text(item.element, 200) && text(item.words, 400)
+      && text(item.color, 40) && typeof item.italic === 'boolean'), 'invalid_design_understanding');
   assertDesignCopy(value.copy, context);
   check(Array.isArray(value.references) && value.references.length <= 4, 'invalid_design_understanding');
   const seen = new Set<string>();

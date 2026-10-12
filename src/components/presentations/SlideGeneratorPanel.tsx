@@ -10,8 +10,9 @@ import { describeVisualReview, reviewAndRepairDesign, type DesignVisualReview } 
 import { designReviewRequest } from '@/lib/presentations/designReviewRequest';
 import type { DesignCanvasHtmlRequest } from '../../../supabase/functions/_shared/designCanvasHtml';
 import type { ConversationDesignSource } from '../../../supabase/functions/_shared/desaing/conversationActions';
-import type { StyleUnlock } from '../../../supabase/functions/_shared/desaing/explorationContracts';
-import { deriveTypeScale, formatStyleSpec, measureStyleSamples, measureStyleSamplesCached, styleMeasureCause } from '@/lib/presentations/styleSpec';
+import type { AccentPlanItem, StyleUnlock } from '../../../supabase/functions/_shared/desaing/explorationContracts';
+import { deriveTypeScale, formatStyleSpec, measureRoleSheet, measureStyleSamples, measureStyleSamplesCached, styleMeasureCause } from '@/lib/presentations/styleSpec';
+import { describeStyleTransfer, runStyleTransfer, type StyleTransferReport } from '@/lib/presentations/styleTransfer';
 import { describeStyleLock, enforceStyleLock, releaseStyleLock, type StyleLockReport } from '@/lib/presentations/styleLock';
 import { structuralEditFits, type StructuralCheckCache } from '@/lib/presentations/designStructuralCheck';
 import { buildScopedRepairFeedback, correctionIsWorse, imageHoles, inheritedImageHoles, isMissingResourceIssue, isOrientationChange,
@@ -73,6 +74,14 @@ export interface SlideGeneratorTurn {
   correction?: { issues: string[] };
   /** The original request kept by a scoped correction. */
   request?: string;
+  /** «Estilo de la diapositiva N»: copied without AI after any generation, then verified against the source. */
+  transfer?: SlideStyleTransfer;
+}
+export interface SlideStyleTransfer {
+  sourceHtml: string; sourceNumber: number; planned?: AccentPlanItem[];
+  brand?: { name?: string; colors?: string[]; display?: string; body?: string };
+  /** Nearby slides of the deck (with the cited one) for the standard type scale. */
+  deck?: string[];
 }
 export type SlideProposalReason = 'generated' | 'refined' | 'edited' | 'recovered' | 'imported';
 export interface SlideGeneratorContext {
@@ -105,6 +114,8 @@ export interface SlideGeneratorController {
   /** Releases an unconfirmed request (HTML generation has no server-side result to recover). Keeps the proposal. */
   discardPending(): Promise<void>;
   apply(): Promise<void>;
+  /** Copies the style of another slide onto the current design without AI (`turn.transfer`), verified against the source. */
+  transferStyle?(input: SlideGeneratorContext): Promise<HtmlDesignProposal>;
   /** Reviews the last proposal returned without review (`backgroundReview`); never repairs it. Null when there is none. */
   reviewLater?(): Promise<{ html: string; visualReview: DesignVisualReview; worse: boolean } | null>;
 }
@@ -372,6 +383,18 @@ function HtmlDesignWorkspace(props: SlideGeneratorPanelProps & { actorId: string
           notices.push(`No pude comprobar las diferencias de estilo de esta propuesta (${styleMeasureCause(problem)}).`);
         }
       }
+      // The AI rearranged; now the cited slide's style is copied without AI and verified.
+      let styleTransfer: StyleTransferReport | undefined;
+      if (turn.transfer) {
+        try {
+          const done = await transferStyle(candidate, turn.transfer, turn.request ?? feedback);
+          await assertCurrent();
+          candidate = cleanCandidate(done.html); styleTransfer = done.report;
+        } catch (problem) {
+          if (problem instanceof Error && /sesión|lienzo cambió/i.test(problem.message)) throw problem;
+          notices.push(`No pude copiar el estilo de la diapositiva ${turn.transfer.sourceNumber} (${styleMeasureCause(problem)}).`);
+        }
+      }
       // Empty slots that already existed in the base are not a defect and never trigger a repair.
       const holes = flags?.huecos_heredados && refine && base ? inheritedImageHoles(base, candidate) : undefined;
       const baseBroken = new Set((baseSnapshot?.diagnostics?.issues ?? []).filter(issue => issue.code === 'missing_image').map(issue => issue.element ?? ''));
@@ -408,11 +431,12 @@ function HtmlDesignWorkspace(props: SlideGeneratorPanelProps & { actorId: string
         mounted_assets: designSource ? [...mounted.values()] : refine ? proposalBase?.mounted ?? props.mountedAssets ?? [] : [] }, html, size);
       await assertSession(life);
       const proposal: HtmlDesignProposal = { ...measured, target: destination, canvas: size, intent: refine ? proposalBase?.intent ?? 'replace' : intent,
-        ...(visualReview ? { visualReview } : {}), ...(styleLock ? { styleLock } : {}), ...(notices.length ? { notices: notices.slice(0, 8) } : {}) };
+        ...(visualReview ? { visualReview } : {}), ...(styleLock ? { styleLock } : {}), ...(styleTransfer ? { styleTransfer } : {}),
+        ...(notices.length ? { notices: notices.slice(0, 8) } : {}) };
       const next = patch({ proposal, designBase: request.design_base, status: 'ready', feedback: '', messages: [...before.messages,
         { role: 'user' as const, text: refine ? feedback : before.instruction || 'Diseña a partir de mis referencias.' },
         { role: 'assistant' as const, text: [visualReview ? describeVisualReview(visualReview) : 'Aquí está la propuesta; la reviso en segundo plano.',
-          describeStyleLock(styleLock)].filter(Boolean).join(' ') }].slice(-40) });
+          styleTransfer ? describeStyleTransfer(styleTransfer) : describeStyleLock(styleLock)].filter(Boolean).join(' ') }].slice(-40) });
       if (later) laterReviewRef.current = { html: proposal.html, correction: flags?.correccion_acotada ? turn.correction?.issues : undefined,
         review: () => reviewAndRepairDesign({ html: proposal.html, ...reviewOptions, maxRepairs: 0, assertCurrent: () => assertSession(life), repair: async same => same }) };
       await persist(next);
@@ -424,6 +448,44 @@ function HtmlDesignWorkspace(props: SlideGeneratorPanelProps & { actorId: string
       if (active(life)) { patch({ status: isDefinitiveHtmlFailure(e) ? 'ready' : 'uncertain' }); await persist().catch(() => {}); }
       throw e;
     }
+  }
+  /** Measured transfer of another slide's style (no AI): sizes follow the deck scale, measured from the nearby slides (cached). */
+  async function transferStyle(html: string, transfer: SlideStyleTransfer, request: string) {
+    const deck = (await Promise.all((transfer.deck ?? []).slice(0, 6).map(item => measureStyleSamplesCached(item, getSlideDimensions(item)).catch(() => null))))
+      .flatMap(item => item?.sheet ? [item.sheet] : []);
+    return runStyleTransfer({ html, sourceHtml: transfer.sourceHtml, sourceNumber: transfer.sourceNumber, request, planned: transfer.planned,
+      brand: transfer.brand, deck, measure: (item, brand) => measureRoleSheet(item, getSlideDimensions(item), brand) });
+  }
+  /** «Estilo de la diapositiva N» with nothing else to change: the current design with the copied style, without any AI call. */
+  async function transferOnly(life: Life, fromCurrent: boolean, turn: SlideGeneratorTurn) {
+    if (!turn.transfer) throw Error('Falta la diapositiva de la que copiar el estilo.');
+    const before = structuredClone(draftRef.current), destination = { ...target };
+    if (before.status !== 'ready') throw Error('La solicitud anterior no se confirmó. Conserva la propuesta o prepara explícitamente otra versión.');
+    const proposalBase = fromCurrent ? undefined : before.proposal, base = proposalBase?.html ?? props.currentHtml;
+    if (!base) throw Error('Primero crea una propuesta.');
+    if (proposalBase?.pending) throw Error('Comprueba las piezas de la propuesta antes de pedir otro ajuste.');
+    const size = getSlideDimensions(base), request = turn.request ?? before.instruction, notices: string[] = [];
+    setReviewProgress(`Copiando el estilo de la diapositiva ${turn.transfer.sourceNumber}…`);
+    const done = await transferStyle(base, turn.transfer, request);
+    await assertSession(life); if (!sameHtmlDesignTarget(destination, currentTarget())) throw Error('El lienzo cambió mientras se copiaba el estilo.');
+    const html = sanitizePresentationHtml(done.html), actual = getSlideDimensions(html);
+    if (actual.width !== size.width || actual.height !== size.height) throw Error('El estilo copiado cambió las dimensiones del lienzo. La versión anterior se conserva.');
+    // Copied sizes and families can change how the text flows: checked on a real render, still without AI.
+    const fit = await structuralEditFits(base, html, size, { businessId: props.businessId, expectedActorId: props.actorId }, structuralRef).catch(() => 'unverified' as const);
+    await assertSession(life);
+    if (fit === 'overflow') notices.push('Con el estilo copiado algo ya no cabe en la diapositiva; revísalo antes de aplicar o pide que lo reacomode.');
+    const measured = await measureHtmlDesignAssets({ id: props.slideId, revision: destination.revision, title: '', html: base,
+      mounted_assets: proposalBase?.mounted ?? props.mountedAssets ?? [] }, html, size);
+    await assertSession(life);
+    const proposal: HtmlDesignProposal = { ...measured, target: destination, canvas: size, intent: proposalBase?.intent ?? 'replace', styleTransfer: done.report,
+      ...(notices.length ? { notices } : {}) };
+    laterReviewRef.current = null;
+    const next = patch({ proposal, status: 'ready', feedback: '', messages: [...before.messages, { role: 'user' as const, text: request || 'Copia el estilo.' },
+      { role: 'assistant' as const, text: [describeStyleTransfer(done.report), ...notices].join(' ') }].slice(-40) });
+    await persist(next);
+    if (active(life)) setDetailsOpen(false);
+    notifyProposal(proposal, 'refined');
+    return structuredClone(proposal);
   }
   async function sourceEvidence(value: HtmlDesignDraft, recapture = false) {
     const source = value.designSource?.source;
@@ -604,6 +666,10 @@ function HtmlDesignWorkspace(props: SlideGeneratorPanelProps & { actorId: string
       await updateContext(life, frozen); await persist(patch({ feedback: frozen.feedback }));
       turnRef.current = frozen.turn ?? null;
       return requestHtml(life, true, frozen.compare === true, frozen.fromCurrent === true, frozen.rewrite === true);
+    }, true))!; },
+    async transferStyle(input) { const frozen = structuredClone(input); return (await run(async life => {
+      await updateContext(life, frozen);
+      return transferOnly(life, frozen.fromCurrent === true, frozen.turn ?? {});
     }, true))!; },
     async openEditor(options) { await run(async life => {
       if (!draftRef.current.proposal) throw Error('Primero crea o recupera una propuesta.');

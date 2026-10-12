@@ -3,6 +3,7 @@ import { assertPresentationSlides, type PresentationMountedAsset, type Presentat
 import { inspectServerPng } from '../../../supabase/functions/_shared/desaing/serverPng';
 import type { DesignVisualReview } from './designVisualReview';
 import type { StyleLockReport } from './styleLock';
+import type { StyleTransferReport } from './styleTransfer';
 import { assertConversationDesignSource, type ConversationDesignSource } from '../../../supabase/functions/_shared/desaing/conversationActions';
 import { isDesignConversationSessionToken } from '../../../supabase/functions/_shared/desaing/conversationSessions';
 
@@ -15,6 +16,8 @@ export interface HtmlDesignProposal {
   visualReview?: DesignVisualReview;
   /** Style lock result against the base («Diferencias de estilo»). */
   styleLock?: StyleLockReport;
+  /** «Estilo de la diapositiva N»: what was compared with the source and the user's indications. */
+  styleTransfer?: StyleTransferReport;
   /** Short notices of this generation (omitted capture or reference, discarded correction). */
   notices?: string[];
 }
@@ -85,7 +88,11 @@ export function assertHtmlDesignDraft(value: HtmlDesignDraft, scope: HtmlDesignS
     || p.visualReview.issues.some(issue => typeof issue !== 'string' || issue.length > 4000))) throw Error('invalid_html_design_review');
   const shortList = (list: unknown, max: number) => Array.isArray(list) && list.length <= max && list.every(item => typeof item === 'string' && item.length <= 1000);
   if (p?.styleLock && (!['none', 'reported', 'restored', 'overflow'].includes(p.styleLock.status) || !shortList(p.styleLock.differences, 30)
-    || p.styleLock.question !== undefined && (typeof p.styleLock.question !== 'string' || p.styleLock.question.length > 400))) throw Error('invalid_html_design_review');
+    || p.styleLock.question !== undefined && (typeof p.styleLock.question !== 'string' || p.styleLock.question.length > 400)
+    || [p.styleLock.compared, p.styleLock.released].some(count => count !== undefined && (!Number.isSafeInteger(count) || count < 0)))) throw Error('invalid_html_design_review');
+  const transfer = p?.styleTransfer;
+  if (transfer && (![transfer.source, transfer.checked, transfer.assertions].every(count => Number.isSafeInteger(count) && count >= 0)
+    || !shortList(transfer.fixed, 30) || !shortList(transfer.failed, 30) || !shortList(transfer.skipped, 12) || !shortList(transfer.accents, 12))) throw Error('invalid_html_design_review');
   if (p?.notices !== undefined && !shortList(p.notices, 8)) throw Error('invalid_html_design_review');
   if (p && (typeof p.html !== 'string' || p.html.length > 16 * 1024 * 1024
     || !p.target || p.target.document !== scope.document || p.target.slide !== scope.slide || !Number.isSafeInteger(p.target.revision) || p.target.revision < 1
