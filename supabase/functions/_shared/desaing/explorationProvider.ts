@@ -1,7 +1,7 @@
 import type { ExplorationPlanner, ExplorationRequest, ExplorationResult, ExplorationUsage } from './explorationContracts.ts';
 import { assertExplorationRequest, assertExplorationResult, EXPLORATION_REFERENCE_ROLES, IDEA_ASPECTS, STYLE_UNLOCKS } from './exploration.ts';
 import { CONVERSATION_DECK_LIMITS, conversationActionPrompt, conversationActionSchema, conversationEditCorpus, conversationReferenceLabels,
-  schemaEnumCount } from './conversationActions.ts';
+  keepsExistingText, schemaEnumCount } from './conversationActions.ts';
 import { BRAND_LOGO_ASSET, isLogoSlot, unapprovedElementTexts, type DesignElementEdit } from './designElementEdits.ts';
 import { designTypographyMinimum } from '../designTypography.ts';
 
@@ -267,10 +267,9 @@ export function repairConversationOutput(parsed: Record<string, unknown>, reques
   }
   // A question left open means: ask now, run after the answer (pending_action on the next turn).
   const questions = Array.isArray(understanding.pending_questions) ? understanding.pending_questions.length : 0;
-  // On the current HTML its visible text is already approved: the initial pending copy of
-  // a new session means «no new text», never a reason to block an order on that design.
-  if (turn.supports_structural_edits === 1 && turn.surface === 'html' && turn.current_html
-    && (action.kind === 'edit_elements' || action.kind === 'refine_html' && !('design_source' in action))
+  // On the current HTML (or a slide source adapted as a whole) its visible text is already approved:
+  // the initial pending copy of a new session means «no new text», never a reason to block an order on that design.
+  if (turn.supports_structural_edits === 1 && keepsExistingText(turn, action)
     && record(copy) && copy.status === 'pending' && !questions && !(Array.isArray(copy.source_reference_ids) && copy.source_reference_ids.length)
     && request.design_brief?.copy.status !== 'literal' && !request.context.references.some(reference => reference.roles.includes('content_source'))) {
     copy.status = 'none'; copy.text = ''; copy.source_reference_ids = [];

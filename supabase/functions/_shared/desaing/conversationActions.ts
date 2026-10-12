@@ -115,6 +115,19 @@ const attachedRememberedAsset = (turn: ConversationTurnContext, references: Desi
     && reference.reference_id === `image:${asset.asset_id}:${asset.version_id}`) ? asset : undefined;
 };
 
+/** Plans whose result keeps the visible text of an existing HTML (no copy to resolve): the current design, or a
+ * slide source replicated/adapted as a whole (its HTML travels as current_html). style_only keeps only the look.
+ * Shared by the planner repair and the client so both decide the same. */
+export function keepsExistingText(turn: Pick<ConversationTurnContext, 'surface' | 'current_html'> | undefined, action: unknown): boolean {
+  if (!record(action)) return false;
+  const source = record(action.design_source) && record(action.design_source.source) ? action.design_source : undefined;
+  const slideSource = !!source && (source.source as Record<string, unknown>).kind === 'slide' && source.mode !== 'style_only';
+  const onCurrent = turn?.surface === 'html' && !!turn.current_html;
+  if (action.kind === 'edit_elements') return onCurrent;
+  if (action.kind === 'refine_html') return source ? slideSource : onCurrent;
+  return action.kind === 'create_html' && slideSource;
+}
+
 /** Durable shape validation does not require transient pixels or a live deck. */
 export function assertConversationDesignSource(value: unknown): asserts value is ConversationDesignSource {
   const code = 'invalid_conversation_design_source';

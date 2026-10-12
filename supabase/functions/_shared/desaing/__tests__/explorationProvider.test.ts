@@ -341,6 +341,25 @@ describe('orders on the current design for the structural client', () => {
     expect(planned.design_understanding!.copy).toEqual({ status: 'none', text: '', source_reference_ids: [] });
   });
 
+  it('runs «recuadros horizontales, números turquesa, barco más grande» from the original slide as source without «Resolver texto»', async () => {
+    const { req, output } = current({ kind: 'refine_html', intent: 'requested',
+      instruction: 'Tomar el diseño base de la diapositiva Xending como referencia visual y regenerar el HTML manteniendo la marca, tipografía y copy existente.' });
+    const revision = String(req.context.target.revision);
+    req.conversation!.presentation!.slides[0].revision = revision;
+    req.message = 'puedes componer los recuadros en lugar de verticales, hay que presentarlos horizontales, y los números 01, 02 03 04 color turquesa de Xending que utilizamos, y el barco más grande la imagen';
+    for (const mode of ['adapt_layout', 'replicate'] as const) {
+      output.next_action!.design_source = { mode, source: { kind: 'slide', slide_id: 'slide', revision } };
+      output.design_understanding!.copy = { status: 'pending', text: '', source_reference_ids: [] };
+      const planned = await fixture(wire(output)).provider.plan(req);
+      expect(planned.next_action).toMatchObject({ kind: 'refine_html', intent: 'requested', design_source: { mode } });
+      expect(planned.design_understanding!.copy).toEqual({ status: 'none', text: '', source_reference_ids: [] });
+    }
+    // style_only keeps only the look: its text is not the result, so the copy stays to resolve.
+    output.next_action!.design_source = { mode: 'style_only', source: { kind: 'slide', slide_id: 'slide', revision } };
+    output.design_understanding!.copy = { status: 'pending', text: '', source_reference_ids: [] };
+    expect((await fixture(wire(output)).provider.plan(req)).design_understanding!.copy.status).toBe('pending');
+  });
+
   it('keeps the previous behavior for a client without the flag', async () => {
     const { req, output } = current({ kind: 'refine_html', intent: 'requested', instruction: 'Cambia el fondo a azul.' }, false);
     const planned = await fixture(wire(output)).provider.plan(req);

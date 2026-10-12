@@ -45,7 +45,7 @@ import { HtmlSectionEditor } from '@/components/HtmlSectionEditor';
 import { VisualDesignEditor, type ElementDef } from '@/components/VisualDesignEditor';
 import { SlideGeneratorPanel } from '@/components/presentations/SlideGeneratorPanel';
 import { UnifiedDesignWorkspace } from '@/components/presentations/UnifiedDesignWorkspace';
-import { rememberActiveSlide, rememberedSlideIndex } from '@/lib/presentations/activeSlideMemory';
+import { rememberActiveSlide, rememberDesignPopup, rememberedDesignPopup, rememberedSlideIndex } from '@/lib/presentations/activeSlideMemory';
 import type { HtmlDesignTarget } from '@/lib/presentations/htmlDesignDraft';
 import type { PresentationMountedAsset } from '@/lib/presentations/presentationDocument';
 import { MountedImagesPanel } from '@/components/presentations/MountedImagesPanel';
@@ -443,6 +443,8 @@ function PresentationsPageContent({ activeBusinessId, projectName }: { activeBus
       setActivePresentationId(id);
       // Reloading the same project (remount, refresh) keeps the slide being worked on.
       setCurrentSlide(rememberedSlideIndex(validated, activeBusinessId, id));
+      // ...and reopens the design popup that was open on it (its conversation session is saved).
+      if (rememberedDesignPopup(activeBusinessId, id)) setGeneratorOpen(true);
       if (activeBusinessId) {
         try { localStorage.setItem(`xending-active-presentation-${activeBusinessId}`, id); } catch { /* ignore */ }
       }
@@ -497,6 +499,11 @@ function PresentationsPageContent({ activeBusinessId, projectName }: { activeBus
     if (!activeBusinessId || !activePresentationId || slidesOwnerIdRef.current !== activePresentationId || !slide) return;
     rememberActiveSlide(activeBusinessId, activePresentationId, slide.id);
   }, [activeBusinessId, activePresentationId, slides, currentSlide]);
+  // Remember whether the design popup is open, so a remount or reload of the page never closes it.
+  useEffect(() => {
+    if (!activeBusinessId || !activePresentationId || slidesOwnerIdRef.current !== activePresentationId) return;
+    rememberDesignPopup(activeBusinessId, activePresentationId, generatorOpen);
+  }, [activeBusinessId, activePresentationId, generatorOpen]);
 
   const saveToCloud = useCallback(async () => {
     if (!activeBusinessId) {

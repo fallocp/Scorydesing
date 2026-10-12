@@ -5,7 +5,7 @@ import type { DesignToHtmlController, DesignToHtmlState, DesignToHtmlProposal } 
 import type { DesignOperation, DesignReference } from '../../../supabase/functions/_shared/desaing/contracts';
 import type { DesignCopy, ExplorationRequest, ExplorationResult, IdeaContent } from '../../../supabase/functions/_shared/desaing/explorationContracts';
 import type { ConversationActionKind, ConversationDesignSource, ConversationNextAction } from '../../../supabase/functions/_shared/desaing/conversationActions';
-import { resolveConversationSourceMentions } from '../../../supabase/functions/_shared/desaing/conversationActions';
+import { keepsExistingText, resolveConversationSourceMentions } from '../../../supabase/functions/_shared/desaing/conversationActions';
 import type { ServerGenerationCapabilities } from '../../../supabase/functions/_shared/desaing/serverGenerationContract';
 import { assertExplorationResult } from '../../../supabase/functions/_shared/desaing/exploration';
 import { canonicalExploration } from '../../../supabase/functions/_shared/desaing/explorationRepository';
@@ -559,7 +559,14 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
     const request = pending.request.request;
     const sourceText = (text: string, machine = true) => resolveConversationSourceMentions(text, request, machine);
     const persistent = (id: string) => !captures.has(id);
-    const proposedCopy = { ...result.design_understanding.copy, source_reference_ids: result.design_understanding.copy.source_reference_ids.filter(persistent) };
+    const plannedCopy = { ...result.design_understanding.copy, source_reference_ids: result.design_understanding.copy.source_reference_ids.filter(persistent) };
+    // Same rule as the server repair: an order on an existing HTML (current design or a slide source adapted
+    // as a whole) keeps its visible text, so a pending copy means «no new text», never «Resolver texto».
+    const proposedCopy: DesignCopy = plannedCopy.status === 'pending' && !plannedCopy.source_reference_ids.length
+      && !result.design_understanding.pending_questions.length && keepsExistingText(request.conversation, result.next_action)
+      && !same(request.conversation?.available_actions, ['discuss']) && request.design_brief?.copy.status !== 'literal'
+      && !request.context.references.some(reference => reference.roles.includes('content_source'))
+      ? { status: 'none', text: '', source_reference_ids: [] } : plannedCopy;
     const understanding = { ...result.design_understanding,
       resolved_instruction: sourceText(result.design_understanding.resolved_instruction),
       preserve: result.design_understanding.preserve.map(text => sourceText(text)),

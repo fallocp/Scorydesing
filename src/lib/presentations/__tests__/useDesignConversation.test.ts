@@ -1927,9 +1927,10 @@ describe('the design chat obeys explicit orders', () => {
   });
 
   it('replaces a repeated blocked plan after «no veo el diseño nuevo» with its concrete reason, never the same plan', async () => {
-    const { options, planner, client } = fixture(); options.format = 'html'; options.base = 'current';
+    // A new design (no existing HTML) really needs its text; an order on the current HTML keeps it (next test).
+    const { options, planner, client } = fixture(); options.format = 'html'; options.base = 'new';
     const blocked = (request: ExplorationRequest) => {
-      const response = result(request, 'refine_html'); response.message = 'Entendido: mantengo el diseño base y adapto a 6 cuadros. ¿Lo creo así?';
+      const response = result(request, 'create_html'); response.message = 'Entendido: creo un diseño nuevo con 6 cuadros. ¿Lo creo así?';
       response.design_understanding!.copy = { status: 'pending', text: '', source_reference_ids: [] }; return response;
     };
     planner.plan.mockImplementationOnce(async request => blocked(request)).mockImplementationOnce(async request => blocked(request));
@@ -1937,6 +1938,21 @@ describe('the design chat obeys explicit orders', () => {
     await render(options).send('no veo hagas el diseno nuevo o lo crees');
     expect(render(options).state.messages.at(-1)?.text).toBe('No lo creé: falta el texto exacto del diseño. Escríbelo aquí o pulsa «Resolver texto».');
     expect(client.command).not.toHaveBeenCalled();
+  });
+
+  it('«recuadros horizontales, números turquesa, barco más grande» on «Diapositiva original» keeps its text and never asks «Resolver texto»', async () => {
+    const { options, planner } = fixture(); options.format = 'html'; options.base = 'current';
+    planner.plan.mockImplementationOnce(async request => {
+      const response = result(request, 'refine_html');
+      response.message = 'Tomo el diseño base de la diapositiva y regenero el HTML manteniendo la marca, tipografía y copy existente. ¿Lo creo así?';
+      response.design_understanding!.copy = { status: 'pending', text: '', source_reference_ids: [] }; return response;
+    });
+    render(options); await flush();
+    await render(options).send('puedes componer los recuadros en lugar de verticales, hay que presentarlos horizontales, y los números 01, 02 03 04 color turquesa de Xending que utilizamos, y el barco más grande la imagen');
+    const state = render(options).state;
+    expect(state.copy).toEqual({ status: 'none', text: '', source_reference_ids: [] });
+    expect(state.confirmation).not.toBeNull();
+    expect(state.messages.at(-1)?.text).not.toContain('Resolver texto');
   });
 
   it('never claims a plan was confirmed or created when nothing ran', async () => {

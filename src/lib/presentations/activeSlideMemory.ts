@@ -9,6 +9,19 @@ export function rememberActiveSlide(businessId: string, presentationId: string, 
   try { storage?.setItem(key(businessId, presentationId), slideId); } catch { /* Selection hint only. */ }
 }
 
+/** The «Diseñar diapositiva» popup survives a remount or reload of the page in this tab (sessionStorage):
+ * its open state is page state, so any remount used to close it while its session stayed saved. */
+const popupKey = (businessId: string, presentationId: string) => `xending-design-popup-${businessId}-${presentationId}`;
+const tabStorage = () => { try { return globalThis.sessionStorage; } catch { return undefined; } };
+export function rememberDesignPopup(businessId: string, presentationId: string, open: boolean,
+  storage: Pick<Storage, 'setItem' | 'removeItem'> | undefined = tabStorage()) {
+  try { if (open) storage?.setItem(popupKey(businessId, presentationId), '1'); else storage?.removeItem(popupKey(businessId, presentationId)); }
+  catch { /* Hint only. */ }
+}
+export function rememberedDesignPopup(businessId: string, presentationId: string, storage: Reader | undefined = tabStorage()): boolean {
+  try { return storage?.getItem(popupKey(businessId, presentationId)) === '1'; } catch { return false; }
+}
+
 /** Index of the remembered slide in this deck, or 0 when it no longer exists. */
 export function rememberedSlideIndex(slides: ReadonlyArray<{ id: string }>, businessId: string, presentationId: string,
   storage: Reader | undefined = browserStorage()): number {
