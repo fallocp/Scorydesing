@@ -10,7 +10,7 @@
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
   ChevronLeft,
@@ -46,6 +46,7 @@ import { VisualDesignEditor, type ElementDef } from '@/components/VisualDesignEd
 import { SlideGeneratorPanel } from '@/components/presentations/SlideGeneratorPanel';
 import { UnifiedDesignWorkspace } from '@/components/presentations/UnifiedDesignWorkspace';
 import { rememberActiveSlide, rememberDesignPopup, rememberedDesignPopup, rememberedSlideIndex } from '@/lib/presentations/activeSlideMemory';
+import { designScreenPath, isDesignScreenEnabled, parseDesignScreenLocation } from '@/lib/presentations/designScreenRoute';
 import type { HtmlDesignTarget } from '@/lib/presentations/htmlDesignDraft';
 import type { PresentationMountedAsset } from '@/lib/presentations/presentationDocument';
 import { MountedImagesPanel } from '@/components/presentations/MountedImagesPanel';
@@ -318,6 +319,14 @@ function PresentationsPageContent({ activeBusinessId, projectName }: { activeBus
   const navigate = useNavigate();
   const { toast } = useToast();
   const [currentSlide, setCurrentSlide] = useState(0);
+  // Full-screen design (VITE_DESAING_DESIGN_SCREEN=true): project, slide, session and format come from the URL.
+  const screenEnabled = isDesignScreenEnabled(import.meta.env as Record<string, unknown>);
+  const routeParams = useParams<{ projectId?: string; slideNumber?: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const screenRoute = screenEnabled ? parseDesignScreenLocation(routeParams, searchParams) : null;
+  const screenRouteRef = useRef(screenRoute); screenRouteRef.current = screenRoute;
+  const inDesignScreen = !!screenRoute;
+  const [projectsListed, setProjectsListed] = useState(false);
   // Panel de generación/refinado de slides con IA (modal).
   const [generatorOpen, setGeneratorOpen] = useState(false);
   // Cantidad de slides del borrador (para mostrarlo en el menú de proyectos).
@@ -441,10 +450,11 @@ function PresentationsPageContent({ activeBusinessId, projectName }: { activeBus
       setSlides(validated);
       slidesOwnerIdRef.current = id;
       setActivePresentationId(id);
-      // Reloading the same project (remount, refresh) keeps the slide being worked on.
-      setCurrentSlide(rememberedSlideIndex(validated, activeBusinessId, id));
+      // Reloading the same project (remount, refresh) keeps the slide being worked on; the design screen's URL names it.
+      const route = screenRouteRef.current;
+      setCurrentSlide(route?.projectId === id ? Math.min(route.slideIndex, validated.length - 1) : rememberedSlideIndex(validated, activeBusinessId, id));
       // ...and reopens the design popup that was open on it (its conversation session is saved).
-      if (rememberedDesignPopup(activeBusinessId, id)) setGeneratorOpen(true);
+      if (!screenEnabled && rememberedDesignPopup(activeBusinessId, id)) setGeneratorOpen(true);
       if (activeBusinessId) {
         try { localStorage.setItem(`xending-active-presentation-${activeBusinessId}`, id); } catch { /* ignore */ }
       }
@@ -471,9 +481,14 @@ function PresentationsPageContent({ activeBusinessId, projectName }: { activeBus
       if (!alive.current || sequence !== loadSequence.current) return;
       const rows = data ?? [];
       setPresentations(rows.map((p: any) => ({ id: p.id, name: p.name || 'Presentación' })));
+      setProjectsListed(true);
+      // The design screen of the unsaved deck keeps the local draft instead of opening a cloud project.
+      if (screenRouteRef.current?.draft) return;
       if (rows.length > 0) {
         let preferred: string | null = null;
         try { preferred = localStorage.getItem(`xending-active-presentation-${activeBusinessId}`); } catch { /* ignore */ }
+        const routed = screenRouteRef.current?.projectId;
+        if (routed && rows.some((p: any) => p.id === routed)) preferred = routed;
         const mostRecent = [...rows].sort((a: any, b: any) => (b.updated_at || '').localeCompare(a.updated_at || ''))[0];
         const activeId = preferred && rows.some((p: any) => p.id === preferred) ? preferred : mostRecent.id;
         await loadPresentationSlides(activeId);
@@ -493,6 +508,13 @@ function PresentationsPageContent({ activeBusinessId, projectName }: { activeBus
     loadPresentations();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeBusinessId]);
+  // Design screen: the slide in the URL is the slide on screen (thumbnails navigate by URL).
+  useEffect(() => {
+    if (!screenRoute) return;
+    const index = Math.min(screenRoute.slideIndex, slides.length - 1);
+    if (index >= 0 && index !== currentSlide) setCurrentSlide(index);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [screenRoute?.slideIndex, slides.length]);
   // Remember the active slide of the loaded project, so a reload never jumps back to slide 1.
   useEffect(() => {
     const slide = slides[currentSlide];
@@ -903,7 +925,7 @@ function PresentationsPageContent({ activeBusinessId, projectName }: { activeBus
     // No navegar con teclado si el panel generador está abierto o si el foco
     // está en un campo de texto (textarea/input/contenteditable): de lo contrario
     // escribir un espacio saltaba de slide y bloqueaba la escritura.
-    if (generatorOpen || mountTarget || designTarget || compositionTarget || deckComposerTarget) return;
+    if (generatorOpen || inDesignScreen || mountTarget || designTarget || compositionTarget || deckComposerTarget) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName === 'TEXTAREA' || t.tagName === 'INPUT' || t.isContentEditable)) return;
@@ -921,7 +943,7 @@ function PresentationsPageContent({ activeBusinessId, projectName }: { activeBus
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [goNext, goPrev, editingMode, generatorOpen, mountTarget, designTarget, compositionTarget, deckComposerTarget]);
+  }, [goNext, goPrev, editingMode, generatorOpen, inDesignScreen, mountTarget, designTarget, compositionTarget, deckComposerTarget]);
 
   const handleExportHtml = useCallback(() => {
     const name = presentations.find(p => p.id === activePresentationId)?.name ?? 'Presentación';
@@ -1237,6 +1259,45 @@ function PresentationsPageContent({ activeBusinessId, projectName }: { activeBus
   const handleCancelEdit = useCallback(() => {
     setEditingMode('none');
   }, []);
+
+  // --- Full-screen design (VITE_DESAING_DESIGN_SCREEN=true) ---
+  if (screenRoute) {
+    const slide = slides[currentSlide];
+    const loaded = screenRoute.draft ? activePresentationId === null : activePresentationId === screenRoute.projectId && slidesOwnerIdRef.current === screenRoute.projectId;
+    const missing = !screenRoute.draft && projectsListed && !cloudLoading && !presentations.some(item => item.id === screenRoute.projectId);
+    if (!designService || !activeBusinessId || !loaded || !slide || cloudLoading) return <div className="container mx-auto py-10 space-y-4">
+      <p role="status" className="text-sm text-muted-foreground">{!designService ? 'El diseño con IA no está disponible en este entorno.'
+        : missing ? 'No encontramos esa presentación en este negocio.' : 'Cargando la presentación…'}</p>
+      <Button variant="outline" size="sm" onClick={() => navigate('/presentations')} className="gap-2"><ArrowLeft className="h-4 w-4" />Presentaciones</Button>
+    </div>;
+    const documentId = slidesOwnerIdRef.current ?? `draft:${activeBusinessId}`;
+    const target = { document: documentId, slide: slide.id, revision: slide.revision };
+    // Only the given query keys change; the rest of the URL (slide, other keys) stays.
+    const setQuery = (key: 'sesion' | 'formato', value: string | null) => setSearchParams(previous => {
+      const next = new URLSearchParams(previous);
+      if (value) next.set(key, value); else next.delete(key);
+      return next;
+    }, { replace: true });
+    return <UnifiedDesignWorkspace layout="screen"
+      // A new revision (after «Aplicar») reopens the conversation on the applied design, as reopening the popup did.
+      key={`screen:${activeBusinessId}:${slidesOwnerIdRef.current}:${slide.id}:${slide.revision}`}
+      service={designService} businessId={activeBusinessId} documentId={documentId} slide={slide}
+      projectName={projectName} presentationName={presentations.find(item => item.id === activePresentationId)?.name ?? 'Sin guardar (nuevo)'}
+      deckSlides={slides} initialView={screenRoute.format ?? 'html'} urlFormat={screenRoute.format} initialSession={screenRoute.session}
+      onClose={() => navigate('/presentations')}
+      // Each slide keeps its own sessions: changing slide drops the session from the URL and keeps the format.
+      onSelectSlide={index => navigate(designScreenPath(screenRoute.projectId, index + 1, { format: screenRoute.format }), { replace: true })}
+      onSessionChange={session => { if (session !== (screenRoute.session ?? 'main')) setQuery('sesion', session === 'main' ? null : session); }}
+      onFormatChange={format => { if (format !== (screenRoute.format ?? 'html')) setQuery('formato', format === 'image' ? 'imagen' : 'html'); }}
+      onApply={next => {
+        handleApplyGeneratedToCurrent(next.html, target, next.mounted_assets);
+        toast({ title: 'Diseño aplicado', description: 'La diapositiva ya tiene el nuevo diseño. Puedes seguir ajustándola aquí.' });
+      }}
+      onInsert={next => {
+        handleInsertGeneratedSlide(next.html, target, next.mounted_assets);
+        navigate(designScreenPath(screenRoute.projectId, currentSlide + 2, { format: screenRoute.format }), { replace: true });
+      }} />;
+  }
 
   // --- Editor modes ---
   if (editingMode === 'visual') {
@@ -1641,7 +1702,7 @@ function PresentationsPageContent({ activeBusinessId, projectName }: { activeBus
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setGeneratorOpen(true)}
+            onClick={() => screenEnabled ? navigate(designScreenPath(activePresentationId, currentSlide + 1)) : setGeneratorOpen(true)}
             disabled={!activeBusinessId || cloudLoading}
             className="gap-2 border-[#FF7A4A] text-[#E85A2C]"
             title="Diseñar con imágenes de referencia, el estilo de esta diapositiva o el de la presentación"

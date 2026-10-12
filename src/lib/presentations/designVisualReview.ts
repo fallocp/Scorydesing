@@ -46,7 +46,10 @@ export async function reviewAndRepairDesign(input: {
   feedback?(issues: string[], reviewFeedback: string): string;
   /** A repair that leaves more problems is discarded and the previous version kept. */
   discardWorse?: boolean;
+  /** Automatic repairs allowed (default 2). 0 = review only: problems go to the user's «Corregir». */
+  maxRepairs?: number;
 }): Promise<{ html: string; visualReview: DesignVisualReview }> {
+  const maxRepairs = input.maxRepairs ?? 2;
   let html = input.html, repairs = 0;
   let best = { html, visualReview: { status: 'unavailable' as DesignVisualReview['status'], repairs, issues: [] as string[] } };
   let bestScore = Infinity, previous: { score: number; issues: string[] } | null = null;
@@ -87,7 +90,7 @@ export async function reviewAndRepairDesign(input: {
     }
     if (passed) return { html, visualReview: { status: 'passed', repairs, issues: [] } };
     // Missing diagnostics require renderer upgrade, not another paid model attempt.
-    if (repairs >= 2 || (!measured.length && incomplete && verdict.passed)) {
+    if (repairs >= maxRepairs || (!measured.length && incomplete && verdict.passed)) {
       return { ...best, visualReview: { ...best.visualReview, repairs } };
     }
     const feedback = input.feedback ? input.feedback(issues, verdict.feedback) : buildDesignRepairFeedback(issues, verdict.feedback);
@@ -106,15 +109,15 @@ export async function reviewAndRepairDesign(input: {
 }
 
 export function describeVisualReview(review?: DesignVisualReview): string {
-  if (!review || review.status === 'unavailable') return 'Propuesta generada. La revisión visual no pudo completarse.'
-    + (review?.issues.length ? ` ${review.issues[review.issues.length - 1]}` : ' Revísala antes de aplicarla.');
+  if (!review || review.status === 'unavailable') return 'Aquí está la propuesta, pero la revisión automática no pudo completarse.'
+    + (review?.issues.length ? ` ${review.issues[review.issues.length - 1]}` : ' Échale un ojo antes de aplicarla.');
   if (review.status === 'needs_review') {
     const notice = (issue: string) => issue.startsWith(REPAIR_FAILURE) || issue.startsWith(REVIEW_FAILURE) || issue === REPAIR_DISCARDED;
     const failure = review.issues.filter(notice).pop();
     // The request checklist: never «listo» while something the user asked for is missing.
     const unmet = review.issues.filter(isUnmetIssue).map(issue => issue.slice(UNMET_PREFIX.length).trim());
     const problems = review.issues.filter(issue => !notice(issue) && !isUnmetIssue(issue)).join(' ');
-    const missing = unmet.length ? ` Falta cumplir lo que pediste: ${unmet.slice(0, 4).join('; ')}.` : '';
+    const missing = unmet.length ? `Falta cumplir lo que pediste: ${unmet.slice(0, 4).join('; ')}.` : '';
     const summaries: string[] = [];
     if (/tapad[oa]|\btapa[n]?\b|\bcubre[n]?\b|solapa|superpon|superpuest/i.test(problems)) summaries.push('hay texto tapado o superpuesto');
     if (/ocult/i.test(problems)) summaries.push('hay texto oculto');
@@ -123,8 +126,8 @@ export function describeVisualReview(review?: DesignVisualReview): string {
     if (/no (?:se )?carg|falt[^.]*\b(?:imagen|recurso|ícono|icono)|placeholder/i.test(problems)) summaries.push('faltan recursos visuales');
     if (/vac[ií][oa]|sin contenido|espacio (?:sobrante|desaprovechado)/i.test(problems)) summaries.push('hay espacios o contenedores vacíos que ajustar');
     if (/geométrica.*incompleta/i.test(problems)) summaries.push('la comprobación de la distribución quedó incompleta');
-    return `La propuesta necesita ajustes${summaries.length ? `: ${summaries.slice(0, 3).join('; ')}` : problems || !unmet.length ? ' de composición' : ''}.`
-      + missing + (failure ? ` ${failure}` : '');
+    const found = summaries.length ? `Ojo: ${summaries.slice(0, 3).join('; ')}.` : problems || !unmet.length ? 'Ojo: la composición necesita ajustes.' : '';
+    return [found, missing, failure ?? '', '¿La corrijo?'].filter(Boolean).join(' ');
   }
-  return 'La propuesta pasó la revisión visual automática. Puedes pedir ajustes, editarla o aplicarla al documento.';
+  return 'Revisada: no vi problemas. ¿Algo más?';
 }

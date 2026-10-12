@@ -111,5 +111,8 @@ export interface ExplorationPlanner {
   recover?(requestKey: string, request?: ExplorationRequest): Promise<ExplorationResult | null>;
   /** Own durable requests/results only; captures and local idea edits are not uploaded. */
   history?(sessionId: string): Promise<ExplorationAttempt[]>;
-  capabilities?(): Promise<ServerExplorationCapabilities | null>;
+  /** `stream`: also ask whether the server can answer over SSE (supports_stream). */
+  capabilities?(options?: { stream?: boolean }): Promise<ServerExplorationCapabilities | null>;
+  /** Same durable plan (same journal, budget and validation) with the raw output text as it arrives. */
+  planStream?(request: ExplorationRequest, onText: (text: string) => void): Promise<ExplorationResult>;
 }

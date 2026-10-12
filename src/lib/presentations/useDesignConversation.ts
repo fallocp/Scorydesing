@@ -21,7 +21,7 @@ import type { ImageGenerationSettings } from '../imageGenerationSettings';
 import { imageDataUrl } from '../desaing/labImages';
 import { DesignServerClientError } from '../desaing/serverClient';
 import { DesignHtmlRequestError, isDefinitiveHtmlFailure } from './htmlRequestError';
-import { beginConversationAction, completeConversationAction, emptyDesignConversation, markConversationAction, advanceConversationEpoch,
+import { beginConversationAction, completeConversationAction, emptyDesignConversation, markConversationAction, advanceConversationEpoch, versionReview,
   openDesignConversationStore, type DesignConversationState, type DesignConversationRecord, type DesignConversationVersion } from './designConversationStore';
 import { buildConversationImageOperation, prepareConversationReferences, readConversationImage, sameConversationAsset } from './designConversationImages';
 import { buildConversationHtmlSummary } from './designConversationHtml';
@@ -40,6 +40,9 @@ import { describeVisualReview } from './designVisualReview';
 import { buildScopedRepairFeedback, isOrientationChange, namedReferences, referenceNotUsedNotice, requestChecklist,
   type DesignFromExistingFlags } from './designFromExisting';
 import { describeStyleLock, inferStyleUnlocks } from './styleLock';
+import { backgroundReviewNote, citesSlides, designReadyMessage, isTextOnlyRequest, localChatReply, resolveSlideMentions,
+  type DesignStep } from './designChatNatural';
+import { planWithStream } from '../desaing/plannerStream';
 import { DESIGN_CONVERSATION_SESSIONS, isDesignConversationSessionId, designConversationSessionToken, withDesignConversationSession,
   type DesignConversationSessionId } from '../../../supabase/functions/_shared/desaing/conversationSessions';
 import { downloadContinuityBackup, type SyncedConversationStore } from './designConversationRemote';
@@ -64,6 +67,10 @@ export interface UseDesignConversationOptions {
   styleSpecReady?(): Promise<string>;
   /** «Diseñar sobre lo que ya existe» pieces; undefined = current behavior. */
   fromExisting?: DesignFromExistingFlags;
+  /** Natural chat (design screen): visible steps, live answer, local replies, result before its review. */
+  natural?: boolean;
+  /** Session named in the URL: wins over the remembered choice when the conversation opens. */
+  initialSession?: DesignConversationSessionId;
   htmlController: RefObject<SlideGeneratorController | null>; compositionController: RefObject<DesignToHtmlController | null>;
   htmlState?: RefObject<SlideGeneratorState | null>; compositionState?: RefObject<DesignToHtmlState | null>;
   onView(view: DesignConversationView): void; onApply(slide: PresentationSlide): void | Promise<void>;
@@ -222,6 +229,8 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
   const [generation, setGeneration] = useState<ServerGenerationCapabilities | null>(null);
   const [imageResult, setImageResult] = useState<PresentationLibraryResult | null>(null), [imagePreview, setImagePreview] = useState('');
   const [imagePreviewLoading, setImagePreviewLoading] = useState(false);
+  // Natural chat: what the turn is doing right now, with its time, and the planner's answer as it arrives.
+  const [steps, setSteps] = useState<DesignStep[]>([]), [liveReply, setLiveReply] = useState('');
   const [view, setView] = useState<DesignConversationView>(options.initialView ?? 'image');
   const viewRef = useRef<DesignConversationView>(options.initialView ?? 'image');
   const hydratedHtml = useRef('');
@@ -304,8 +313,51 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
     if (!life || !active(life) || life.locked || !life.store) return;
     life.locked = true; setBusy(true); setError('');
     try { await life.queue; if (!recovering) ensure(life); await action(life); }
-    catch (problem) { if (active(life)) setError(describeError(problem)); }
+    catch (problem) {
+      if (active(life)) {
+        setError(describeError(problem));
+        setSteps(items => items.some(item => item.status === 'running' && item.id !== 'background-review')
+          ? items.map(item => item.status === 'running' && item.id !== 'background-review' ? { ...item, status: 'failed' as const } : item) : items);
+      }
+    }
     finally { life.locked = false; if (active(life)) setBusy(false); }
+  }
+  /** A visible step of this turn (natural chat only); the returned function closes it with its duration. */
+  function step(life: Life, label: string, doneLabel: string, id: string = crypto.randomUUID()): (failed?: boolean) => void {
+    if (!latest.current.natural) return () => {};
+    const started = performance.now();
+    if (active(life)) setSteps(items => [...items.filter(item => item.id !== id), { id, label, doneLabel, status: 'running' as const }].slice(-8));
+    let open = true;
+    return (failed = false) => {
+      if (!open) return; open = false;
+      const ms = Math.round(performance.now() - started);
+      console.info('design-timing:', doneLabel, `${ms} ms`);
+      if (active(life)) setSteps(items => items.map(item => item.id === id ? { ...item, status: failed ? 'failed' as const : 'done' as const, ms } : item));
+    };
+  }
+  async function timed<T>(life: Life, label: string, doneLabel: string, task: () => Promise<T>): Promise<T> {
+    const end = step(life, label, doneLabel);
+    try { const value = await task(); end(); return value; } catch (problem) { end(true); throw problem; }
+  }
+  /** Result first: the proposal is already saved and shown; its review adds a short note when it ends. Never repairs. */
+  async function reviewInBackground(life: Life) {
+    const controller = latest.current.htmlController.current;
+    if (!controller?.reviewLater) return;
+    const end = step(life, 'Revisando en segundo plano…', 'Revisión terminada', 'background-review');
+    try {
+      const outcome = await controller.reviewLater();
+      if (!outcome || !active(life)) { end(); return; }
+      await save(life, value => {
+        const version = value.versions.find(item => item.kind === 'html' && item.proposal.html === outcome.html);
+        if (version?.kind !== 'html') return value;
+        // Versions are immutable: the late review is kept beside them, by version id.
+        const reviews = Object.fromEntries(Object.entries({ ...value.version_reviews, [version.id]: outcome.visualReview }).slice(-20));
+        return { ...value, version_reviews: reviews,
+          messages: value.messages.length >= 200 ? value.messages : [...value.messages, { id: `assistant:review:${crypto.randomUUID()}`, turn_id: version.turn_id,
+            role: 'assistant' as const, text: backgroundReviewNote(outcome.visualReview, outcome.worse) }] };
+      }, true);
+      end();
+    } catch { end(true); }
   }
   function conversationScope(life: Life, session = life.session) {
     return { actor: life.actor, business: latest.current.businessId, document: latest.current.documentId, slide: latest.current.slide.id,
@@ -392,7 +444,9 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
     void (async () => {
       const session = await options.service.client.session(); if (!active(life)) return; life.actor = session.actorId;
       const choiceKey = sessionChoiceKey(life.actor, options);
-      const choice = selectionHint.current?.key === choiceKey ? selectionHint.current.session : rememberedSession(life.actor, options);
+      // The URL's session (design screen) wins on open; later switches keep their own hint.
+      const choice = selectionHint.current?.key === choiceKey ? selectionHint.current.session
+        : isDesignConversationSessionId(options.initialSession) ? options.initialSession : rememberedSession(life.actor, options);
       selectionHint.current = { key: choiceKey, session: choice };
       if (choice !== life.session) { activateSession(life, choice); return; }
       const scope = conversationScope(life);
@@ -701,6 +755,9 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
   }
   async function sendMessage(life: Life, message: string, onSaved?: () => void, resolvingCopy = false,
     inspection?: { round: number; turnId: string; execute: boolean; phase?: 'clarification' | 'confirmation' }) {
+    const natural = latest.current.natural === true;
+    // «@N» names slide N of this presentation.
+    if (natural && !inspection) message = resolveSlideMentions(message, latest.current.deckSlides ?? []).text;
     if (!message.trim() || message.length > 6000) throw Error('Escribe un mensaje de hasta 6000 caracteres.');
     await assertCurrent(life); await syncBrand(life);
     if (!resolvingCopy && !inspection && isDesignConfirmation(message)) {
@@ -710,13 +767,22 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
       if (blocker === null && current(life).confirmation) { await executeArmedPlan(life, { userText: message }, onSaved); return; }
       if (blocker?.reason === 'stale' || blocker?.reason === 'busy') { await replyLocally(life, message, designBlockerText(blocker), onSaved); return; }
     }
+    // Natural chat: thanks, «¿qué cambiaste?» and a «sí» with nothing to run are answered instantly from the state.
+    if (natural && !resolvingCopy && !inspection) {
+      const local = localChatReply(message, current(life));
+      if (local) { await replyLocally(life, message, local, onSaved); return; }
+    }
     if (current(life).messages.length > 198) throw Error('conversation_message_limit');
     if (current(life).completed_action_ids.length >= 200) throw Error('conversation_action_limit');
-    const capabilities = await plannerRef.current.capabilities?.(); await assertCurrent(life);
+    const capabilities = natural ? await plannerRef.current.capabilities?.({ stream: true }) : await plannerRef.current.capabilities?.();
+    await assertCurrent(life);
     if (capabilities === null) throw Error('La conversación de diseño no está habilitada. Revisa la configuración del servidor.');
     if (capabilities?.supports_conversation_actions !== 1) throw Error('Actualiza el servidor para activar la conversación unificada de diseño.');
+    const endRead = step(life, 'Leyendo la diapositiva…', 'Leí la diapositiva');
     const uploaded = await references(life), value = current(life), selected = selectedOf(value);
-    let deck = presentationContext(value);
+    // Natural chat: the deck summary travels only when the user cites slides or the turn needs it.
+    let deck = !natural || inspection || citesSlides(message) || latest.current.base === 'deck' || !!value.inspected_slide_ids?.length
+      ? presentationContext(value) : undefined;
     const ids = value.inspected_slide_ids?.filter(id => deck?.slides.some(slide => slide.id === id)) ?? [];
     if (deck && ids.length) deck = await inspectPresentation(life, ids, capabilities.supports_visual_context === true);
     // Base controls choose the source for this turn without changing the user's
@@ -747,8 +813,9 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
     const captureHtml = hasHtml ? baseHtml : format === 'html' && base === 'deck' ? latest.current.deckBaseHtml : undefined;
     const inspectionReference = deck?.inspected_slides?.some(slide => slide.reference_id) ? life.inspection?.reference : undefined;
     if (inspectionReference) visualRefs.push(inspectionReference);
+    // Natural chat: a pure text edit is planned from the HTML summary; the capture is only taken when the plan can use it.
     const capture = captureHtml && !resolvingCopy && hasCaptureSlot && visualRefs.length < 4 && capabilities.supports_visual_context === true
-      ? await htmlCapture(life, captureHtml) : undefined;
+      && !(natural && isTextOnlyRequest(message)) ? await htmlCapture(life, captureHtml) : undefined;
     if (capture) visualRefs.push(capture);
     // Keep all explicit references and the active HTML capture within the planner's
     // four-image contract. A composition's old source image is secondary here.
@@ -779,9 +846,14 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
     const sentKey = value.confirmation?.context_key;
     const flags = latest.current.fromExisting;
     // The spec always arrives: wait for the measurement (max. 8 s) instead of sending it empty.
-    const styleSpec = (flags?.ficha_estricta && format === 'html' && base !== 'new' ? await latest.current.styleSpecReady?.().catch(() => '') : '')
-      || latest.current.styleSpec;
+    // Natural chat: never wait before planning; the spec keeps measuring while the planner works and the generator waits for it.
+    const measureSpec = !!flags?.ficha_estricta && format === 'html' && base !== 'new';
+    const styleSpec = (measureSpec && !natural ? await latest.current.styleSpecReady?.().catch(() => '') : '') || latest.current.styleSpec;
     if (flags?.ficha_estricta) await assertCurrent(life);
+    // Style-only attachments (never the chosen visual source) are enough at low detail; only a server that streams knows the field.
+    const lowDetail = natural && capabilities.supports_stream === 1 ? value.references.filter(reference => reference.role === 'image_style_reference'
+      && !(value.design_source?.source.kind === 'reference' && value.design_source.source.reference_id === reference.id)
+      && visualRefs.some(item => item.reference_id === reference.id)).map(reference => reference.id).slice(0, 4) : [];
     const referenceNotes = flags?.prompt_base && !resolvingCopy ? value.references.flatMap(reference => {
       const note = referencePromptOf(value, reference.sha256);
       return note && visualRefs.some(item => item.reference_id === reference.id) ? [{ reference_id: reference.id, note: note.slice(0, 1500) }] : [];
@@ -819,6 +891,7 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
         ...(!resolvingCopy && format === 'html' && base !== 'new' && styleSpec?.trim() ? { style_spec: styleSpec.slice(0, 4000) } : {}),
         ...(!resolvingCopy && flags && format === 'html' ? { supports_style_lock: 1 as const } : {}),
         ...(referenceNotes ? { reference_notes: referenceNotes } : {}),
+        ...(lowDetail.length ? { low_detail_reference_ids: lowDetail } : {}),
         ...(!resolvingCopy && format === 'html' && base === 'deck' && deckStyle.length
           ? { deck_style: { slides: deckStyle } } : {}),
         ...(hasHtml ? { current_html: { revision: String(value.target.revision),
@@ -831,9 +904,19 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
       epoch: before.epoch, target: before.target, request: { kind: 'understand', request } }, inspection ? undefined
       : { id: `user:${actionId}`, turn_id: turnId, role: 'user', text: message }));
     onSaved?.();
+    endRead();
+    // Natural chat: the style spec measures while the planner works (never before it).
+    if (natural && measureSpec && latest.current.styleSpecReady) {
+      const endSpec = step(life, 'Midiendo el estilo…', 'Medí el estilo');
+      void latest.current.styleSpecReady().then(spec => endSpec(!spec), () => endSpec(true));
+    }
     await save(life, before => markConversationAction(before, actionId, 'dispatched'));
     try { await assertCurrent(life); life.planning = actionId;
-      const result = await plannerRef.current.plan(request).finally(() => { if (life.planning === actionId) life.planning = undefined; });
+      const endPlan = step(life, 'Preparando el plan…', 'Plan listo');
+      const result = await planWithStream(plannerRef.current, request, text => { if (active(life)) setLiveReply(text); },
+        natural && capabilities.supports_stream === 1)
+        .finally(() => { if (life.planning === actionId) life.planning = undefined; if (active(life)) setLiveReply(''); });
+      endPlan();
       await acceptUnderstanding(life, result, true, inspection?.round, { execute: inspection ? inspection.execute : true, sentKey }); }
     catch (problem) {
       if (!await finishPlanningFailure(life, actionId, problem) && active(life) && current(life).pending?.action_id === actionId)
@@ -855,7 +938,7 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
           version: { id: crypto.randomUUID(), turn_id: pending.turn_id, ...(value.selected_version_id ? { parent_id: value.selected_version_id } : {}),
             ...(completedDesignSource(value) ? { design_source: completedDesignSource(value) } : {}),
             target: pending.target, kind: 'image', asset: result.asset.identity }, next_action: null,
-          message: { id: `assistant:${operation.operation_key}`, turn_id: pending.turn_id, role: 'assistant', text: 'La imagen está lista. Puedes pedirme ajustes y compararla antes de aprobarla.' },
+          message: { id: `assistant:${operation.operation_key}`, turn_id: pending.turn_id, role: 'assistant', text: 'Aquí está la imagen. ¿La apruebas o le cambio algo?' },
         }), design_source: completedDesignSource(value) ?? null, preferences: { format: latest.current.format ?? 'image', base: 'version' as const } }));
         show('image'); void refreshImage(life, result, true); return;
       }
@@ -955,12 +1038,15 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
       copyMode: value.copy.status === 'pending' ? 'instruction' as const : value.copy.status === 'none' ? 'none' as const : 'literal' as const,
       designBase: 'version' as const, proposal };
   }
-  async function finishHtml(life: Life, proposal: HtmlDesignProposal, composition?: { request_key: string; source: DesignToHtmlProposal['source']; unresolved_slots: string[] }, notice?: string) {
+  /** `summary`: the plan of a result shown before its review (natural chat). */
+  async function finishHtml(life: Life, proposal: HtmlDesignProposal, composition?: { request_key: string; source: DesignToHtmlProposal['source']; unresolved_slots: string[] }, notice?: string,
+    summary?: string) {
     const pending = current(life).pending; if (!pending || pending.kind !== 'html') throw Error('conversation_pending_unresolved');
     assertHtmlDesignTarget(proposal, pending.target); await assertCurrent(life, pending.epoch);
     const text = composition?.unresolved_slots.length
-      ? 'La estructura HTML está lista. Completa las piezas señaladas en el editor antes de aplicarla.'
-      : composition ? 'El HTML está listo para revisarlo y editarlo. Puedes pedirme otro ajuste o aplicarlo cuando quieras.'
+      ? 'La estructura ya está en HTML, pero faltan piezas: complétalas en el editor antes de aplicarla.'
+      : composition ? 'Ya es HTML editable. ¿Le ajusto algo o la aplicas?'
+      : summary !== undefined && !proposal.visualReview ? designReadyMessage(summary, [describeStyleLock(proposal.styleLock), ...(proposal.notices ?? [])].filter(Boolean))
       : [describeVisualReview(proposal.visualReview), describeStyleLock(proposal.styleLock), ...(proposal.notices ?? [])].filter(Boolean).join(' ');
     await save(life, value => ({ ...completeConversationAction(value, pending.action_id, { version: { id: crypto.randomUUID(), turn_id: pending.turn_id,
       ...(value.selected_version_id ? { parent_id: value.selected_version_id } : {}), target: proposal.target, kind: 'html', proposal: { ...proposal, intent: 'replace' },
@@ -1031,9 +1117,9 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
         canvas: selectedProposal?.canvas ?? getSlideDimensions(slide.html), mounted: reconcileMountedAssets(slide, editedHtml), intent: 'replace', pending: undefined,
         visualReview: { status: 'needs_review', repairs: 0, issues: [fit === 'unverified' ? 'No pude comprobar que todo quepa; revísalo antes de aplicar.'
           : 'Revisa el ajuste puntual antes de aplicar el diseño.'] } };
-      const done = !fit ? 'El ajuste está listo. Puedes revisarlo, seguir editando o aplicarlo a la diapositiva.'
-        : fit === 'fits' ? `Listo: ${summary}. Puedes revisarlo, seguir editando o aplicarlo a la diapositiva.`
-          : `Listo: ${summary}. No pude comprobar que todo quepa; revísalo antes de aplicarlo.`;
+      const done = !fit ? 'Listo, ya está el ajuste. ¿Algo más?'
+        : fit === 'fits' ? `Listo: ${summary}. ¿Algo más?`
+          : `Hecho: ${summary}, pero no pude comprobar que todo quepa. Revísalo antes de aplicarlo.`;
       const copy = conversationCopyAfterEdit(value.copy, slide.html, editedHtml), versionId = crypto.randomUUID();
       await assertCurrent(life); await assertRemoteRevision(life);
       await save(life, before => ({ ...before, versions: [...before.versions, { id: versionId, turn_id: turnId,
@@ -1113,7 +1199,7 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
         generation, settings: input.settings, references: uploaded, ...(base ? { base: base.asset } : {}), mode: 'execute_change',
         conversationSessionId: designConversationSessionToken(life.session, value.session_generation ?? 1) });
       if (action.design_source) resolveConversationDesignSource(action.design_source, sourceSlides(), current(life).references);
-      await dispatchImage(life, operation, turnId); return;
+      await timed(life, 'Generando la imagen…', 'Imagen lista', () => dispatchImage(life, operation, turnId)); return;
     }
     let source: PresentationLibraryResult | null = null;
     const htmlInput = htmlContext(value, action.instruction, action);
@@ -1172,11 +1258,14 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
         const context = { ...htmlInput, ...inspectionEvidence, ...(selected?.kind === 'html' && !fromSlide ? { proposal: selected.proposal } : {}),
           ...(sourceContext ?? { designSource: null }),
           ...(fromSlide ? { fromCurrent: true, designBase: 'current' as const } : {}), ...(turn ? { turn } : {}) };
-        const proposal = sourceContext ? await input.htmlController.current!.create({ ...context, proposal: undefined })
+        const proposal = await timed(life, 'Generando…', 'Generé la propuesta', async () => sourceContext
+          ? await input.htmlController.current!.create({ ...context, proposal: undefined })
           : action.kind === 'refine_html' || continuingHtml || fromSlide ? await input.htmlController.current!.refine({ ...context, feedback: action.instruction, compare: true,
             ...(action.kind === 'refine_html' && action.rewrite ? { rewrite: true as const } : {}) })
-            : await input.htmlController.current!.create(context);
-        await finishHtml(life, proposal, undefined, sourceNotice);
+            : await input.htmlController.current!.create(context));
+        await finishHtml(life, proposal, undefined, sourceNotice, input.natural ? action.instruction : undefined);
+        // Result first: the review runs after the proposal is shown and only adds a note.
+        if (input.natural && !proposal.visualReview) void reviewInBackground(life);
       }
     } catch (problem) {
       if (active(life) && current(life).pending?.action_id === id) {
@@ -1287,6 +1376,8 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
     state, ready: ready && lifeRef.current?.key === scopeKey(options, activeSession), busy, error, brand, generation, imagePreview, imagePreviewLoading, imageResult, view,
     /** Reading the saved answer of a request interrupted by a remount. */
     resuming,
+    /** Natural chat: steps of the current turn (with their time) and the planner's answer while it arrives. */
+    steps, liveReply,
     sessions, activeSession, sessionsReady, sessionsError,
     sessionToken: designConversationSessionToken(activeSession, state.session_generation ?? 1),
     selectSession: (id: DesignConversationSessionId) => run(async life => {
@@ -1333,7 +1424,12 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
       try { await downloadContinuityBackup({ current: life.record, attempts: await life.store?.backups?.() ?? [], legacy: await local.read() }, 'conversacion-diseno-copia-local.json'); }
       finally { local.close(); }
     }, true),
-    send: async (message: string): Promise<boolean> => { let saved = false; await run(life => sendMessage(life, message, () => { saved = true; })); return saved; },
+    send: async (message: string): Promise<boolean> => {
+      let saved = false;
+      // A new turn starts with its own steps (a review still running stays visible).
+      if (options.natural) setSteps(items => items.filter(item => item.id === 'background-review' && item.status === 'running'));
+      await run(life => sendMessage(life, message, () => { saved = true; })); return saved;
+    },
     retryLastMessage: async (): Promise<boolean> => {
       let saved = false;
       await run(async life => {
@@ -1363,7 +1459,7 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
       await assertCurrent(life); if (current(life).pending) throw Error('conversation_pending_unresolved');
       const value = current(life), selected = selectedOf(value);
       if (selected?.kind !== 'html') throw Error('Selecciona la versión HTML que quieres corregir.');
-      const issues = selected.proposal.visualReview?.issues ?? [];
+      const issues = versionReview(value, selected)?.issues ?? [];
       const action: ConversationNextAction = { kind: 'refine_html', intent: 'requested', reference_ids: [], reason: 'Pediste corregir la composición con su botón.',
         instruction: buildScopedRepairFeedback(issues, lastInstruction(value) || value.understanding?.resolved_instruction || '') };
       let armed = false;

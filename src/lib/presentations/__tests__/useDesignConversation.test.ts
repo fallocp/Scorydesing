@@ -1846,7 +1846,7 @@ describe('the design chat obeys explicit orders', () => {
     const hook = render(options);
     expect(hook.error).toBe(''); expect(planner.plan).toHaveBeenCalledTimes(1); expect(create).not.toHaveBeenCalled(); expect(refine).not.toHaveBeenCalled();
     expect(applyDesignElementEdits).toHaveBeenCalledWith(options.slide.html, addThree, { assets: {} }); expect(hook.state.versions).toHaveLength(1);
-    expect(hook.state.messages.at(-1)?.text).toBe('Listo: agregué 3 bloques y los acomodé en 3 columnas. Puedes revisarlo, seguir editando o aplicarlo a la diapositiva.');
+    expect(hook.state.messages.at(-1)?.text).toBe('Listo: agregué 3 bloques y los acomodé en 3 columnas. ¿Algo más?');
     expect(planner.plan.mock.calls[0][0].conversation).toMatchObject({ supports_structural_edits: 1, editable_text_complete: 1 });
     expect(hook.state.copy.text).not.toContain('3 cuadros');
   });
@@ -2186,5 +2186,71 @@ describe('slide source capture failures continue the HTML generation', () => {
     expect(render(run.options).error).toBe(''); expect(run.create).toHaveBeenCalledTimes(2);
     expect(sourceCalls()).toBe(2);
     expect(run.create.mock.calls[1][0].sourceReference?.sha256).toBe(run.captures[1].sha256);
+  });
+});
+
+describe('natural chat on the design screen', () => {
+  const settle = async (options: UseDesignConversationOptions) => {
+    for (let n = 0; n < 8; n++) { render(options); await flush(); await new Promise(resolve => setTimeout(resolve, 0)); }
+    return render(options);
+  };
+  const target = { document: 'document', slide: 'canvas', revision: 1 };
+  beforeEach(() => { vi.spyOn(console, 'info').mockImplementation(() => {}); });
+
+  it('answers thanks without the planner, resolves @N to a slide and sends the deck only when a slide is cited', async () => {
+    const { options, planner } = fixture(); options.natural = true;
+    options.deckSlides = [{ id: 'cover', revision: 1, title: 'Portada', html: '<main>Portada</main>' }, { ...options.slide, title: 'Beneficios' }];
+    await settle(options);
+    await render(options).send('¡gracias!');
+    expect(planner.plan).not.toHaveBeenCalled();
+    expect(render(options).state.messages.at(-1)?.text).toBe('De nada. Si quieres otro ajuste, aquí sigo.');
+    await render(options).send('usa el estilo de @1');
+    expect(planner.plan.mock.calls[0][0].message).toBe('usa el estilo de la diapositiva 1 («Portada»)');
+    expect(planner.plan.mock.calls[0][0].conversation?.presentation).toBeDefined();
+    await render(options).send('haz el título más grande');
+    expect(planner.plan.mock.calls[1][0].conversation).not.toHaveProperty('presentation');
+  });
+
+  it('streams the planner answer when the server supports it and records each step with its time', async () => {
+    const { options, planner } = fixture(); options.natural = true;
+    planner.capabilities.mockResolvedValue({ supports_conversation_actions: 1, supports_visual_context: true, supports_stream: 1 } as never);
+    const live: string[] = [];
+    const planStream = vi.fn(async (request: ExplorationRequest, onText: (raw: string) => void) => {
+      onText('{"message":"Prepa'); live.push(render(options).liveReply); return result(request);
+    });
+    Object.assign(planner, { planStream });
+    await settle(options); await render(options).send('Haz las tarjetas horizontales.');
+    expect(planStream).toHaveBeenCalledOnce(); expect(planner.plan).not.toHaveBeenCalled();
+    expect(planner.capabilities).toHaveBeenCalledWith({ stream: true });
+    expect(live).toEqual(['Prepa']); expect(render(options).liveReply).toBe('');
+    const steps = render(options).steps;
+    expect(steps.map(step => [step.doneLabel, step.status])).toEqual(expect.arrayContaining([['Leí la diapositiva', 'done'], ['Plan listo', 'done']]));
+    expect(steps.every(step => step.status !== 'done' || typeof step.ms === 'number')).toBe(true);
+  });
+
+  it('shows the result before its review, then adds the review as a note without automatic repairs', async () => {
+    const { options, planner } = fixture(); options.natural = true; options.format = 'html'; options.base = 'current'; options.initialView = 'html';
+    const proposal = { html: '<main>Tarjetas horizontales</main>', target, canvas: { width: 1280, height: 720 }, mounted: [], intent: 'replace' as const };
+    let finishReview!: (value: unknown) => void;
+    const refine = vi.fn(async () => proposal), reviewLater = vi.fn(() => new Promise(resolve => { finishReview = resolve; }));
+    options.htmlController = { current: { create: vi.fn(), refine, updateContext: vi.fn(), discardPending: vi.fn(), reviewLater } as any };
+    planner.plan.mockImplementationOnce(async request => result(request, 'refine_html' as never, true));
+    await settle(options); await render(options).send('Haz las tarjetas horizontales.');
+    let state = render(options).state;
+    expect(render(options).error).toBe(''); expect(state.versions).toHaveLength(1);
+    expect(state.versions[0].kind === 'html' && state.versions[0].proposal.visualReview).toBeFalsy();
+    expect(state.messages.at(-1)?.text).toMatch(/^Aquí está: conserva el texto y cambia el globo\. La reviso en segundo plano/);
+    expect(reviewLater).toHaveBeenCalledOnce();
+    finishReview({ html: proposal.html, visualReview: { status: 'needs_review', repairs: 0, issues: ['No cumplido: barco más grande'] }, worse: false });
+    state = (await settle(options)).state;
+    expect(render(options).steps.find(step => step.id === 'background-review')).toMatchObject({ status: 'done' });
+    expect(state.messages.at(-1)?.text).toBe('Falta cumplir lo que pediste: barco más grande. ¿La corrijo?');
+    expect(state.version_reviews?.[state.versions[0].id]?.status).toBe('needs_review');
+    expect(refine).toHaveBeenCalledOnce();
+  });
+
+  it('opens the session named in the URL', async () => {
+    const { options } = fixture(); options.initialSession = 'session-2';
+    expect((await settle(options)).activeSession).toBe('session-2');
   });
 });

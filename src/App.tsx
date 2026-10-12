@@ -48,6 +48,8 @@ function AuthenticatedApp() {
       <Route path="/admin" element={<BusinessAdminPage />} />
       <Route path="/admin/business" element={<BusinessAdminPage />} />
       <Route path="/presentations" element={<PresentationsPage />} />
+      {/* Pantalla completa de «Diseñar diapositiva» (VITE_DESAING_DESIGN_SCREEN=true); sin el interruptor muestra la página. */}
+      <Route path="/presentaciones/:projectId/disenar/:slideNumber" element={<PresentationsPage />} />
       <Route path="/free-design" element={<FreeDesignPage />} />
       <Route path="/materials" element={<MaterialsPage />} />
       <Route path="/design-studio" element={<DesignStudioPage />} />

@@ -30,7 +30,7 @@ describe('review against the existing design and the request', () => {
   });
   it('never reports the proposal as done while an item of the request is not met', () => {
     const text = describeVisualReview({ status: 'needs_review', repairs: 2, issues: ['No cumplido: tarjetas horizontales (las tarjetas siguen verticales)'] });
-    expect(text).toBe('La propuesta necesita ajustes. Falta cumplir lo que pediste: tarjetas horizontales (las tarjetas siguen verticales).');
+    expect(text).toBe('Falta cumplir lo que pediste: tarjetas horizontales (las tarjetas siguen verticales). ¿La corrijo?');
     expect(text).not.toMatch(/listo|pasó/i);
   });
 });
@@ -50,6 +50,12 @@ describe('bounded rendered design review', () => {
     expect(input.repair).toHaveBeenCalledWith('original', snapshot(['Párrafo tapado.']), expect.stringContaining('Párrafo tapado.'));
     expect(input.render.mock.calls).toEqual([['original'], ['repaired']]);
     expect(result.visualReview).toEqual({ status: 'passed', repairs: 1, issues: [] });
+  });
+  it('reviews only, without automatic repairs, when the result was already shown (maxRepairs 0)', async () => {
+    const input = ports(); input.review.mockResolvedValue(bad);
+    const result = await reviewAndRepairDesign({ ...input, maxRepairs: 0 });
+    expect(input.review).toHaveBeenCalledTimes(1); expect(input.repair).not.toHaveBeenCalled();
+    expect(result.html).toBe('original'); expect(result.visualReview).toMatchObject({ status: 'needs_review', repairs: 0 });
   });
   it('caps correction at two attempts and returns the least broken reviewed version', async () => {
     const input = ports(); input.review.mockResolvedValue(bad);
@@ -166,6 +172,6 @@ describe('design repair request and readable review summary', () => {
   });
   it('uses a neutral summary for unclassified diagnostics rather than exposing technical details', () => {
     expect(describeVisualReview({ status: 'needs_review', repairs: 0, issues: ['div#unexpected (x=20, y=30)'] }))
-      .toBe('La propuesta necesita ajustes de composición.');
+      .toBe('Ojo: la composición necesita ajustes. ¿La corrijo?');
   });
 });

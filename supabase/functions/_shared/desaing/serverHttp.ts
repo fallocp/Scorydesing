@@ -6,6 +6,7 @@ import type { PrivateAssetStorage } from './serverStorage.ts';
 import type { ServerGenerationBoundary } from './serverGeneration.ts';
 import type { ServerExplorationBoundary } from './serverExploration.ts';
 import { assertExplorationRequest } from './exploration.ts';
+import { sseFrame } from './sseStream.ts';
 import type { ServerHtmlBoundary } from './serverHtml.ts';
 import { assertHtmlCompositionRequest } from './composition.ts';
 import type { ServerMaterialsBoundary } from './serverMaterials.ts';
@@ -215,12 +216,16 @@ export function createServerHandler(deps: ServerHttpDependencies) {
         return htmlRoute === 'recover' ? reply(200, { result: await deps.html.recover(actor.id, input.business_id, key) })
           : reply(200, { attempts: await deps.html.history(actor.id, input.business_id, key) });
       }
-      const explorationRoute = /\/desaing-server\/exploration\/(plan|recover|history|capabilities)$/.exec(url.pathname)?.[1];
+      const explorationRoute = /\/desaing-server\/exploration\/(plan|stream|recover|history|capabilities)$/.exec(url.pathname)?.[1];
       if (explorationRoute) {
         if (!body || typeof body !== 'object' || Array.isArray(body)) throw new ServerBoundaryError('invalid_server_request');
         const input = body as Record<string, unknown>;
-        const fields = explorationRoute === 'plan' ? ['business_id', 'request'] : explorationRoute === 'recover'
-          ? ['business_id', 'request_key'] : explorationRoute === 'history' ? ['business_id', 'session_id'] : ['business_id'];
+        // A client that asks for supports_stream receives it; older clients keep the exact previous capabilities.
+        const askedStream = explorationRoute === 'capabilities' && 'supports_stream' in input;
+        if (askedStream && input.supports_stream !== 1) throw new ServerBoundaryError('invalid_server_request');
+        const fields = explorationRoute === 'plan' || explorationRoute === 'stream' ? ['business_id', 'request'] : explorationRoute === 'recover'
+          ? ['business_id', 'request_key'] : explorationRoute === 'history' ? ['business_id', 'session_id']
+          : askedStream ? ['business_id', 'supports_stream'] : ['business_id'];
         if (Object.keys(input).length !== fields.length || Object.keys(input).some(key => !fields.includes(key))) throw new ServerBoundaryError('invalid_server_request');
         assertBusinessId(input.business_id);
         if (!deps.exploration) {
@@ -237,7 +242,30 @@ export function createServerHandler(deps: ServerHttpDependencies) {
           }
           return reply(200, { result: await deps.exploration.plan(actor.id, input.request) });
         }
-        if (explorationRoute === 'capabilities') return reply(200, { capabilities: await deps.exploration.capabilities(input.business_id, actor.id) });
+        if (explorationRoute === 'stream') {
+          try { assertExplorationRequest(input.request); } catch { throw new ServerBoundaryError('invalid_exploration_request'); }
+          if (input.request.context.actor_id !== actor.id || input.request.context.business_id !== input.business_id) {
+            throw new ServerBoundaryError('exploration_scope_mismatch', 403);
+          }
+          // Same durable plan as /plan (admission, journal, budget); only the transport changes.
+          // A client that leaves stops receiving frames while the plan still finishes and journals its result.
+          const request = input.request, exploration = deps.exploration, encoder = new TextEncoder();
+          const stream = new ReadableStream<Uint8Array>({ async start(controller) {
+            let open = true;
+            const send = (event: string, data: unknown) => {
+              if (!open) return;
+              try { controller.enqueue(encoder.encode(sseFrame(event, data))); } catch { open = false; }
+            };
+            try { send('result', { result: await exploration.plan(actor.id, request, { onText: text => send('delta', { text }) }) }); }
+            catch (error) { const failure = serverErrorResponse(error); send('error', { error: failure.code, status: failure.status }); }
+            finally { if (open) try { controller.close(); } catch { /* Already closed by the client. */ } }
+          } });
+          return new Response(stream, { status: 200, headers: { ...headers, 'Content-Type': 'text/event-stream', 'X-Accel-Buffering': 'no' } });
+        }
+        if (explorationRoute === 'capabilities') {
+          const capabilities = await deps.exploration.capabilities(input.business_id, actor.id);
+          return reply(200, { capabilities: capabilities && askedStream ? { ...capabilities, supports_stream: 1 } : capabilities });
+        }
         const key = input[explorationRoute === 'recover' ? 'request_key' : 'session_id'];
         if (typeof key !== 'string' || !key.trim() || key.length > 256 || /[\x00-\x1f\x7f]/.test(key)) throw new ServerBoundaryError('invalid_server_request');
         return explorationRoute === 'recover'

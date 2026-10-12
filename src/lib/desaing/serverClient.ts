@@ -6,6 +6,7 @@ import { inspectServerPng } from '../../../supabase/functions/_shared/desaing/se
 import { isServerGenerationCapabilities, type ServerGenerationCapabilities } from '../../../supabase/functions/_shared/desaing/serverGenerationContract';
 import { isServerExplorationCapabilities } from '../../../supabase/functions/_shared/desaing/serverExplorationContract';
 import { assertExplorationRequest, assertExplorationResult } from '../../../supabase/functions/_shared/desaing/exploration';
+import { createSseParser } from '../../../supabase/functions/_shared/desaing/sseStream';
 import type { ExplorationAttempt, ExplorationPlanner, ExplorationRequest } from '../../../supabase/functions/_shared/desaing/explorationContracts';
 import { assertHtmlCompositionRequest, assertHtmlCompositionResult, verifyHtmlCompositionRequest, type HtmlCompositionRequest } from '../../../supabase/functions/_shared/desaing/composition';
 import { isHtmlCapabilities, type HtmlCompositionClient, type HtmlAttempt } from './htmlClient';
@@ -366,6 +367,7 @@ export function createDesignServerClient(options: DesignServerClientOptions): De
     exploration(businessId) {
       validateBusiness(businessId);
       const requests = new Map<string, ExplorationRequest>();
+      let streamUnsupported = false;
       function validateRequest(value: unknown, actorId: string): asserts value is ExplorationRequest {
         try { assertExplorationRequest(value); } catch { fail('server_invalid_request'); }
         if (value.context.business_id !== businessId) fail('server_invalid_request');
@@ -421,12 +423,71 @@ export function createDesignServerClient(options: DesignServerClientOptions): De
           for (const attempt of attempts) requests.set(attempt.request.request_key, structuredClone(attempt.request));
           return attempts;
         },
-        async capabilities() {
+        async capabilities(wanted) {
           const session = await authenticated();
-          const data = await post(session, '/exploration/capabilities', JSON.stringify({ business_id: businessId }), 'application/json', false);
+          const ask = async (stream: boolean) => post(session, '/exploration/capabilities',
+            JSON.stringify({ business_id: businessId, ...(stream ? { supports_stream: 1 } : {}) }), 'application/json', false);
+          let data: unknown;
+          // A server without streaming rejects the extra field: ask once more without it and remember the answer.
+          if (wanted?.stream && !streamUnsupported) {
+            try { data = await ask(true); }
+            catch (error) {
+              if (!(error instanceof DesignServerClientError) || error.httpStatus !== 400) throw error;
+              streamUnsupported = true; data = await ask(false);
+            }
+          } else data = await ask(false);
           await sameActor(session);
           if (!record(data) || Object.keys(data).length !== 1 || !('capabilities' in data)) fail('server_invalid_response');
           return isServerExplorationCapabilities(data.capabilities) ? structuredClone(data.capabilities) : null;
+        },
+        async planStream(input, onText) {
+          const session = await authenticated(), frozen = structuredClone(input);
+          validateRequest(frozen, session.actorId);
+          requests.set(frozen.request_key, frozen);
+          const response = await request(new URL(`${endpoint.toString()}/exploration/stream`), { method: 'POST',
+            body: JSON.stringify({ business_id: businessId, request: frozen }), headers: {
+              'Content-Type': 'application/json', Authorization: `Bearer ${session.accessToken}`,
+              ...(options.publicKey ? { apikey: options.publicKey } : {}) } });
+          if (response.status === 401) { await response.body?.cancel().catch(() => {}); fail('server_authentication_required', 401); }
+          if (!response.ok || !(response.headers.get('content-type') ?? '').startsWith('text/event-stream')) {
+            // Same fixed public codes as JSON routes (an older server answers route_not_found).
+            let data: unknown = null;
+            try { data = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(await limitedBytes(response, 'server_response_unknown'))); }
+            catch { /* Unreadable error body. */ }
+            const code = record(data) && typeof data.error === 'string' && PUBLIC_ERRORS.has(data.error) ? data.error : 'server_request_rejected';
+            return fail(response.ok ? 'server_response_unknown' : code, response.status);
+          }
+          const reader = response.body?.getReader();
+          if (!reader) return fail('server_response_unknown');
+          const parser = createSseParser(), decoder = new TextDecoder('utf-8');
+          let raw = '', size = 0, outcome: { result: unknown } | { error: string; status: number | null } | null = null;
+          try {
+            while (!outcome) {
+              const chunk = await reader.read();
+              const text = chunk.done ? `${decoder.decode()}\n\n` : decoder.decode(chunk.value, { stream: true });
+              if (!chunk.done) { size += chunk.value.byteLength; if (size > MAX_BYTES) { await reader.cancel(); fail('server_response_unknown'); } }
+              for (const event of parser.push(text)) {
+                let data: unknown;
+                try { data = JSON.parse(event.data); } catch { continue; }
+                if (!record(data)) continue;
+                if (event.event === 'delta' && typeof data.text === 'string') {
+                  raw += data.text;
+                  try { onText(raw); } catch { /* The view may have closed; the plan continues. */ }
+                } else if (event.event === 'result' && 'result' in data) outcome = { result: data.result };
+                else if (event.event === 'error') outcome = { error: typeof data.error === 'string' && PUBLIC_ERRORS.has(data.error) ? data.error : 'server_request_rejected',
+                  status: typeof data.status === 'number' ? data.status : null };
+              }
+              if (chunk.done) break;
+            }
+          } catch (error) {
+            if (error instanceof DesignServerClientError) throw error;
+            fail('server_response_unknown');
+          } finally { await reader.cancel().catch(() => {}); reader.releaseLock(); }
+          await sameActor(session);
+          if (!outcome) return fail('server_response_unknown');
+          if ('error' in outcome) return fail(outcome.error, outcome.status);
+          try { assertExplorationResult(outcome.result, frozen); } catch { fail('server_response_unknown'); }
+          return structuredClone(outcome.result as Awaited<ReturnType<ExplorationPlanner['plan']>>);
         },
       };
     },

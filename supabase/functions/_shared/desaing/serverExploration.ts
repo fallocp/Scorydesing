@@ -20,7 +20,8 @@ export interface ServerExplorationDependencies {
 }
 export interface ServerExplorationBoundary {
   capabilities(businessId: string, actorId: string): Promise<ServerExplorationCapabilities | null>;
-  plan(actorId: string, request: ExplorationRequest): Promise<ExplorationResult>;
+  /** `onText`: the provider streams and forwards its output text; admission, journal and budget are unchanged. */
+  plan(actorId: string, request: ExplorationRequest, options?: { onText?(delta: string): void }): Promise<ExplorationResult>;
   recover(actorId: string, businessId: string, requestKey: string): Promise<ExplorationResult | null>;
   history(actorId: string, businessId: string, sessionId: string): Promise<ExplorationAttempt[]>;
 }
@@ -125,7 +126,7 @@ export function createServerExploration(settings: ServerExplorationConfig, deps:
       return (await journal.history(businessId, actorId, sessionId)).map(saved => ({ request: structuredClone(saved.request), status: saved.status,
         ...(saved.status === 'completed' && saved.result ? { result: structuredClone(saved.result) } : {}) }));
     },
-    async plan(actorId, input) {
+    async plan(actorId, input, options) {
       try { assertExplorationRequest(input); } catch { throw new ServerBoundaryError('invalid_exploration_request'); }
       const request = structuredClone(input), businessId = request.context.business_id;
       assertReadScope(businessId, actorId);
@@ -172,7 +173,8 @@ export function createServerExploration(settings: ServerExplorationConfig, deps:
           requireValue(canonicalExploration(await referenceVersions(request, actorId, fresh)) === canonicalExploration(versions), 'exploration_reference_invalid');
         };
         await verifyDispatch();
-        result = await provider.plan(request, images, verifyDispatch);
+        result = options?.onText ? await provider.plan(request, images, verifyDispatch, options.onText)
+          : await provider.plan(request, images, verifyDispatch);
         // Validate again at the durable boundary even when a custom injected provider bypasses the Responses adapter.
         assertExplorationResult(result, request); usage = result.usage; responseId = result.response_id;
         requireValue(!request.design_brief || !!result.design_understanding, 'exploration_provider_invalid_result');

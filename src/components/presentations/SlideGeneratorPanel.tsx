@@ -1,4 +1,4 @@
-import { useEffect, useImperativeHandle, useRef, useState, type Ref } from 'react';
+import { useEffect, useImperativeHandle, useRef, useState, type ReactNode, type Ref } from 'react';
 import { X, Sparkles, Wand2, Loader2, Pencil, Plus } from 'lucide-react';
 import { reviewDesignCanvasHtml, useGenerateSlide } from '@/hooks/useGenerateSlide';
 import { DesignHtmlRequestError, isDefinitiveHtmlFailure } from '@/lib/presentations/htmlRequestError';
@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useActiveBusiness } from '@/hooks/useActiveBusiness';
 import { supabase } from '@/integrations/supabase/client';
 import { renderHtmlForReview } from '@/utils/xendingDesign/canvasRenderer';
-import { describeVisualReview, reviewAndRepairDesign } from '@/lib/presentations/designVisualReview';
+import { describeVisualReview, reviewAndRepairDesign, type DesignVisualReview } from '@/lib/presentations/designVisualReview';
 import { designReviewRequest } from '@/lib/presentations/designReviewRequest';
 import type { DesignCanvasHtmlRequest } from '../../../supabase/functions/_shared/designCanvasHtml';
 import type { ConversationDesignSource } from '../../../supabase/functions/_shared/desaing/conversationActions';
@@ -58,6 +58,10 @@ export interface SlideGeneratorPanelProps {
   styleSpecReady?(): Promise<string>;
   /** «Diseñar sobre lo que ya existe» pieces; undefined = current behavior. */
   fromExisting?: DesignFromExistingFlags;
+  /** Result first: return the proposal without reviewing it; the owner calls `reviewLater()` (no automatic repairs). */
+  backgroundReview?: boolean;
+  /** Replaces the default preview (the design screen's zoomable canvas). */
+  renderPreview?(html: string): ReactNode;
 }
 /** Per-request data from the conversation turn; never persisted in the draft. */
 export interface SlideGeneratorTurn {
@@ -101,6 +105,8 @@ export interface SlideGeneratorController {
   /** Releases an unconfirmed request (HTML generation has no server-side result to recover). Keeps the proposal. */
   discardPending(): Promise<void>;
   apply(): Promise<void>;
+  /** Reviews the last proposal returned without review (`backgroundReview`); never repairs it. Null when there is none. */
+  reviewLater?(): Promise<{ html: string; visualReview: DesignVisualReview; worse: boolean } | null>;
 }
 type Store = Awaited<ReturnType<typeof openHtmlDesignDraft>>;
 /** Requests above ~5 MB fail at the Edge Function boundary. */
@@ -132,6 +138,9 @@ function HtmlDesignWorkspace(props: SlideGeneratorPanelProps & { actorId: string
   const reviewContextRef = useRef<{ request: DesignCanvasHtmlRequest & { expectedActorId: string }; html: string } | null>(null);
   const turnRef = useRef<SlideGeneratorTurn | null>(null), structuralRef = useRef<StructuralCheckCache['current']>(null);
   const [iconPicker, setIconPicker] = useState(false);
+  // Result first: the review of the last unreviewed proposal, run later by the owner.
+  const laterReviewRef = useRef<{ html: string; review(): Promise<{ visualReview: DesignVisualReview }>; correction?: string[] } | null>(null);
+  const [backgroundReviewing, setBackgroundReviewing] = useState(false);
   const target: HtmlDesignTarget = { document: props.documentId, slide: props.slideId, revision: props.revision ?? 1 };
   const canvas = props.canvas ?? (format === 'letter' ? { width: 1920, height: 2485 } : format === 'slide' ? { width: 1920, height: 1080 }
     : getSlideDimensions(props.currentHtml ?? ''));
@@ -366,15 +375,19 @@ function HtmlDesignWorkspace(props: SlideGeneratorPanelProps & { actorId: string
       // Empty slots that already existed in the base are not a defect and never trigger a repair.
       const holes = flags?.huecos_heredados && refine && base ? inheritedImageHoles(base, candidate) : undefined;
       const baseBroken = new Set((baseSnapshot?.diagnostics?.issues ?? []).filter(issue => issue.code === 'missing_image').map(issue => issue.element ?? ''));
-      const reviewed = await reviewAndRepairDesign({ html: candidate, assertCurrent,
+      const reviewOptions = {
         ...(holes && !holes.added.length ? { ignoreIssue: isMissingResourceIssue } : {}),
         ...(holes ? { ignoreDiagnostic: (issue: { code: string; element?: string }) => issue.code === 'missing_image' && baseBroken.has(issue.element ?? '') } : {}),
-        ...(flags?.correccion_acotada ? { discardWorse: true, feedback: (issues: string[]) => buildScopedRepairFeedback(issues, turn.request ?? feedback) } : {}),
-        render: html => renderHtmlForReview(html, size.width, size.height, { businessId: props.businessId, expectedActorId: props.actorId }),
-        review: async (html, snapshot) => {
+        render: (html: string) => renderHtmlForReview(html, size.width, size.height, { businessId: props.businessId, expectedActorId: props.actorId }),
+        review: async (html: string, snapshot: Awaited<ReturnType<typeof renderHtmlForReview>>) => {
           const reviewRequest = designReviewRequest(request, html, snapshot);
           checkBodySize(reviewRequest); return reviewDesignCanvasHtml(reviewRequest);
         },
+      };
+      // Result first: show the proposal now and review it later, without automatic repairs.
+      const later = latest.current.backgroundReview === true;
+      const reviewed: { html: string; visualReview?: DesignVisualReview } = later ? { html: candidate } : await reviewAndRepairDesign({ html: candidate, assertCurrent, ...reviewOptions,
+        ...(flags?.correccion_acotada ? { discardWorse: true, feedback: (issues: string[]) => buildScopedRepairFeedback(issues, turn.request ?? feedback) } : {}),
         repair: async (html, snapshot, feedback) => {
           const repairRequest = { ...designReviewRequest(request, html, snapshot), iteration_feedback: feedback };
           checkBodySize(repairRequest);
@@ -383,8 +396,9 @@ function HtmlDesignWorkspace(props: SlideGeneratorPanelProps & { actorId: string
         onProgress: (stage, repairs) => { if (active(life)) setReviewProgress(stage === 'reviewing' ? 'Revisando el diseño y las referencias…' : `Corrigiendo la composición (${repairs}/2)…`); },
       });
       const { html, visualReview } = reviewed;
+      laterReviewRef.current = null;
       // «Corregir composición» that leaves more problems than the version it corrects is discarded.
-      if (flags?.correccion_acotada && turn.correction && correctionIsWorse(turn.correction.issues, visualReview.issues))
+      if (visualReview && flags?.correccion_acotada && turn.correction && correctionIsWorse(turn.correction.issues, visualReview.issues))
         throw new DesignHtmlRequestError('La corrección dejaba más problemas que la versión anterior; conservé la versión anterior sin cambios', true);
       const { edit_mode: _editMode, ...reviewBase } = request;
       reviewContextRef.current = { request: reviewBase, html };
@@ -393,11 +407,14 @@ function HtmlDesignWorkspace(props: SlideGeneratorPanelProps & { actorId: string
       const measured = await measureHtmlDesignAssets({ id: props.slideId, revision: destination.revision, title: '', html: refine ? base! : sourceSlide?.html ?? '',
         mounted_assets: designSource ? [...mounted.values()] : refine ? proposalBase?.mounted ?? props.mountedAssets ?? [] : [] }, html, size);
       await assertSession(life);
-      const proposal: HtmlDesignProposal = { ...measured, target: destination, canvas: size, intent: refine ? proposalBase?.intent ?? 'replace' : intent, visualReview,
-        ...(styleLock ? { styleLock } : {}), ...(notices.length ? { notices: notices.slice(0, 8) } : {}) };
+      const proposal: HtmlDesignProposal = { ...measured, target: destination, canvas: size, intent: refine ? proposalBase?.intent ?? 'replace' : intent,
+        ...(visualReview ? { visualReview } : {}), ...(styleLock ? { styleLock } : {}), ...(notices.length ? { notices: notices.slice(0, 8) } : {}) };
       const next = patch({ proposal, designBase: request.design_base, status: 'ready', feedback: '', messages: [...before.messages,
         { role: 'user' as const, text: refine ? feedback : before.instruction || 'Diseña a partir de mis referencias.' },
-        { role: 'assistant' as const, text: [describeVisualReview(visualReview), describeStyleLock(styleLock)].filter(Boolean).join(' ') }].slice(-40) });
+        { role: 'assistant' as const, text: [visualReview ? describeVisualReview(visualReview) : 'Aquí está la propuesta; la reviso en segundo plano.',
+          describeStyleLock(styleLock)].filter(Boolean).join(' ') }].slice(-40) });
+      if (later) laterReviewRef.current = { html: proposal.html, correction: flags?.correccion_acotada ? turn.correction?.issues : undefined,
+        review: () => reviewAndRepairDesign({ html: proposal.html, ...reviewOptions, maxRepairs: 0, assertCurrent: () => assertSession(life), repair: async same => same }) };
       await persist(next);
       if (active(life)) setDetailsOpen(false);
       notifyProposal(proposal, refine ? 'refined' : 'generated');
@@ -609,6 +626,19 @@ function HtmlDesignWorkspace(props: SlideGeneratorPanelProps & { actorId: string
     }, true))!; },
     async discardPending() { await run(async () => { if (draftRef.current.status !== 'ready') await persist(patch({ status: 'ready' })); }, true); },
     async apply() { await run(apply, true); },
+    // Outside the busy lock: the user keeps working while the review runs.
+    async reviewLater() {
+      const job = laterReviewRef.current, life = lifeRef.current;
+      if (!job || !life || !active(life)) return null;
+      laterReviewRef.current = null; setBackgroundReviewing(true);
+      try {
+        const { visualReview } = await job.review();
+        const worse = !!job.correction && correctionIsWorse(job.correction, visualReview.issues);
+        const proposal = draftRef.current.proposal;
+        if (active(life) && proposal?.html === job.html) await persist(patch({ proposal: { ...proposal, visualReview } })).catch(() => {});
+        return { html: job.html, visualReview, worse };
+      } finally { if (active(life)) setBackgroundReviewing(false); }
+    },
   }));
   if (editing && draft.proposal) return <><VisualDesignEditor html={draft.proposal.html} pieceIndex={props.currentSlide ?? 0}
     dimensions={draft.proposal.canvas} businessId={props.businessId} editableElements={[]} initialIconPicker={iconPicker}
@@ -653,7 +683,9 @@ function HtmlDesignWorkspace(props: SlideGeneratorPanelProps & { actorId: string
       {!props.externalConversation && <button disabled={blocked || !draft.proposal} onClick={() => setEditing(true)}><Pencil size={16} />Editor completo</button>}</div>
       {props.externalConversation && draft.status !== 'ready' && <div className="hws-notice" role="status">La respuesta anterior no quedó confirmada. La propuesta guardada se conserva. Preparar otra solicitud puede consumir una nueva llamada de HTML.
         <button disabled={blocked} onClick={() => void run(async () => { await persist(patch({ status: 'ready' })); })}>Preparar otra solicitud</button></div>}
-      {view ? <PresentationCanvas html={view} title="Vista previa del diseño HTML" /> : <div className="hws-empty"><Plus /><p>Tu diseño aparecerá aquí.</p></div>}
+      {view ? props.renderPreview ? props.renderPreview(view) : <PresentationCanvas html={view} title="Vista previa del diseño HTML" />
+        : <div className="hws-empty"><Plus /><p>Tu diseño aparecerá aquí.</p></div>}
+      {backgroundReviewing && <p className="hws-note" role="status">Revisando en segundo plano… Puedes seguir trabajando.</p>}
       {draft.proposal?.visualReview && <div className={draft.proposal.visualReview.status === 'passed' ? 'hws-note' : 'hws-notice'} role="status">
         <p>{describeVisualReview(draft.proposal.visualReview)}</p>
         {draft.proposal.visualReview.issues.length > 0 && <details><summary>Ver problemas detectados</summary>
