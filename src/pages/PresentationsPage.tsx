@@ -57,6 +57,7 @@ import type { RegisteredAssetVersion } from '../../supabase/functions/_shared/de
 import { usePresentationDesignService } from '@/components/presentations/PresentationDesignContext';
 import { buildActivePresentationHtml, duplicateSlide, getSlideDimensions, normalizeSlides, reviseSlide, type PresentationSlide } from '@/lib/presentations/presentationDocument';
 import { sanitizePresentationHtml } from '@/lib/presentations/presentationHtml';
+import { stripLeadingGarbageBeforeDocument } from '@/lib/presentations/editorImageSrc';
 import { PresentationCanvas } from '@/components/presentations/PresentationCanvas';
 import { detachUnverifiedMountedImages, reconcileMountedAssets } from '@/lib/presentations/presentationManifest';
 import { prepareReviewedPresentation, saveReviewedPresentation } from '@/lib/presentations/reviewedPresentationProject';
@@ -263,7 +264,9 @@ type Deck = PresentationSlide[];
 type DeckInput = Array<{ title: string; html: string; id?: string; revision?: number }>;
 function prepareDeck(value: unknown): Deck {
   return normalizeSlides(value).map(slide => {
-    const html = sanitizePresentationHtml(slide.html);
+    // El sanitizado (DOMParser) mueve las URLs que el editor antepuso al doctype al
+    // inicio del <body>; se limpian aquí para que no se vean en vista previa/exportación.
+    const html = stripLeadingGarbageBeforeDocument(sanitizePresentationHtml(slide.html));
     return { ...slide, html, ...(slide.mounted_assets ? { mounted_assets: reconcileMountedAssets(slide, html) } : {}) };
   });
 }

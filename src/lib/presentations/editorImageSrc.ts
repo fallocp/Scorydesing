@@ -78,13 +78,40 @@ export function replaceImgSrcInHtml(html: string, img: ImgSrcTarget, newUrl: str
  * Repara slides ya guardadas con texto basura (p.ej. URLs) antepuesto al
  * documento: si el HTML es un documento completo (`<!DOCTYPE` / `<html`) y
  * antes sólo hay texto plano, recorta ese prefijo. Si el prefijo contiene
- * etiquetas, o no hay documento completo, devuelve el HTML sin cambios.
+ * etiquetas, o no hay documento completo, no lo toca. Además quita las URLs
+ * de Storage que quedaron como primer texto del `<body>` (ver
+ * `stripLeakedStorageUrlsFromBody`).
  */
 export function stripLeadingGarbageBeforeDocument(html: string): string {
   const doctype = html.search(/<!doctype\b/i);
   const start = doctype >= 0 ? doctype : html.search(/<html[\s>]/i);
-  if (start <= 0) return html;
-  const prefix = html.slice(0, start);
-  if (prefix.includes('<')) return html;
-  return html.slice(start);
+  const trimmed = start > 0 && !html.slice(0, start).includes('<') ? html.slice(start) : html;
+  return stripLeakedStorageUrlsFromBody(trimmed);
+}
+
+const STORAGE_IMAGE_URL =
+  /^https?:\/\/[^\s<>"']+\/storage\/v1\/object\/(?:public|sign)\/[^\s<>"']+\.(?:png|jpe?g|webp|gif|svg)(?:\?[^\s<>"']*)?$/i;
+
+/** `true` si el texto (ignorando espacios) son sólo URLs de imágenes de Storage, quizá concatenadas. */
+function isOnlyStorageImageUrls(text: string): boolean {
+  const compact = text.replace(/\s+/g, '');
+  if (!compact) return false;
+  return compact.split(/(?=https?:\/\/)/i).every((part) => STORAGE_IMAGE_URL.test(part));
+}
+
+/**
+ * Al parsear/serializar (DOMParser, sanitizado) el texto que estaba antes del
+ * `<!DOCTYPE` termina como primer nodo de texto del `<body>`. Si ese nodo son
+ * sólo URLs de imágenes de Storage, lo elimina. Cualquier otro texto se
+ * conserva. Sin `<body>` sólo aplica a fragmentos (sin `<html>`/`<head>`).
+ */
+export function stripLeakedStorageUrlsFromBody(html: string): string {
+  const body = /<body\b[^>]*>/i.exec(html);
+  let start = 0;
+  if (body) start = body.index + body[0].length;
+  else if (/<!doctype\b|<html[\s>]|<head[\s>]/i.test(html)) return html;
+  const next = html.indexOf('<', start);
+  const end = next < 0 ? html.length : next;
+  if (!isOnlyStorageImageUrls(html.slice(start, end))) return html;
+  return html.slice(0, start) + html.slice(end);
 }
