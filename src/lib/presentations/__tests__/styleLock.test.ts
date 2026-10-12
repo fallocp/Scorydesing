@@ -48,7 +48,10 @@ describe('candado de estilo (sin IA)', () => {
     expect(released).toContain('font-size:72px'); expect(released).not.toContain('color:#0b2a5b');
   });
   it('infers unlocks from the user words so an explicit change is never locked', () => {
-    expect(inferStyleUnlocks('números 01-04 turquesa y barco más grande')).toEqual(['typography', 'colors']);
+    // «El barco más grande» resizes the photo: the type sizes stay locked.
+    expect(inferStyleUnlocks('números 01-04 turquesa y barco más grande')).toEqual(['colors']);
+    expect(inferStyleUnlocks('el título más grande')).toEqual(['typography']);
+    expect(inferStyleUnlocks('letra más pequeña')).toEqual(['typography']);
     expect(inferStyleUnlocks('tarjetas horizontales')).toEqual(['layout']);
     expect(inferStyleUnlocks('aplica el estilo de esta referencia')).toEqual(expect.arrayContaining(['colors', 'components', 'typography']));
     expect(inferStyleUnlocks('agrega 3 tarjetas')).toEqual([]);

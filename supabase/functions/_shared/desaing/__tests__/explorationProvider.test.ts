@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createExplorationProvider, prepareExplorationRequest, type ExplorationProviderConfig } from '../explorationProvider.ts';
+import { createExplorationProvider, PLANNER_LAYOUT_RULE, prepareExplorationRequest, type ExplorationProviderConfig } from '../explorationProvider.ts';
 import { request, result, visualBriefRequest, visualUnderstanding } from './fixtures/explorationFixture.ts';
 import { htmlPng } from './fixtures/htmlCompositionFixture.ts';
 import type { ConversationNextAction } from '../conversationActions.ts';
@@ -55,6 +55,14 @@ describe('single-call textual Responses adapter with mandatory injected transpor
     expect(understanding.properties.unlock.items.enum).toEqual(['typography', 'colors', 'components', 'layout']);
     expect(prepared.input[0].content[0].text).toContain('design_understanding.unlock lista SÓLO lo que el usuario pide cambiar');
     expect(prepared.input[0].content[0].text).toContain('No uso la referencia <nombre> en este ajuste; dime si la quieres.');
+    // «Qué cambio» names one concrete layout; «horizontal» cards default to wide cards stacked in place, icon on the left.
+    expect(prepared.input[0].content[0].text).toContain(PLANNER_LAYOUT_RULE);
+    expect(PLANNER_LAYOUT_RULE).toContain('UNA sola distribución concreta');
+    expect(PLANNER_LAYOUT_RULE).toContain('nunca alternativas con «o»');
+    expect(PLANNER_LAYOUT_RULE).toMatch(/más ancha que alta, con su ícono a la izquierda.*apiladas una debajo de otra en la misma zona/);
+    expect(PLANNER_LAYOUT_RULE).toContain('No es ponerlas todas en una sola fila');
+    expect(prepared.input[0].content[0].text).toContain('Agrandar una foto o figura no desbloquea typography');
+    expect(plainSchema.input[0].content[0].text).not.toContain(PLANNER_LAYOUT_RULE);
     output.design_understanding = { ...output.design_understanding!, unlock: ['colors', 'colors'] };
     const planned = await fixture(wire(output)).provider.plan(req);
     expect(planned.design_understanding?.unlock).toEqual(['colors']);

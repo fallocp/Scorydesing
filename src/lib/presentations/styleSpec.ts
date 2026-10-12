@@ -208,20 +208,80 @@ export function collectStyleSamples(doc: Document, canvas: { width: number; heig
 export async function measureStyleSpec(html: string, canvas: { width: number; height: number }, timeoutMs = 8000, scale: TypeScaleEntry[] = []): Promise<string> {
   return formatStyleSpec(await measureStyleSamples(html, canvas, timeoutMs), scale);
 }
-/** Same isolated render, returning the raw samples (scale, style lock). */
+/** Measurement failure with its concrete cause, in Spanish, for the user notice. */
+export class StyleMeasureError extends Error {
+  constructor(readonly code: 'unavailable' | 'blocked' | 'timeout' | 'read', message: string) { super(message); this.name = 'StyleMeasureError'; }
+}
+/** Concrete cause of a failed measurement for notices. */
+export function styleMeasureCause(problem: unknown): string {
+  return problem instanceof StyleMeasureError ? problem.message
+    : `error inesperado al medir${problem instanceof Error && problem.message ? ` (${problem.message.slice(0, 120)})` : ''}`;
+}
+const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, Math.max(0, ms)));
+/** Same isolated render, returning the raw samples (scale, style lock).
+ * Measures once the HTML is parsed: slow photos or webfonts get a short wait but never
+ * make the measurement fail (computed sizes, families and colors do not depend on them). */
 export async function measureStyleSamples(html: string, canvas: { width: number; height: number }, timeoutMs = 8000): Promise<StyleSamples> {
+  if (typeof document === 'undefined' || !document.body) throw new StyleMeasureError('unavailable', 'no hay un navegador donde medir el diseño');
   const frame = document.createElement('iframe');
   frame.setAttribute('sandbox', 'allow-same-origin'); frame.setAttribute('referrerpolicy', 'no-referrer'); frame.setAttribute('aria-hidden', 'true'); frame.tabIndex = -1;
   Object.assign(frame.style, { position: 'fixed', left: '-100000px', top: '0', visibility: 'hidden', pointerEvents: 'none', border: '0',
     width: `${canvas.width}px`, height: `${canvas.height}px` });
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const timeout = new Promise<never>((_, reject) => { timer = setTimeout(() => reject(Error('style_spec_timeout')), timeoutMs); });
+  const deadline = Date.now() + timeoutMs;
+  let loaded = false, readable = false;
+  frame.onload = () => { loaded = true; };
   try {
-    const loaded = new Promise<Document>(resolve => { frame.onload = () => { if (frame.contentDocument) resolve(frame.contentDocument); }; });
     frame.srcdoc = sanitizePresentationHtml(html); document.body.append(frame);
-    const rendered = await Promise.race([loaded, timeout]);
-    await Promise.race([rendered.fonts.ready, timeout]);
-    await Promise.race([new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))), timeout]);
-    return collectStyleSamples(rendered, canvas);
-  } finally { if (timer) clearTimeout(timer); frame.onload = null; frame.remove(); }
+    let rendered: Document | null = null;
+    while (!rendered) {
+      const current = frame.contentDocument;
+      if (current) readable = true;
+      if (current && current.URL === 'about:srcdoc' && current.readyState !== 'loading' && current.body) rendered = current;
+      else if (Date.now() >= deadline) throw readable ? new StyleMeasureError('timeout', `el HTML no terminó de abrirse en ${Math.round(timeoutMs / 1000)} s`)
+        : new StyleMeasureError('blocked', 'el navegador no permitió leer el documento aislado');
+      else await sleep(25);
+    }
+    // Images, stylesheets and webfonts: a bounded wait, then measure with what is there.
+    const settled = Math.min(deadline, Date.now() + Math.min(2500, timeoutMs / 3));
+    while (!loaded && Date.now() < settled) await sleep(25);
+    await Promise.race([rendered.fonts?.ready ?? Promise.resolve(), sleep(Math.min(1500, deadline - Date.now()))]);
+    // rAF does not run in a background tab; the layout is read synchronously anyway.
+    await Promise.race([new Promise<void>(resolve => requestAnimationFrame(() => resolve())), sleep(100)]);
+    try { return collectStyleSamples(rendered, canvas); }
+    catch (problem) { throw new StyleMeasureError('read', `no se pudieron leer los estilos del HTML${problem instanceof Error ? ` (${problem.message.slice(0, 120)})` : ''}`); }
+  } finally { frame.onload = null; frame.remove(); }
+}
+
+/** Successful measurements per HTML (failures are not cached, so a retry measures again). */
+const measured = new Map<string, Promise<StyleSamples>>();
+export function measureStyleSamplesCached(html: string, canvas: { width: number; height: number }): Promise<StyleSamples> {
+  const key = `${canvas.width}x${canvas.height}|${html}`;
+  let found = measured.get(key);
+  if (!found) {
+    found = measureStyleSamples(html, canvas);
+    measured.set(key, found);
+    found.catch(() => { if (measured.get(key) === found) measured.delete(key); });
+    if (measured.size > 8) measured.delete(measured.keys().next().value!);
+  }
+  return found;
+}
+
+export interface DesignSpecResult { spec: string; scale: string; samples: StyleSamples }
+/** Base first and alone; the nearby slides only refine the scale and never block or fail the base.
+ * `base` carries the base's own spec (its scale measured from itself); `full` adds the nearby slides. */
+export function measureDesignSpec(input: { base: string; nearby: readonly string[]; withScale: boolean; measure(html: string): Promise<StyleSamples> }):
+  { base: Promise<DesignSpecResult>; full: Promise<DesignSpecResult> } {
+  const result = (samples: StyleSamples, deck: StyleSamples[]): DesignSpecResult => {
+    const scale = input.withScale ? deriveTypeScale(deck) : [];
+    return { spec: formatStyleSpec(samples, scale), scale: formatTypeScale(scale), samples };
+  };
+  const base = input.measure(input.base).then(samples => result(samples, [samples]));
+  const full = base.then(async first => {
+    const others = input.withScale ? await Promise.all(input.nearby.filter(html => html !== input.base)
+      .map(html => input.measure(html).catch(() => null))) : [];
+    const deck = others.filter((item): item is StyleSamples => !!item);
+    return deck.length ? result(first.samples, [first.samples, ...deck]) : first;
+  });
+  full.catch(() => {});
+  return { base, full };
 }

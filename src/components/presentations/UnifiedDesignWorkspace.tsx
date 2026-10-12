@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { buildDeckStyleKit } from '@/lib/presentations/designConversationHtml';
-import { deriveTypeScale, formatStyleSpec, formatTypeScale, measureStyleSamples, type StyleSamples } from '@/lib/presentations/styleSpec';
+import { measureDesignSpec, measureStyleSamplesCached, styleMeasureCause, type DesignSpecResult } from '@/lib/presentations/styleSpec';
 import { inferStyleUnlocks } from '@/lib/presentations/styleLock';
 import { describeConversationDesignSource } from '@/lib/presentations/designConversationSource';
 import { designActionLabel, isDesignGeneration, needsResolvedCopy } from '@/lib/presentations/designConversationConfirmation';
@@ -33,17 +33,9 @@ export interface UnifiedDesignWorkspaceProps {
   onApply(slide: PresentationSlide): void | Promise<void>; onInsert?(slide: PresentationSlide): void | Promise<void>; onClose(): void;
 }
 
-/** Measured deck slides for the standard type scale; a slide's HTML is measured once per session. */
-const deckSamples = new Map<string, Promise<StyleSamples | null>>();
-function measureDeckSamples(html: string): Promise<StyleSamples | null> {
-  let found = deckSamples.get(html);
-  if (!found) {
-    found = measureStyleSamples(html, getSlideDimensions(html)).catch(() => null);
-    deckSamples.set(html, found);
-    if (deckSamples.size > 8) deckSamples.delete(deckSamples.keys().next().value!);
-  }
-  return found;
-}
+/** Measured slides (base and deck) are cached per HTML. */
+const measureSlide = (html: string) => measureStyleSamplesCached(html, getSlideDimensions(html));
+const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
 const UNLOCK_LABELS = { typography: 'tipografía', colors: 'colores', components: 'estilo de tarjetas', layout: 'acomodo' } as const;
 
 /** One conversation owns context. Image/HTML engines are tools inside this workspace. */
@@ -71,8 +63,9 @@ export function UnifiedDesignWorkspace(props: UnifiedDesignWorkspaceProps) {
     ? props.deckSlides?.find(slide => slide.id === deckKit?.ids[0])?.html ?? null
     : chosenBase === 'version' ? versionStyleSource ?? props.slide.html : props.slide.html;
   const flags = props.service.fromExisting;
-  const [styleSpec, setStyleSpec] = useState({ source: '', spec: '', scale: '', failed: false });
-  const specJob = useRef<{ source: string; promise: Promise<string> } | null>(null);
+  // `failed`: concrete cause when the base could not be measured ('' = no failure).
+  const [styleSpec, setStyleSpec] = useState({ source: '', spec: '', scale: '', failed: '' });
+  const specJob = useRef<{ source: string; base: Promise<DesignSpecResult>; full: Promise<DesignSpecResult> } | null>(null);
   const specSourceRef = useRef(specSource); specSourceRef.current = specSource;
   // Slides measured for the standard scale: the base plus the nearest deck slides.
   const scaleSlides = useMemo(() => {
@@ -84,32 +77,24 @@ export function UnifiedDesignWorkspace(props: UnifiedDesignWorkspaceProps) {
   useEffect(() => {
     if (!specSource) return;
     let alive = true;
-    const promise = (async () => {
-      const samples = await measureStyleSamples(specSource, getSlideDimensions(specSource));
-      const deck: StyleSamples[] = [samples];
-      for (const html of scaleSlides) if (html !== specSource) {
-        const measured = await measureDeckSamples(html);
-        if (measured) deck.push(measured);
-      }
-      const scale = flags?.escala ? deriveTypeScale(deck) : [];
-      const spec = formatStyleSpec(samples, scale);
-      if (alive) setStyleSpec({ source: specSource, spec, scale: formatTypeScale(scale), failed: false });
-      return spec;
-    })();
-    specJob.current = { source: specSource, promise };
-    promise.catch(() => { if (alive) setStyleSpec({ source: specSource, spec: '', scale: '', failed: true }); });
+    // The base is measured first and alone; the nearby slides only refine the scale.
+    const job = measureDesignSpec({ base: specSource, nearby: scaleSlides, withScale: !!flags?.escala, measure: measureSlide });
+    specJob.current = { source: specSource, ...job };
+    const show = (result: DesignSpecResult) => { if (alive) setStyleSpec({ source: specSource, spec: result.spec, scale: result.scale, failed: '' }); };
+    job.base.then(show, problem => { if (alive) setStyleSpec({ source: specSource, spec: '', scale: '', failed: styleMeasureCause(problem) }); });
+    job.full.then(show, () => {});
     return () => { alive = false; };
   }, [specSource, scaleSlides, flags?.escala]);
   const spec = specSource && styleSpec.source === specSource ? styleSpec.spec : '';
-  const specFailed = !!specSource && styleSpec.source === specSource && styleSpec.failed;
+  const specFailed = specSource && styleSpec.source === specSource ? styleSpec.failed : '';
   const scaleLine = specSource && styleSpec.source === specSource ? styleSpec.scale : '';
-  /** The spec always arrives: waits for the running measurement (max. 8 s); '' when unavailable. */
+  /** The base's spec always arrives (with the deck scale if it is ready within 3 s more).
+   * Rejects with the concrete cause when the base cannot be measured. */
   const styleSpecReady = useCallback(async () => {
     const job = specJob.current;
     if (!job || job.source !== specSourceRef.current) return '';
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const timeout = new Promise<string>(resolve => { timer = setTimeout(() => resolve(''), 8000); });
-    try { return await Promise.race([job.promise.catch(() => ''), timeout]); } finally { if (timer) clearTimeout(timer); }
+    const base = await job.base;
+    return (await Promise.race([job.full.then(result => result.spec, () => ''), sleep(3000).then(() => '')])) || base.spec;
   }, []);
   const work = useDesignConversation({ ...props, onApply: applyResult, settings, htmlController, compositionController, htmlState, compositionState, onView,
     format, base: chosenBase, deckStyle: deckKit?.slides, deckBaseHtml, styleSpec: spec,
@@ -221,7 +206,7 @@ export function UnifiedDesignWorkspace(props: UnifiedDesignWorkspaceProps) {
   const plan = state.next_action && isDesignGeneration(state.next_action.kind) ? state.next_action : null;
   const unlocked = state.understanding?.unlock ? [...new Set([...state.understanding.unlock, ...inferStyleUnlocks(lastAsk)])] : null;
   const comparison = flags?.candado_estilo && format === 'html' && plan && state.understanding ? {
-    have: scaleLine || (specFailed ? 'Ficha no disponible' : spec.split('\n').find(line => line.startsWith('- ')) ?? 'El diseño actual'),
+    have: scaleLine || (specFailed ? `Ficha no disponible: ${specFailed}` : spec.split('\n').find(line => line.startsWith('- ')) ?? 'El diseño actual'),
     ask: lastAsk.slice(0, 300),
     change: `${plan.instruction.split(/(?<=[.!?])\s/)[0].slice(0, 220)} ${unlocked ? unlocked.length
       ? `Desbloqueo: ${unlocked.map(item => UNLOCK_LABELS[item]).join(', ')}.` : 'Sin desbloquear estilos.' : 'Sólo aviso las diferencias de estilo.'}`,
@@ -283,7 +268,7 @@ export function UnifiedDesignWorkspace(props: UnifiedDesignWorkspaceProps) {
           ? 'Sin texto nuevo: se conserva el texto del diseño.' : 'Diseño sin texto.'}</p>}
         {spec && <details><summary>Ficha de estilo</summary><p className="dc-muted">Estilo del diseño base. Puedes pedir qué conservar y qué cambiar.</p><pre className="dc-spec">{spec}</pre></details>}
         {flags && scaleLine && <p className="dc-muted" aria-label="Escala tipográfica">{scaleLine} (px, tolerancia ±2)</p>}
-        {flags?.ficha_estricta && specFailed && <p className="dc-muted" role="status">Ficha no disponible: no se pudo medir el diseño base. Se enviará sin valores medidos.</p>}
+        {flags?.ficha_estricta && specFailed && <p className="dc-muted" role="status">Ficha no disponible: no se pudo medir el diseño base ({specFailed}). Se enviará sin valores medidos.</p>}
         {flags?.prompt_base && state.references.map(reference => {
           const saved = state.reference_prompts?.[reference.sha256];
           return saved ? <details key={reference.id} className="dc-prompt"><summary>Prompt usado · {reference.name}</summary>
@@ -317,7 +302,7 @@ export function UnifiedDesignWorkspace(props: UnifiedDesignWorkspaceProps) {
       </div>
       <div className="dc-composer">
         {error && <p role="alert" className="dc-error">{error}</p>}
-        {flags?.ficha_estricta && specFailed && format === 'html' && <p className="dc-muted" role="status">Ficha no disponible para el diseño base.</p>}
+        {flags?.ficha_estricta && specFailed && format === 'html' && <p className="dc-muted" role="status">Ficha no disponible para el diseño base: {specFailed}.</p>}
         {work.canRetryLastMessage && !pending && <button className="dc-button" disabled={blocked}
           onClick={() => void act(() => work.retryLastMessage())}>Reintentar mensaje</button>}
         {designPending && !!state.messages.length && <div className="dc-recovery" id="dc-design-pending" role="status">

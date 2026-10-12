@@ -11,7 +11,7 @@ import { designReviewRequest } from '@/lib/presentations/designReviewRequest';
 import type { DesignCanvasHtmlRequest } from '../../../supabase/functions/_shared/designCanvasHtml';
 import type { ConversationDesignSource } from '../../../supabase/functions/_shared/desaing/conversationActions';
 import type { StyleUnlock } from '../../../supabase/functions/_shared/desaing/explorationContracts';
-import { measureStyleSamples, measureStyleSpec } from '@/lib/presentations/styleSpec';
+import { deriveTypeScale, formatStyleSpec, measureStyleSamples, measureStyleSamplesCached, styleMeasureCause } from '@/lib/presentations/styleSpec';
 import { describeStyleLock, enforceStyleLock, releaseStyleLock, type StyleLockReport } from '@/lib/presentations/styleLock';
 import { structuralEditFits, type StructuralCheckCache } from '@/lib/presentations/designStructuralCheck';
 import { buildScopedRepairFeedback, correctionIsWorse, imageHoles, inheritedImageHoles, isMissingResourceIssue, isOrientationChange,
@@ -260,9 +260,18 @@ function HtmlDesignWorkspace(props: SlideGeneratorPanelProps & { actorId: string
     // The spec always arrives: wait for the measurement, or measure the chosen source slide.
     let styleSpec = !designSource && latest.current.styleSpec?.trim() ? latest.current.styleSpec : undefined;
     if (flags?.ficha_estricta) {
-      styleSpec = designSource ? sourceSlide ? await measureStyleSpec(sourceSlide.html, getSlideDimensions(sourceSlide.html)).catch(() => undefined) : undefined
-        : (await latest.current.styleSpecReady?.().catch(() => '')) || styleSpec;
-      if (!styleSpec && (refine || sourceSlide)) notices.push('Ficha no disponible: el diseño se generó sin los valores medidos de la base.');
+      let cause = '';
+      const ready = () => latest.current.styleSpecReady?.().catch(problem => { cause = styleMeasureCause(problem); return ''; }) ?? Promise.resolve('');
+      // The slide itself as source uses the workspace's spec (with the deck scale); another slide is measured here (cached per HTML).
+      const measureSource = async (html: string) => {
+        try {
+          const samples = await measureStyleSamplesCached(html, getSlideDimensions(html));
+          return formatStyleSpec(samples, flags.escala ? deriveTypeScale([samples]) : []);
+        } catch (problem) { cause = styleMeasureCause(problem); return undefined; }
+      };
+      styleSpec = designSource ? sourceSlide ? sourceSlide.html === props.currentHtml && await ready() || await measureSource(sourceSlide.html) : undefined
+        : await ready() || styleSpec;
+      if (!styleSpec && (refine || sourceSlide)) notices.push(`Ficha no disponible${cause ? ` (${cause})` : ''}: el diseño se generó sin los valores medidos de la base.`);
     }
     // The current capture has priority over the fourth attachment.
     let render = refine ? baseSnapshot?.image : undefined;
@@ -344,12 +353,14 @@ function HtmlDesignWorkspace(props: SlideGeneratorPanelProps & { actorId: string
       if (flags?.candado_estilo && refine && base) {
         try {
           const locked = await enforceStyleLock({ base, output: candidate, unlock: turn.unlock,
-            measure: html => measureStyleSamples(html, size), fits: (before, after) => structuralEditFits(before, after, size, access, structuralRef) });
+            // The base is usually measured already (cached per HTML).
+            measure: html => html === base ? measureStyleSamplesCached(html, size) : measureStyleSamples(html, size),
+            fits: (before, after) => structuralEditFits(before, after, size, access, structuralRef) });
           await assertCurrent();
           candidate = locked.html; styleLock = locked.report;
         } catch (problem) {
           if (problem instanceof Error && /sesión|lienzo cambió/i.test(problem.message)) throw problem;
-          notices.push('No pude comprobar las diferencias de estilo de esta propuesta.');
+          notices.push(`No pude comprobar las diferencias de estilo de esta propuesta (${styleMeasureCause(problem)}).`);
         }
       }
       // Empty slots that already existed in the base are not a defect and never trigger a repair.

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { deflateSync } from 'node:zlib';
-import { buildDesignCanvasHtmlMessages, finalizeDesignCanvasHtml, inspectDesignCanvasReference,
+import { buildDesignCanvasHtmlMessages, CARD_ORIENTATION_RULE, finalizeDesignCanvasHtml, inspectDesignCanvasReference,
   parseDesignCanvasHtmlRequest, type DesignCanvasHtmlRequest } from '../designCanvasHtml';
 import { getSlideDimensions } from '../../../../src/lib/presentations/presentationDocument';
 
@@ -205,9 +205,15 @@ describe('shared Presentations HTML canvas contract', () => {
       expect(system).toContain('prevalecen sobre el TAMAÑO MÍNIMO en los componentes existentes y en sus copias');
       expect(system).toContain('TAMAÑO MÍNIMO de este lienzo (sólo texto nuevo sin componente equivalente)');
       expect(system).toContain('Usa una referencia de estilo sólo si el encargo la nombra.'); expect(system).not.toContain('Nunca descartes una referencia de estilo');
+      // «Horizontal» cards: each one wide, icon on the left, stacked in place, never one tiny row.
+      expect(system).toContain(CARD_ORIENTATION_RULE);
+      expect(system).toContain('conserva la proporción de su zona nítida');
     }
+    expect(CARD_ORIENTATION_RULE).toMatch(/CADA tarjeta queda más ancha que alta, con su ícono a la izquierda.*se apilan una debajo de otra/);
+    expect(CARD_ORIENTATION_RULE).toContain('No las pongas todas en una sola fila ni las encojas');
     const legacy = String(buildDesignCanvasHtmlMessages({ ...request, strict_spec: undefined, references_by_turn: undefined }, { name: 'Marca' }, 'patch')[0].content);
     expect(legacy).toContain('Libertad de composición'); expect(legacy).toContain('Nunca descartes una referencia de estilo');
+    expect(legacy).not.toContain(CARD_ORIENTATION_RULE);
     expect(() => parseDesignCanvasHtmlRequest({ ...base(), strict_spec: 'yes' })).toThrow('política');
     expect(() => parseDesignCanvasHtmlRequest({ ...base(), request_checklist: Array(9).fill('punto') })).toThrow('comprobación');
   });

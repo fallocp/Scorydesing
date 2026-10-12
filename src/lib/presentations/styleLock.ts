@@ -133,7 +133,9 @@ export function releaseStyleLock(html: string, unlocked: readonly StyleUnlock[])
 /** What the user's own words unlock, added to the planner's unlock so a requested change is never reverted. */
 export function inferStyleUnlocks(text: string): StyleUnlock[] {
   const plain = text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(), found = new Set<StyleUnlock>();
-  if (/\b(?:fuentes?|tipografias?|letras?|tamanos?|negritas?|peso|mas grandes?|mas pequen[oa]s?|mas chic[oa]s?|px\b)/.test(plain)) found.add('typography');
+  // «Más grande/pequeño» only frees the type when it refers to text: «el barco más grande» resizes a photo, never the letters.
+  if (/\b(?:fuentes?|tipografias?|letras?|tamanos? de (?:la |las )?(?:letras?|fuentes?|textos?|titulos?)|negritas?|peso|px\b)/.test(plain)
+    || /\b(?:textos?|titulos?|subtitulos?|parrafos?|encabezados?)(?: \w+)? (?:mas )?(?:grandes?|pequen[oa]s?|chic[oa]s?)\b/.test(plain)) found.add('typography');
   if (/\b(?:colou?r(?:es)?|paleta|azul(?:es)?|rojo|roja|verde|turquesa|coral|naranja|amarill[oa]|negr[oa]|blanc[oa]|gris|morad[oa]|rosa|fondo)\b/.test(plain)) found.add('colors');
   if (/\b(?:sombras?|bordes?|radio|esquinas?|redondead[oa]s?|estilo de (?:las |los )?(?:tarjetas?|cuadros?|cajas?)|tarjetas? (?:planas?|blancas?))\b/.test(plain)) found.add('components');
   if (/\b(?:horizontal(?:es)?|vertical(?:es)?|acomodo|columnas?|filas?|posicion|izquierda|derecha|orientacion|distribucion|reacomoda)\b/.test(plain)) found.add('layout');

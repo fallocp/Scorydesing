@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { deriveTypeScale, formatStyleSpec, formatTypeScale, type BoxSample, type StyleSamples, type TextSample } from '../styleSpec';
+import { deriveTypeScale, formatStyleSpec, formatTypeScale, measureDesignSpec, StyleMeasureError, styleMeasureCause,
+  type BoxSample, type StyleSamples, type TextSample } from '../styleSpec';
 
 const text = (value: string, size: number, weight: number, color: string, extra: Partial<TextSample> = {}): TextSample =>
   ({ text: value, family: 'Montserrat', size, weight, italic: false, upper: false, color, align: 'center', area: size * 100, ...extra });
@@ -50,5 +51,34 @@ describe('ficha de estilo (formatter)', () => {
     const spec = formatStyleSpec({ canvas: { width: 1280, height: 720 }, background: 'rgba(0, 0, 0, 0)', boxes: [], images: [],
       texts: [text('Título', 48, 700, 'rgb(0, 0, 0)', { align: 'left' })] });
     expect(spec).not.toContain('Componentes'); expect(spec).toContain('a la izquierda'); expect(spec).not.toContain('fondo');
+  });
+});
+
+describe('ficha de la base (medición)', () => {
+  const samples = (title: number): StyleSamples => ({ canvas: { width: 1920, height: 1080 }, background: '', boxes: [], images: [],
+    texts: [text('Beneficios', title, 700, 'rgb(11, 42, 91)', { selector: '.title' }), text('Un párrafo de apoyo', 22, 400, 'rgb(96, 110, 125)', { selector: '.lead' }),
+      text('Otro párrafo de apoyo', 22, 400, 'rgb(96, 110, 125)', { selector: '.lead' })] });
+  it('measures the base first and still returns its spec and scale when every nearby slide fails', async () => {
+    const measured: string[] = [];
+    const job = measureDesignSpec({ base: 'base', nearby: ['base', 'near-1', 'near-2'], withScale: true, measure: async html => {
+      measured.push(html);
+      if (html !== 'base') throw new StyleMeasureError('timeout', 'el HTML no terminó de abrirse en 8 s');
+      return samples(72);
+    } });
+    const base = await job.base;
+    expect(measured[0]).toBe('base');
+    expect(base.spec).toContain('FICHA DE ESTILO'); expect(base.scale).toBe('Escala detectada: Título 72 · Texto 22');
+    expect((await job.full).spec).toBe(base.spec);
+    expect(measured.filter(html => html === 'base')).toHaveLength(1);
+  });
+  it('adds the nearby slides to the scale when they are measured', async () => {
+    const job = measureDesignSpec({ base: 'base', nearby: ['a', 'b'], withScale: true, measure: async html => samples(html === 'base' ? 70 : 72) });
+    expect((await job.full).scale).toBe('Escala detectada: Título 72 · Texto 22');
+  });
+  it('rejects with the concrete cause only when the base itself cannot be measured', async () => {
+    const job = measureDesignSpec({ base: 'base', nearby: [], withScale: true,
+      measure: async () => { throw new StyleMeasureError('blocked', 'el navegador no permitió leer el documento aislado'); } });
+    await expect(job.base).rejects.toThrow('no permitió leer');
+    expect(styleMeasureCause(await job.base.catch(problem => problem))).toBe('el navegador no permitió leer el documento aislado');
   });
 });
