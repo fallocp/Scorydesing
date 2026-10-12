@@ -23,6 +23,7 @@ import { sanitizePresentationHtml } from '@/lib/presentations/presentationHtml';
 import { DESIGN_FONT_OPTIONS } from '../../supabase/functions/_shared/desaing/compositionFonts';
 import { validatePresentationRaster } from '@/lib/presentations/presentationAssets';
 import { serializeMountedImages } from '@/lib/presentations/presentationManifest';
+import { replaceImgSrcInHtml, stripLeadingGarbageBeforeDocument } from '@/lib/presentations/editorImageSrc';
 
 // --- Editable element definitions ---
 
@@ -1283,9 +1284,11 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
   const [copyInstruction, setCopyInstruction] = useState('');
   const [copyOptions, setCopyOptions] = useState<string[]>([]);
   const [copyError, setCopyError] = useState<string | null>(null);
+  const [imageSlotError, setImageSlotError] = useState<string | null>(null);
   const [copySectionOpen, setCopySectionOpen] = useState(false);
   // Al cambiar de elemento seleccionado, limpia las opciones/errores de copy previos.
   useEffect(() => { setCopyOptions((prev) => (prev.length ? [] : prev)); setCopyError(null); }, [selectedId]);
+  useEffect(() => { setImageSlotError(null); }, [selectedId]);
   // Estado colapsar/expandir de las secciones del panel de propiedades (por título).
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
   const isSecOpen = (k: string, def = true) => openSections[k] ?? def;
@@ -1309,7 +1312,7 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [iconPickerOpen, setIconPickerOpen] = useState(initialIconPicker === true);
   const [layersOpen, setLayersOpen] = useState(false);
-  const [workingHtml, setWorkingHtml] = useState(html);
+  const [workingHtml, setWorkingHtml] = useState(() => stripLeadingGarbageBeforeDocument(html));
   /**
    * Last document this editor handed to the parent via onApply. Used to ignore
    * the echo when the parent stores it and feeds it back as the `html` prop.
@@ -1372,7 +1375,7 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
   // (último valor gana por selector+propiedad) y los quita del HTML de trabajo.
   // Esto evita que se acumulen decenas de bloques en conflicto entre sesiones.
   useEffect(() => {
-    const parsed = parseOverrideBlocks(html);
+    const parsed = parseOverrideBlocks(stripLeadingGarbageBeforeDocument(html));
     // Restaura las configs del editor (radial/difuminado/fondo) en los refs ANTES
     // de que htmlWithOverrides reconstruya el HTML, para no perderlas al montar.
     const cfgMatch = html.match(/<script id="__ed_cfg"[^>]*>([\s\S]*?)<\/script>/);
@@ -1780,7 +1783,7 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
       setUndoStack((s) => s.slice(0, -1));
       setChanges((c) => c.slice(0, -1));
     } else {
-      setWorkingHtml(html);
+      setWorkingHtml(stripLeadingGarbageBeforeDocument(html));
       setStyleOverrides({});
       setInsertedElements([]);
       setUsedFonts([]);
@@ -1821,7 +1824,7 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
   useEffect(() => {
     if (html === lastEmittedRef.current) return;
     lastEmittedRef.current = html;
-    setWorkingHtml(html);
+    setWorkingHtml(stripLeadingGarbageBeforeDocument(html));
     setStyleOverrides({});
     setChanges([]);
     setSelectedId(null);
@@ -5685,10 +5688,12 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
 
               {/* Image URL input — for photo or image placeholder elements */}
               {(selectedOverlay.id === 'photo' || selectedOverlay.id === 'img-placeholder' || selectedOverlay.id === 'hero-photo' || selectedOverlay.def.kind === 'image' || selectedOverlay.def.kind === 'image-bg' || selectedOverlay.def.kind === 'shape' || /logo|imagen|icono|espacio|foto|photo/i.test(selectedOverlay.def.label || '')) && (
+                <>
                 <ImagePickerPanel
                   key={businessId || 'no-business'}
                   businessId={businessId}
                   onSelect={(url) => {
+                    setImageSlotError(null);
                     pushUndo();
                     // Fondo (background-image): se cambia conservando pan/tinte/fundido
                     if (selectedOverlay.def.kind === 'image-bg') {
@@ -5769,8 +5774,18 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
 
                     const existingImg = el.tagName === 'IMG' ? el : el.querySelector('img');
                     if (existingImg) {
-                      const oldSrc = existingImg.getAttribute('src') || '';
-                      setWorkingHtml((prev) => prev.replace(oldSrc, url));
+                      // Ubica el <img> por id/data-eid (o src exacto) y reescribe su src.
+                      // Nunca `replace(oldSrc, url)`: con src="" antepondría la URL al HTML.
+                      const nextHtml = replaceImgSrcInHtml(workingHtml, {
+                        id: existingImg.getAttribute('id'),
+                        dataEid: existingImg.getAttribute('data-eid'),
+                        oldSrc: existingImg.getAttribute('src'),
+                      }, url);
+                      if (nextHtml === null) {
+                        setImageSlotError('No se pudo colocar la imagen en este hueco.');
+                        return;
+                      }
+                      setWorkingHtml(nextHtml);
                       if (isIconSlot) cleanChrome();
                     } else {
                       // Slot/placeholder (sin <img>): metemos la imagen DENTRO del slot
@@ -5785,6 +5800,8 @@ export function VisualDesignEditor({ html, onSave, onCancel, pieceIndex, dimensi
                   }}
                   onUpload={uploadPresentationImage}
                 />
+                {imageSlotError && <p role="alert" className="text-xs text-destructive">{imageSlotError}</p>}
+                </>
               )}
 
               {/* Dimensiones de elementos insertados (imagen/forma/línea) */}
