@@ -92,7 +92,8 @@ Las que existen desplegadas y usan las tablas en alcance:
 
 - Los 20 triggers desplegados sobre tablas en alcance (lista exacta: dump de Fase 4).
 - Las policies desplegadas de las 62 tablas (123 en las 59 tablas de ScoryDesign e IdP sin `profiles`/roles), tal como están, incluidas las que usan `user_is_member_of()`.
-- `profiles`: sus policies dependen de `is_admin()` (MarketXending). No se trae `is_admin()`; se reemplazan por policies del propio usuario (`auth.uid() = id`). Es la única policy que no replica lo desplegado.
+- `profiles`: sus policies dependen de `is_admin()` (MarketXending). No se trae `is_admin()`; se reemplazan por policies del propio usuario (`auth.uid() = id`).
+- `user_roles` y `extended_user_roles` (Fase 4): sus policies dependen de `is_admin()`/`has_role()` y `get_extended_role()` (MarketXending) y ninguna función en alcance lee esas tablas. Se reemplazan por una policy SELECT de la propia fila cada una; sin policies de escritura de admin. Son las únicas policies que no replican lo desplegado (detalle en `.agents/tasks/own-local-supabase/phase4-schema-parity.md`).
 - Grants de tablas y EXECUTE de funciones: paridad con lo desplegado (incluye ALL para anon en 42 tablas). Ver backlog §6.
 
 ### 2.5 Policies de `storage.objects`
@@ -117,6 +118,8 @@ OPENAI_API_KEY, PHOTO_STYLE, SLIDE_FIX_MODEL, DESAING_ALLOWED_ORIGINS, DESAING_E
 Usados por el código y sin valor desplegado (la función usa su default; se dejan vacíos salvo decisión en Fase 6): COPY_KIT_SOURCE, COPY_MODEL, COPY_V2_MODEL, MASTER_IMAGE_PROMPT_SOURCE, MASTER_IMAGE_PROMPT_VERSION, RENDER_SERVICE_URL, RENDER_SERVICE_TOKEN, SLIDE_MODEL, SLIDE_REVIEW_MODEL, TRANSLATE_MODEL.
 
 `SUPABASE_URL`, `SUPABASE_ANON_KEY` y `SUPABASE_SERVICE_ROLE_KEY` los pone el edge runtime local.
+
+Credenciales de operador fuera del repo: ningún `.env*.example` lista variables `*SERVICE_ROLE*` (lo exige `npm run validate:structure`). `DESAING_TARGET_SUPABASE_SERVICE_ROLE_KEY` se quitó de `.env.desaing.example` (Fase 4); el operador la define solo en `.env.desaing.local` (ignorado). La lee únicamente `scripts/desaing/preflight.mjs:106-107`, que comprueba que exista. No se tocaron los `.env` reales ni ese código.
 
 ### 2.8 Auth
 

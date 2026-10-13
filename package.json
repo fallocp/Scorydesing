@@ -19,7 +19,8 @@
     "test:watch": "vitest",
     "supabase:start": "supabase start --network-id scorydesign-supabase-local",
     "supabase:status": "supabase status",
-    "supabase:stop": "supabase stop"
+    "supabase:stop": "supabase stop",
+    "validate:structure": "node scripts/validate-structure.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.4",
