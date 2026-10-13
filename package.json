@@ -16,7 +16,10 @@
     "lint": "eslint . --report-unused-disable-directives",
     "type-check": "tsc -b",
     "test": "vitest --run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "supabase:start": "supabase start --network-id scorydesign-supabase-local",
+    "supabase:status": "supabase status",
+    "supabase:stop": "supabase stop"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.4",
@@ -87,6 +90,7 @@
     "fast-check": "^4.8.0",
     "globals": "17.11.0",
     "postcss": "^8.4.38",
+    "supabase": "2.117.0",
     "tailwindcss": "^3.4.11",
     "typescript": "^5.5.3",
     "typescript-eslint": "8.67.0",

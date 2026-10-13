@@ -20,6 +20,9 @@ renderer/node_modules/
 
 # Supabase CLI
 supabase/.temp/
+supabase/.branches/
+supabase/functions/.env
+supabase/functions/.env.local
 
 # Build info (artefacto de TypeScript, no debe versionarse)
 *.tsbuildinfo
