@@ -92,7 +92,8 @@ export function assertHtmlDesignDraft(value: HtmlDesignDraft, scope: HtmlDesignS
     || [p.styleLock.compared, p.styleLock.released].some(count => count !== undefined && (!Number.isSafeInteger(count) || count < 0)))) throw Error('invalid_html_design_review');
   const transfer = p?.styleTransfer;
   if (transfer && (![transfer.source, transfer.checked, transfer.assertions].every(count => Number.isSafeInteger(count) && count >= 0)
-    || !shortList(transfer.fixed, 30) || !shortList(transfer.failed, 30) || !shortList(transfer.skipped, 12) || !shortList(transfer.accents, 12))) throw Error('invalid_html_design_review');
+    || !shortList(transfer.fixed, 30) || !shortList(transfer.failed, 30) || !shortList(transfer.skipped, 12) || !shortList(transfer.accents, 12)
+    || transfer.label !== undefined && (typeof transfer.label !== 'string' || transfer.label.length > 200))) throw Error('invalid_html_design_review');
   if (p?.notices !== undefined && !shortList(p.notices, 8)) throw Error('invalid_html_design_review');
   if (p && (typeof p.html !== 'string' || p.html.length > 16 * 1024 * 1024
     || !p.target || p.target.document !== scope.document || p.target.slide !== scope.slide || !Number.isSafeInteger(p.target.revision) || p.target.revision < 1

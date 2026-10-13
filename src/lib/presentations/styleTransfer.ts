@@ -1,6 +1,7 @@
 import { sentencesOf, STYLE_ROLE_LABELS, type AccentPosition, type AccentSample, type RoleBlock, type RoleSheet, type StyleRole, type TextLook } from './styleSpec';
 import { isOrientationChange } from './designFromExisting';
 import type { AccentPlanItem } from '../../../supabase/functions/_shared/desaing/explorationContracts';
+import type { DeckRoleToken, DeckSystem, DeckTokens } from './deckSystem';
 
 /** «Estilo de la diapositiva N», measured and without AI: pairs roles of the source with the
  * destination, applies every style property as CSS over stable attributes (texts and structure
@@ -120,7 +121,7 @@ export interface TransferAccent { block: number; role: StyleRole; words: string;
   origin: 'fuente' | 'plan' | 'indicación' }
 export interface TransferPlan { accents: TransferAccent[]; unresolved: string[] }
 const SOURCE_ROLES: Record<StyleRole, StyleRole[]> = { brand_title: ['brand_title', 'title'], title: ['title', 'brand_title'], subtitle: ['subtitle'],
-  body: ['body'], card_title: ['card_title'], card_body: ['card_body', 'body'], highlight: ['highlight'], note: ['note'], label: ['label'] };
+  body: ['body'], card_title: ['card_title'], card_body: ['card_body', 'body'], highlight: ['highlight'], note: ['note'], label: ['label'], number: ['number'] };
 export function sourceBlocksFor(source: RoleSheet, role: StyleRole): RoleBlock[] {
   for (const candidate of SOURCE_ROLES[role]) { const found = source.blocks.filter(block => block.role === candidate); if (found.length) return found; }
   return [];
@@ -277,7 +278,7 @@ const lookMode = (blocks: RoleBlock[]): TextLook => ({ family: mode(blocks.map(b
   weight: mode(blocks.map(block => block.weight)), italic: mode(blocks.map(block => block.italic)), upper: mode(blocks.map(block => block.upper)),
   tracking: mode(blocks.map(block => Math.round(block.tracking * 10) / 10)), lineHeight: mode(blocks.map(block => block.lineHeight)),
   align: mode(blocks.map(block => block.align)), color: mode(blocks.map(block => block.color)) });
-const DISPLAY_ROLES = new Set<StyleRole>(['brand_title', 'title', 'subtitle', 'card_title', 'highlight', 'label']);
+const DISPLAY_ROLES = new Set<StyleRole>(['brand_title', 'title', 'subtitle', 'card_title', 'highlight', 'label', 'number']);
 /** Standard size per role across the deck's slides (most samples within ±2 px, then its most frequent exact size). A brand title counts as a title. */
 export type DeckScale = Partial<Record<StyleRole, number>>;
 export function deckScale(sheets: readonly RoleSheet[]): DeckScale {
@@ -294,10 +295,13 @@ export function deckScale(sheets: readonly RoleSheet[]): DeckScale {
 }
 const FAMILY = /^[\w\s-]+$/;
 const roleMatches = (subject: AssertionSubject, role: StyleRole) => subject === role || subject === 'title' && role === 'brand_title';
-export interface TransferOptions { assertions: readonly StyleAssertion[]; palette: readonly string[]; fonts: { display?: string; body?: string }; scale: DeckScale }
+/** `skip`: categories the user unlocked in this turn (the deck system never overrides them). */
+export interface TransferOptions { assertions: readonly StyleAssertion[]; palette: readonly string[]; fonts: { display?: string; body?: string }; scale: DeckScale;
+  skip?: { typography?: boolean; colors?: boolean; components?: boolean } }
 export function applyStyleTransfer(tagged: string, source: RoleSheet, target: RoleSheet, plan: TransferPlan, options: TransferOptions):
   { html: string; expectations: TransferExpectation[]; unresolved: string[]; skipped: string[] } {
   const doc = parse(tagged), rules: string[] = [], expectations: TransferExpectation[] = [], unresolved: string[] = [], skipped = new Set<string>();
+  const skip = options.skip ?? {};
   const selector = (key: string, attribute = ATTR) => `[${attribute}="${key}"][${attribute}]`;
   const rule = (css: string, key: string, attribute = ATTR) => rules.push(`${selector(key, attribute)}{${css}}`);
   const expect = (item: TransferExpectation, css = `${item.property}:${item.value}!important`) => { expectations.push(item); rule(css, item.key, item.kind === 'accent' ? ACCENT : ATTR); };
@@ -315,14 +319,18 @@ export function applyStyleTransfer(tagged: string, source: RoleSheet, target: Ro
     if (!from.length) { skipped.add(STYLE_ROLE_LABELS[block.role]); continue; }
     const look = lookMode(from), family = familyFor(block.role, look.family), size = options.scale[block.role === 'brand_title' ? 'title' : block.role];
     const item = (property: TransferProperty, value: string, before: string) => expect({ kind: 'block', key: block.key!, label, property, value, before });
-    if (FAMILY.test(family)) item('font-family', `"${family}", sans-serif`, block.family);
-    if (size) item('font-size', `${size}px`, `${Math.round(block.size)}px`);
-    item('font-weight', String(look.weight), String(block.weight));
-    item('font-style', look.italic ? 'italic' : 'normal', block.italic ? 'italic' : 'normal');
-    item('text-transform', look.upper ? 'uppercase' : 'none', block.upper ? 'uppercase' : 'none');
-    item('letter-spacing', `${look.tracking}px`, `${block.tracking}px`);
-    item('color', assertedColor(block.role) ?? look.color, block.color);
-    if (look.lineHeight) rule(`line-height:${look.lineHeight}!important`, block.key);
+    if (!skip.typography) {
+      if (FAMILY.test(family)) item('font-family', `"${family}", sans-serif`, block.family);
+      if (size) item('font-size', `${size}px`, `${Math.round(block.size)}px`);
+      item('font-weight', String(look.weight), String(block.weight));
+      item('font-style', look.italic ? 'italic' : 'normal', block.italic ? 'italic' : 'normal');
+      item('text-transform', look.upper ? 'uppercase' : 'none', block.upper ? 'uppercase' : 'none');
+      item('letter-spacing', `${look.tracking}px`, `${block.tracking}px`);
+      if (look.lineHeight) rule(`line-height:${look.lineHeight}!important`, block.key);
+    }
+    const asserted = assertedColor(block.role);
+    if (!skip.colors || asserted) item('color', asserted ?? look.color, block.color);
+    if (skip.colors) continue;
     // The destination's own tramos give way to the source's pattern (the planned accents are styled below).
     rules.push(`${selector(block.key)} :is(span,em,strong,b,i,mark,a,u,small):not([${ACCENT}]){color:inherit!important;font-style:inherit!important;-webkit-text-fill-color:currentColor!important;background:none!important}`);
   }
@@ -333,6 +341,7 @@ export function applyStyleTransfer(tagged: string, source: RoleSheet, target: Ro
   }
   // Accents: wrapped in a span over the exact words, never rewriting them.
   plan.accents.forEach((accent, index) => {
+    if (skip.colors && accent.origin !== 'indicación') return;
     const block = target.blocks[accent.block], element = block.key ? doc.querySelector(`[${ATTR}="${block.key}"]`) : null;
     const wrapped = element ? wrapWords(doc, element, accent.words, `a${index}`) : null;
     if (!wrapped) { unresolved.push(`no pude marcar «${accent.words}»`); return; }
@@ -348,11 +357,14 @@ export function applyStyleTransfer(tagged: string, source: RoleSheet, target: Ro
   const card = source.cards[0], cardAssertion = options.assertions.find(item => 'role' in item.target && item.target.role === 'card');
   const cardColor = cardAssertion ? resolveColor(cardAssertion.color, options.palette) : null;
   if (!card && target.cards.length && !cardColor) skipped.add('Tarjetas');
-  if (card || cardColor) for (const [index, item] of target.cards.entries()) {
+  // Card style unlocked this turn: only the user's own card color applies.
+  const cardStyle = skip.components ? undefined : card;
+  if (cardStyle || cardColor) for (const [index, item] of target.cards.entries()) {
     if (!item.key) continue;
     const label = `Tarjeta ${index + 1}`;
-    expect({ kind: 'card', key: item.key, label, property: 'background-color', value: cardColor ?? card!.background, before: item.background });
-    if (card) {
+    expect({ kind: 'card', key: item.key, label, property: 'background-color', value: cardColor ?? cardStyle!.background, before: item.background });
+    if (cardStyle) {
+      const card = cardStyle;
       expect({ kind: 'card', key: item.key, label, property: 'border-radius', value: `${Math.round(card.radius)}px`, before: `${Math.round(item.radius)}px` });
       expect({ kind: 'card', key: item.key, label, property: 'box-shadow', value: card.shadow || 'none', before: item.shadow || 'none' });
       rule(`border:${card.border || 'none'}!important`, item.key);
@@ -363,7 +375,7 @@ export function applyStyleTransfer(tagged: string, source: RoleSheet, target: Ro
   const lineAssertion = options.assertions.find(item => 'role' in item.target && item.target.role === 'line');
   const lineColor = lineAssertion ? resolveColor(lineAssertion.color, options.palette) : null, used = new Set<number>();
   target.decorations.forEach((line, index) => {
-    if (!line.key) return;
+    if (!line.key || skip.colors && !lineColor) return;
     let pair = source.decorations.findIndex((other, at) => !used.has(at) && other.below && other.below === line.below);
     if (pair < 0) pair = source.decorations.findIndex((_, at) => !used.has(at));
     const from = pair >= 0 ? source.decorations[pair] : undefined;
@@ -380,7 +392,7 @@ export function applyStyleTransfer(tagged: string, source: RoleSheet, target: Ro
     skipped.add(`la línea corta${line.below ? ` bajo ${STYLE_ROLE_LABELS[line.below].toLowerCase()}` : ''}`); });
   // Slide background.
   const root = slideRoot(doc), rootKey = root.getAttribute(ATTR);
-  if (rootKey && /^#[0-9a-f]{6}$/i.test(source.background)) {
+  if (rootKey && !skip.colors && /^#[0-9a-f]{6}$/i.test(source.background)) {
     expect({ kind: 'slide', key: rootKey, label: 'Fondo de la diapositiva', property: 'background-color', value: source.background, before: target.background });
     rule(`background-image:${source.backgroundImage || 'none'}!important`, rootKey);
   }
@@ -390,6 +402,67 @@ export function applyStyleTransfer(tagged: string, source: RoleSheet, target: Ro
   }
   const style = doc.createElement('style'); style.id = STYLE_TRANSFER_ID; style.textContent = rules.join('\n'); doc.head.append(style);
   return { html: serialize(doc), expectations, unresolved, skipped: [...skipped] };
+}
+
+// ── «Sistema de la presentación» as a source ─────────────────────────────────
+const luminance = (value: string) => {
+  const match = /^#([0-9a-f]{6})$/i.exec(value.trim());
+  if (!match) return null;
+  const [r, g, b] = [0, 2, 4].map(at => { const channel = parseInt(match[1].slice(at, at + 2), 16) / 255;
+    return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4; });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+/** WCAG contrast ratio of two #hex colors; 21 when either is not a plain hex (nothing to compare). */
+export function contrastRatio(a: string, b: string): number {
+  const left = luminance(a), right = luminance(b);
+  if (left === null || right === null) return 21;
+  return (Math.max(left, right) + 0.05) / (Math.min(left, right) + 0.05);
+}
+const ZERO = { x: 0, y: 0, width: 0, height: 0 }, UNREADABLE = 1.3;
+/** The deck system as a source sheet: one block per firm role token (with the deck's accent habits seen in ≥50 % of its slides),
+ * the deck's short lines, cards and background. Per archetype when it has ≥2 exemplars. The background variant that matches the
+ * destination is kept (claro / navy de sección); a role whose deck color would not read on that background keeps its own color. */
+/** Tokens of an arrangement where ≥2 of its exemplars agree, the deck's for everything else: an arrangement with two slides
+ * never imposes the quirks of one of them (an off-system slide, a brand title). Sizes the same way. */
+export function effectiveTokens(system: DeckSystem, archetype?: string): DeckTokens {
+  const own = system.archetypes.find(item => item.id === archetype)?.tokens, deck = system.tokens;
+  if (!own) return deck;
+  const agreed = (token: DeckRoleToken) => token.firm && [token.family, token.color, token.weight].every(value => value.support >= 2);
+  const roles = deck.roles.map(token => { const mine = own.roles.find(item => item.role === token.role); return mine && agreed(mine) ? mine : token; });
+  for (const token of own.roles) if (agreed(token) && !roles.some(item => item.role === token.role)) roles.push(token);
+  const fromOwn = new Set(roles.filter(token => own.roles.includes(token)).map(token => token.role));
+  const scale: DeckScale = { ...deck.scale };
+  for (const token of roles) if (fromOwn.has(token.role) && token.size.support >= 2) scale[token.role === 'brand_title' ? 'title' : token.role] = token.size.value;
+  const lines = own.decorations.filter(line => line.slides >= 2);
+  return { slides: own.slides, roles, scale,
+    accents: [...own.accents.filter(accent => fromOwn.has(accent.role) && accent.slides >= 2), ...deck.accents.filter(accent => !fromOwn.has(accent.role))],
+    decorations: lines.length ? lines : deck.decorations, backgrounds: (own.backgrounds[0]?.slides.length ?? 0) >= 2 ? own.backgrounds : deck.backgrounds,
+    ...(own.cards && own.cards.slides >= 2 ? { cards: own.cards } : deck.cards ? { cards: deck.cards } : {}),
+    ...(own.photo && own.photo.slides >= 2 ? { photo: own.photo } : deck.photo ? { photo: deck.photo } : {}) };
+}
+export function syntheticSourceSheet(system: DeckSystem, options: { archetype?: string; target?: RoleSheet; keepBackground?: boolean } = {}): RoleSheet {
+  const tokens = effectiveTokens(system, options.archetype), target = options.target;
+  const variants = tokens.backgrounds.length ? tokens.backgrounds : system.tokens.backgrounds;
+  // A lone cover, section or closing keeps its own background (never flattened into the content slides').
+  const background = options.keepBackground && target ? { color: target.background, image: target.backgroundImage }
+    : variants.find(variant => target && variant.color.toUpperCase() === target.background.toUpperCase()) ?? variants[0];
+  const paper = background?.color ?? target?.background ?? '#FFFFFF';
+  const own = (role: StyleRole) => { const colors = target?.blocks.filter(block => block.role === role).map(block => block.color) ?? [];
+    return colors.length ? mode(colors) : undefined; };
+  const blocks: RoleBlock[] = tokens.roles.filter(token => token.firm).map(token => {
+    // Only a near-invisible pair counts (navy on navy); the deck's own light accents (turquoise on cream) stay.
+    const color = contrastRatio(token.color.value, paper) < UNREADABLE ? own(token.role) ?? token.color.value : token.color.value;
+    const accents: AccentSample[] = tokens.accents.filter(item => item.role === token.role && item.frequency >= 0.5 && contrastRatio(item.color, paper) >= UNREADABLE)
+      .slice(0, 2).map(item => ({ text: '', position: { ...item.position }, color: item.color, italic: item.italic, weight: item.weight,
+        ...(item.gradient ? { gradient: item.gradient } : {}) }));
+    return { role: token.role, text: '', selector: '', rect: ZERO, accents, family: token.family.value, size: token.size.value, weight: token.weight.value,
+      italic: token.italic.value, upper: token.upper.value, tracking: token.tracking.value, lineHeight: token.lineHeight, align: token.align, color };
+  });
+  return { background: paper, backgroundImage: background?.image ?? '', blocks,
+    decorations: tokens.decorations.map(line => ({ rect: { ...ZERO, width: line.width, height: line.height }, color: line.color, image: line.image,
+      radius: line.radius, ...(line.below ? { below: line.below } : {}) })),
+    cards: tokens.cards ? [{ rect: ZERO, background: tokens.cards.background, border: tokens.cards.border, radius: tokens.cards.radius,
+      shadow: tokens.cards.shadow, padding: tokens.cards.padding, align: '' }] : [], fonts: system.fonts.slice(0, 4) };
 }
 
 // ── Verification against the objective ───────────────────────────────────────
@@ -463,8 +536,9 @@ function grouped(items: readonly TransferExpectation[]): string[] {
 }
 
 // ── Pipeline and message ─────────────────────────────────────────────────────
+/** `label`: what was compared when the source is not one slide («el sistema de la presentación (…)»); `source` is then 0. */
 export interface StyleTransferReport {
-  source: number; checked: number; fixed: string[]; failed: string[]; skipped: string[]; accents: string[]; assertions: number;
+  source: number; checked: number; fixed: string[]; failed: string[]; skipped: string[]; accents: string[]; assertions: number; label?: string;
 }
 export interface StyleTransferInput {
   html: string; sourceHtml: string; sourceNumber: number; request: string; planned?: readonly AccentPlanItem[];
@@ -473,28 +547,39 @@ export interface StyleTransferInput {
   deck?: readonly RoleSheet[];
   /** Browser measurement of one HTML (iframe); `brand` names the brand title. */
   measure(html: string, brand: string): Promise<RoleSheet>;
+  /** Deck system: a synthetic source sheet built for the measured destination (sourceHtml is then ignored). */
+  sourceSheet?(target: RoleSheet): RoleSheet;
+  /** Standard sizes given directly (deck system); wins over `deck`. */
+  scale?: DeckScale;
+  /** Categories unlocked in this turn; see TransferOptions.skip. */
+  skip?: TransferOptions['skip'];
+  label?: string;
 }
 export async function runStyleTransfer(input: StyleTransferInput): Promise<{ html: string; report: StyleTransferReport }> {
   const brand = input.brand?.name ?? '', tagged = tagForTransfer(input.html);
-  const [source, target] = await Promise.all([input.measure(input.sourceHtml, brand), input.measure(tagged, brand)]);
+  const [measured, target] = await Promise.all([input.sourceSheet ? null : input.measure(input.sourceHtml, brand), input.measure(tagged, brand)]);
+  const source = measured ?? input.sourceSheet!(target);
   const assertions = parseStyleAssertions(input.request), palette = transferPalette(input.brand?.colors ?? [], source);
+  const skip = input.skip ?? {};
   const plan = buildTransferPlan(source, target, { planned: input.planned, assertions, palette });
-  const applied = applyStyleTransfer(tagged, source, target, plan, { assertions, palette, scale: deckScale(input.deck?.length ? input.deck : [target]),
-    fonts: { display: input.brand?.display, body: input.brand?.body } });
+  const applied = applyStyleTransfer(tagged, source, target, plan, { assertions, palette, skip,
+    scale: input.scale ?? deckScale(input.deck?.length ? input.deck : [target]), fonts: { display: input.brand?.display, body: input.brand?.body } });
   let html = applied.html, failed = checkTransfer(await input.measure(html, brand), applied.expectations);
   if (failed.length) { html = forceInline(html, failed); failed = checkTransfer(await input.measure(html, brand), applied.expectations); }
   const changed = applied.expectations.filter(item => !failed.includes(item) && !sameValue(item.property, item.value, item.before));
   return { html: finishTransfer(html), report: { source: input.sourceNumber, checked: applied.expectations.length,
     fixed: grouped(changed).slice(0, 30), failed: [...grouped(failed), ...plan.unresolved, ...applied.unresolved].slice(0, 30),
-    skipped: applied.skipped.slice(0, 12), assertions: assertions.length,
-    accents: describeTransferRows(plan, target, assertions, palette).map(row => `${row.element}: ${row.proposal}`.slice(0, 300)).slice(0, 12) } };
+    skipped: applied.skipped.slice(0, 12), assertions: assertions.length, ...(input.label ? { label: input.label.slice(0, 200) } : {}),
+    accents: describeTransferRows(skip.colors ? { ...plan, accents: plan.accents.filter(accent => accent.origin === 'indicación') } : plan, target, assertions, palette)
+      .map(row => `${row.element}: ${row.proposal}`.slice(0, 300)).slice(0, 12) } };
 }
 const listed = (items: readonly string[], max: number) => items.slice(0, max).join('; ') + (items.length > max ? `; y ${items.length - max} más` : '');
 /** «Comparé contra la diapositiva 2 y tus indicaciones: N diferencias corregidas (…)» or what could not be applied. Never «ninguna» without comparing. */
 export function describeStyleTransfer(report?: StyleTransferReport): string {
   if (!report) return '';
-  if (!report.checked) return `No pude comparar con la diapositiva ${report.source}: no encontré elementos equivalentes.${report.failed.length ? ` No pude aplicar: ${listed(report.failed, 4)}.` : ''}`;
-  const against = `Comparé contra la diapositiva ${report.source}${report.assertions ? ' y tus indicaciones' : ''} (${report.checked} puntos)`;
+  const subject = report.label ?? `la diapositiva ${report.source}`;
+  if (!report.checked) return `No pude comparar con ${subject}: no encontré elementos equivalentes.${report.failed.length ? ` No pude aplicar: ${listed(report.failed, 4)}.` : ''}`;
+  const against = `Comparé contra ${subject}${report.assertions ? ' y tus indicaciones' : ''} (${report.checked} puntos)`;
   const fixed = report.fixed.length ? `${report.fixed.length} ${report.fixed.length === 1 ? 'diferencia corregida' : 'diferencias corregidas'} (${listed(report.fixed, 5)})`
     : 'ya coincidía todo';
   return [`${against}: ${fixed}.`, report.failed.length ? `No pude aplicar: ${listed(report.failed, 5)}.` : '',

@@ -12,7 +12,8 @@ import type { DesignCanvasHtmlRequest } from '../../../supabase/functions/_share
 import type { ConversationDesignSource } from '../../../supabase/functions/_shared/desaing/conversationActions';
 import type { AccentPlanItem, StyleUnlock } from '../../../supabase/functions/_shared/desaing/explorationContracts';
 import { deriveTypeScale, formatStyleSpec, measureRoleSheet, measureStyleSamples, measureStyleSamplesCached, styleMeasureCause } from '@/lib/presentations/styleSpec';
-import { describeStyleTransfer, runStyleTransfer, type StyleTransferReport } from '@/lib/presentations/styleTransfer';
+import { describeStyleTransfer, effectiveTokens, runStyleTransfer, syntheticSourceSheet, type StyleTransferReport } from '@/lib/presentations/styleTransfer';
+import { DECK_STRUCTURE_LABELS, describeSignature, sameShape, signatureOf, type DeckStructure, type DeckSystem, type SlideSignature } from '@/lib/presentations/deckSystem';
 import { describeStyleLock, enforceStyleLock, releaseStyleLock, type StyleLockReport } from '@/lib/presentations/styleLock';
 import { structuralEditFits, type StructuralCheckCache } from '@/lib/presentations/designStructuralCheck';
 import { buildScopedRepairFeedback, correctionIsWorse, imageHoles, inheritedImageHoles, isMissingResourceIssue, isOrientationChange,
@@ -76,6 +77,25 @@ export interface SlideGeneratorTurn {
   request?: string;
   /** «Estilo de la diapositiva N»: copied without AI after any generation, then verified against the source. */
   transfer?: SlideStyleTransfer;
+  /** «Sistema de la presentación» of this generation (VITE_DESAING_DECK_SYSTEM); a cited slide (`transfer`) wins over it. */
+  deck?: SlideDeckTurn;
+}
+/** Deck system for one generation: tokens applied without AI afterwards, the exemplar of the chosen arrangement and the generator's block. */
+export interface SlideDeckTurn {
+  system: DeckSystem;
+  /** Destination slide number, deck size and its neighbors (signature comparison at the end). */
+  number: number; deckSize: number; neighbors: Array<{ number: number; signature: SlideSignature }>;
+  /** Apply the deck tokens without AI after generating. */
+  tokens: boolean;
+  /** Arrangement whose tokens apply when it has ≥2 exemplars; `label` only when this turn chose an arrangement. */
+  archetype?: DeckStructure; label?: string; policy?: 'varied' | 'repeated';
+  /** Inert exemplar for style_examples and its original HTML for the capture (deck base only). */
+  example?: string; exemplarHtml?: string;
+  /** «SISTEMA DE LA PRESENTACIÓN» block for the generator. */
+  spec?: string;
+  /** Categories the user unlocked in this turn: the system does not override them. */
+  skip?: { typography?: boolean; colors?: boolean; components?: boolean };
+  brand?: SlideStyleTransfer['brand'];
 }
 export interface SlideStyleTransfer {
   sourceHtml: string; sourceNumber: number; planned?: AccentPlanItem[];
@@ -260,7 +280,9 @@ function HtmlDesignWorkspace(props: SlideGeneratorPanelProps & { actorId: string
     const inspection = designSource ? { missing: false, examples: [], references: [] } : await inspectionEvidence(before);
     if (inspection.missing) throw Error('Vuelve a consultar las diapositivas antes de crear otra versión: su captura ya no está disponible en este borrador.');
     references.push(...inspection.references);
-    const deckSource = !designSource && !refine && latest.current.styleExamples?.length ? latest.current.styleSourceHtml : undefined;
+    // Deck base: the exemplar of the chosen arrangement (deck system) replaces the nearest slides.
+    const kitPath = !designSource && !refine && !!latest.current.styleExamples?.length;
+    const deckSource = kitPath ? turn.deck?.exemplarHtml ?? latest.current.styleSourceHtml : undefined;
     if (deckSource && references.length < 4) {
       try {
         let image = deckCaptureRef.current?.html === deckSource ? deckCaptureRef.current.image : undefined;
@@ -325,8 +347,9 @@ function HtmlDesignWorkspace(props: SlideGeneratorPanelProps & { actorId: string
       ...((refine && rewrite) || (nativeAdapt && designSource!.mode === 'adapt_layout' && (!flags?.no_rehace || isOrientationChange(feedback)))
         ? { edit_mode: 'rewrite' as const } : {}),
       ...(inspection.examples.length ? { style_examples: inspection.examples }
-        : !designSource && !refine && latest.current.styleExamples?.length ? { style_examples: structuredClone(latest.current.styleExamples) } : {}),
+        : kitPath ? { style_examples: turn.deck?.example ? [turn.deck.example] : structuredClone(latest.current.styleExamples!) } : {}),
       ...(styleSpec ? { style_spec: styleSpec.slice(0, 4000) } : {}),
+      ...(turn.deck?.spec ? { deck_system: turn.deck.spec.slice(0, 3000) } : {}),
       ...(flags?.ficha_estricta && refine ? { strict_spec: true as const } : {}),
       ...(flags?.referencias_por_turno ? { references_by_turn: true as const } : {}),
       ...(flags?.revision_pedido && turn.checklist?.length ? { request_checklist: turn.checklist.slice(0, 8) } : {}),
@@ -394,6 +417,21 @@ function HtmlDesignWorkspace(props: SlideGeneratorPanelProps & { actorId: string
           if (problem instanceof Error && /sesión|lienzo cambió/i.test(problem.message)) throw problem;
           notices.push(`No pude copiar el estilo de la diapositiva ${turn.transfer.sourceNumber} (${styleMeasureCause(problem)}).`);
         }
+      } else if (turn.deck) {
+        // «Sistema de la presentación»: its tokens without AI (unless a cited slide gives the style), then the arrangement against the neighbors.
+        try {
+          if (turn.deck.tokens) {
+            const done = await applyDeckTokens(candidate, turn.deck, turn.request ?? feedback);
+            await assertCurrent();
+            candidate = cleanCandidate(done.html); styleTransfer = done.report;
+          }
+          const note = turn.deck.label ? await deckSignatureNote(candidate, turn.deck) : '';
+          await assertCurrent();
+          if (note) notices.push(note);
+        } catch (problem) {
+          if (problem instanceof Error && /sesión|lienzo cambió/i.test(problem.message)) throw problem;
+          notices.push(`No pude aplicar el sistema de la presentación (${styleMeasureCause(problem)}).`);
+        }
       }
       // Empty slots that already existed in the base are not a defect and never trigger a repair.
       const holes = flags?.huecos_heredados && refine && base ? inheritedImageHoles(base, candidate) : undefined;
@@ -436,7 +474,7 @@ function HtmlDesignWorkspace(props: SlideGeneratorPanelProps & { actorId: string
       const next = patch({ proposal, designBase: request.design_base, status: 'ready', feedback: '', messages: [...before.messages,
         { role: 'user' as const, text: refine ? feedback : before.instruction || 'Diseña a partir de mis referencias.' },
         { role: 'assistant' as const, text: [visualReview ? describeVisualReview(visualReview) : 'Aquí está la propuesta; la reviso en segundo plano.',
-          styleTransfer ? describeStyleTransfer(styleTransfer) : describeStyleLock(styleLock)].filter(Boolean).join(' ') }].slice(-40) });
+          describeStyleTransfer(styleTransfer), !styleTransfer || styleTransfer.label ? describeStyleLock(styleLock) : ''].filter(Boolean).join(' ') }].slice(-40) });
       if (later) laterReviewRef.current = { html: proposal.html, correction: flags?.correccion_acotada ? turn.correction?.issues : undefined,
         review: () => reviewAndRepairDesign({ html: proposal.html, ...reviewOptions, maxRepairs: 0, assertCurrent: () => assertSession(life), repair: async same => same }) };
       await persist(next);
@@ -455,6 +493,25 @@ function HtmlDesignWorkspace(props: SlideGeneratorPanelProps & { actorId: string
       .flatMap(item => item?.sheet ? [item.sheet] : []);
     return runStyleTransfer({ html, sourceHtml: transfer.sourceHtml, sourceNumber: transfer.sourceNumber, request, planned: transfer.planned,
       brand: transfer.brand, deck, measure: (item, brand) => measureRoleSheet(item, getSlideDimensions(item), brand) });
+  }
+  /** Deck tokens (synthetic source sheet, per arrangement with ≥2 exemplars) applied and verified without AI. Sizes follow the
+   * arrangement's scale; a lone cover, section or closing keeps its own sizes instead of the deck's common ones. */
+  async function applyDeckTokens(html: string, deck: SlideDeckTurn, request: string) {
+    const found = deck.system.archetypes.find(item => item.id === deck.archetype), own = found?.tokens ? found : undefined;
+    const lone = !own && ['cover', 'section', 'closing'].includes(deck.archetype ?? '');
+    const label = own ? `el sistema de la presentación (acomodo ${DECK_STRUCTURE_LABELS[own.id]}, ${own.members.length} diapositivas)`
+      : `el sistema de la presentación (${deck.system.slides} diapositivas)`;
+    return runStyleTransfer({ html, sourceHtml: '', sourceNumber: 0, request, brand: deck.brand, label, skip: deck.skip,
+      scale: lone ? {} : effectiveTokens(deck.system, own?.id).scale,
+      sourceSheet: target => syntheticSourceSheet(deck.system, { archetype: own?.id, target, keepBackground: lone }),
+      measure: (item, brand) => measureRoleSheet(item, getSlideDimensions(item), brand) });
+  }
+  /** The measured arrangement of the result against the neighbors; a note (never a retry) when it repeats one outside a series. */
+  async function deckSignatureNote(html: string, deck: SlideDeckTurn): Promise<string> {
+    if (deck.policy === 'repeated' || !deck.neighbors.length) return '';
+    const signature = signatureOf(await measureStyleSamples(html, getSlideDimensions(html)), { index: deck.number - 1, count: deck.deckSize });
+    const same = deck.neighbors.filter(item => sameShape(item.signature, signature)).map(item => item.number);
+    return same.length ? `El acomodo que quedó (${describeSignature(signature)}) repite el de la diapositiva ${same.join(' y ')}; si quieres variedad, pide otra variación.` : '';
   }
   /** «Estilo de la diapositiva N» with nothing else to change: the current design with the copied style, without any AI call. */
   async function transferOnly(life: Life, fromCurrent: boolean, turn: SlideGeneratorTurn) {

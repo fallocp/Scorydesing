@@ -1,5 +1,5 @@
 import type { DesignContext } from './contracts.ts';
-import { assertConversationNextAction, assertConversationTurn } from './conversationActions.ts';
+import { assertConversationNextAction, assertConversationTurn, DECK_ARCHETYPE_IDS, DECK_CARD_LIMIT, DECK_CARD_ORIENTATIONS, DECK_IMAGE_SIDES } from './conversationActions.ts';
 import type { ConversationNextAction } from './conversationActions.ts';
 import { FULL_DESIGN_MARKER, fullDesignImmutables, readPresentationFullDesign } from './presentationFullDesign.ts';
 import type { DesignCopy, DesignUnderstanding, ExplorationDesignBrief, ExplorationRequest, ExplorationResult, ExplorationScope, ExplorationSession, IdeaContent, IdeaSelection, IdeaSource, TextIdea, TextIdeaSet } from './explorationContracts.ts';
@@ -36,9 +36,14 @@ function assertDesignCopy(value: unknown, context: DesignContext): asserts value
 export const STYLE_UNLOCKS = ['typography', 'colors', 'components', 'layout'] as const;
 export const ACCENT_PLAN_LIMIT = 12;
 export function assertDesignUnderstanding(value: unknown, context: DesignContext): asserts value is DesignUnderstanding {
-  check(keys(value, ['intent', 'resolved_instruction', 'copy', 'references', 'preserve', 'pending_questions', 'unlock', 'accent_plan'],
+  check(keys(value, ['intent', 'resolved_instruction', 'copy', 'references', 'preserve', 'pending_questions', 'unlock', 'accent_plan', 'archetype_id', 'variation'],
     ['intent', 'resolved_instruction', 'copy', 'references', 'preserve', 'pending_questions'])
     && ['recreate', 'variation', 'explore'].includes(String(value.intent)) && text(value.resolved_instruction, 6000), 'invalid_design_understanding');
+  check(value.archetype_id === undefined || DECK_ARCHETYPE_IDS.includes(value.archetype_id as typeof DECK_ARCHETYPE_IDS[number]), 'invalid_design_understanding');
+  check(value.variation === undefined || keys(value.variation, ['card_count', 'orientation', 'image_side'])
+    && Number.isSafeInteger(value.variation.card_count) && (value.variation.card_count as number) >= 0 && (value.variation.card_count as number) <= DECK_CARD_LIMIT
+    && DECK_CARD_ORIENTATIONS.includes(value.variation.orientation as typeof DECK_CARD_ORIENTATIONS[number])
+    && DECK_IMAGE_SIDES.includes(value.variation.image_side as typeof DECK_IMAGE_SIDES[number]), 'invalid_design_understanding');
   check(value.unlock === undefined || Array.isArray(value.unlock) && value.unlock.length <= STYLE_UNLOCKS.length
     && new Set(value.unlock).size === value.unlock.length
     && value.unlock.every(item => STYLE_UNLOCKS.includes(item as typeof STYLE_UNLOCKS[number])), 'invalid_design_understanding');

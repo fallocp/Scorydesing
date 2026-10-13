@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createExplorationProvider, PLANNER_LAYOUT_RULE, prepareExplorationRequest, STYLE_TRANSFER_PROMPT, type ExplorationProviderConfig } from '../explorationProvider.ts';
+import { createExplorationProvider, DECK_SYSTEM_PROMPT, PLANNER_LAYOUT_RULE, prepareExplorationRequest, STYLE_TRANSFER_PROMPT, type ExplorationProviderConfig } from '../explorationProvider.ts';
 import { request, result, visualBriefRequest, visualUnderstanding } from './fixtures/explorationFixture.ts';
 import { htmlPng } from './fixtures/htmlCompositionFixture.ts';
 import type { ConversationNextAction } from '../conversationActions.ts';
@@ -81,6 +81,28 @@ describe('single-call textual Responses adapter with mandatory injected transpor
     output.design_understanding = { ...output.design_understanding!, accent_plan: [accent, accent] };
     const planned = await fixture(wire(output)).provider.plan(req);
     expect(planned.design_understanding?.accent_plan).toEqual([accent]);
+  });
+
+  it('asks for archetype_id and variation (enum of this deck) only when the client sends deck_system; an unknown ID falls back', async () => {
+    const { req, output } = conversation();
+    const plain = (prepareExplorationRequest(req) as any).text.format.schema.properties.design_understanding;
+    expect(plain.required).not.toContain('archetype_id'); expect(plain.properties).not.toHaveProperty('variation');
+    req.conversation!.deck_system = { version: 1, summary: 'SISTEMA DE LA PRESENTACIÓN (medido sin IA en 4 diapositivas):\n- Título: Montserrat 64 px 800, #0F2A4A (4/4).',
+      archetypes: [{ id: 'title_cards', label: 'Título + tarjetas · 3 tarjetas en fila', signature: 'title_cards/3/row/none/medium', exemplar: 2, count: 2 },
+        { id: 'photo_steps', label: 'Foto + pasos · 4 tarjetas apiladas · foto a la izquierda', signature: 'photo_steps/4/column/left/medium', exemplar: 4, count: 1 }],
+      candidates: ['photo_steps', 'title_cards'], neighbors: 'Diapositiva 2: Título + tarjetas · 3 tarjetas en fila' };
+    const prepared = prepareExplorationRequest(req) as any, understanding = prepared.text.format.schema.properties.design_understanding;
+    expect(understanding.required).toEqual(expect.arrayContaining(['archetype_id', 'variation']));
+    expect(understanding.properties.archetype_id.enum).toEqual(['title_cards', 'photo_steps']);
+    expect(understanding.properties.variation.required).toEqual(['card_count', 'orientation', 'image_side']);
+    expect(prepared.input[0].content[0].text).toContain(DECK_SYSTEM_PROMPT);
+    expect(DECK_SYSTEM_PROMPT).toContain('Usaré el acomodo <label> de la diapositiva <exemplar>');
+    output.design_understanding = { ...output.design_understanding!, archetype_id: 'photo_steps', variation: { card_count: 40, orientation: 'column', image_side: 'right' } };
+    const planned = await fixture(wire(output)).provider.plan(req);
+    expect(planned.design_understanding).toMatchObject({ archetype_id: 'photo_steps', variation: { card_count: 12, orientation: 'column', image_side: 'right' } });
+    output.design_understanding = { ...output.design_understanding!, archetype_id: 'stats' };
+    const fallback = await fixture(wire(output)).provider.plan(req);
+    expect(fallback.design_understanding).not.toHaveProperty('archetype_id'); expect(fallback.design_understanding).not.toHaveProperty('variation');
   });
 
   it('drops a brand-logo edit on an icon slot instead of using the logo as an icon', async () => {

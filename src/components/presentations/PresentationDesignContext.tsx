@@ -7,6 +7,7 @@ import { openSupabaseDesignConversationStore, openSupabaseFreeDesignStore, type 
 import type { DesignConversationScope } from '@/lib/presentations/designConversationStore';
 import type { FreeDesignScope } from '@/lib/desaing/freeDesignDocument';
 import { readDesignFromExistingFlags, type DesignFromExistingFlags } from '@/lib/presentations/designFromExisting';
+import { readDeckSystemFlags, type DeckSystemFlags } from '@/lib/presentations/deckSystem';
 
 export interface PresentationDesignService {
   client: DesignServerClient;
@@ -19,6 +20,8 @@ export interface PresentationDesignService {
   exploration?: { planner?: ExplorationPlanner; createPlanner?(businessId: string): ExplorationPlanner; simulation?: boolean };
   /** «Diseñar sobre lo que ya existe» pieces (VITE_DESAING_DESIGN_FROM_EXISTING); absent = current behavior. */
   fromExisting?: DesignFromExistingFlags;
+  /** «Sistema de la presentación» pieces (VITE_DESAING_DECK_SYSTEM); absent = current behavior. */
+  deckSystem?: DeckSystemFlags;
 }
 const Context = createContext<PresentationDesignService | null | undefined>(undefined);
 export const PresentationDesignProvider = Context.Provider;
@@ -44,6 +47,8 @@ function browserService(): PresentationDesignService | null {
   }
   const fromExisting = designFromExistingFlags();
   if (fromExisting) configured.fromExisting = fromExisting;
+  const deckSystem = readDeckSystemFlags(import.meta.env as Record<string, unknown>);
+  if (deckSystem) configured.deckSystem = deckSystem;
   return configured;
 }
 /** Switch «diseñar sobre lo que ya existe» (pattern VITE_DESAING_*): VITE_DESAING_DESIGN_FROM_EXISTING=true

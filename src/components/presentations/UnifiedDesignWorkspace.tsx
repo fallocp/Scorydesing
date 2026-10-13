@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { buildDeckStyleKit } from '@/lib/presentations/designConversationHtml';
-import { measureDesignSpec, measureRoleSheet, measureStyleSamplesCached, styleMeasureCause, type DesignSpecResult } from '@/lib/presentations/styleSpec';
+import { measureDesignSpec, measureRoleSheet, measureStyleSamples, measureStyleSamplesCached, styleMeasureCause, type DesignSpecResult } from '@/lib/presentations/styleSpec';
 import { inferStyleUnlocks } from '@/lib/presentations/styleLock';
 import { buildTransferPlan, describeTransferRows, parseStyleAssertions, styleSourceSlide, transferPalette } from '@/lib/presentations/styleTransfer';
 import { describeConversationDesignSource } from '@/lib/presentations/designConversationSource';
-import { designActionLabel, isDesignGeneration, needsResolvedCopy } from '@/lib/presentations/designConversationConfirmation';
+import { designActionLabel, isDesignConfirmation, isDesignGeneration, needsResolvedCopy } from '@/lib/presentations/designConversationConfirmation';
+import { deckPickFor, measureDeckSystem, type DeckSystem } from '@/lib/presentations/deckSystem';
+import type { DesignUnderstanding } from '../../../supabase/functions/_shared/desaing/explorationContracts';
 import { buildDesignRepairFeedback, describeVisualReview } from '@/lib/presentations/designVisualReview';
 import { ArrowUp, Check, ImagePlus, Layers, Loader2, MessageSquare, Pencil, Plus, Shapes, Sparkles, Undo2, Wand2, X } from 'lucide-react';
 import type { PresentationSlide } from '@/lib/presentations/presentationDocument';
@@ -24,7 +26,7 @@ import { sameHtmlDesignTarget } from '@/lib/presentations/htmlDesignDraft';
 import { versionReview } from '@/lib/presentations/designConversationStore';
 import { SlideGeneratorPanel, type SlideGeneratorController, type SlideGeneratorState } from './SlideGeneratorPanel';
 import { DesignToHtmlPanel, type DesignToHtmlController, type DesignToHtmlState } from './DesignToHtmlPanel';
-import { DesignScreenLayout, DesignSteps, DesignZoomCanvas, SlideThumbnails } from './DesignScreen';
+import { DeckSystemPanel, DesignScreenLayout, DesignSteps, DesignZoomCanvas, SlideThumbnails } from './DesignScreen';
 import './UnifiedDesignWorkspace.css';
 
 export interface UnifiedDesignWorkspaceProps {
@@ -62,8 +64,22 @@ export function UnifiedDesignWorkspace(props: UnifiedDesignWorkspaceProps) {
   }, [applyTarget, props.onApply, props.onInsert, props.onClose, screen]);
   // Formato y base los elige el usuario; la IA sólo puede proponer acciones de ese formato.
   const [format, setFormat] = useState<'html' | 'image'>(props.initialView === 'html' ? 'html' : 'image');
-  // Kit de estilo: hasta 3 diapositivas con contenido, las más cercanas a la actual.
-  const deckKit = useMemo(() => props.deckSlides?.length ? buildDeckStyleKit(props.deckSlides, props.slide.id) : null, [props.deckSlides, props.slide.id]);
+  // «Sistema de la presentación» (VITE_DESAING_DECK_SYSTEM): measured without AI from this presentation of this business only.
+  const deckFlags = props.service.deckSystem, deckScope = `${props.businessId}:${props.documentId}`;
+  const deckIndex = Math.max(0, props.deckSlides?.findIndex(slide => slide.id === props.slide.id) ?? 0);
+  const deckFingerprint = useMemo(() => (props.deckSlides ?? []).map(slide => `${slide.id}:${slide.revision}`).join(','), [props.deckSlides]);
+  const [deckMeasure, setDeckMeasure] = useState<{ scope: string; fingerprint: string; system: DeckSystem | null; status: 'measuring' | 'ready' | 'failed' } | null>(null);
+  // Never another business's or presentation's system.
+  const deckFound = deckFlags && deckMeasure?.scope === deckScope ? deckMeasure.system : null, deckArrangement = !!deckFlags?.arquetipo;
+  const deckSystem = deckFlags && deckFound ? { system: deckFound, flags: deckFlags } : undefined;
+  // What the arrangement pick reads (last request, copy, the planner's choice); set after each conversation change.
+  const [deckAsk, setDeckAsk] = useState<{ message: string; copy: string; understanding: DesignUnderstanding | null }>({ message: '', copy: '', understanding: null });
+  const deckExemplar = useMemo(() => deckFound && deckArrangement
+    ? deckPickFor(deckFound, { number: deckIndex + 1, message: deckAsk.message, copy: deckAsk.copy, understanding: deckAsk.understanding })?.archetype.exemplarId
+    : undefined, [deckFound, deckArrangement, deckIndex, deckAsk]);
+  // Kit de estilo: hasta 3 diapositivas con contenido, las más cercanas a la actual; con el sistema, el ejemplar del acomodo elegido.
+  const deckKit = useMemo(() => props.deckSlides?.length ? buildDeckStyleKit(props.deckSlides, props.slide.id, deckExemplar ? { exemplarId: deckExemplar } : undefined) : null,
+    [props.deckSlides, props.slide.id, deckExemplar]);
   const deckBaseHtml = deckKit?.ids[0] ? props.deckSlides?.find(slide => slide.id === deckKit.ids[0])?.html : undefined;
   const [chosenBase, setBase] = useState<'current' | 'version' | 'deck' | 'new'>(() => props.slide.html
     .replace(/<style[\s\S]*?<\/style>|<script[\s\S]*?<\/script>|<[^>]+>/gi, '').trim() ? 'current' : deckKit?.slides.length ? 'deck' : 'new');
@@ -108,7 +124,7 @@ export function UnifiedDesignWorkspace(props: UnifiedDesignWorkspaceProps) {
   }, []);
   const work = useDesignConversation({ ...props, onApply: applyResult, settings, htmlController, compositionController, htmlState, compositionState, onView,
     format, base: chosenBase, deckStyle: deckKit?.slides, deckBaseHtml, styleSpec: spec,
-    ...(flags ? { fromExisting: flags, styleSpecReady } : {}),
+    ...(flags ? { fromExisting: flags, styleSpecReady } : {}), ...(deckSystem ? { deckSystem } : {}),
     ...(screen ? { natural: true, ...(props.initialSession ? { initialSession: props.initialSession } : {}) } : {}) });
   const [previewOriginal, setPreviewOriginal] = useState(false);
   const [message, setMessage] = useState(props.initialInstruction ?? ''), [referencesOpen, setReferencesOpen] = useState(false);
@@ -122,6 +138,22 @@ export function UnifiedDesignWorkspace(props: UnifiedDesignWorkspaceProps) {
   const sessionIdentityRef = useRef(sessionIdentity); sessionIdentityRef.current = sessionIdentity;
   const previousSession = useRef(sessionIdentity);
   const state = work.state, canvas = getSlideDimensions(props.slide.html);
+  const deckRequest = [...state.messages].reverse().find(item => item.role === 'user' && !isDesignConfirmation(item.text))?.text ?? '';
+  const deckChoice = JSON.stringify([state.understanding?.archetype_id ?? null, state.understanding?.variation ?? null]);
+  useEffect(() => { if (deckFlags) setDeckAsk({ message: deckRequest, copy: state.copy.text, understanding: state.understanding }); },
+    [deckFlags, deckRequest, state.copy.text, deckChoice]);
+  // The deck is measured once per revision of its slides (cached per id:revision); the brand name separates its brand title from titles.
+  const deckBrand = (state.brand ?? work.brand.context)?.name ?? '';
+  useEffect(() => {
+    const slides = props.deckSlides;
+    if (!deckFlags || !slides || slides.length < 2) return;
+    let alive = true;
+    setDeckMeasure(old => ({ scope: deckScope, fingerprint: deckFingerprint, system: old?.scope === deckScope ? old.system : null, status: 'measuring' }));
+    void measureDeckSystem({ key: `${deckScope}:${deckBrand}`, slides, current: deckIndex, measure: html => measureStyleSamples(html, getSlideDimensions(html), 8000, deckBrand) })
+      .then(result => { if (alive) setDeckMeasure({ scope: deckScope, fingerprint: deckFingerprint, system: result.system, status: result.system ? 'ready' : 'failed' }); },
+        () => { if (alive) setDeckMeasure({ scope: deckScope, fingerprint: deckFingerprint, system: null, status: 'failed' }); });
+    return () => { alive = false; };
+  }, [deckFlags, deckScope, deckFingerprint, deckBrand]);
   const selected = state.versions.find(item => item.id === state.selected_version_id);
   useEffect(() => { setVersionStyleSource(selected?.kind === 'html' ? selected.proposal.html : null); }, [selected]);
   // Restoring or selecting a saved design continues from that exact version.
@@ -542,7 +574,9 @@ export function UnifiedDesignWorkspace(props: UnifiedDesignWorkspaceProps) {
             v{index + 1}{version.kind === 'image' ? ' · imagen' : ''}</button>)}
         </div></>}
       chat={<>
-        <div className="ds-chat-head">{sessionPicker}{imageSettings}</div>
+        <div className="ds-chat-head">{sessionPicker}{imageSettings}
+          {deckFlags && deck.length > 1 && <DeckSystemPanel system={deckSystem?.system ?? null} slides={deck}
+            status={deckMeasure?.scope === deckScope ? deckMeasure.status : 'measuring'} />}</div>
         {referenceDrawer}
         <div ref={history} className="dc-history" aria-label="Historial de diseño" aria-live="polite">
           {welcome}

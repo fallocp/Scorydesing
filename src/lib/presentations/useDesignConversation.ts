@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import type { PresentationDesignService } from '../../components/presentations/PresentationDesignContext';
-import type { SlideGeneratorController, SlideGeneratorState, SlideProposalReason, SlideStyleTransfer } from '../../components/presentations/SlideGeneratorPanel';
+import type { SlideDeckTurn, SlideGeneratorController, SlideGeneratorState, SlideProposalReason, SlideStyleTransfer } from '../../components/presentations/SlideGeneratorPanel';
+import { archetypeLine, conversationDeckSystem, deckPickFor, formatDeckSystem, neighborsOf, type DeckSystem, type DeckSystemFlags } from './deckSystem';
 import type { DesignToHtmlController, DesignToHtmlState, DesignToHtmlProposal } from '../../components/presentations/DesignToHtmlPanel';
 import type { DesignOperation, DesignReference } from '../../../supabase/functions/_shared/desaing/contracts';
 import type { DesignCopy, ExplorationRequest, ExplorationResult, IdeaContent } from '../../../supabase/functions/_shared/desaing/explorationContracts';
@@ -24,7 +25,7 @@ import { DesignHtmlRequestError, isDefinitiveHtmlFailure } from './htmlRequestEr
 import { beginConversationAction, completeConversationAction, emptyDesignConversation, markConversationAction, advanceConversationEpoch, versionReview,
   openDesignConversationStore, type DesignConversationState, type DesignConversationRecord, type DesignConversationVersion } from './designConversationStore';
 import { buildConversationImageOperation, prepareConversationReferences, readConversationImage, sameConversationAsset } from './designConversationImages';
-import { buildConversationHtmlSummary } from './designConversationHtml';
+import { buildConversationHtmlSummary, buildDeckStyleKit } from './designConversationHtml';
 import { buildConversationPresentationContext, buildConversationInspectedSlides, selectConversationInspectionSlides,
   fitConversationPresentationRequest, buildConversationInspectionExamples } from './designConversationDeck';
 import { capturePresentationInspection } from './designConversationInspection';
@@ -69,6 +70,8 @@ export interface UseDesignConversationOptions {
   styleSpecReady?(): Promise<string>;
   /** «Diseñar sobre lo que ya existe» pieces; undefined = current behavior. */
   fromExisting?: DesignFromExistingFlags;
+  /** «Sistema de la presentación» measured from this deck (VITE_DESAING_DECK_SYSTEM); absent = current behavior. */
+  deckSystem?: { system: DeckSystem; flags: DeckSystemFlags };
   /** Natural chat (design screen): visible steps, live answer, local replies, result before its review. */
   natural?: boolean;
   /** Session named in the URL: wins over the remembered choice when the conversation opens. */
@@ -863,6 +866,10 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
       await assertCurrent(life);
       styleSource = { slide_number: transferNumber, spec: spec.slice(0, 3000) };
     }
+    // «Sistema de la presentación»: the planner picks the arrangement by ID among the deck's, preselected for this message.
+    const deckInput = latest.current.deckSystem, slideNumber = (latest.current.deckSlides ?? []).findIndex(slide => slide.id === latest.current.slide.id) + 1;
+    const deckPick = !resolvingCopy && format === 'html' && deckInput?.flags.planner && slideNumber
+      ? deckPickFor(deckInput.system, { number: slideNumber, message, copy: value.copy.text }) : null;
     // Style-only attachments (never the chosen visual source) are enough at low detail; only a server that streams knows the field.
     const lowDetail = natural && capabilities.supports_stream === 1 ? value.references.filter(reference => reference.role === 'image_style_reference'
       && !(value.design_source?.source.kind === 'reference' && value.design_source.source.reference_id === reference.id)
@@ -904,6 +911,7 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
         ...(!resolvingCopy && format === 'html' && base !== 'new' && styleSpec?.trim() ? { style_spec: styleSpec.slice(0, 4000) } : {}),
         ...(!resolvingCopy && flags && format === 'html' ? { supports_style_lock: 1 as const } : {}),
         ...(styleSource ? { style_source: styleSource } : {}),
+        ...(deckPick ? { deck_system: conversationDeckSystem(deckInput!.system, deckPick) } : {}),
         ...(referenceNotes ? { reference_notes: referenceNotes } : {}),
         ...(lowDetail.length ? { low_detail_reference_ids: lowDetail } : {}),
         ...(!resolvingCopy && format === 'html' && base === 'deck' && deckStyle.length
@@ -1022,6 +1030,31 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
       ...(brand ? { brand: { name: brand.name, colors: Object.values(brand.colors).filter(Boolean),
         ...(brand.fonts.display ? { display: brand.fonts.display } : {}), ...(brand.fonts.body ? { body: brand.fonts.body } : {}) } } : {}) };
   }
+  /** «Sistema de la presentación» for an HTML generation in a deck: tokens always (new slides, redesigns, deck base);
+   * the arrangement only when the turn creates or rearranges. A valid planner archetype wins; otherwise the preselection,
+   * except when the user described their own arrangement and the planner named none (then the user's words decide). */
+  function deckTurnFor(value: DesignConversationState, action: ConversationNextAction): { turn: SlideDeckTurn; line: string } | undefined {
+    const input = latest.current, deck = input.deckSystem, slides = input.deckSlides ?? [];
+    if (!deck || input.format !== 'html' || slides.length < 2 || (action.kind !== 'create_html' && action.kind !== 'refine_html')) return undefined;
+    const number = slides.findIndex(slide => slide.id === input.slide.id) + 1, system = deck.system;
+    if (!number) return undefined;
+    const request = lastInstruction(value), own = system.signatures.find(item => item.number === number);
+    const arranging = deck.flags.arquetipo && (action.kind === 'create_html' || action.rewrite === true || input.base === 'deck' || asksLayoutChange(request) || !own);
+    let pick = arranging ? deckPickFor(system, { number, message: request, copy: value.copy.text, understanding: value.understanding }) : null;
+    if (pick && pick.source !== 'planner' && asksLayoutChange(request)) pick = null;
+    const archetype = pick?.archetype.id ?? own?.archetype;
+    const kit = pick && input.base === 'deck' ? buildDeckStyleKit(slides, input.slide.id, { exemplarId: pick.archetype.exemplarId }) : undefined;
+    const exemplar = kit?.ids[0] === pick?.archetype.exemplarId ? kit : undefined;
+    const unlock = new Set([...(value.understanding?.unlock ?? []), ...inferStyleUnlocks(request)]), brand = value.brand;
+    const line = pick ? archetypeLine(pick) : '';
+    return { line, turn: { system, number, deckSize: slides.length, neighbors: neighborsOf(system, number), tokens: deck.flags.tokens,
+      ...(archetype ? { archetype } : {}), ...(pick ? { label: pick.archetype.label, policy: pick.policy } : {}),
+      ...(exemplar ? { example: exemplar.examples[0], exemplarHtml: slides.find(slide => slide.id === exemplar.ids[0])?.html } : {}),
+      spec: `${formatDeckSystem(system, { archetype, max: 2600 })}${line ? `\n${line}` : ''}`.slice(0, 3000),
+      skip: { typography: unlock.has('typography'), colors: unlock.has('colors'), components: unlock.has('components') },
+      ...(brand ? { brand: { name: brand.name, colors: Object.values(brand.colors).filter(Boolean),
+        ...(brand.fonts.display ? { display: brand.fonts.display } : {}), ...(brand.fonts.body ? { body: brand.fonts.body } : {}) } } : {}) } };
+  }
   /** Copying style is not a generation: the current design gets the measured style of the cited slide, without AI. */
   async function transferOnly(life: Life, value: DesignConversationState, action: ConversationNextAction, transfer: SlideStyleTransfer, turnId: string) {
     const input = latest.current, controller = input.htmlController.current;
@@ -1106,14 +1139,16 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
     const pending = current(life).pending; if (!pending || pending.kind !== 'html') throw Error('conversation_pending_unresolved');
     assertHtmlDesignTarget(proposal, pending.target); await assertCurrent(life, pending.epoch);
     // A copied style reports what it compared with the cited slide; that replaces the lock's «Diferencias de estilo».
-    const transfer = proposal.styleTransfer, style = transfer ? describeStyleTransfer(transfer) : describeStyleLock(proposal.styleLock);
+    // The deck system (labelled report) adds to the lock's notes instead of replacing them.
+    const transfer = proposal.styleTransfer, style = [describeStyleTransfer(transfer), !transfer || transfer.label ? describeStyleLock(proposal.styleLock) : '']
+      .filter(Boolean).join(' ');
     // The visual review never says «no vi problemas» while the style comparison failed.
     const review = transfer?.failed.length && proposal.visualReview?.status === 'passed'
       ? 'Revisé la composición, pero el estilo no quedó completo.' : describeVisualReview(proposal.visualReview);
     const text = composition?.unresolved_slots.length
       ? 'La estructura ya está en HTML, pero faltan piezas: complétalas en el editor antes de aplicarla.'
       : composition ? 'Ya es HTML editable. ¿Le ajusto algo o la aplicas?'
-      : transfer && !proposal.visualReview && summary === undefined ? [`Listo: copié el estilo de la diapositiva ${transfer.source} sin regenerar el diseño.`, style,
+      : transfer && !transfer.label && !proposal.visualReview && summary === undefined ? [`Listo: copié el estilo de la diapositiva ${transfer.source} sin regenerar el diseño.`, style,
         ...(proposal.notices ?? []), '¿Algo más?'].filter(Boolean).join(' ')
       : summary !== undefined && !proposal.visualReview ? designReadyMessage(summary, [style, ...(proposal.notices ?? [])].filter(Boolean))
       : [review, style, ...(proposal.notices ?? [])].filter(Boolean).join(' ');
@@ -1276,11 +1311,15 @@ export function useDesignConversation(options: UseDesignConversationOptions) {
       await timed(life, 'Generando la imagen…', 'Imagen lista', () => dispatchImage(life, operation, turnId)); return;
     }
     let source: PresentationLibraryResult | null = null;
+    // «Sistema de la presentación»: one source decides the arrangement and the instruction says it (lesson GUARD_DIRECTION).
+    const deckTurn = transfer ? undefined : deckTurnFor(value, action);
+    if (deckTurn?.line) action = { ...action, instruction: `${action.instruction}\n${deckTurn.line}` };
     const htmlInput = htmlContext(value, action.instruction, action);
     // Orientation or internal arrangement of a component: a rewrite from the spec, never a patch.
     if (input.fromExisting?.no_rehace && action.kind === 'refine_html' && !action.rewrite && !action.design_source
       && isOrientationChange(lastInstruction(value))) action = { ...action, rewrite: true };
-    const turn = transfer ? { ...(htmlTurn(life, value) ?? {}), request: lastInstruction(value), transfer } : htmlTurn(life, value);
+    const turn = transfer ? { ...(htmlTurn(life, value) ?? {}), request: lastInstruction(value), transfer }
+      : deckTurn ? { ...(htmlTurn(life, value) ?? {}), request: lastInstruction(value), deck: deckTurn.turn } : htmlTurn(life, value);
     const inspectionEvidence: Pick<Parameters<SlideGeneratorController['updateContext']>[0], 'inspectionReferences' | 'inspectionExamples'> = {
       inspectionReferences: [], inspectionExamples: [],
     };

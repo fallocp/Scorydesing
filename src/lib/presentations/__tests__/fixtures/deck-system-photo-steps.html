@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,600;0,700;0,800;1,700;1,800&family=Poppins:wght@400;500;600&display=swap">
+<style>
+html, body { margin: 0; }
+.slide { position: relative; width: 1920px; height: 1080px; background: #F5F3F0; font-family: 'Poppins', sans-serif; overflow: hidden; }
+.photo { position: absolute; left: 0; top: 0; width: 760px; height: 1080px; object-fit: cover; }
+.fade { position: absolute; left: 0; top: 0; width: 760px; height: 1080px; background: linear-gradient(90deg, rgba(245, 243, 240, 0) 55%, #F5F3F0 100%); }
+.title { position: absolute; left: 840px; top: 70px; width: 980px; margin: 0; font-family: 'Montserrat', sans-serif; font-size: 64px; font-weight: 800; color: #0F2A4A; }
+.title .cap { color: #FF7A4A; font-style: italic; }
+.rule { position: absolute; left: 840px; top: 290px; width: 120px; height: 4px; border-radius: 2px; background: #2ED4C7; }
+.steps { position: absolute; left: 840px; top: 320px; width: 980px; display: flex; flex-direction: column; gap: 20px; }
+.step { display: flex; align-items: center; gap: 28px; height: 150px; padding: 0 32px; box-sizing: border-box; background: #FFFFFF; border-radius: 24px; box-shadow: 0 12px 32px rgba(15, 42, 74, 0.08); }
+.step .num { flex: none; margin: 0; font-family: 'Montserrat', sans-serif; font-size: 40px; font-weight: 800; color: #2ED4C7; }
+.step h3 { margin: 0 0 6px; font-family: 'Montserrat', sans-serif; font-size: 24px; font-weight: 700; color: #0F2A4A; text-transform: uppercase; letter-spacing: 1.5px; }
+.step p { margin: 0; font-size: 18px; color: #5B6573; }
+</style></head>
+<body><main class="slide">
+  <img class="photo" alt="Barco de carga en el puerto" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 760 1080'%3E%3Crect width='760' height='1080' fill='%2337597A'/%3E%3Crect y='700' width='760' height='380' fill='%230F2A4A'/%3E%3C/svg%3E">
+  <div class="fade"></div>
+  <h1 class="title">Importa sin frenar tu <span class="cap">operación</span></h1>
+  <div class="rule"></div>
+  <section class="steps">
+    <article class="step"><p class="num">01</p><div><h3>Solicita</h3><p>Envía tu información en línea.</p></div></article>
+    <article class="step"><p class="num">02</p><div><h3>Autoriza</h3><p>Recibe tu línea en días.</p></div></article>
+    <article class="step"><p class="num">03</p><div><h3>Paga</h3><p>Liquida a tu proveedor en origen.</p></div></article>
+    <article class="step"><p class="num">04</p><div><h3>Recupera</h3><p>Pagas cuando vendes.</p></div></article>
+  </section>
+</main></body></html>

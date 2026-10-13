@@ -1,7 +1,7 @@
 import type { ExplorationPlanner, ExplorationRequest, ExplorationResult, ExplorationUsage } from './explorationContracts.ts';
 import { ACCENT_PLAN_LIMIT, assertExplorationRequest, assertExplorationResult, EXPLORATION_REFERENCE_ROLES, IDEA_ASPECTS, STYLE_UNLOCKS } from './exploration.ts';
 import { CONVERSATION_DECK_LIMITS, conversationActionPrompt, conversationActionSchema, conversationEditCorpus, conversationReferenceLabels,
-  keepsExistingText, schemaEnumCount } from './conversationActions.ts';
+  DECK_CARD_LIMIT, DECK_CARD_ORIENTATIONS, DECK_IMAGE_SIDES, keepsExistingText, schemaEnumCount } from './conversationActions.ts';
 import { BRAND_LOGO_ASSET, isLogoSlot, unapprovedElementTexts, type DesignElementEdit } from './designElementEdits.ts';
 import { designTypographyMinimum } from '../designTypography.ts';
 import { createSseParser } from './sseStream.ts';
@@ -66,6 +66,9 @@ Un hueco de imagen vacío que ya existía en el diseño no es un defecto. El log
 export const STYLE_TRANSFER_PROMPT = `ESTILO DE OTRA DIAPOSITIVA. conversation.style_source trae la ficha medida de la diapositiva que el usuario cita para el estilo. La aplicación copia sin IA, rol por rol, familia, tamaño de la escala, peso, itálica, mayúsculas, tracking, colores, líneas cortas, tarjetas y fondo; tú no describas esos valores como trabajo del generador.
 Usa refine_html con la diapositiva actual (sin design_source) y rewrite=false salvo que el usuario también pida cambiar el acomodo; entonces describe ese acomodo y la aplicación copia el estilo después. Incluye colors, typography y components en unlock.
 Los acentos de la fuente (tramos con otro color, itálica o peso) no se copian literal: en design_understanding.accent_plan propone qué palabras EXACTAS del texto actual de esta diapositiva llevan cada acento, siguiendo el mismo patrón (última palabra o grupo final, segunda frase, primera frase…). element nombra el elemento (Título, Subtítulo, Frase destacada…), words es un fragmento literal y contiguo de su texto, color un nombre de la paleta de marca (navy, coral, turquesa, mint, gris, blanco) o un #hex de la ficha, italic si el tramo va en itálica. Las indicaciones explícitas del usuario («Liquidez coral, Flexibilidad turquesa») tienen prioridad sobre el patrón. Nunca cambies ni reescribas el texto. En message muestra brevemente esa propuesta para que el usuario la confirme o cambie palabras.`;
+/** Only with conversation.deck_system («sistema de la presentación»): the planner picks the arrangement by ID; tokens are applied without AI. */
+export const DECK_SYSTEM_PROMPT = `SISTEMA DE LA PRESENTACIÓN. conversation.deck_system resume lo que comparten las diapositivas de este deck (medido sin IA) y sus acomodos (archetypes) con su diapositiva ejemplar. La aplicación aplica sin IA tipografía, colores, acentos, líneas y tarjetas del sistema; no los describas como trabajo del generador.
+Al crear o reacomodar esta diapositiva elige en design_understanding.archetype_id UN acomodo del deck, de preferencia el primero de candidates (ya ordenados por encaje con el contenido y para no repetir a las vecinas), y en variation el número de tarjetas, su orientación (row=en fila, column=apiladas, grid=cuadrícula) y el lado de la foto. No repitas el acomodo y la variación de las diapositivas vecinas (neighbors) salvo que ambas formen una serie; entonces conserva el acomodo y cambia sólo un eje menor. La indicación explícita del usuario manda sobre el acomodo. Nombra el acomodo en message e instruction: «Usaré el acomodo <label> de la diapositiva <exemplar>, con <variación>». Si el turno no crea ni reacomoda, devuelve el primer candidato y la variación actual.`;
 /** Only when the client keeps reference specs (conversation.reference_notes present). */
 const REFERENCE_NOTES_PROMPT = 'conversation.reference_notes contiene la ficha guardada (o editada por el usuario) de cada imagen adjunta: úsala como su descripción y no la regeneres. Para cada imagen adjunta del usuario que no tenga ficha, escribe en design_understanding.references[].instruction una ficha de máximo 300 caracteres: fondo, tarjetas, tipografía aproximada y paleta.';
 
@@ -76,7 +79,7 @@ function promptFingerprint(text: string): string {
   return hash.toString(16).padStart(8, '0');
 }
 /** Same key while the fixed prompt prefix is the same, so OpenAI can reuse its cache; a prompt change rotates it. */
-export const EXPLORATION_PROMPT_CACHE_KEY = `scory-exploration-${promptFingerprint([SYSTEM, PLANNER_LAYOUT_RULE, FROM_EXISTING_PROMPT, REFERENCE_NOTES_PROMPT, STYLE_TRANSFER_PROMPT].join('\n'))}`;
+export const EXPLORATION_PROMPT_CACHE_KEY = `scory-exploration-${promptFingerprint([SYSTEM, PLANNER_LAYOUT_RULE, FROM_EXISTING_PROMPT, REFERENCE_NOTES_PROMPT, STYLE_TRANSFER_PROMPT, DECK_SYSTEM_PROMPT].join('\n'))}`;
 
 /** Responses Structured Outputs: https://developers.openai.com/api/docs/guides/structured-outputs
  * Model supports structured output: https://developers.openai.com/api/docs/models/gpt-5.4-mini */
@@ -111,6 +114,15 @@ export function prepareExplorationRequest(request: ExplorationRequest, maxOutput
     understandingSchema.required.push('unlock');
     Object.assign(understandingSchema.properties, { unlock: { type: 'array', maxItems: STYLE_UNLOCKS.length, items: { type: 'string', enum: [...STYLE_UNLOCKS] } } });
   }
+  // Opt-in like accent_plan: only a client that sends deck_system receives the arrangement fields.
+  const deck = request.conversation?.deck_system;
+  if (deck) {
+    understandingSchema.required.push('archetype_id', 'variation');
+    Object.assign(understandingSchema.properties, { archetype_id: { type: 'string', enum: deck.archetypes.map(item => item.id) },
+      variation: { type: 'object', additionalProperties: false, required: ['card_count', 'orientation', 'image_side'], properties: {
+        card_count: { type: 'integer' }, orientation: { type: 'string', enum: [...DECK_CARD_ORIENTATIONS] },
+        image_side: { type: 'string', enum: [...DECK_IMAGE_SIDES] } } } });
+  }
   if (request.conversation?.style_source) {
     understandingSchema.required.push('accent_plan');
     Object.assign(understandingSchema.properties, { accent_plan: { type: 'array', maxItems: ACCENT_PLAN_LIMIT, items: { type: 'object', additionalProperties: false,
@@ -141,7 +153,7 @@ export function prepareExplorationRequest(request: ExplorationRequest, maxOutput
     ? `\nMínimo tipográfico de este lienzo: cuerpo ${minimum.body}px, notas ${minimum.note}px. Aplica sólo a texto nuevo sin componente equivalente; los componentes existentes y sus copias conservan la escala de style_spec (±2 px).`
     : `\nMínimo tipográfico de este lienzo: cuerpo ${minimum.body}px, notas ${minimum.note}px. Prevalece sobre la base y style_spec en el texto que se cree, repita o reacomode; no propongas font_size menores salvo que el usuario dé un tamaño concreto.` : '')
     + (existing ? `\n${FROM_EXISTING_PROMPT}` : '') + (turn && 'reference_notes' in turn ? `\n${REFERENCE_NOTES_PROMPT}` : '')
-    + (turn?.style_source ? `\n${STYLE_TRANSFER_PROMPT}` : '');
+    + (turn?.style_source ? `\n${STYLE_TRANSFER_PROMPT}` : '') + (turn?.deck_system ? `\n${DECK_SYSTEM_PROMPT}` : '');
   if (actionSchema) Object.assign(actionSchema.properties.slide_ids, { description:
     'Sólo inspect_slides: selecciona entre 1 y 12 IDs distintos del índice. Para discuss, explore_ideas y cualquier generación o ajuste, devuelve siempre [].' });
   const payload = { kind: request.kind, scope: request.scope, message: request.message, history: request.history,
@@ -286,6 +298,12 @@ export function repairConversationOutput(parsed: Record<string, unknown>, reques
     understanding.accent_plan = (understanding.accent_plan as unknown[]).filter((item): item is Record<string, unknown> => record(item)
       && typeof item.words === 'string' && !!item.words.trim() && !seen.has(item.words.trim()) && !!seen.add(item.words.trim())).slice(0, ACCENT_PLAN_LIMIT);
   }
+  // An arrangement outside this deck's archetypes is dropped: the client falls back to its own preselection.
+  if ('archetype_id' in understanding && !turn.deck_system?.archetypes.some(item => item.id === understanding.archetype_id)) {
+    delete understanding.archetype_id; delete understanding.variation;
+  }
+  if (record(understanding.variation) && typeof understanding.variation.card_count === 'number')
+    understanding.variation.card_count = Math.max(0, Math.min(DECK_CARD_LIMIT, Math.round(understanding.variation.card_count)));
   // The brand logo never fills an icon or another non-logo slot: drop those edits instead of failing the turn.
   if (action.kind === 'edit_elements' && Array.isArray(action.element_edits) && turn.editable_elements) {
     const labels = new Map(turn.editable_elements.map(element => [element.element_id, element.label]));

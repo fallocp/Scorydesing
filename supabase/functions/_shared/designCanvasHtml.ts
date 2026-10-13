@@ -43,6 +43,8 @@ export interface DesignCanvasHtmlRequest {
   request_checklist?: string[];
   /** Empty image slots that already existed in the base; never a defect of this proposal. */
   inherited_holes?: string[];
+  /** «Sistema de la presentación» measured in the browser (tokens and arrangements); with one style example, that example is the chosen arrangement's exemplar. */
+  deck_system?: string;
 }
 export interface DesignCanvasHtmlBrand {
   name: string;
@@ -223,6 +225,8 @@ export function parseDesignCanvasHtmlRequest(value: unknown): DesignCanvasHtmlRe
   }
   const spec = string(value.style_spec, 4000, 'Ficha de estilo');
   if (spec?.trim()) request.style_spec = spec;
+  const deckSystem = string(value.deck_system, 3000, 'Sistema de la presentación');
+  if (deckSystem?.trim()) request.deck_system = deckSystem;
   for (const key of ['strict_spec', 'references_by_turn'] as const) {
     if (value[key] === undefined) continue;
     if (value[key] !== true) return invalid('La política de diseño no es válida.');
@@ -312,8 +316,11 @@ ${output === 'rewrite' ? 'REESCRITURA DESDE EL HTML ACTUAL: devuelve el document
   }
   if (request.source_html) parts.push({ type: 'text', text: `HTML DE LA FUENTE (datos nativos; conservar identidad de recursos reutilizados):\n${maskMountedSources(request.source_html, 'source')}` });
   if (request.style_spec) parts.push({ type: 'text', text: `${request.style_spec}\n(datos medidos de la base; conserva salvo cambios solicitados)` });
+  if (request.deck_system) parts.push({ type: 'text', text: `${request.deck_system}\n(datos medidos del deck: usa estos tokens y el acomodo que indica el encargo; la aplicación los vuelve a aplicar sin IA al final. No copies texto de aquí.)` });
+  const exemplar = !!request.deck_system && request.style_examples?.length === 1;
   for (const [index, example] of (request.style_examples ?? []).entries()) {
     const label = example.startsWith('DIAPOSITIVAS INSPECCIONADAS (') ? 'EVIDENCIA DE DIAPOSITIVAS CONSULTADAS'
+      : exemplar ? 'ESTILO DE LA PRESENTACIÓN: EJEMPLAR DEL ACOMODO ELEGIDO (datos; otra diapositiva del mismo deck; repite su acomodo con la variación del encargo)'
       : `ESTILO DE LA PRESENTACIÓN ${index + 1} (datos; otra diapositiva del mismo deck)`;
     parts.push({ type: 'text', text: `${label}:\n${maskMountedSources(example)}` });
   }

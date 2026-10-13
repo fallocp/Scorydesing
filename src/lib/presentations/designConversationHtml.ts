@@ -71,12 +71,15 @@ export function buildConversationHtmlExample(html: string, maxLength = 40000): s
 const visibleTextOf = (html: string) => html.replace(/<style[\s\S]*?<\/style>|<script[\s\S]*?<\/script>|<[^>]+>/gi, ' ').replace(/\s+/g, ' ').trim();
 export interface DeckStyleKit { slides: Array<{ title: string; summary: string }>; examples: string[]; ids: string[] }
 /** Style kit of the presentation: up to three other slides with content, nearest to the current one.
+ * With `exemplarId` (deck system): only that slide, the exemplar of the chosen arrangement; nearest again when it is unavailable.
  * The planner gets short summaries; the HTML engine gets inert markup + CSS (no scripts, URLs or image bytes). */
-export function buildDeckStyleKit(slides: ReadonlyArray<{ id: string; title?: string; html: string }>, currentId: string): DeckStyleKit {
+export function buildDeckStyleKit(slides: ReadonlyArray<{ id: string; title?: string; html: string }>, currentId: string,
+  options: { exemplarId?: string } = {}): DeckStyleKit {
   const index = slides.findIndex(slide => slide.id === currentId);
-  const picked = slides.map((slide, position) => ({ slide, number: position + 1, distance: Math.abs(position - (index < 0 ? 0 : index)) }))
-    .filter(({ slide }) => slide.id !== currentId && visibleTextOf(slide.html))
-    .sort((a, b) => a.distance - b.distance).slice(0, 3);
+  const candidates = slides.map((slide, position) => ({ slide, number: position + 1, distance: Math.abs(position - (index < 0 ? 0 : index)) }))
+    .filter(({ slide }) => slide.id !== currentId && visibleTextOf(slide.html));
+  const exemplar = options.exemplarId ? candidates.filter(({ slide }) => slide.id === options.exemplarId) : [];
+  const picked = exemplar.length ? exemplar : candidates.sort((a, b) => a.distance - b.distance).slice(0, 3);
   return {
     slides: picked.map(({ slide, number }) => ({ title: clip(slide.title?.trim() || `Diapositiva ${number}`, 200),
       summary: clip(buildConversationHtmlSummary(slide.html), 4000) })),

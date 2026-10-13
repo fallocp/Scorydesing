@@ -57,6 +57,15 @@ export interface DesignUnderstanding {
   unlock?: StyleUnlock[];
   /** Only with conversation.style_source: words of this slide that carry each accent of the cited slide. */
   accent_plan?: AccentPlanItem[];
+  /** Only with conversation.deck_system: the deck arrangement (archetype ID) chosen for this slide and its variation. */
+  archetype_id?: string;
+  variation?: DeckLayoutVariation;
+}
+/** Variation inside a deck arrangement: number of cards, their orientation and the photo side. */
+export interface DeckLayoutVariation {
+  card_count: number;
+  orientation: 'row' | 'column' | 'grid' | 'single' | 'none';
+  image_side: 'left' | 'right' | 'top' | 'bottom' | 'full' | 'center' | 'none';
 }
 /** One accent of the style transfer: `words` is an exact fragment of the element's current text; the client wraps it, never rewrites it. */
 export interface AccentPlanItem { element: string; words: string; color: string; italic: boolean }

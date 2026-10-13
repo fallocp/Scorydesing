@@ -10,13 +10,20 @@ export interface BoxSample { rect: Rect; background: string; radius: number; sha
   texts: TextSample[]; images: Rect[]; selector?: string }
 export interface StyleSamples { canvas: { width: number; height: number }; background: string; texts: TextSample[]; boxes: BoxSample[]; images: Rect[];
   /** Complete per-role sheet (accents, short lines, cards); absent in older measurements. */
-  sheet?: RoleSheet }
+  sheet?: RoleSheet;
+  /** Photos (≥5 % of the canvas) with their treatment; absent in older measurements. */
+  photos?: PhotoSample[] }
+/** Where a photo sits on the canvas: `full` covers ≥80 % of it. */
+export type PhotoSide = 'left' | 'right' | 'top' | 'bottom' | 'full' | 'center';
+/** Treatment of a photo: corners, object-fit (or background-size), mask or gradient over it, edges it bleeds to, side and canvas fraction. */
+export interface PhotoSample { rect: Rect; fraction: number; radius: number; fit: string; mask: boolean; bleed: Array<'left' | 'right' | 'top' | 'bottom'>; side: PhotoSide }
 
-/** Roles of the complete style sheet used to copy the style of one slide onto another. */
-export const STYLE_ROLES = ['brand_title', 'title', 'subtitle', 'body', 'card_title', 'card_body', 'highlight', 'note', 'label'] as const;
+/** Roles of the complete style sheet used to copy the style of one slide onto another.
+ * `number`: card or step numbers («01», «4»), separate from the uppercase eyebrows of `label`. */
+export const STYLE_ROLES = ['brand_title', 'title', 'subtitle', 'body', 'card_title', 'card_body', 'highlight', 'note', 'label', 'number'] as const;
 export type StyleRole = typeof STYLE_ROLES[number];
 export const STYLE_ROLE_LABELS: Record<StyleRole, string> = { brand_title: 'Título de marca', title: 'Título', subtitle: 'Subtítulo', body: 'Párrafo',
-  card_title: 'Encabezado de tarjeta', card_body: 'Texto de tarjeta', highlight: 'Frase destacada', note: 'Nota', label: 'Etiqueta' };
+  card_title: 'Encabezado de tarjeta', card_body: 'Texto de tarjeta', highlight: 'Frase destacada', note: 'Nota', label: 'Etiqueta', number: 'Número' };
 export interface TextLook { family: string; size: number; weight: number; italic: boolean; upper: boolean; tracking: number; lineHeight: number; align: string; color: string }
 /** Where a tramo sits inside its text: sentence N, the first/last N words, or somewhere in the middle (word index). */
 export interface AccentPosition { kind: 'sentence' | 'start' | 'end' | 'middle'; index: number; words: number }
@@ -24,7 +31,8 @@ export interface AccentSample { text: string; position: AccentPosition; color: s
 /** `key`: data-scory-st (or data-scory-accent) of the element when the HTML was tagged for a transfer. */
 export interface RoleBlock extends TextLook { role: StyleRole; text: string; selector: string; rect: Rect; accents: AccentSample[]; card?: number; key?: string }
 export interface DecorationSample { rect: Rect; color: string; image: string; radius: number; below?: StyleRole; key?: string }
-export interface CardSample { rect: Rect; background: string; border: string; radius: number; shadow: string; padding: string; align: string; key?: string }
+/** `inner`: where the card's icon or number sits against its texts (above them or at their side); absent without one. */
+export interface CardSample { rect: Rect; background: string; border: string; radius: number; shadow: string; padding: string; align: string; key?: string; inner?: 'top' | 'side' }
 export interface RoleSheet { background: string; backgroundImage: string; blocks: RoleBlock[]; decorations: DecorationSample[]; cards: CardSample[]; fonts: string[] }
 
 /** Typography roles of the approximate standard scale (heads → display family, text → body family). */
@@ -213,7 +221,7 @@ export function stableSelector(element: Element): string {
   return first ? `.${first}` : '';
 }
 /** Thin DOM collector over a rendered document (computed styles and real layout). */
-export function collectStyleSamples(doc: Document, canvas: { width: number; height: number }): StyleSamples {
+export function collectStyleSamples(doc: Document, canvas: { width: number; height: number }, brand = ''): StyleSamples {
   const view = doc.defaultView!, area = canvas.width * canvas.height;
   const root = doc.querySelector('.slide, .lab-canvas') ?? doc.body;
   const textOf = (element: Element): TextSample | null => {
@@ -245,9 +253,39 @@ export function collectStyleSamples(doc: Document, canvas: { width: number; heig
       texts: inner.map(textOf).filter((item): item is TextSample => !!item),
       images: images.filter(image => image.x >= rect.x - 1 && image.y >= rect.y - 1 && image.x + image.width <= rect.x + rect.width + 1 && image.y + image.height <= rect.y + rect.height + 1) });
   }
-  let sheet: RoleSheet | undefined;
-  try { sheet = collectRoleSheet(doc, canvas); } catch { /* The per-role sheet is extra evidence; the base spec never fails because of it. */ }
-  return { canvas, background: view.getComputedStyle(root).backgroundColor, texts, boxes, images, ...(sheet ? { sheet } : {}) };
+  let sheet: RoleSheet | undefined, photos: PhotoSample[] | undefined;
+  try { sheet = collectRoleSheet(doc, canvas, { brand }); } catch { /* The per-role sheet is extra evidence; the base spec never fails because of it. */ }
+  try { photos = collectPhotos(doc, canvas); } catch { /* Same: the photo treatment never fails the base spec. */ }
+  return { canvas, background: view.getComputedStyle(root).backgroundColor, texts, boxes, images, ...(sheet ? { sheet } : {}), ...(photos ? { photos } : {}) };
+}
+/** Photos (<img> or background-image url) that cover ≥5 % of the canvas, with corners, fit, mask or gradient over them, bleed and side. */
+export function collectPhotos(doc: Document, canvas: { width: number; height: number }): PhotoSample[] {
+  const view = doc.defaultView!, root = doc.querySelector('.slide, .lab-canvas') ?? doc.body, origin = visibleRect(root), area = canvas.width * canvas.height;
+  const elements = [root, ...Array.from(root.querySelectorAll('*'))].filter(element => !element.closest('svg'));
+  const styles = new Map(elements.map(element => [element, view.getComputedStyle(element)] as const));
+  const clip = (rect: Rect): Rect => { const x = Math.max(0, rect.x - origin.x), y = Math.max(0, rect.y - origin.y);
+    return { x, y, width: Math.max(0, Math.min(canvas.width, rect.x - origin.x + rect.width) - x), height: Math.max(0, Math.min(canvas.height, rect.y - origin.y + rect.height) - y) }; };
+  const masked = (style?: CSSStyleDeclaration) => !!style && [style.maskImage, style.getPropertyValue('-webkit-mask-image')].some(value => !!value && value !== 'none');
+  const overlays = elements.filter(element => styles.get(element)!.backgroundImage.includes('gradient')).map(element => ({ element, rect: clip(visibleRect(element)) }));
+  const photos: PhotoSample[] = [];
+  for (const element of elements) {
+    const style = styles.get(element)!, image = element.tagName === 'IMG', background = /url\(/.test(style.backgroundImage);
+    if (!image && !background || style.display === 'none' || style.visibility === 'hidden') continue;
+    const rect = clip(visibleRect(element)), fraction = rect.width * rect.height / area;
+    if (fraction < 0.05) continue;
+    const parent = element.parentElement ?? undefined, parentStyle = parent ? styles.get(parent) ?? view.getComputedStyle(parent) : undefined;
+    const radius = Math.max(parseFloat(style.borderTopLeftRadius) || 0, parentStyle && parentStyle.overflow !== 'visible' ? parseFloat(parentStyle.borderTopLeftRadius) || 0 : 0);
+    const overlap = (other: Rect) => Math.max(0, Math.min(rect.x + rect.width, other.x + other.width) - Math.max(rect.x, other.x))
+      * Math.max(0, Math.min(rect.y + rect.height, other.y + other.height) - Math.max(rect.y, other.y));
+    const mask = masked(style) || masked(parentStyle) || background && style.backgroundImage.includes('gradient')
+      || overlays.some(item => item.element !== element && !item.element.contains(element) && overlap(item.rect) >= rect.width * rect.height * 0.5);
+    const bleed = [...(rect.x <= 2 ? ['left' as const] : []), ...(rect.x + rect.width >= canvas.width - 2 ? ['right' as const] : []),
+      ...(rect.y <= 2 ? ['top' as const] : []), ...(rect.y + rect.height >= canvas.height - 2 ? ['bottom' as const] : [])];
+    const cx = (rect.x + rect.width / 2) / canvas.width, cy = (rect.y + rect.height / 2) / canvas.height;
+    const side: PhotoSide = fraction >= 0.8 ? 'full' : cx < 0.42 ? 'left' : cx > 0.58 ? 'right' : cy < 0.42 ? 'top' : cy > 0.58 ? 'bottom' : 'center';
+    photos.push({ rect, fraction: Number(fraction.toFixed(3)), radius, fit: image ? style.objectFit || 'fill' : style.backgroundSize || 'auto', mask, bleed, side });
+  }
+  return photos.sort((a, b) => b.fraction - a.fraction).slice(0, 6);
 }
 
 const INLINE_TAGS = new Set(['SPAN', 'EM', 'STRONG', 'B', 'I', 'MARK', 'A', 'SMALL', 'U', 'FONT', 'CODE']);
@@ -337,15 +375,22 @@ export function collectRoleSheet(doc: Document, canvas: { width: number; height:
     return [{ rect: r, color, image, radius: parseFloat(s.borderTopLeftRadius) || 0, ...(above ? { below: above.role } : {}), ...(keyOf(element) ? { key: keyOf(element) } : {}) }];
   });
   const cards: CardSample[] = cardElements.filter(card => blocks.some(block => block.card === cardElements.indexOf(card))).map(card => {
-    const s = style(card);
+    const s = style(card), index = cardElements.indexOf(card), own = blocks.filter(block => block.card === index);
+    // Internal orientation: the icon (or the number) above the texts, or at their side.
+    const icon = Array.from(card.querySelectorAll('img, svg')).find(element => !element.parentElement?.closest('svg') && visibleRect(element).width > 0);
+    const mark = icon ? relative(visibleRect(icon)) : own.find(block => block.role === 'number')?.rect;
+    const texts = own.filter(block => block.role !== 'number' && (!mark || block.rect !== mark));
+    const inner = mark && texts.length ? mark.x + mark.width <= Math.min(...texts.map(block => block.rect.x)) + 4
+      && texts.some(block => block.rect.y < mark.y + mark.height && block.rect.y + block.rect.height > mark.y) ? 'side' as const : 'top' as const : undefined;
     return { rect: relative(visibleRect(card)), background: hex(s.backgroundColor), radius: parseFloat(s.borderTopLeftRadius) || 0,
       shadow: s.boxShadow === 'none' ? '' : s.boxShadow, border: parseFloat(s.borderTopWidth) > 0 && s.borderTopStyle !== 'none' ? `${s.borderTopWidth} ${s.borderTopStyle} ${hex(s.borderTopColor)}` : '',
-      padding: s.padding === '0px' ? '' : s.padding, align: s.textAlign, ...(keyOf(card) ? { key: keyOf(card) } : {}) };
+      padding: s.padding === '0px' ? '' : s.padding, align: s.textAlign, ...(keyOf(card) ? { key: keyOf(card) } : {}), ...(inner ? { inner } : {}) };
   });
   const rootStyle = style(root);
   return { background: hex(rootStyle.backgroundColor), backgroundImage: rootStyle.backgroundImage.includes('gradient') ? rootStyle.backgroundImage.slice(0, 600) : '',
     blocks, decorations, cards, fonts: Array.from(doc.querySelectorAll('link[rel="stylesheet"]')).map(link => link.getAttribute('href') ?? '').filter(href => /^https:\/\//.test(href)).slice(0, 4) };
 }
+const NUMBER_TEXT = /^[\d\s.%+-]{1,6}$/, STEP_NUMBER = /^0?\d{1,2}[.)]?$/;
 /** Roles from size, weight, position and cards: the largest loose text is the title (brand title when it is the brand name),
  * a short italic or accented phrase low on the slide is the highlight, small texts are notes or labels. */
 export function classifyRoleBlocks(blocks: RoleBlock[], canvas: { width: number; height: number }, brand = ''): void {
@@ -353,20 +398,24 @@ export function classifyRoleBlocks(blocks: RoleBlock[], canvas: { width: number;
   const loose = blocks.filter(block => block.card === undefined);
   const regular = loose.filter(block => block.weight < 600).map(block => round(block.size));
   const body = modeOf(regular.length ? regular : blocks.map(block => round(block.size)))!;
-  const largest = Math.max(0, ...loose.map(block => round(block.size)));
+  // A loose step number («01», «2.») is never the title, however large it is.
+  const step = (block: RoleBlock) => STEP_NUMBER.test(block.text.trim());
+  const largest = Math.max(0, ...loose.filter(block => !step(block)).map(block => round(block.size)));
   const short = (block: RoleBlock) => block.text.length <= 30;
   const brandWord = brand.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().split(/\s+/)[0] ?? '';
   let titled = false;
   for (const block of blocks) {
     const size = round(block.size), plain = block.text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
     if (block.card !== undefined) {
-      const mates = blocks.filter(other => other.card === block.card), top = Math.max(...mates.map(other => round(other.size)));
-      block.role = /^[\d\s.%+-]{1,6}$/.test(block.text) ? 'label' : mates.length > 1 && size === top && (size >= round(Math.min(...mates.map(other => other.size))) + 2 || block.weight >= 600)
+      // The card's number («01») never decides which of its texts is the heading.
+      const mates = blocks.filter(other => other.card === block.card && !NUMBER_TEXT.test(other.text)), top = Math.max(...mates.map(other => round(other.size)));
+      block.role = NUMBER_TEXT.test(block.text) ? 'number' : mates.length > 1 && size === top && (size >= round(Math.min(...mates.map(other => other.size))) + 2 || block.weight >= 600)
         || mates.length === 1 && block.weight >= 600 ? 'card_title' : block.upper && short(block) && size < body ? 'label' : 'card_body';
       continue;
     }
     const center = block.rect.y + block.rect.height / 2;
-    if (!titled && size >= largest - TYPE_SCALE_TOLERANCE && size >= body + 4) {
+    if (step(block)) block.role = 'number';
+    else if (!titled && size >= largest - TYPE_SCALE_TOLERANCE && size >= body + 4) {
       titled = true;
       block.role = brandWord.length >= 3 && plain.includes(brandWord) && block.text.split(' ').length <= 4 ? 'brand_title' : 'title';
     } else if (center > canvas.height * 0.55 && (block.italic || block.accents.some(accent => accent.italic)) && size >= body - 1 && !block.upper) block.role = 'highlight';
@@ -394,8 +443,8 @@ const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, M
 /** Same isolated render, returning the raw samples (scale, style lock).
  * Measures once the HTML is parsed: slow photos or webfonts get a short wait but never
  * make the measurement fail (computed sizes, families and colors do not depend on them). */
-export function measureStyleSamples(html: string, canvas: { width: number; height: number }, timeoutMs = 8000): Promise<StyleSamples> {
-  return measureInFrame(html, canvas, timeoutMs, rendered => collectStyleSamples(rendered, canvas));
+export function measureStyleSamples(html: string, canvas: { width: number; height: number }, timeoutMs = 8000, brand = ''): Promise<StyleSamples> {
+  return measureInFrame(html, canvas, timeoutMs, rendered => collectStyleSamples(rendered, canvas, brand));
 }
 /** Per-role sheet of one HTML (style transfer); `brand` names the brand title. */
 export function measureRoleSheet(html: string, canvas: { width: number; height: number }, brand = '', timeoutMs = 8000): Promise<RoleSheet> {

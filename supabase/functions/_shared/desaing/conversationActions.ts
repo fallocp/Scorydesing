@@ -14,6 +14,11 @@ export interface ConversationDesignSource {
     | { kind: 'reference'; reference_id: string }
     | { kind: 'asset'; asset: AssetVersion };
 }
+/** «Sistema de la presentación»: archetype IDs and variation values (same lists as the client's deckSystem). */
+export const DECK_ARCHETYPE_IDS = ['cover', 'title_cards', 'photo_steps', 'split', 'stats', 'section', 'closing', 'free'] as const;
+export const DECK_CARD_ORIENTATIONS = ['row', 'column', 'grid', 'single', 'none'] as const;
+export const DECK_IMAGE_SIDES = ['left', 'right', 'top', 'bottom', 'full', 'center', 'none'] as const;
+export const DECK_CARD_LIMIT = 12;
 export const CONVERSATION_DECK_LIMITS = { maxSlides: 500, maxInspectionSlides: 12, maxSummaryChars: 1800, maxSlideTitleChars: 100 } as const;
 export interface ConversationPresentationSlide { id: string; number: number; title: string; revision: string }
 export interface ConversationInspectedSlide extends ConversationPresentationSlide { summary: string; reference_id?: string }
@@ -69,6 +74,15 @@ export interface ConversationTurnContext {
   /** «Estilo de la diapositiva N»: measured spec of the cited slide. Present = the client copies the style without AI
    * and receives design_understanding.accent_plan (which words of this slide carry each accent). */
   style_source?: { slide_number: number; spec: string };
+  /** «Sistema de la presentación»: measured summary, the deck's arrangements by ID and up to three candidates
+   * (already ranked against the neighbors). Present = design_understanding.archetype_id and variation. */
+  deck_system?: ConversationDeckSystem;
+}
+export interface ConversationDeckSystem {
+  version: 1; summary: string;
+  archetypes: Array<{ id: string; label: string; signature: string; exemplar: number; count: number }>;
+  candidates: string[];
+  neighbors: string;
 }
 export interface ConversationPendingAction {
   kind: ConversationActionKind; instruction: string; questions: string[];
@@ -212,7 +226,7 @@ export function assertConversationTurn(value: unknown, context: DesignContext): 
   check(record(value) && keys(value, ['schema_version', 'canvas', 'surface', 'selected_image', 'available_actions',
     ...['current_html', 'pending_action', 'design_format', 'design_base', 'deck_style', 'slide_html', 'style_spec', 'presentation', 'supports_design_source', 'design_source',
       'editable_elements', 'editable_assets', 'editable_html_hash', 'supports_structural_edits', 'editable_text_complete',
-      'supports_style_lock', 'reference_notes', 'low_detail_reference_ids', 'style_source'].filter(key => key in value)]) && value.schema_version === 1
+      'supports_style_lock', 'reference_notes', 'low_detail_reference_ids', 'style_source', 'deck_system'].filter(key => key in value)]) && value.schema_version === 1
     && ['empty', 'image', 'html'].includes(String(value.surface)) && keys(value.canvas, ['width', 'height'])
     && [value.canvas.width, value.canvas.height].every(n => typeof n === 'number' && Number.isSafeInteger(n) && n >= 256 && n <= 3840), code);
   check(Array.isArray(value.available_actions) && value.available_actions.length > 0 && value.available_actions.length <= CONVERSATION_ACTIONS.length
@@ -247,6 +261,16 @@ export function assertConversationTurn(value: unknown, context: DesignContext): 
   if ('supports_style_lock' in value) check(value.supports_style_lock === 1, code);
   if ('style_source' in value) check(keys(value.style_source, ['slide_number', 'spec']) && Number.isSafeInteger(value.style_source.slide_number)
     && (value.style_source.slide_number as number) >= 1 && (value.style_source.slide_number as number) <= 500 && text(value.style_source.spec, 3000, true), code);
+  if ('deck_system' in value) {
+    const deck = value.deck_system, ids = new Set<string>();
+    check(keys(deck, ['version', 'summary', 'archetypes', 'candidates', 'neighbors']) && deck.version === 1 && text(deck.summary, 1500)
+      && text(deck.neighbors, 400, true) && Array.isArray(deck.archetypes) && deck.archetypes.length >= 1 && deck.archetypes.length <= 8
+      && deck.archetypes.every(item => keys(item, ['id', 'label', 'signature', 'exemplar', 'count'])
+        && DECK_ARCHETYPE_IDS.includes(item.id as typeof DECK_ARCHETYPE_IDS[number]) && !ids.has(item.id as string) && !!ids.add(item.id as string)
+        && text(item.label, 120) && text(item.signature, 80) && [item.exemplar, item.count].every(n => Number.isSafeInteger(n) && (n as number) >= 1 && (n as number) <= 500))
+      && Array.isArray(deck.candidates) && deck.candidates.length >= 1 && deck.candidates.length <= 3 && new Set(deck.candidates).size === deck.candidates.length
+      && deck.candidates.every(id => typeof id === 'string' && ids.has(id)), code);
+  }
   if ('reference_notes' in value) {
     const notes = value.reference_notes, seen = new Set<string>();
     check(Array.isArray(notes) && notes.length <= 4 && notes.every(note => keys(note, ['reference_id', 'note']) && text(note.note, 1500)

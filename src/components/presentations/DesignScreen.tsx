@@ -3,6 +3,8 @@ import { ArrowLeft, Check, Columns2, Loader2, MessageSquare, Minus, Plus, X } fr
 import { getSlideDimensions, type PresentationSlide } from '@/lib/presentations/presentationDocument';
 import { sanitizePresentationHtml } from '@/lib/presentations/presentationHtml';
 import { formatStepTime, type DesignStep } from '@/lib/presentations/designChatNatural';
+import { DECK_STRUCTURE_LABELS, describeAccent, type DeckSystem } from '@/lib/presentations/deckSystem';
+import { STYLE_ROLE_LABELS } from '@/lib/presentations/styleSpec';
 import { PresentationCanvas } from './PresentationCanvas';
 import './DesignScreen.css';
 
@@ -154,6 +156,44 @@ export function SlideThumbnails({ slides, current, onSelect, disabled }: {
       </li>)}
     </ol>
   </nav>;
+}
+
+/** «Sistema de la presentación», read only: what the slides share (tokens, accents, cards, backgrounds, photos) and their arrangements. */
+export function DeckSystemPanel({ system, status, slides }: { system: DeckSystem | null; status: 'measuring' | 'ready' | 'failed'; slides: ReadonlyArray<PresentationSlide> }) {
+  const tokens = system?.tokens, paper = tokens?.backgrounds[0]?.color ?? '#FFFFFF';
+  return <details className="ds-deck-system">
+    <summary>Sistema de la presentación{system ? ` · ${system.slides} diapositivas medidas` : status === 'measuring' ? ' · midiendo…' : ' · no disponible'}</summary>
+    {!system || !tokens ? <p className="dc-muted" role="status">{status === 'measuring' ? 'Midiendo las diapositivas en tu navegador, sin IA…' : 'No pude medir las diapositivas de esta presentación.'}</p> : <>
+      <p className="dc-muted">Lo que comparten tus diapositivas, medido sin IA. Lo aplico al crear o rediseñar; lo que tú pidas manda.</p>
+      <h4>Tipografía y color</h4>
+      <ul className="ds-deck-list">{tokens.roles.filter(token => token.firm).map(token => <li key={token.role}>
+        <span className="ds-deck-sample" aria-hidden style={{ background: paper, color: token.color.value, fontFamily: `"${token.family.value}", sans-serif`,
+          fontWeight: token.weight.value, fontStyle: token.italic.value ? 'italic' : 'normal' }}>Aa</span>
+        <span><strong>{STYLE_ROLE_LABELS[token.role]}</strong> {token.family.value} {token.size.value} px · {token.weight.value}{token.italic.value ? ' · itálica' : ''}{token.upper.value ? ' · mayúsculas' : ''}
+          {' · '}<span className="ds-deck-swatch" aria-hidden style={{ background: token.color.value }} />{token.color.value} <span className="dc-muted">({token.color.support} de {token.slides})</span></span>
+      </li>)}</ul>
+      {tokens.accents.length > 0 && <><h4>Acentos</h4><ul className="ds-deck-list">{tokens.accents.slice(0, 6).map((accent, index) => <li key={index}>
+        <span className="ds-deck-swatch" aria-hidden style={{ background: accent.gradient ?? accent.color }} />
+        <span>{describeAccent(accent)} <span className="dc-muted">· {Math.round(accent.frequency * 100)} % ({accent.slides} de {tokens.roles.find(token => token.role === accent.role)?.slides ?? accent.slides})</span></span></li>)}</ul></>}
+      <h4>Componentes</h4>
+      <ul className="ds-deck-list">
+        {tokens.cards && <li><span className="ds-deck-card" aria-hidden style={{ background: tokens.cards.background, borderRadius: Math.min(tokens.cards.radius, 12),
+          boxShadow: tokens.cards.shadow || undefined }} /><span>Tarjetas: fondo {tokens.cards.background}, radio {tokens.cards.radius} px, {tokens.cards.shadow ? 'sombra suave' : 'sin sombra'}
+          {tokens.cards.inner ? `, ícono o número ${tokens.cards.inner === 'side' ? 'al lado' : 'arriba'}` : ''} <span className="dc-muted">({tokens.cards.slides})</span></span></li>}
+        {tokens.decorations.map((line, index) => <li key={index}><span className="ds-deck-swatch" aria-hidden style={{ background: line.image || line.color }} />
+          <span>Línea corta{line.below ? ` bajo ${STYLE_ROLE_LABELS[line.below].toLowerCase()}` : ''}: {line.width}×{line.height} px <span className="dc-muted">({line.slides})</span></span></li>)}
+        {tokens.backgrounds.map((ground, index) => <li key={`bg${index}`}><span className="ds-deck-swatch" aria-hidden style={{ background: ground.image || ground.color }} />
+          <span>Fondo {ground.image ? 'con degradado' : ground.color}: diapositivas {ground.slides.slice(0, 8).join(', ')}{ground.slides.length > 8 ? '…' : ''}</span></li>)}
+        {tokens.photo && <li><span className="ds-deck-swatch" aria-hidden /><span>Fotos: radio {tokens.photo.radius} px, {tokens.photo.fit}{tokens.photo.mask ? ', con máscara o degradado' : ''}{tokens.photo.bleed ? ', a sangre' : ''}
+          {' '}<span className="dc-muted">({tokens.photo.slides})</span></span></li>}
+      </ul>
+      <h4>Acomodos</h4>
+      <ul className="ds-deck-archetypes">{system.archetypes.map(item => { const slide = slides[item.exemplar - 1];
+        return <li key={item.id}>{slide && <div className="ds-deck-thumb"><LazyThumb html={slide.html} title={`Ejemplar: diapositiva ${item.exemplar}`} /></div>}
+          <span><strong>{DECK_STRUCTURE_LABELS[item.id]}</strong> · {item.members.length} {item.members.length === 1 ? 'diapositiva' : 'diapositivas'}
+            <br /><span className="dc-muted">{item.label} · ejemplar: {item.exemplar}</span></span></li>; })}</ul>
+    </>}
+  </details>;
 }
 
 /** What the turn is doing, in the thread: «✓ Leí la diapositiva · 0.4 s», «Preparando el plan…». */
