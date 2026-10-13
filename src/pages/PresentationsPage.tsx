@@ -62,6 +62,11 @@ import { PresentationCanvas } from '@/components/presentations/PresentationCanva
 import { detachUnverifiedMountedImages, reconcileMountedAssets } from '@/lib/presentations/presentationManifest';
 import { prepareReviewedPresentation, saveReviewedPresentation } from '@/lib/presentations/reviewedPresentationProject';
 import { presentationProjectPort } from '@/lib/presentations/presentationProjectPort';
+import { AddSlideMenu } from '@/components/presentations/AddSlideMenu';
+import { adaptTemplate, blankSlideHtml, deckBackground, deckSystemFor, insertSlideAfter, isAddSlideNewEnabled, isBlankSlide, measureDeckLogo,
+  newSlideDesignTarget, NEW_SLIDE_PROMPT, readTemplateAsIs, writeTemplateAsIs } from '@/lib/presentations/addSlide';
+import { readDeckSystemFlags } from '@/lib/presentations/deckSystem';
+import { measureRoleSheet, measureStyleSamples } from '@/lib/presentations/styleSpec';
 
 // --- Traducción estable a inglés -------------------------------------------
 // Se traduce POR ELEMENTO de texto (headline, subcopy, CTA…), no fragmento a
@@ -1204,6 +1209,47 @@ function PresentationsPageContent({ activeBusinessId, projectName }: { activeBus
     toast({ title: `Slide agregado: ${tpl.title}` });
   }, [currentSlide, toast]);
 
+  // «Agregar slide» con el sistema de la presentación (VITE_DESAING_ADD_SLIDE_NEW=true): «Nueva con IA», «En blanco» y plantillas adaptadas sin IA.
+  const addSlideNew = isAddSlideNewEnabled(import.meta.env as Record<string, unknown>);
+  const [addSlideBusy, setAddSlideBusy] = useState(false);
+  const [templateAsIs, setTemplateAsIs] = useState(() => readTemplateAsIs());
+  const addSlideTrigger = useRef<HTMLButtonElement>(null);
+  const closeAddSlideMenu = useCallback(() => { setAddSlideMenuOpen(false); addSlideTrigger.current?.focus(); }, []);
+  const handleAddSlide = useCallback(async (kind: 'ai' | 'blank' | { template: number }) => {
+    const deck = slidesRef.current, anchor = deck[currentSlide], owner = slidesOwnerIdRef.current;
+    if (!anchor || addSlideBusy) return;
+    const canvas = getSlideDimensions(anchor.html), brand = projectName ?? '';
+    const template = typeof kind === 'object' ? PRESENTATION_TEMPLATES[kind.template] : null;
+    setAddSlideBusy(true);
+    try {
+      // Only the open presentation of the active business: the system is never borrowed from another one.
+      const lookup = template && templateAsIs ? null : await deckSystemFor({ flags: readDeckSystemFlags(import.meta.env as Record<string, unknown>),
+        key: `${activeBusinessId}:${owner ?? `draft:${activeBusinessId}`}:${brand}`, slides: deck, current: currentSlide,
+        measure: html => measureStyleSamples(html, getSlideDimensions(html), 8000, brand) });
+      let item: { id: string; revision: number; title: string; html: string }, notice = '';
+      if (template) {
+        const adapted = lookup ? await adaptTemplate({ html: template.html, lookup, canvas, brand, position: { index: currentSlide + 1, count: deck.length + 1 },
+          measureSamples: html => measureStyleSamples(html, getSlideDimensions(html), 8000, brand),
+          measureSheet: (html, name) => measureRoleSheet(html, getSlideDimensions(html), name) }) : { html: template.html, notice: 'Plantilla original, sin adaptar.' };
+        item = { id: crypto.randomUUID(), revision: 1, title: template.title, html: adapted.html }; notice = adapted.notice;
+      } else {
+        const system = lookup?.system ?? null;
+        const logo = kind === 'blank' && system ? await measureDeckLogo(deck, currentSlide).catch(() => null) : null;
+        item = { id: crypto.randomUUID(), revision: 1, title: kind === 'ai' ? 'Nueva diapositiva' : 'En blanco', html: blankSlideHtml({ canvas, background: deckBackground(system), logo }) };
+      }
+      if (!alive.current || slidesOwnerIdRef.current !== owner) return;
+      const at = slidesRef.current.findIndex(slide => slide.id === anchor.id), index = at < 0 ? slidesRef.current.length - 1 : at;
+      setSlides(previous => insertSlideAfter(previous, index, item));
+      setCurrentSlide(index + 1); setAddSlideMenuOpen(false);
+      if (kind === 'ai') {
+        const open = newSlideDesignTarget({ screen: screenEnabled, index: index + 1, path: number => designScreenPath(activePresentationId, number) });
+        if (open.kind === 'screen') navigate(open.path); else setGeneratorOpen(true);
+      } else toast({ title: template ? `Slide agregado: ${template.title}` : 'Diapositiva en blanco agregada', ...(notice ? { description: notice } : {}) });
+    } catch (error) {
+      toast({ title: 'No se pudo agregar la diapositiva', description: error instanceof Error ? error.message : 'Error desconocido', variant: 'destructive' });
+    } finally { if (alive.current) setAddSlideBusy(false); }
+  }, [currentSlide, addSlideBusy, projectName, templateAsIs, activeBusinessId, activePresentationId, screenEnabled, navigate, toast]);
+
   // Reemplaza el HTML del slide actual con la versión más reciente de su plantilla (por nombre)
   const handleReloadTemplate = useCallback(() => {
     const title = slides[currentSlide].title;
@@ -1287,6 +1333,7 @@ function PresentationsPageContent({ activeBusinessId, projectName }: { activeBus
       service={designService} businessId={activeBusinessId} documentId={documentId} slide={slide}
       projectName={projectName} presentationName={presentations.find(item => item.id === activePresentationId)?.name ?? 'Sin guardar (nuevo)'}
       deckSlides={slides} initialView={screenRoute.format ?? 'html'} urlFormat={screenRoute.format} initialSession={screenRoute.session}
+      {...(addSlideNew && isBlankSlide(slide.html) ? { emptyPrompt: NEW_SLIDE_PROMPT } : {})}
       onClose={() => navigate('/presentations')}
       // Each slide keeps its own sessions: changing slide drops the session from the URL and keeps the format.
       onSelectSlide={index => navigate(designScreenPath(screenRoute.projectId, index + 1, { format: screenRoute.format }), { replace: true })}
@@ -1394,6 +1441,7 @@ function PresentationsPageContent({ activeBusinessId, projectName }: { activeBus
         service={designService} businessId={activeBusinessId} documentId={slidesOwnerIdRef.current ?? `draft:${activeBusinessId}`} slide={slides[currentSlide]}
         projectName={projectName} presentationName={presentations.find(item => item.id === activePresentationId)?.name ?? 'Sin guardar (nuevo)'}
         deckSlides={slides} initialView="html" onClose={() => setGeneratorOpen(false)}
+        {...(addSlideNew && isBlankSlide(slides[currentSlide].html) ? { emptyPrompt: NEW_SLIDE_PROMPT } : {})}
         onApply={next => handleApplyGeneratedToCurrent(next.html, { document: slidesOwnerIdRef.current ?? `draft:${activeBusinessId}`,
           slide: slides[currentSlide].id, revision: slides[currentSlide].revision }, next.mounted_assets)}
         onInsert={next => handleInsertGeneratedSlide(next.html, { document: slidesOwnerIdRef.current ?? `draft:${activeBusinessId}`,
@@ -1675,15 +1723,22 @@ function PresentationsPageContent({ activeBusinessId, projectName }: { activeBus
           </Button>
           <div className="relative">
             <Button
+              ref={addSlideTrigger}
               variant="outline"
               size="sm"
               onClick={() => setAddSlideMenuOpen((o) => !o)}
               className="gap-2"
+              {...(addSlideNew ? { 'aria-haspopup': 'menu' as const, 'aria-expanded': addSlideMenuOpen } : {})}
             >
               <Plus className="h-4 w-4" />
               Agregar slide
             </Button>
-            {addSlideMenuOpen && (
+            {addSlideMenuOpen && addSlideNew && <AddSlideMenu templates={PRESENTATION_TEMPLATES} busy={addSlideBusy} asIs={templateAsIs}
+              aiDisabled={!designService || !activeBusinessId ? 'El diseño con IA no está disponible en este entorno.' : cloudLoading ? 'Cargando la presentación…' : undefined}
+              onAsIsChange={value => { setTemplateAsIs(value); writeTemplateAsIs(value); }}
+              onNewWithAi={() => void handleAddSlide('ai')} onBlank={() => void handleAddSlide('blank')}
+              onTemplate={index => void handleAddSlide({ template: index })} onClose={closeAddSlideMenu} />}
+            {addSlideMenuOpen && !addSlideNew && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setAddSlideMenuOpen(false)} />
                 <div className="absolute right-0 top-9 z-50 w-72 max-h-80 overflow-y-auto bg-background border rounded-lg shadow-xl p-1">

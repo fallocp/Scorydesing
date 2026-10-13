@@ -41,6 +41,8 @@ export interface UnifiedDesignWorkspaceProps {
   /** Design screen: the URL owns slide, session and format. */
   initialSession?: DesignConversationSessionId; urlFormat?: 'html' | 'image';
   onSelectSlide?(index: number): void; onSessionChange?(session: DesignConversationSessionId): void; onFormatChange?(format: 'html' | 'image'): void;
+  /** Empty slide («Nueva con IA»): the composer asks for its content until the first message. */
+  emptyPrompt?: string;
 }
 
 /** Measured slides (base and deck) are cached per HTML. */
@@ -400,7 +402,7 @@ export function UnifiedDesignWorkspace(props: UnifiedDesignWorkspaceProps) {
       <button className="dc-button" disabled={blocked || pending} onClick={() => void send('Explora y propón cinco ideas de diseño con mis referencias, la presentación y lo que hemos acordado. Quiero elegir una idea antes de preparar la propuesta; no generes todavía.')}><Sparkles size={14} />Explorar diseños</button></div>
     <div className="dc-input" {...(screen ? { onDrop: dropSlide, onDragOver: (event: React.DragEvent<HTMLElement>) => { if (event.dataTransfer.types.includes('application/x-scory-slide')) event.preventDefault(); } } : {})}>
       <textarea ref={composer} aria-label="Mensaje de diseño" value={message} onChange={event => setMessage(event.target.value)} maxLength={6000} rows={3}
-      disabled={blocked || pending} onPaste={paste} placeholder={screen ? 'Pide un cambio o cita otra diapositiva con @2…' : 'Conserva el diseño y usa el texto de esta imagen, replica su composición o toma sólo su estilo…'}
+      disabled={blocked || pending} onPaste={paste} placeholder={props.emptyPrompt && !state.messages.length ? props.emptyPrompt : screen ? 'Pide un cambio o cita otra diapositiva con @2…' : 'Conserva el diseño y usa el texto de esta imagen, replica su composición o toma sólo su estilo…'}
       onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void send(); } }} />
       <button className="dc-button" aria-label="Enviar" title="Enviar" disabled={blocked || pending || !message.trim()} onClick={() => void send()}><ArrowUp size={20} /></button></div>
     <p className="dc-muted">{screen ? 'Te digo qué voy a hacer antes de cambiar algo que no pediste.' : 'Pídeme el cambio y lo hago; si tiene consecuencias que no pediste, te pregunto antes.'}</p>

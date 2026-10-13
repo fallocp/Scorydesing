@@ -450,7 +450,8 @@ export function measureStyleSamples(html: string, canvas: { width: number; heigh
 export function measureRoleSheet(html: string, canvas: { width: number; height: number }, brand = '', timeoutMs = 8000): Promise<RoleSheet> {
   return measureInFrame(html, canvas, timeoutMs, rendered => collectRoleSheet(rendered, canvas, { brand }));
 }
-async function measureInFrame<T>(html: string, canvas: { width: number; height: number }, timeoutMs: number, collect: (rendered: Document) => T): Promise<T> {
+/** Isolated render of one HTML (sandboxed iframe, no scripts) read by `collect`; also used to measure the deck's logo. */
+export async function measureInFrame<T>(html: string, canvas: { width: number; height: number }, timeoutMs: number, collect: (rendered: Document) => T): Promise<T> {
   if (typeof document === 'undefined' || !document.body) throw new StyleMeasureError('unavailable', 'no hay un navegador donde medir el diseño');
   const frame = document.createElement('iframe');
   frame.setAttribute('sandbox', 'allow-same-origin'); frame.setAttribute('referrerpolicy', 'no-referrer'); frame.setAttribute('aria-hidden', 'true'); frame.tabIndex = -1;

@@ -242,6 +242,18 @@ it('selects an explored idea for planning even while copy needs clarification', 
   expect(harness.work.executeSuggested).not.toHaveBeenCalled();
 });
 
+it('«Nueva con IA»: an empty slide starts from the presentation or a new design, never «current», and asks for its content', async () => {
+  const empty = { ...props.slide, html: '<!DOCTYPE html><html><head><style>.slide{width:1920px;height:1080px;background:#F5F3F0}</style></head><body><div class="slide"></div></body></html>' };
+  const prompt = '¿Qué va en esta diapositiva? Escribe el contenido y te propongo el diseño.';
+  render({ slide: empty, emptyPrompt: prompt }); await flush(); let tree = render({ slide: empty, emptyPrompt: prompt });
+  expect(harness.options.base).not.toBe('current'); expect(['deck', 'new']).toContain(harness.options.base);
+  expect(elements(tree).find(element => element.type === 'textarea')?.props.placeholder).toBe(prompt);
+  // Once the user wrote, the composer goes back to its usual hint.
+  harness.work.state.messages = [{ id: 'msg', turn_id: 'turn', role: 'user', text: 'Crédito revolvente: 3 beneficios.' }];
+  tree = render({ slide: empty, emptyPrompt: prompt });
+  expect(elements(tree).find(element => element.type === 'textarea')?.props.placeholder).not.toBe(prompt);
+});
+
 it('identifies the actual project, presentation and target slide without conflating reference slides', () => {
   const deckSlides = [{ ...props.slide, id: 'first', title: 'Cover' }, props.slide, { ...props.slide, id: 'third', title: 'Next' }];
   const tree = render({ projectName: 'Another brand', presentationName: 'Commercial deck', deckSlides });
