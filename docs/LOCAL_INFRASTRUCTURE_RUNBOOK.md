@@ -1,6 +1,6 @@
 # Runbook de infraestructura local
 
-- **Estado:** configuración lista (Fase 3). **Primer arranque pendiente por disco**: C: tenía 2.46 GB libres el 13-10-2026 y el disco de Docker Desktop vive en C:.
+- **Estado:** primer arranque hecho el 13-10-2026 (cierre de Fase 3). Disco de Docker en `F:\DockerDesktopWSL`, regla de Firewall creada. Resultado en §6.1.
 - **Afecta únicamente:** desarrollo local de ScoryDesign.
 - **Producción:** no configurada (ADR-0001). La app sigue contra el Supabase compartido hasta la Fase 7.
 
@@ -40,7 +40,7 @@ docker network create --driver bridge --opt com.docker.network.bridge.host_bindi
 
 ## 4. Windows Firewall (PowerShell como administrador)
 
-La regla no existe todavía (13-10-2026). Crearla una vez:
+Creada por el usuario el 13-10-2026 (grupo `scorydesign`, Inbound, Block, TCP 55320-55329, `LocalSubnet,Internet`, `EdgeTraversalPolicy Block`, perfil Any). Comando usado, por si hay que recrearla:
 
 ```powershell
 New-NetFirewallRule -DisplayName "scorydesign - Supabase local only" -Group "scorydesign" -Direction Inbound -Action Block -Enabled True -Profile Any -Protocol TCP -LocalPort 55320-55329 -RemoteAddress LocalSubnet,Internet -EdgeTraversalPolicy Block
@@ -79,6 +79,15 @@ docker ps --filter name=_scorydesign --format "{{.Names}}\t{{.Status}}\t{{.Ports
 - Antes de la Fase 4: 0 tablas de app en `public`.
 - `npm run supabase:status` limpio y `supabase\.temp` sin `project-ref` ni `linked-project.json`.
 
+### 6.1 Primer arranque (13-10-2026)
+
+- Antes: C: 48.4 GB libres, F: 1,353.9 GB; puertos 55320-55329 sin listeners; `supabase\.temp` solo con `cli-latest`; `supabase\migrations` solo con `README.md`.
+- Contenedores (`docker ps --filter name=_scorydesign`), todos con 0 reinicios: `supabase_db_scorydesign`, `supabase_kong_scorydesign`, `supabase_auth_scorydesign`, `supabase_rest_scorydesign`, `supabase_storage_scorydesign`, `supabase_pg_meta_scorydesign`, `supabase_studio_scorydesign`, `supabase_inbucket_scorydesign` (Mailpit) y `supabase_edge_runtime_scorydesign`. Con healthcheck: todos `healthy`; rest y edge runtime no tienen healthcheck. 0 contenedores de analytics/vector; realtime, imgproxy y pooler apagados.
+- **Binding observado: `0.0.0.0` y `[::]`** en 55321 (Kong), 55322 (Postgres), 55323 (Studio) y 55324 (Mailpit), igual que en agents-finmarket. La red `scorydesign-supabase-local` no lo evita en Docker Desktop; la protección es la regla de Firewall de §4. La propia CLI lo avisa al arrancar.
+- HTTP 200 vía 127.0.0.1: `/rest/v1/` (con `apikey`), `/auth/v1/health`, `/storage/v1/status` y Studio. `pg_isready`: `accepting connections`. Edge runtime 1.74.3 (Deno 2.1.4) arriba y sirviendo las funciones de `supabase/functions` (una ruta inexistente responde 404).
+- `supabase status`: `Not linked.`. La CLI 2.117 crea `supabase\.temp\start-secrets` al arrancar (secretos locales; la carpeta está ignorada por git). No hay `project-ref` ni `linked-project.json`.
+- agents-finmarket (`supabase_*_agents-finmarket`) y scory-production siguieron arriba.
+
 ## 7. Lo que nunca se hace
 
 Los volúmenes de Docker son la única copia de los datos nuevos.
@@ -97,7 +106,7 @@ Tampoco se ejecutan `scripts/desaing/deploy-prompt-admin.ps1` ni `scripts/desain
 
 ## 8. Espacio en disco
 
-- El disco de datos de Docker Desktop estaba en `C:\Users\fallo\AppData\Local\Docker\wsl\disk\docker_data.vhdx` (≈47 GB) y C: tenía 2.46 GB libres. **El disco de Docker debe vivir en F:** (Docker Desktop → Settings → Resources → Advanced → Disk image location). Lo mueve el usuario; no se usa `prune` para liberar espacio.
+- El disco de datos de Docker Desktop estaba en `C:\Users\fallo\AppData\Local\Docker\wsl\disk\docker_data.vhdx` (≈47 GB) con C: casi lleno. El usuario lo movió a **`F:\DockerDesktopWSL`** (Docker Desktop → Settings → Resources → Advanced → Disk image location); después C: quedó con ≈48 GB libres. No se usa `prune` para liberar espacio.
 - Medir antes de cada arranque, pull o build: `Get-PSDrive C,F`. Si el disco de Docker tiene menos de 5 GB libres, no arrancar.
 - Imágenes: la CLI 2.117 usa las mismas que agents-finmarket (ya descargadas). El edge runtime puede requerir una imagen extra (≈1.1 GB) si su versión no está en caché.
 - Fase 5 suma ≈775 MB de tablas y ≈1.73 GiB de objetos dentro del disco de Docker, más los dumps temporales (en F:, fuera del repo).
