@@ -49,7 +49,7 @@ enabled = true
 schema_paths = []
 
 [db.seed]
-# Off until Phase 4 decides seeds (they live outside supabase/migrations).
+# Off (decided in Phase 4): no data seeds; Phase 5 copies the real data. See supabase/migrations/README.md.
 enabled = false
 sql_paths = ["./seed.sql"]
 
