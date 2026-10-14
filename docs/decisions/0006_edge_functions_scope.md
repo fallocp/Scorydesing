@@ -19,6 +19,15 @@ Hay 35 funciones en `supabase/functions` y 56 desplegadas. De las 9 duplicadas c
 - `DESAING_PILOT_SUPABASE_ORIGIN` se ajusta en Fase 6: dentro del edge runtime `SUPABASE_URL` es la URL interna.
 - **`verify_jwt`**: local igual al `config.toml` del repo, salvo `render-design-png`, que pasa a `true` en local (hoy `false` en el repo y `true` desplegado). Motivo: usa service role sin `getUser`, y quienes la llaman (`pipeline-orchestrator/lib/executeStep.ts:165`, `render-multichannel/index.ts:230`) reenvían el header `Authorization` del usuario, que ya exigen. El cambio se hace en Fase 6 junto con su prueba; en Fase 3 las secciones `[functions.*]` quedan idénticas.
 
+## Notas de Fase 6 (14-10-2026)
+
+- `render-design-png`: `verify_jwt = true` en `config.toml`, igual que el desplegado. La app local no se ve afectada: ninguna ruta la alcanza, y quienes la llaman reenvían el JWT del usuario. Sin `Authorization` responde 401; sin `RENDER_SERVICE_URL`, 503 `render_service_unavailable`, igual que en el compartido. No se crea contenedor del renderer (`docs/LOCAL_CUTOVER_REPORT.md` §2.6).
+- `branch-chat`, `import-design-reference` y `render-design-preview`: se reconfirmó que `src` no las alcanza. No se copian ni se descargan.
+- Imports: `https://esm.sh/@supabase/supabase-js@2.53.0?deps=@supabase/storage-js@2.10.4` en las 55 importaciones. Sin el `?deps`, esm.sh resuelve hoy un storage-js con tipos rotos y 32 funciones no arrancan en el runtime local.
+- `DESAING_PILOT_SUPABASE_ORIGIN = http://kong:8000` (el `SUPABASE_URL` interno) y `DESAING_PILOT_ENABLED = false` en local.
+- `generate-design-html` arma la URL del logo de `Brand` con `SCORY_PUBLIC_SUPABASE_URL` y, si no existe, con `SUPABASE_URL`.
+- `OPENAI_API_KEY` la puso el usuario en `supabase/functions/.env`. Se hicieron 4 llamadas de texto de prueba.
+
 ## Consecuencias
 
 - Las funciones que dependen de `RENDER_SERVICE_URL`, `pipeline-renders` o `templates` seguirán fallando en local, igual que en el compartido.

@@ -26,6 +26,13 @@ Antes de crear un segundo usuario en local:
 2. Corregir `src/components/AuthGate.tsx:37-38`: `VITE_AUTH_EMAIL`/`VITE_AUTH_PASSWORD` quedan en el bundle.
 3. Revisar las policies del IdP (R5) y el backlog de endurecimiento.
 
+## Estado en Fase 7 (14-10-2026)
+
+- `AuthGate` no se modificó. Sin `VITE_AUTH_EMAIL`/`VITE_AUTH_PASSWORD`, muestra su formulario (`signInWithPassword`) y el usuario local entra (probado en navegador; `docs/LOCAL_CUTOVER_REPORT.md` §2.5).
+- El modo `localsupabase` (`npm run dev:local`) deja vacías las dos variables, así que no hay contraseña en ese bundle. El `.env` actual define solo `VITE_AUTH_EMAIL` (la contraseña está vacía): hoy no hay contraseña en el bundle del modo compartido.
+- Sigue pendiente para el gate de arriba: quitar la lectura de `VITE_AUTH_*` del componente y agregar un botón de cerrar sesión (la app no tiene; el logout se probó con `supabase.auth.signOut()`).
+- Login, refresh, logout y JWT vencido probados contra el Auth local (reporte §2.5).
+
 ## Consecuencias
 
 - Las escrituras de la app en `business_tenants` y `user_business_memberships` quedan solo en local.

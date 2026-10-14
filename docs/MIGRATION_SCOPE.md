@@ -155,9 +155,16 @@ Un solo usuario (el dueño) en el Auth local con el mismo UUID que en MarketXend
 Nota para la Fase 7 (después de la Fase 5): las 7 URLs firmadas en código (`src/constants/designTemplates.ts`, `presentationTemplates.ts`, `presentationTemplates_v2.ts`, `bulletinTemplates.ts`, `src/utils/design-studio/buildNewsSlideHtml.ts`, `buildFxDailyHtml.ts` y `supabase/functions/generate-design-html/index.ts`) apuntan al mismo objeto de la raíz de `Brand`. Ese objeto ya existe en el local con el mismo path y responde 200 por `/storage/v1/object/public/Brand/<path>`: se reemplazan por la URL pública armada con la URL de Supabase del env, sin token. En la base local ya no quedan URLs firmadas ni del host compartido (`docs/DATA_MIGRATION_REPORT.md`).
 | 8 | Verificación completa, backup y restore probado, rollback documentado, inicio del endurecimiento | Restore probado |
 
+## 4.1 Estado (14-10-2026)
+
+- Fases 3 a 7 hechas. Fase 6: 35/35 funciones arrancan en local y las que usan las rutas responden (generate-design-html, generate-design-image, translate-text, desaing-server/state). Fase 7: `npm run dev:local` (modo `localsupabase`) contra el local, con login, refresh, logout, pantallas con imágenes y 1 diseño generado, y 0 requests al compartido. Detalle en `docs/LOCAL_CUTOVER_REPORT.md`.
+- Las 7 URLs firmadas de `Brand` y las 2 de `design-images` en código ahora salen de la URL configurada.
+- `branch-chat`, `import-design-reference` y `render-design-preview` siguen fuera (§3). El renderer no va en contenedor.
+- Siguiente: Fase 8.
+
 ## 5. Rollback
 
-Hasta la Fase 7 la app sigue con su env actual contra el compartido, que no se toca. Volver atrás es no cambiar el env o restaurar el anterior. Las migraciones archivadas siguen en `supabase/legacy_shared_migrations/`.
+`npm run dev` sigue con el env actual contra el compartido, que no se toca. Volver atrás es no cambiar el env o restaurar el anterior. Las migraciones archivadas siguen en `supabase/legacy_shared_migrations/`.
 
 ## 6. Backlog de endurecimiento (después de verificar la app en Fases 7-8)
 

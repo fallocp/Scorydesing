@@ -2,7 +2,7 @@
 
 - **Estado:** primer arranque hecho el 13-10-2026 (cierre de Fase 3). Disco de Docker en `F:\DockerDesktopWSL`, regla de Firewall creada. Resultado en §6.1.
 - **Afecta únicamente:** desarrollo local de ScoryDesign.
-- **Producción:** no configurada (ADR-0001). La app sigue contra el Supabase compartido hasta la Fase 7.
+- **Producción:** no configurada (ADR-0001). Desde la Fase 7, `npm run dev:local` usa el Supabase local y `npm run dev` sigue contra el compartido (§6.2).
 
 ## 1. Requisitos
 
@@ -88,6 +88,28 @@ docker ps --filter name=_scorydesign --format "{{.Names}}\t{{.Status}}\t{{.Ports
 - `supabase status`: `Not linked.`. La CLI 2.117 crea `supabase\.temp\start-secrets` al arrancar (secretos locales; la carpeta está ignorada por git). No hay `project-ref` ni `linked-project.json`.
 - agents-finmarket (`supabase_*_agents-finmarket`) y scory-production siguieron arriba.
 
+## 6.2 Correr la app contra el Supabase local (Fase 7)
+
+Una sola vez:
+
+- `supabase/functions/.env` con los nombres de `supabase/functions/.env.example`. `OPENAI_API_KEY` la pone el dueño; cada llamada cuesta.
+- `.env.localsupabase` con los nombres de `.env.localsupabase.example`: `VITE_SUPABASE_URL=http://127.0.0.1:55321` y la anon key local de `npm run supabase:status`. Nunca `VITE_AUTH_PASSWORD`.
+
+Cada sesión:
+
+```powershell
+npm run supabase:start
+npm run dev:local         # renderer en 127.0.0.1:3333 + Vite en http://127.0.0.1:3000 (modo localsupabase)
+```
+
+- Login con el formulario de la app y el usuario local (`F:\ScoryDesign-ops\local-owner-login.txt`).
+- Si ya hay un renderer abierto en el 3333 de antes, ciérralo primero: el renderer nuevo recibe `SCORY_LOCAL_SUPABASE_URL` para mostrar imágenes locales en el preview.
+- Si cambias `supabase/functions/.env` o `[functions.*]` de `config.toml`, corre `npm run supabase:stop` y después `npm run supabase:start`.
+
+Volver al compartido: `npm run dev` (el `.env` no cambió) o `npm run dev:local:shared`. Las sesiones no se pisan (`sb-127-auth-token` contra la del proyecto compartido). Lo que la app escriba en modo local queda solo en el local.
+
+Resultados de la prueba: `docs/LOCAL_CUTOVER_REPORT.md`.
+
 ## 7. Lo que nunca se hace
 
 Los volúmenes de Docker son la única copia de los datos nuevos.
@@ -131,7 +153,7 @@ npm run migrate:shared:rewrite-urls
 npm run migrate:shared:smoke
 ```
 
-`--truncate` vacía las 62 tablas en alcance del local: solo antes de la Fase 7, mientras la app no escribe en el local. El compartido solo se lee (`default_transaction_read_only=on`, `pg_dump`, Storage GET).
+`--truncate` vacía las 62 tablas en alcance del local. Desde la Fase 7 la app escribe en el local: **no usar `--truncate`**, porque borraría datos nuevos. El compartido solo se lee (`default_transaction_read_only=on`, `pg_dump`, Storage GET).
 
 ## 9. Convivencia con agents-finmarket
 
