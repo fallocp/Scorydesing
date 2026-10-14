@@ -7,7 +7,7 @@
  * Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 6.1, 6.2, 6.3, 6.4, 6.5
  */
 
-import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.53.0";
+import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.53.0?deps=@supabase/storage-js@2.10.4";
 import { ComplianceRules } from "./index.ts";
 
 // ---------------------------------------------------------------------------

@@ -15,7 +15,7 @@
  * Requirements: 2.1, 2.2, 4.4, 7.1, 7.2, 9.1, 9.2, 9.3, 11.1, 11.2, 11.3, 11.4, 11.5
  */
 
-import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.53.0";
+import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.53.0?deps=@supabase/storage-js@2.10.4";
 import { pipelineImageRequest } from './pipelineImageRequest.ts';
 import { validateTransition } from "./stateMachine.ts";
 import { executeStep } from "./executeStep.ts";

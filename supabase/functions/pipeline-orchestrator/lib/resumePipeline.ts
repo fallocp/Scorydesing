@@ -7,7 +7,7 @@
  * Requirements: 2.4, 11.5
  */
 
-import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.53.0";
+import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.53.0?deps=@supabase/storage-js@2.10.4";
 import { isAwaitingState, getAllowedResumeActions } from "./stateMachine.ts";
 import { runPipeline, fetchRun } from "./runPipeline.ts";
 import { saveImageSnapshot, getIterationCount, getLatestSnapshot, DEFAULT_MAX_ITERATIONS } from "../../_shared/snapshots.ts";

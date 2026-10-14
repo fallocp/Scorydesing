@@ -11,7 +11,7 @@
  * Requirements: 3.1, 7.1, 7.2, 7.4, 10.1, 10.2, 10.3
  */
 
-import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.53.0";
+import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.53.0?deps=@supabase/storage-js@2.10.4";
 import type { TenantResolution } from "./types.ts";
 
 // ---------------------------------------------------------------------------

@@ -13,7 +13,7 @@
  */
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.53.0";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.53.0?deps=@supabase/storage-js@2.10.4";
 import { detectRoute } from "../_shared/routeDetector.ts";
 import { extractFromBrandBook } from "../_shared/documentExtractor.ts";
 import { extractFromMaterials } from "../_shared/materialsExtractor.ts";

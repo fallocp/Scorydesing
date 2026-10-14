@@ -1,4 +1,4 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.53.0';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.53.0?deps=@supabase/storage-js@2.10.4';
 import { createServerStateHandler } from '../_shared/desaing/serverStateHttp.ts';
 import { createSupabaseRepository } from '../_shared/desaing/serverSupabase.ts';
 

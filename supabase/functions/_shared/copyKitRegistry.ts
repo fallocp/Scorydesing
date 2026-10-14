@@ -14,7 +14,7 @@
  * layer and points here for the editorial layer.
  */
 
-import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.53.0";
+import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.53.0?deps=@supabase/storage-js@2.10.4";
 import type { CopyKit } from "./buildCopyPromptV2.ts";
 import { BRANCH_KIT_SLUGS, resolveKitSlug } from "./branchSlug.ts";
 

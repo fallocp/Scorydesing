@@ -16,7 +16,7 @@
  * Requirements: Property 5 (Template consistency)
  */
 
-import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.53.0";
+import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.53.0?deps=@supabase/storage-js@2.10.4";
 
 // ---------------------------------------------------------------------------
 // Types

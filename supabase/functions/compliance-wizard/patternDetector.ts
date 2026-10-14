@@ -16,7 +16,7 @@
  * Requirements: 7.1, 7.2, 7.3, 7.4, 7.5
  */
 
-import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.53.0";
+import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.53.0?deps=@supabase/storage-js@2.10.4";
 import { callOpenAI, OpenAIMessage } from "../_shared/callOpenAI.ts";
 
 // ---------------------------------------------------------------------------

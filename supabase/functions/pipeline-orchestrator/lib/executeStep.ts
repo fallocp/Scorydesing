@@ -7,7 +7,7 @@
  * Requirements: 4.4, 11.2, 12.1, 12.4, 12.5
  */
 
-import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.53.0";
+import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.53.0?deps=@supabase/storage-js@2.10.4";
 import { RETRY_CONFIGS } from "./types.ts";
 
 // ---------------------------------------------------------------------------

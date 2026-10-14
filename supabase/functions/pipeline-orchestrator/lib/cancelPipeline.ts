@@ -7,7 +7,7 @@
  * Requirements: 2.2, 2.3
  */
 
-import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.53.0";
+import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.53.0?deps=@supabase/storage-js@2.10.4";
 import { isAwaitingState, validateTransition } from "./stateMachine.ts";
 import { fetchRun } from "./runPipeline.ts";
 import type { PipelineRunRow } from "./types.ts";

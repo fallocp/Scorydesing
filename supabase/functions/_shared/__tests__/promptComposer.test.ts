@@ -110,7 +110,7 @@ function createMockSupabase(config: MockConfig) {
     throw new Error(`Unexpected table: ${table}`);
   });
 
-  return { from } as unknown as import("https://esm.sh/@supabase/supabase-js@2.53.0").SupabaseClient;
+  return { from } as unknown as import("https://esm.sh/@supabase/supabase-js@2.53.0?deps=@supabase/storage-js@2.10.4").SupabaseClient;
 }
 
 // ---------------------------------------------------------------------------

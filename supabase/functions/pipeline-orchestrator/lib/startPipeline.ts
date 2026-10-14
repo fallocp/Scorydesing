@@ -8,7 +8,7 @@
  * Requirements: 2.1, 11.1, 17.1, 17.2, 17.3
  */
 
-import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.53.0";
+import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.53.0?deps=@supabase/storage-js@2.10.4";
 import { validatePipelineReadiness } from "../../_shared/validatePipelineReadiness.ts";
 import { runPipeline, fetchRun } from "./runPipeline.ts";
 import type { StartPipelineInput, PipelineRunRow } from "./types.ts";

@@ -1,4 +1,4 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.53.0';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.53.0?deps=@supabase/storage-js@2.10.4';
 import { checkPilotModels, createPilotHandler, PILOT_LIMITS } from '../_shared/desaing/pilotHttp.ts';
 import { createPrivateStorage, createSupabaseRepository } from '../_shared/desaing/serverSupabase.ts';
 import { createLiveImageProvider } from '../_shared/desaing/liveImageProvider.ts';

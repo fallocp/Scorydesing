@@ -217,7 +217,9 @@ s3_access_key = "env(S3_ACCESS_KEY)"
 s3_secret_key = "env(S3_SECRET_KEY)"
 
 # ---------------------------------------------------------------------------
-# Edge Functions: sections kept identical to the previous config.toml.
+# Edge Functions: same verify_jwt as deployed (Phase 6). Functions without a section use the
+# default (true). branch-chat, import-design-reference and render-design-preview are not served:
+# src does not reach them (ADR-0006).
 # ---------------------------------------------------------------------------
 
 [functions.generate-design-image]
@@ -252,8 +254,10 @@ verify_jwt = false
 [functions.refine-branch]
 verify_jwt = false
 
+# Phase 6 (ADR-0006): true, same as deployed. It uses the service role without getUser; its callers
+# (pipeline-orchestrator, render-multichannel) forward the user's Authorization header.
 [functions.render-design-png]
-verify_jwt = false
+verify_jwt = true
 
 [functions.compliance-wizard]
 verify_jwt = true

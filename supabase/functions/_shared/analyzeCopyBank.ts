@@ -10,7 +10,7 @@
  * Also powers the weekly proposal job: same computation, 5 copies instead of 3.
  */
 
-import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.53.0";
+import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.53.0?deps=@supabase/storage-js@2.10.4";
 import type { BankState, CopyKit } from "./buildCopyPromptV2.ts";
 
 // ---------------------------------------------------------------------------

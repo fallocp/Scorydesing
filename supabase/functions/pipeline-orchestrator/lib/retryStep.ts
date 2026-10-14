@@ -9,7 +9,7 @@
  * Requirements: 3.1, 3.2, 3.3, 3.4, 4.1, 4.2, 4.3
  */
 
-import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.53.0";
+import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.53.0?deps=@supabase/storage-js@2.10.4";
 import { runPipeline, fetchRun } from "./runPipeline.ts";
 import { RETRY_CONFIGS } from "./types.ts";
 import type { PipelineRunRow, PipelineStepRow } from "./types.ts";

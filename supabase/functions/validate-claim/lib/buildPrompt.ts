@@ -8,7 +8,7 @@
  * Requirements: 6.1, 6.2, 6.3, 4.2, 4.3, 4.4
  */
 
-import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.53.0";
+import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.53.0?deps=@supabase/storage-js@2.10.4";
 import { fetchMasterPromptByType } from "../../_shared/fetchBusinessContext.ts";
 import { interpolateTemplate } from "../../_shared/interpolateTemplate.ts";
 import { FALLBACK_CLAIM_VALIDATION_PROMPT } from "./constants.ts";

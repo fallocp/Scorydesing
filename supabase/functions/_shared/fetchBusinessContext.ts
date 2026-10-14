@@ -8,7 +8,7 @@
  * Requirements: 16.5, 16.6, 16.9
  */
 
-import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.53.0";
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.53.0?deps=@supabase/storage-js@2.10.4";
 
 // ---------------------------------------------------------------------------
 // Types
