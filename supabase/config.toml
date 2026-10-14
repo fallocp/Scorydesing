@@ -85,7 +85,8 @@ port = 55324
 
 [storage]
 enabled = true
-# The audit did not record the largest object; Phase 5 measures it and raises this if needed.
+# Phase 5 measured the largest object in the 6 buckets: 39,114,234 bytes (design-images); 50 MiB is enough.
+# [storage.image_transformation] stays off: 0 stored URLs use /render/image/.
 file_size_limit = "50MiB"
 
 [auth]
@@ -125,8 +126,9 @@ token_verifications = 30
 web3 = 30
 
 [auth.email]
-# Single local user (ADR-0004): signup via email is disabled.
-enable_signup = false
+# Must stay true: in the CLI this flag enables the email provider itself (false = "Email logins are
+# disabled", Phase 5). Public signup stays off through [auth] enable_signup = false (ADR-0004).
+enable_signup = true
 double_confirm_changes = true
 enable_confirmations = false
 secure_password_change = false

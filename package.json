@@ -20,7 +20,14 @@
     "supabase:start": "supabase start --network-id scorydesign-supabase-local",
     "supabase:status": "supabase status",
     "supabase:stop": "supabase stop",
-    "validate:structure": "node scripts/validate-structure.mjs"
+    "validate:structure": "node scripts/validate-structure.mjs",
+    "migrate:shared:owner": "node scripts/shared-migration/owner.mjs",
+    "migrate:shared:export": "node scripts/shared-migration/export-data.mjs",
+    "migrate:shared:load": "node scripts/shared-migration/load-data.mjs",
+    "migrate:shared:storage": "node scripts/shared-migration/storage-sync.mjs",
+    "migrate:shared:verify": "node scripts/shared-migration/verify.mjs",
+    "migrate:shared:rewrite-urls": "node scripts/shared-migration/rewrite-urls.mjs",
+    "migrate:shared:smoke": "node scripts/shared-migration/app-smoke.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.4",
