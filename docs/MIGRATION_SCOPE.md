@@ -151,6 +151,8 @@ Un solo usuario (el dueño) en el Auth local con el mismo UUID que en MarketXend
 | 5 | Ensayo de datos y Storage, después copia definitiva: usuario local con el mismo UUID, snapshot IdP, dump data-only, carga, objetos, reescritura de URLs, verificación por tabla y bucket | Conteos y checksums iguales al origen; 0 URLs del compartido |
 | 6 | Edge Functions locales: `.env` y `.env.example`, serve, prueba de las usadas, `verify_jwt` de `render-design-png` | Funciones usadas responden contra el local |
 | 7 | App contra el local: env nuevo (el actual se conserva), 7 URLs firmadas en código, renderer si hace falta, login/logout/refresh y flujos con imágenes | Flujos principales verificados |
+
+Nota para la Fase 7 (después de la Fase 5): las 7 URLs firmadas en código (`src/constants/designTemplates.ts`, `presentationTemplates.ts`, `presentationTemplates_v2.ts`, `bulletinTemplates.ts`, `src/utils/design-studio/buildNewsSlideHtml.ts`, `buildFxDailyHtml.ts` y `supabase/functions/generate-design-html/index.ts`) apuntan al mismo objeto de la raíz de `Brand`. Ese objeto ya existe en el local con el mismo path y responde 200 por `/storage/v1/object/public/Brand/<path>`: se reemplazan por la URL pública armada con la URL de Supabase del env, sin token. En la base local ya no quedan URLs firmadas ni del host compartido (`docs/DATA_MIGRATION_REPORT.md`).
 | 8 | Verificación completa, backup y restore probado, rollback documentado, inicio del endurecimiento | Restore probado |
 
 ## 5. Rollback

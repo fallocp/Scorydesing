@@ -109,7 +109,29 @@ Tampoco se ejecutan `scripts/desaing/deploy-prompt-admin.ps1` ni `scripts/desain
 - El disco de datos de Docker Desktop estaba en `C:\Users\fallo\AppData\Local\Docker\wsl\disk\docker_data.vhdx` (≈47 GB) con C: casi lleno. El usuario lo movió a **`F:\DockerDesktopWSL`** (Docker Desktop → Settings → Resources → Advanced → Disk image location); después C: quedó con ≈48 GB libres. No se usa `prune` para liberar espacio.
 - Medir antes de cada arranque, pull o build: `Get-PSDrive C,F`. Si el disco de Docker tiene menos de 5 GB libres, no arrancar.
 - Imágenes: la CLI 2.117 usa las mismas que agents-finmarket (ya descargadas). El edge runtime puede requerir una imagen extra (≈1.1 GB) si su versión no está en caché.
-- Fase 5 suma ≈775 MB de tablas y ≈1.73 GiB de objetos dentro del disco de Docker, más los dumps temporales (en F:, fuera del repo).
+- Fase 5 suma ≈775 MB de tablas y ≈1.75 GiB de objetos dentro del disco de Docker, más el dump (766 MB) y la copia extra de objetos (1.75 GiB) en `F:\ScoryDesign-ops\phase5\`, fuera del repo.
+
+## 8.1 Datos copiados del compartido (Fase 5)
+
+- Hecho el 13-10-2026: 62 tablas (3,456 filas) y 1,600 objetos (1.75 GiB) copiados y verificados; URLs del Storage reescritas a `http://127.0.0.1:55321`. Detalle: `docs/DATA_MIGRATION_REPORT.md`.
+- Login local del dueño (mismo UUID que en el compartido, contraseña nueva): `F:\ScoryDesign-ops\local-owner-login.txt`, fuera del repo. No copiarlo a `.env` de la app ni a chats.
+- `[auth.email] enable_signup` está en `true` a propósito: en la CLI ese flag habilita el proveedor de email (con `false` el login responde `email_provider_disabled`). El registro público lo cierra `[auth] enable_signup = false`.
+- `[storage.image_transformation]` sigue apagado: ninguna URL guardada usa `/render/image/`.
+
+Re-ejecutar la copia (scripts en `scripts/shared-migration/`, credenciales del compartido en `F:\ScoryDesign-ops\shared-readonly.env`, salidas en `F:\ScoryDesign-ops\phase5\`):
+
+```powershell
+npm run migrate:shared:owner
+npm run migrate:shared:export
+npm run migrate:shared:load -- --mode rehearsal
+npm run migrate:shared:load -- --mode commit --truncate
+npm run migrate:shared:storage -- --mode full
+npm run migrate:shared:verify
+npm run migrate:shared:rewrite-urls
+npm run migrate:shared:smoke
+```
+
+`--truncate` vacía las 62 tablas en alcance del local: solo antes de la Fase 7, mientras la app no escribe en el local. El compartido solo se lee (`default_transaction_read_only=on`, `pg_dump`, Storage GET).
 
 ## 9. Convivencia con agents-finmarket
 
