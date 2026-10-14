@@ -14,7 +14,10 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const XENDING_LOGO_URL = 'https://gdfhytvjnzdovjfovqfv.supabase.co/storage/v1/object/sign/Brand/Xending%20bola%20logoabril26.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV8zNDdhNjgwZi1hZGU3LTQ3OGYtYjdkNy1kMGY5YzJjMDc4NDEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJCcmFuZC9YZW5kaW5nIGJvbGEgbG9nb2FicmlsMjYucG5nIiwiaWF0IjoxNzc3MTU1Nzg2LCJleHAiOjE4MDg2OTE3ODZ9.8ZrGD1_TGdtzJn5lSP3X3pvlqvFV-mfgwxLySRQUO3U';
+// Public Brand bucket object, built from the configured Supabase URL. Locally SUPABASE_URL is the
+// internal Kong URL, so SCORY_PUBLIC_SUPABASE_URL (supabase/functions/.env) gives the browser-reachable one.
+const PUBLIC_SUPABASE_URL = (Deno.env.get('SCORY_PUBLIC_SUPABASE_URL') || Deno.env.get('SUPABASE_URL') || '').replace(/\/+$/, '');
+const XENDING_LOGO_URL = `${PUBLIC_SUPABASE_URL}/storage/v1/object/public/Brand/Xending%20bola%20logoabril26.png`;
 
 const DISCLAIMERS: Record<string, string> = {
   xending: 'Disponible solo para clientes en Estados Unidos. No válido en México.',

@@ -9,7 +9,9 @@
  * - Format: 1920x1080 (16:9 presentation)
  */
 
-const LOGO_URL = 'https://gdfhytvjnzdovjfovqfv.supabase.co/storage/v1/object/sign/Brand/Xending%20bola%20logoabril26.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV8zNDdhNjgwZi1hZGU3LTQ3OGYtYjdkNy1kMGY5YzJjMDc4NDEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJCcmFuZC9YZW5kaW5nIGJvbGEgbG9nb2FicmlsMjYucG5nIiwiaWF0IjoxNzc3MTU1Nzg2LCJleHAiOjE4MDg2OTE3ODZ9.8ZrGD1_TGdtzJn5lSP3X3pvlqvFV-mfgwxLySRQUO3U';
+import { publicStorageUrl, XENDING_BRAND_LOGO_URL } from '@/lib/supabaseStorageUrl';
+
+const LOGO_URL = XENDING_BRAND_LOGO_URL;
 
 const FONTS = 'https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Poppins:wght@400;500;600;700&family=Fraunces:wght@400;600&family=JetBrains+Mono:wght@400;500;600&display=swap';
 
@@ -18,7 +20,7 @@ const GRAIN = `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http:
 // ─── Portada "Aliado Mapa" (slide01_cover_v13) ──────────────────────────────
 // URL pública del mapa mundial subido al bucket de Supabase (Opción B).
 // TODO: reemplazar con la URL real del PNG hosteado.
-const MAP_COVER_URL = 'https://gdfhytvjnzdovjfovqfv.supabase.co/storage/v1/object/public/design-images/presentations/xending_mapa_extraido_transparente_fuerte.png';
+const MAP_COVER_URL = publicStorageUrl('design-images', 'presentations/xending_mapa_extraido_transparente_fuerte.png');
 
 // Tipografía de la portada del mapa. Para cambiar el tipo de letra, edita SOLO
 // estas dos líneas (familia de Google Fonts + nombres CSS).
@@ -5988,7 +5990,7 @@ export const slide06_capital_v1: string = `<!DOCTYPE html>
 
         <!-- Hero photo — ya subida al bucket design-images/presentations/.
              Para cambiarla: Editor Visual → "Foto hero (slide 6)" → subir nueva. -->
-        <img class="hero-photo" src="https://gdfhytvjnzdovjfovqfv.supabase.co/storage/v1/object/public/design-images/presentations/1778624303503-gfs6rmdfx8s.png" alt="Xending Capital hero" />
+        <img class="hero-photo" src="${publicStorageUrl('design-images', 'presentations/1778624303503-gfs6rmdfx8s.png')}" alt="Xending Capital hero" />
 
         <!-- Chart panel -->
         <div class="chart-panel">

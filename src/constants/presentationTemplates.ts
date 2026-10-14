@@ -10,13 +10,14 @@
  */
 
 import { slide01_cover_v2, slide01_cover_v3, slide01_cover_v4, slide01_cover_v5, slide01_cover_v6, slide01_cover_v7, slide01_cover_v8, slide01_cover_v9, slide01_cover_v10, slide01_cover_v11, slide01_cover_v12, slide01_cover_v13, slide02_presencia_global, slide03_porque_xending, slide04_onboarding_ia, slide_cards3_template, slide02_services_v1, slide03_services_v2, slide04_differentiators_v1, slide05_hedging_v1, slide06_capital_v1, slide07_closing_v1 } from './presentationTemplates_v2';
+import { XENDING_BRAND_LOGO_URL } from '@/lib/supabaseStorageUrl';
 
 export interface PresentationSlide {
   title: string;
   html: string;
 }
 
-const LOGO_URL = 'https://gdfhytvjnzdovjfovqfv.supabase.co/storage/v1/object/sign/Brand/Xending%20bola%20logoabril26.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV8zNDdhNjgwZi1hZGU3LTQ3OGYtYjdkNy1kMGY5YzJjMDc4NDEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJCcmFuZC9YZW5kaW5nIGJvbGEgbG9nb2FicmlsMjYucG5nIiwiaWF0IjoxNzc3MTU1Nzg2LCJleHAiOjE4MDg2OTE3ODZ9.8ZrGD1_TGdtzJn5lSP3X3pvlqvFV-mfgwxLySRQUO3U';
+const LOGO_URL = XENDING_BRAND_LOGO_URL;
 
 const FONTS = 'https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Poppins:wght@400;500;600;700&family=Fraunces:wght@400;600&family=JetBrains+Mono:wght@400;500;600&display=swap';
 

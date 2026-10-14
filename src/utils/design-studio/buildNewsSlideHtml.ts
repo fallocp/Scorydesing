@@ -12,6 +12,8 @@
  * render que ya usa el carrusel. Un solo builder = preview y export no divergen.
  */
 
+import { XENDING_BRAND_LOGO_URL } from '@/lib/supabaseStorageUrl';
+
 // ADN de color de News (mismos hex que la marca: turquesa/coral del image agent).
 const NAVY = '#0A2540';
 const TURQUOISE = '#2ED4C7';
@@ -19,10 +21,10 @@ const CORAL = '#FF7A4A';
 const INK = '#3A4450';
 const MUTED = '#6B7683';
 
-// Orbe de marca Xending (solo el ícono). Mismo asset firmado del bucket Brand
+// Orbe de marca Xending (solo el ícono). Mismo asset público del bucket Brand
 // que usa buildFxDailyHtml; va junto al wordmark "XENDING NEWS" en la cabecera.
 const XENDING_LOGO_URL =
-  'https://gdfhytvjnzdovjfovqfv.supabase.co/storage/v1/object/sign/Brand/Xending%20bola%20logoabril26.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV8zNDdhNjgwZi1hZGU3LTQ3OGYtYjdkNy1kMGY5YzJjMDc4NDEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJCcmFuZC9YZW5kaW5nIGJvbGEgbG9nb2FicmlsMjYucG5nIiwiaWF0IjoxNzc3MTU1Nzg2LCJleHAiOjE4MDg2OTE3ODZ9.8ZrGD1_TGdtzJn5lSP3X3pvlqvFV-mfgwxLySRQUO3U';
+  XENDING_BRAND_LOGO_URL;
 
 export interface NewsSlideHtmlInput {
   /** URL pública o data URL de la escena generada. */

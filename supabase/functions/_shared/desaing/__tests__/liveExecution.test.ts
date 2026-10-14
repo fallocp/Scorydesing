@@ -4,7 +4,7 @@ import { applyServerCommand, createServerSnapshot, type ServerPolicy } from '../
 import type { DesignOperation } from '../contracts.ts';
 
 const business = '00000000-0000-4000-8000-000000000001', actor = '00000000-0000-4000-8000-000000000002';
-const expected = 'https://gdfhytvjnzdovjfovqfv.supabase.co', approvalId = 'fai-xending-pilot-2026-09-17';
+const expected = 'https://project.supabase.co', approvalId = 'fai-xending-pilot-2026-09-17';
 function fixture() {
   const operation: DesignOperation = { operation_key: 'pilot-operation', action: 'generate_image', context: {
     actor_id: actor, business_id: business, brand_id: 'pilot', project_id: 'pilot', session_id: 'pilot-session',

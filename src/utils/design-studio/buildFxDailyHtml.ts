@@ -19,6 +19,7 @@ import type {
   FxScenario,
 } from '../../../supabase/functions/_shared/fx-daily/fx-daily-types';
 import { FX_MIRA_CATEGORY_OBJECT, type FxKitObjectId } from './fxDailyKit';
+import { XENDING_BRAND_LOGO_URL } from '@/lib/supabaseStorageUrl';
 
 // Paleta de la base (misma que el diseño en Presentaciones).
 const MINT = '#2ED4C7';
@@ -27,9 +28,9 @@ const NAVY_TITLE = '#081B57';
 const GRAY = '#6B7280';
 const BLUE = '#1187c7'; // acento de secciones/meta en la base
 
-// Orbe de marca Xending (solo el ícono). URL firmada del bucket Brand.
+// Orbe de marca Xending (solo el ícono). URL pública del bucket Brand (Supabase configurado).
 const XENDING_LOGO_URL =
-  'https://gdfhytvjnzdovjfovqfv.supabase.co/storage/v1/object/sign/Brand/Xending%20bola%20logoabril26.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV8zNDdhNjgwZi1hZGU3LTQ3OGYtYjdkNy1kMGY5YzJjMDc4NDEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJCcmFuZC9YZW5kaW5nIGJvbGEgbG9nb2FicmlsMjYucG5nIiwiaWF0IjoxNzc3MTU1Nzg2LCJleHAiOjE4MDg2OTE3ODZ9.8ZrGD1_TGdtzJn5lSP3X3pvlqvFV-mfgwxLySRQUO3U';
+  XENDING_BRAND_LOGO_URL;
 
 export type FxKitUrls = Partial<Record<FxKitObjectId, string>>;
 
