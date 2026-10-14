@@ -22,6 +22,14 @@ export function composePresentationImage(html: string, source: string, region: {
   return `<!DOCTYPE html>\n${doc.documentElement.outerHTML}`;
 }
 
+/** The local Supabase (npm run dev:local) serves Storage over plain HTTP on loopback; allow exactly that origin. */
+function localStorageImageOrigin(): string {
+  try {
+    const url = new URL(String(import.meta.env.VITE_SUPABASE_URL ?? ''));
+    return url.protocol === 'http:' && ['127.0.0.1', 'localhost'].includes(url.hostname) ? ` ${url.origin}` : '';
+  } catch { return ''; }
+}
+
 /** Slides are documents, never executable applications. Keep layout CSS and SVG. */
 export function sanitizePresentationHtml(html: string): string {
   const original = new DOMParser().parseFromString(html, 'text/html');
@@ -41,7 +49,7 @@ export function sanitizePresentationHtml(html: string): string {
   doc.querySelectorAll('a').forEach(node => { node.removeAttribute('href'); node.removeAttribute('target'); });
   const csp = doc.createElement('meta');
   csp.httpEquiv = 'Content-Security-Policy';
-  csp.content = "default-src 'none'; script-src 'none'; style-src 'unsafe-inline' https:; img-src data: blob: https:; font-src data: https:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'";
+  csp.content = `default-src 'none'; script-src 'none'; style-src 'unsafe-inline' https:; img-src data: blob: https:${localStorageImageOrigin()}; font-src data: https:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'`;
   doc.head.prepend(csp);
   if (editorConfig) {
     try {

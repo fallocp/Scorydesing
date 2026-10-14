@@ -1,4 +1,5 @@
 const puppeteer = require('puppeteer');
+const http = require('node:http');
 const { fetchPublic } = require('./reference-web');
 const { inspectDesignLayout } = require('./design-diagnostics');
 const { authorizeRendererRequest, assertRendererSessionHeader } = require('./renderer-access');
@@ -14,12 +15,43 @@ function validateDesignPreview(input) {
   return { html: input.html, width: input.width, height: input.height };
 }
 
+/** Development only: the local Supabase (npm run dev:local passes SCORY_LOCAL_SUPABASE_URL) serves public
+ * Storage over plain HTTP on loopback. Only GET of that exact origin under /storage/v1/object/public/. */
+function localSupabaseStorage(env = process.env) {
+  if (env.NODE_ENV === 'production' || !env.SCORY_LOCAL_SUPABASE_URL) return null;
+  let origin;
+  try { origin = new URL(env.SCORY_LOCAL_SUPABASE_URL); } catch { return null; }
+  if (origin.protocol !== 'http:' || !['127.0.0.1', 'localhost'].includes(origin.hostname)) return null;
+  const prefix = `${origin.origin}/storage/v1/object/public/`;
+  return {
+    matches: value => { try { const url = new URL(value); return url.origin === origin.origin && `${url.origin}${url.pathname}`.startsWith(prefix)
+      && !url.username && !url.password && !url.pathname.includes('..'); } catch { return false; } },
+    fetch: (value, budget) => new Promise((resolve, reject) => {
+      if (++budget.requests > 160 || budget.bytes > 32 * 1024 * 1024) return reject(new Error('El diseño excede el límite de recursos.'));
+      const request = http.get(value, { agent: false, timeout: 12000, headers: { Accept: '*/*', 'Accept-Encoding': 'identity' } }, response => {
+        const chunks = []; let size = 0;
+        response.on('data', chunk => { size += chunk.length; budget.bytes += chunk.length;
+          if (size > 8 * 1024 * 1024) { request.destroy(new Error('Un recurso del diseño es demasiado grande.')); return; } chunks.push(chunk); });
+        response.on('end', () => resolve({ status: response.statusCode || 502, headers: response.headers, body: Buffer.concat(chunks) }));
+        response.on('error', reject);
+      });
+      request.on('timeout', () => request.destroy(new Error('El recurso tardó demasiado.')));
+      request.on('error', reject);
+    }),
+  };
+}
+
 /** No page may navigate, execute scripts or connect directly to an origin. Only passive
  * assets reach the DNS-pinned public fetcher, without user cookies/Authorization headers. */
-async function fulfillDesignResource(request, budget, fetchResource = fetchPublic) {
+async function fulfillDesignResource(request, budget, fetchResource = fetchPublic, localStorage = localSupabaseStorage()) {
   const type = request.resourceType(), url = request.url();
   if (request.isNavigationRequest() || !['stylesheet', 'image', 'font'].includes(type)) return request.abort();
   if (/^data:(?:image\/|font\/|application\/(?:font|x-font)|text\/css)/i.test(url)) return request.continue();
+  if (localStorage && localStorage.matches(url)) {
+    const response = await localStorage.fetch(url, budget);
+    return request.respond({ status: response.status, contentType: String(response.headers['content-type'] || 'application/octet-stream'),
+      headers: { 'access-control-allow-origin': '*', 'cache-control': 'no-store' }, body: response.body });
+  }
   if (!/^https:\/\//i.test(url)) throw new Error('Solo se permiten recursos públicos HTTPS.');
   const response = await fetchResource(url, budget);
   await request.respond({ status: response.status, contentType: String(response.headers['content-type'] || 'application/octet-stream'),
@@ -46,7 +78,8 @@ async function renderDesignPreview(rawInput, dependencies = {}) {
           if (!request.isInterceptResolutionHandled()) void request.abort().catch(() => {});
         });
       });
-      const csp = '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'none\'; style-src \'unsafe-inline\' data: https:; img-src data: https:; font-src data: https:; connect-src \'none\'; frame-src \'none\'; object-src \'none\'; base-uri \'none\'; form-action \'none\'">';
+      const localOrigin = localSupabaseStorage() ? ` ${new URL(process.env.SCORY_LOCAL_SUPABASE_URL).origin}` : '';
+      const csp = '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'none\'; style-src \'unsafe-inline\' data: https:; img-src data: https:' + localOrigin + '; font-src data: https:; connect-src \'none\'; frame-src \'none\'; object-src \'none\'; base-uri \'none\'; form-action \'none\'">';
       const html = /<head(?:\s[^>]*)?>/i.test(input.html)
         ? input.html.replace(/<head(?:\s[^>]*)?>/i, head => `${head}${csp}`)
         : `<!doctype html>${csp}${input.html.replace(/<!doctype[^>]*>/ig, '')}`;
@@ -85,4 +118,4 @@ async function handleDesignPreview(req, res, dependencies = {}) {
   } finally { active--; }
 }
 
-module.exports = { validateDesignPreview, fulfillDesignResource, renderDesignPreview, handleDesignPreview, getActiveDesignPreviews: () => active };
+module.exports = { validateDesignPreview, fulfillDesignResource, localSupabaseStorage, renderDesignPreview, handleDesignPreview, getActiveDesignPreviews: () => active };

@@ -6,6 +6,8 @@ dist-presentations-test/
 artifacts/
 *.local
 .env
+# Vite mode for the local Supabase (npm run dev:local); names in .env.localsupabase.example
+.env.localsupabase
 
 # Editor
 .vscode/*

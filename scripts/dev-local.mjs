@@ -4,6 +4,9 @@ import path from 'node:path';
 
 // Starts only missing services. Never kills a pre-existing renderer or Vite.
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+// `--mode localsupabase` (npm run dev:local) points Vite at the local Supabase; without it, Vite uses .env.
+const modeAt = process.argv.indexOf('--mode');
+const viteMode = modeAt > 0 && process.argv[modeAt + 1] ? ['--mode', process.argv[modeAt + 1]] : [];
 const children = new Set();
 let stopping = false;
 function stop(code = 0) {
@@ -32,7 +35,9 @@ async function main() {
     if (!renderer.ok || !compatible(health)) throw Error('El puerto 3333 tiene un renderizador anterior. Cierra su terminal o detén únicamente ese proceso y vuelve a ejecutar npm run dev:local.');
     console.log('Renderizador local actualizado: http://localhost:3333');
   } else {
-    launch(path.join(root, 'renderer/scripts/render-server.js'), path.join(root, 'renderer'), [], { NODE_ENV: 'development', HOST: '127.0.0.1', PORT: '3333' });
+    launch(path.join(root, 'renderer/scripts/render-server.js'), path.join(root, 'renderer'), [], { NODE_ENV: 'development', HOST: '127.0.0.1', PORT: '3333',
+      // Local Supabase mode: the design preview may read public Storage images from the local API (loopback, HTTP).
+      ...(viteMode[1] === 'localsupabase' ? { SCORY_LOCAL_SUPABASE_URL: 'http://127.0.0.1:55321' } : {}) });
     let ready = false;
     for (let attempt = 0; attempt < 30 && !stopping; attempt++) {
       const response = await read('http://localhost:3333/health');
@@ -46,7 +51,7 @@ async function main() {
     if (!app.ok || !(await app.text()).includes('/@vite/client')) throw Error('El puerto 3000 está ocupado por otra aplicación. Libéralo antes de iniciar ScoryDesign.');
     console.log('ScoryDesign ya está abierto: http://localhost:3000');
   } else {
-    launch(path.join(root, 'node_modules/vite/bin/vite.js'), root, ['--host', '127.0.0.1', '--port', '3000', '--strictPort']);
+    launch(path.join(root, 'node_modules/vite/bin/vite.js'), root, ['--host', '127.0.0.1', '--port', '3000', '--strictPort', ...viteMode]);
   }
   console.log('Diseños, capturas y referencias usan el renderizador de esta computadora. Para PowerPoint, mantén Docker Desktop abierto.');
 }
