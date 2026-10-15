@@ -23,6 +23,7 @@
     "supabase:status": "supabase status",
     "supabase:stop": "supabase stop",
     "validate:structure": "node scripts/validate-structure.mjs",
+    "smoke:local": "node scripts/smoke-local-privileges.mjs",
     "backup:local": "node scripts/backup-local.mjs",
     "backup:restore-test": "node scripts/backup-restore-test.mjs",
     "migrate:shared:owner": "node scripts/shared-migration/owner.mjs",
