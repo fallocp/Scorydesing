@@ -160,7 +160,12 @@ Nota para la Fase 7 (después de la Fase 5): las 7 URLs firmadas en código (`sr
 - Fases 3 a 7 hechas. Fase 6: 35/35 funciones arrancan en local y las que usan las rutas responden (generate-design-html, generate-design-image, translate-text, desaing-server/state). Fase 7: `npm run dev:local` (modo `localsupabase`) contra el local, con login, refresh, logout, pantallas con imágenes y 1 diseño generado, y 0 requests al compartido. Detalle en `docs/LOCAL_CUTOVER_REPORT.md`.
 - Las 7 URLs firmadas de `Brand` y las 2 de `design-images` en código ahora salen de la URL configurada.
 - `branch-chat`, `import-design-reference` y `render-design-preview` siguen fuera (§3). El renderer no va en contenedor.
-- Siguiente: Fase 8.
+
+## 4.2 Estado final (Fase 8, 14-10-2026)
+
+- Separación hecha en local: `npm run dev:local` corre contra el Supabase local `scorydesign` con las 62 tablas, los 6 buckets y las 35 Edge Functions. `npm run dev` sigue contra el compartido como rollback (`docs/ROLLBACK.md`).
+- Verificación completa, smoke de privilegios (`npm run smoke:local`, 39/39), backup local diario (`npm run backup:local`, tarea `scorydesign-backup` a las 21:30) y restore probado en una base y un contenedor aparte (62/62 tablas iguales; 1,600 archivos y 1,881,721,856 bytes con sha256 iguales). Resultados: `docs/FINAL_VERIFICATION_REPORT.md`.
+- Pendiente: el backlog de §6.
 
 ## 5. Rollback
 
@@ -179,3 +184,15 @@ El baseline replica privilegios del desplegado para que los datos carguen y la a
 7. Crear `pipeline-renders`, `templates` y las 6 tablas no desplegadas solo si se decide reactivar esas rutas.
 8. `AuthGate` con `VITE_AUTH_EMAIL`/`VITE_AUTH_PASSWORD` (obligatorio antes de agregar usuarios, ADR-0004).
 9. Exposición: todo local en 127.0.0.1 y regla de Firewall `scorydesign - Supabase local only` (puertos 55320-55329).
+
+Estado en Fase 8: los puntos 1 a 3 siguen abiertos y `npm run smoke:local` los lista como `BACKLOG` (42 tablas con ALL para anon; `set_active_business` y `user_is_member_of` definer con EXECUTE PUBLIC; las 3 policies de `design-images`). No se corrigieron en esta fase.
+
+Además, después de Fase 8:
+
+10. **Identidad antes de más usuarios (ADR-0004):** decidir el proveedor de identidad (puente o IdP propio) antes de crear un segundo usuario o abrir el registro. Hoy hay 1 usuario y `[auth] enable_signup = false`.
+11. **Servidor propio (ADR-0001):** plan para mover el local a un servidor (URL pública, TLS, backups fuera de esta máquina, `rewrite-urls --from http://127.0.0.1:55321 --to https://<servidor>`). Mientras tanto, los backups viven solo en `E:`.
+12. **Funciones duplicadas indeterminables** (`generate-ideas`, `generate-strategy`, `generate-design-copy`, `generate-variants`, `refine-branch`, `adapt-channel`, `render-design-png`): decidir cuál versión vale o retirarlas; hoy solo tienen smoke de arranque.
+13. **Credenciales de la copia:** cuando ya no haga falta re-ejecutar la copia desde el compartido, borrar la llave `scorydesign-migration` en el compartido y `F:\ScoryDesign-ops\shared-readonly.env`. Después, `docs/ROLLBACK.md` §3 deja de aplicar.
+14. **Ref del compartido en archivos viejos:** 12 archivos trackeados anteriores a la rama (`scripts/desaing/*` y 4 docs de `docs/architecture` y `docs/agents-finmarket`) lo nombran; son scripts y planes del compartido. Pasarlo a variable de entorno o retirarlos.
+15. **Tests PGlite rotos por el archivado de migraciones:** 9 archivos de tests (8 en `supabase/functions/_shared/desaing/__tests__` y `designConversationRemote.test.ts`) leen `supabase/migrations/2026091*`/`202610*`, que `b8864a7` (esta rama) movió a `supabase/legacy_shared_migrations/`. En la base `0b82927` pasan. Apuntarlos al baseline o a la carpeta legacy (decisión de qué SQL deben probar). No afecta a la app.
+16. **Deuda heredada de antes de la rama:** 12 tests en 6 archivos que ya fallan en `0b82927` (`pilotHttp` 4, `serverGeneration` 4, `htmlBackend` 1, `materialsBackend` 1, `productionBackend` 2, demo de `docs/UI-handoffv2`) y `deno check` con errores de tipos en 6 funciones sin cambios en esta fase. Detalle: `docs/FINAL_VERIFICATION_REPORT.md` §1.

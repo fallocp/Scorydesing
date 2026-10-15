@@ -1,6 +1,6 @@
 # Runbook de infraestructura local
 
-- **Estado:** primer arranque hecho el 13-10-2026 (cierre de Fase 3). Disco de Docker en `F:\DockerDesktopWSL`, regla de Firewall creada. Resultado en §6.1.
+- **Estado:** primer arranque hecho el 13-10-2026 (cierre de Fase 3). Disco de Docker en `F:\DockerDesktopWSL`, regla de Firewall creada. Resultado en §6.1. Fase 8 (14-10-2026): backup diario con restore probado (§12), smoke de privilegios (§13) y problema conocido de Docker Desktop (§11).
 - **Afecta únicamente:** desarrollo local de ScoryDesign.
 - **Producción:** no configurada (ADR-0001). Desde la Fase 7, `npm run dev:local` usa el Supabase local y `npm run dev` sigue contra el compartido (§6.2).
 
@@ -112,7 +112,7 @@ Resultados de la prueba: `docs/LOCAL_CUTOVER_REPORT.md`.
 
 ## 7. Lo que nunca se hace
 
-Los volúmenes de Docker son la única copia de los datos nuevos.
+Los volúmenes de Docker son la única copia viva de los datos nuevos; fuera de ellos solo está el backup diario (§12).
 
 ```text
 docker compose down -v
@@ -167,3 +167,34 @@ npm run migrate:shared:smoke
 - Apagar el local: `npm run supabase:stop` (conserva datos).
 - La configuración vive en git (`supabase/config.toml`, `package.json`); las migraciones legacy siguen en `supabase/legacy_shared_migrations/`.
 - La red se quita solo con decisión explícita y con el stack apagado: `docker network rm scorydesign-supabase-local`.
+- Volver al compartido, reanudar el local y restaurar un backup: `docs/ROLLBACK.md`.
+
+## 11. Problema conocido: contenedores `Up` con puertos que no responden
+
+Después de reiniciar Docker Desktop o mover su disco, los contenedores pueden seguir `Up` (incluso `healthy`) mientras `http://127.0.0.1:55321` o `55322` devuelven `Empty reply from server` o la conexión se cae. `npm run dev:local` avisa que Supabase local no responde.
+
+```powershell
+docker restart supabase_kong_scorydesign        # el que no responde (kong = API, db = Postgres)
+```
+
+Si sigue igual, reiniciar el stack completo (conserva volúmenes):
+
+```powershell
+npm run supabase:stop
+npm run supabase:start
+```
+
+Nunca `supabase stop --no-backup`, `docker compose down -v` ni `docker volume rm` para "arreglarlo" (§7).
+
+## 12. Backup diario y restore
+
+- `npm run backup:local` (`scripts/backup-local.mjs`): `E:\scorydesign-backups\YYYY-MM-DD_HHmm\` (hora de America/Mexico_City; otra raíz con `BACKUP_DIR`) con `database.dump` (`pg_dump -Fc --no-owner` de toda la base como `supabase_admin`, verificado con `pg_restore --list`), `storage.tar.gz` (`/mnt` de `supabase_storage_scorydesign`) y `manifest.json` (sha256, bytes, filas por tabla, objetos y bytes por bucket, ledger y pasos de restore). Se escribe en `<carpeta>.partial` y se renombra al final. Falla si los contenedores no corren.
+- Retención: `BACKUP_KEEP_DAYS` (30). Solo borra carpetas con fecha y `manifest.json` válido, nunca la recién creada.
+- Tarea de Windows `scorydesign-backup`, diaria a las 21:30 (agents-finmarket corre a las 21:00), usuario actual, solo con sesión iniciada. Ejecuta `scripts\backup-task.cmd` y escribe en `E:\scorydesign-backups\backup.log`. Ver: `schtasks /Query /TN "scorydesign-backup" /V /FO LIST`.
+- Tamaño (14-10-2026): ≈ 2.3 GB por backup (dump 553 MB + Storage 1.77 GB). 30 días ≈ 70 GB en E:.
+- Probar un backup sin tocar lo live: `npm run backup:restore-test` (último) o `-- --backup <carpeta>`. Crea `scorydesign_restore_test`, restaura, compara filas y md5 de las 62 tablas contra la base live y la borra; extrae el Storage en un contenedor `postgres:17` desechable y compara archivos, bytes y sha256 con `/mnt`. Evidencia en `<carpeta>\restore-test.json`.
+- Restaurar de verdad: `docs/ROLLBACK.md` §4. El backup incluye `auth` (hash de la contraseña del dueño): queda en esta máquina.
+
+## 13. Smoke de privilegios
+
+`npm run smoke:local` (`scripts/smoke-local-privileges.mjs`, keys locales en memoria, salida redactada). Comprueba: anon sin JWT no lee las tablas principales y el JWT del dueño sí; tablas solo de servidor bloqueadas para los dos; anon no lista ni sube en buckets privados ni sube en públicos; GET público de `design-images` y `Brand`; acceso del dueño a objetos privados igual al que dan las policies; signup rechazado; sin link remoto; 0 hosts de Supabase hosted en la base local y en archivos cambiados en la rama; puertos solo en 55320-55329 y la regla de Firewall habilitada. Lo heredado por paridad sale como `BACKLOG` y no falla. Con `SMOKE_REPORT_FILE=<ruta>` escribe el reporte en JSON.
