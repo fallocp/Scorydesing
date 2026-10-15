@@ -147,8 +147,8 @@ describe.sequential('DesAIng SQL authorization and atomic snapshots (PGlite)', (
   beforeAll(async () => {
     db = new PGlite();
     await db.exec(await readFile(new URL('../../../../tests/desaing-bootstrap.sql', import.meta.url), 'utf8'));
-    await db.exec(await readFile(new URL('../../../../migrations/202609170001_desaing_server_foundation.sql', import.meta.url), 'utf8'));
-    await db.exec(await readFile(new URL('../../../../migrations/202609170002_desaing_exploration_journal.sql', import.meta.url), 'utf8'));
+    await db.exec(await readFile(new URL('../../../../legacy_shared_migrations/202609170001_desaing_server_foundation.sql', import.meta.url), 'utf8'));
+    await db.exec(await readFile(new URL('../../../../legacy_shared_migrations/202609170002_desaing_exploration_journal.sql', import.meta.url), 'utf8'));
   }, 30000);
 
   beforeEach(async () => {

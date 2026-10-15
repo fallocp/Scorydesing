@@ -35,8 +35,8 @@ describe.sequential('pilot limits removed from the shared text journal', () => {
 
   beforeAll(async () => {
     db = new PGlite();
-    for (const path of ['../../../../tests/desaing-bootstrap.sql', '../../../../migrations/202609170001_desaing_server_foundation.sql',
-      '../../../../migrations/202609170002_desaing_exploration_journal.sql', '../../../../migrations/202609260001_desaing_remove_pilot_limits.sql'])
+    for (const path of ['../../../../tests/desaing-bootstrap.sql', '../../../../legacy_shared_migrations/202609170001_desaing_server_foundation.sql',
+      '../../../../legacy_shared_migrations/202609170002_desaing_exploration_journal.sql', '../../../../legacy_shared_migrations/202609260001_desaing_remove_pilot_limits.sql'])
       await db.exec(await readFile(new URL(path, import.meta.url), 'utf8'));
   }, 30000);
   beforeEach(async () => {

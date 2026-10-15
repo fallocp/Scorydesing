@@ -57,14 +57,14 @@ describe.sequential('SQL005 exact production source and explicit image-only appl
     const source: ProductionSource = { kind: 'carousel', source_table: table, row_id: rowId, group_id: group, slide_id: slot.id }; return { source, meta };
   }
   beforeAll(async () => { db = new PGlite();
-    for (const path of ['../../../../tests/desaing-bootstrap.sql', '../../../../migrations/202609170001_desaing_server_foundation.sql', '../../../../migrations/202609170002_desaing_exploration_journal.sql']) await db.exec(await readFile(new URL(path, import.meta.url), 'utf8'));
+    for (const path of ['../../../../tests/desaing-bootstrap.sql', '../../../../legacy_shared_migrations/202609170001_desaing_server_foundation.sql', '../../../../legacy_shared_migrations/202609170002_desaing_exploration_journal.sql']) await db.exec(await readFile(new URL(path, import.meta.url), 'utf8'));
     await db.exec(`CREATE TABLE public.design_mockups(id uuid PRIMARY KEY, business_id uuid NOT NULL REFERENCES public.business_tenants(id),created_by uuid NOT NULL REFERENCES auth.users(id),
       image_url text NOT NULL,platform text NOT NULL,selections jsonb,prompt_used text,status text NOT NULL DEFAULT 'saved',created_at timestamptz DEFAULT now(),
       parent_mockup_id uuid REFERENCES public.design_mockups(id),iteration_feedback text,carousel_group_id uuid,carousel_index smallint,uploaded_at timestamptz);
       CREATE TABLE public.copy_bank_items(id uuid PRIMARY KEY,business_id uuid NOT NULL REFERENCES public.business_tenants(id),headline text,subcopy text,cta text,status text,image_meta jsonb);
       CREATE TABLE public.generated_ideas(id uuid PRIMARY KEY,business_id uuid NOT NULL REFERENCES public.business_tenants(id),headline text,subcopy text,cta text,status text,piece_v2 jsonb);`);
-    await db.exec(await readFile(new URL('../../../../migrations/202609180005_desaing_production.sql', import.meta.url), 'utf8'));
-    await db.exec(await readFile(new URL('../../../../migrations/202609230001_desaing_production_copy_edits.sql', import.meta.url), 'utf8'));
+    await db.exec(await readFile(new URL('../../../../legacy_shared_migrations/202609180005_desaing_production.sql', import.meta.url), 'utf8'));
+    await db.exec(await readFile(new URL('../../../../legacy_shared_migrations/202609230001_desaing_production_copy_edits.sql', import.meta.url), 'utf8'));
   }, 30000);
   beforeEach(async () => { privateObjects.clear(); legacyObjects.clear(); legacyObjects.set(sourceKey, sourceBytes); lose = null;
     await db.exec('RESET ROLE; TRUNCATE public.desaing_production_receipts,public.desaing_production_snapshots,public.copy_bank_items,public.generated_ideas,public.design_mockups,public.desaing_explorations,public.desaing_audit,public.desaing_state,public.desaing_policies,public.user_business_memberships,public.business_tenants,auth.users');

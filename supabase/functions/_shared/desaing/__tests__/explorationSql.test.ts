@@ -98,8 +98,8 @@ describe.sequential('durable textual exploration SQL and shared image budget', (
 
   beforeAll(async () => {
     db = new PGlite();
-    for (const path of ['../../../../tests/desaing-bootstrap.sql', '../../../../migrations/202609170001_desaing_server_foundation.sql',
-      '../../../../migrations/202609170002_desaing_exploration_journal.sql']) {
+    for (const path of ['../../../../tests/desaing-bootstrap.sql', '../../../../legacy_shared_migrations/202609170001_desaing_server_foundation.sql',
+      '../../../../legacy_shared_migrations/202609170002_desaing_exploration_journal.sql']) {
       await db.exec(await readFile(new URL(path, import.meta.url), 'utf8'));
     }
   }, 30000);

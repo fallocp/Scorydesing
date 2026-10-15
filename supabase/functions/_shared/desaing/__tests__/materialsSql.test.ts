@@ -27,8 +27,8 @@ describe.sequential('SQL003 immutable materials, review revisions and SQL002 sha
   const claim = async () => { const { request } = await materialsFixture(); return repo().claim({ businessId: business, actorId: actor, request,
     policyId: 'materials-pilot', expiresAt: Date.now() + 60000 }); };
   beforeAll(async () => { db = new PGlite(); for (const path of ['../../../../tests/desaing-bootstrap.sql',
-    '../../../../migrations/202609170001_desaing_server_foundation.sql', '../../../../migrations/202609170002_desaing_exploration_journal.sql',
-    '../../../../migrations/202609180003_desaing_materials.sql']) await db.exec(await readFile(new URL(path, import.meta.url), 'utf8')); }, 30000);
+    '../../../../legacy_shared_migrations/202609170001_desaing_server_foundation.sql', '../../../../legacy_shared_migrations/202609170002_desaing_exploration_journal.sql',
+    '../../../../legacy_shared_migrations/202609180003_desaing_materials.sql']) await db.exec(await readFile(new URL(path, import.meta.url), 'utf8')); }, 30000);
   beforeEach(async () => {
     await db.exec('RESET ROLE; TRUNCATE public.desaing_material_revisions,public.desaing_material_collections,public.desaing_explorations,public.desaing_audit,public.desaing_state,public.desaing_policies,public.user_business_memberships,public.business_tenants,auth.users');
     await db.query('INSERT INTO auth.users(id) VALUES ($1)', [actor]); await db.query('INSERT INTO public.business_tenants(id,slug) VALUES ($1,$2)', [business, 'materials-test']);

@@ -26,8 +26,8 @@ describe.sequential('HTML contracts reuse SQL002 journal, roles and shared textu
   };
   beforeAll(async () => {
     db = new PGlite();
-    for (const file of ['../../../../tests/desaing-bootstrap.sql', '../../../../migrations/202609170001_desaing_server_foundation.sql',
-      '../../../../migrations/202609170002_desaing_exploration_journal.sql']) await db.exec(await readFile(new URL(file, import.meta.url), 'utf8'));
+    for (const file of ['../../../../tests/desaing-bootstrap.sql', '../../../../legacy_shared_migrations/202609170001_desaing_server_foundation.sql',
+      '../../../../legacy_shared_migrations/202609170002_desaing_exploration_journal.sql']) await db.exec(await readFile(new URL(file, import.meta.url), 'utf8'));
   }, 30000);
   beforeEach(async () => {
     await db.exec('RESET ROLE; TRUNCATE public.desaing_explorations,public.desaing_audit,public.desaing_state,public.desaing_policies,public.user_business_memberships,public.business_tenants,auth.users');

@@ -36,9 +36,9 @@ describe.sequential('Supabase continuity: real SQL, two isolated device caches, 
   let db: PGlite; const files = new Map<string, Blob>();
   beforeAll(async () => {
     db = new PGlite();
-    for (const path of ['supabase/tests/desaing-bootstrap.sql', 'supabase/migrations/202609170001_desaing_server_foundation.sql',
-      'supabase/migrations/202609190001_desaing_continuity.sql', 'supabase/migrations/202609190002_desaing_continuity_guards.sql',
-      'supabase/migrations/202610080001_design_conversation_sessions.sql']) await db.exec(await readFile(path, 'utf8'));
+    for (const path of ['supabase/tests/desaing-bootstrap.sql', 'supabase/legacy_shared_migrations/202609170001_desaing_server_foundation.sql',
+      'supabase/legacy_shared_migrations/202609190001_desaing_continuity.sql', 'supabase/legacy_shared_migrations/202609190002_desaing_continuity_guards.sql',
+      'supabase/legacy_shared_migrations/202610080001_design_conversation_sessions.sql']) await db.exec(await readFile(path, 'utf8'));
     // Legacy broad policies must not weaken the new private bucket.
     await db.exec('CREATE POLICY legacy_storage_open ON storage.objects FOR ALL TO authenticated, anon USING (true) WITH CHECK (true)');
   }, 30000);
@@ -120,8 +120,8 @@ describe.sequential('Supabase continuity: real SQL, two isolated device caches, 
   it('upgrades an already populated database without changing the legacy chat or its CAS revision', async () => {
     const legacyDb = new PGlite();
     try {
-      for (const path of ['supabase/tests/desaing-bootstrap.sql', 'supabase/migrations/202609170001_desaing_server_foundation.sql',
-        'supabase/migrations/202609190001_desaing_continuity.sql', 'supabase/migrations/202609190002_desaing_continuity_guards.sql'])
+      for (const path of ['supabase/tests/desaing-bootstrap.sql', 'supabase/legacy_shared_migrations/202609170001_desaing_server_foundation.sql',
+        'supabase/legacy_shared_migrations/202609190001_desaing_continuity.sql', 'supabase/legacy_shared_migrations/202609190002_desaing_continuity_guards.sql'])
         await legacyDb.exec(await readFile(path, 'utf8'));
       await legacyDb.query('INSERT INTO auth.users(id) VALUES ($1)', [actor]);
       await legacyDb.query('INSERT INTO public.business_tenants(id,slug) VALUES ($1,$2)', [business, 'legacy']);
@@ -130,7 +130,7 @@ describe.sequential('Supabase continuity: real SQL, two isolated device caches, 
       value.messages = [{ id: 'm1', turn_id: 't1', role: 'user', text: 'Antes de las sesiones' }];
       await legacyDb.query(`INSERT INTO public.desaing_continuity(actor_id,business_id,kind,document_id,slide_id,revision,mutation_id,snapshot)
         VALUES ($1,$2,'conversation','document','canvas',17,$3,$4)`, [actor, business, mutation, value]);
-      await legacyDb.exec(await readFile('supabase/migrations/202610080001_design_conversation_sessions.sql', 'utf8'));
+      await legacyDb.exec(await readFile('supabase/legacy_shared_migrations/202610080001_design_conversation_sessions.sql', 'utf8'));
       const rows = await legacyDb.query<{ session_id: string; revision: number; snapshot: unknown; mutation_id: string }>('SELECT session_id,revision,snapshot,mutation_id FROM public.desaing_continuity');
       expect(rows.rows).toHaveLength(1);
       expect(rows.rows[0]).toMatchObject({ session_id: 'main', snapshot: value, mutation_id: mutation });

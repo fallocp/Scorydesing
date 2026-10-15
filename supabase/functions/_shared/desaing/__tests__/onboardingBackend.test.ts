@@ -57,10 +57,10 @@ describe.sequential('SQL004 transactional onboarding, durable revisions and exac
     return { draft: d, image };
   }
   beforeAll(async () => { db = new PGlite();
-    for (const path of ['../../../../tests/desaing-bootstrap.sql', '../../../../migrations/202609170001_desaing_server_foundation.sql',
-      '../../../../migrations/202609170002_desaing_exploration_journal.sql', '../../../../migrations/202609180003_desaing_materials.sql']) await db.exec(await readFile(new URL(path, import.meta.url), 'utf8'));
+    for (const path of ['../../../../tests/desaing-bootstrap.sql', '../../../../legacy_shared_migrations/202609170001_desaing_server_foundation.sql',
+      '../../../../legacy_shared_migrations/202609170002_desaing_exploration_journal.sql', '../../../../legacy_shared_migrations/202609180003_desaing_materials.sql']) await db.exec(await readFile(new URL(path, import.meta.url), 'utf8'));
     await db.exec("ALTER TABLE public.business_tenants ADD COLUMN primary_color text, ADD COLUMN secondary_color text, ADD COLUMN accent_color text, ADD COLUMN fonts jsonb DEFAULT '{}', ADD COLUMN logo_url text DEFAULT 'https://example.test/approved-logo.png', ADD COLUMN disclaimer text DEFAULT 'Texto legal original', ADD COLUMN posting_strategy text DEFAULT 'Manual'");
-    await db.exec(await readFile(new URL('../../../../migrations/202609180004_desaing_onboarding.sql', import.meta.url), 'utf8'));
+    await db.exec(await readFile(new URL('../../../../legacy_shared_migrations/202609180004_desaing_onboarding.sql', import.meta.url), 'utf8'));
   }, 30000);
   beforeEach(async () => { loseSave = false; losePublish = false;
     await db.exec('RESET ROLE; TRUNCATE public.desaing_brand_publications,public.desaing_brand_revisions,public.desaing_brand_drafts,public.creative_profiles,public.desaing_material_revisions,public.desaing_material_collections,public.desaing_explorations,public.desaing_audit,public.desaing_state,public.desaing_policies,public.user_business_memberships,public.business_tenants,auth.users');

@@ -53,8 +53,8 @@ describe.sequential('SQL006 explicit administrative prompt proposals and reviewe
       test_id: prepared.test.id, test_hash: prepared.test.test_hash, review_id: review.result.id };
     return { ...prepared, inputReview: input, review: review.result, publish }; }
   beforeAll(async () => { db = new PGlite();
-    for (const path of ['../../../../tests/desaing-bootstrap.sql', '../../../../migrations/202609170001_desaing_server_foundation.sql']) await db.exec(await readFile(new URL(path, import.meta.url), 'utf8'));
-    await db.exec(PROMPT_ADMIN_LEGACY_SCHEMA); await db.exec(await readFile(new URL('../../../../migrations/202609180006_desaing_prompt_admin.sql', import.meta.url), 'utf8'));
+    for (const path of ['../../../../tests/desaing-bootstrap.sql', '../../../../legacy_shared_migrations/202609170001_desaing_server_foundation.sql']) await db.exec(await readFile(new URL(path, import.meta.url), 'utf8'));
+    await db.exec(PROMPT_ADMIN_LEGACY_SCHEMA); await db.exec(await readFile(new URL('../../../../legacy_shared_migrations/202609180006_desaing_prompt_admin.sql', import.meta.url), 'utf8'));
   }, 30000);
   beforeEach(async () => { lose = false; count = 0;
     await db.exec('RESET ROLE; TRUNCATE public.desaing_prompt_admin_mutations,public.desaing_prompt_admin_reviews,public.desaing_prompt_admin_tests,public.desaing_prompt_admin_history,public.desaing_prompt_admin_drafts,public.desaing_prompt_admin_grants,public.desaing_prompt_admin_scopes,public.master_prompts,public.desaing_audit,public.desaing_state,public.desaing_policies,public.user_business_memberships,public.business_tenants,auth.users');
